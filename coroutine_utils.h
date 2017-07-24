@@ -13,25 +13,26 @@ struct LambdaFunctor: public Functor
     LambdaFunctor(const std::function<void()> &callback)
         :callback(callback) {}
     virtual void operator ()();
-    const std::function<void()> &callback;
+    std::function<void()> callback;
 };
 
 
 template<typename T>
-T callInEventLoop(std::function<T ()> &func)
+T callInEventLoop(std::function<T ()> func)
 {
-    QVariant result;
-    Event done;
+    QSharedPointer<T> result(new T());
+    QSharedPointer<Event> done(new Event());
 
-    auto wrapper = [&result, &done, &func]() {
-        result = QVariant::fromValue<T>(func());
-        done.set();
+    auto wrapper = [result, done, func]() mutable
+    {
+        result.reset(func());
+        done->set();
     };
 
     int callbackId = EventLoopCoroutine::get()->callLater(0, new LambdaFunctor(wrapper));
     try
     {
-        done.wait();
+        done->wait();
         EventLoopCoroutine::get()->cancelCall(callbackId);
     }
     catch(...)
@@ -39,27 +40,24 @@ T callInEventLoop(std::function<T ()> &func)
         EventLoopCoroutine::get()->cancelCall(callbackId);
         throw;
     }
-    return result.value<T>();
+    return *result;
 }
 
 
-inline void callInEventLoop(std::function<void ()> &func)
+inline void callInEventLoop(std::function<void ()> func)
 {
-    Event done;
+    QSharedPointer<Event> done(new Event());
 
-    auto wrapper = [&done, &func]() {
+    auto wrapper = [done, func]() {
         func();
-        done.set();
+        done->set();
     };
 
     int callbackId = EventLoopCoroutine::get()->callLater(0, new LambdaFunctor(wrapper));
-    try
-    {
-        done.wait();
+    try {
+        done->wait();
         EventLoopCoroutine::get()->cancelCall(callbackId);
-    }
-    catch(...)
-    {
+    } catch(...) {
         EventLoopCoroutine::get()->cancelCall(callbackId);
         throw;
     }

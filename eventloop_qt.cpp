@@ -204,15 +204,18 @@ void EventLoopCoroutinePrivateQt::timerEvent(QTimerEvent *event)
         (*watcher->callback)();
         if(watcher->singleshot) {
             // watcher may be deleted!
-            QtWatcher *w = watchers.value(watcherId);
-            if(w) {
-                watchers.remove(watcherId);
-                delete w;
+            if(watchers.contains(watcherId)) {
+                TimerWatcher *w = dynamic_cast<TimerWatcher*>(watchers.value(watcherId));
+                if(w) {
+                    killTimer(w->timerId);
+                    watchers.remove(watcherId);
+                    delete w;
+                }
             }
         } else {
             watcher->timerId = startTimer(watcher->interval);
         }
-        break;
+        return;
     }
 }
 

@@ -6,6 +6,7 @@ void LambdaFunctor::operator ()()
     callback();
 }
 
+
 DeferCallThread::DeferCallThread(const std::function<void()> &func, const std::function<void()> &callback)
 :func(func), callback(callback)
 {

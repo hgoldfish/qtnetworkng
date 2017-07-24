@@ -10,12 +10,12 @@ public:
     virtual ~SessionPrivate();
 
     void setDefaultUserAgent(const QString &userAgent);
-    QMap<QString, QString> makeHeaders(Request &request, const QUrl &url);
+    QMap<QString, QByteArray> makeHeaders(Request &request, const QUrl &url);
     void mergeCookies(Request &request, const QUrl &url);
     Response send(Request &req);
-
+    QNetworkCookieJar &getCookieJar() { return cookieJar; }
 private:
-    QNetworkCookieJar cookie_jar;
+    QNetworkCookieJar cookieJar;
     QString defaultUserAgent;
     Session *q_ptr;
     Q_DECLARE_PUBLIC(Session)

@@ -33,6 +33,7 @@ QSocketNgPrivate::QSocketNgPrivate(qintptr socketDescriptor, QSocketNg *parent)
     initWinSock();
 #endif
     fd = socketDescriptor;
+    setNonblocking();
     if(!isValid())
         return;
     // FIXME determine the type and state of socket

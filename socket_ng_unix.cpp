@@ -841,6 +841,9 @@ static void convertToLevelAndOption(QSocketNg::SocketOption opt,
     case QSocketNg::MaxStreamsSocketOption:
         // FIXME support stcp
         break;
+    case QSocketNg::NonBlockingSocketOption:
+    case QSocketNg::BindExclusively:
+        Q_UNREACHABLE();
     }
 }
 
