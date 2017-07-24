@@ -25,7 +25,7 @@ void GetBaiduCoroutine::run()
     //Q_UNUSED(out);
     qDebug() << "start coroutine";
     try{
-        Response response = session->get(QString::fromUtf8("http://www.baidu.com/"));
+        Response response = session->get(QString::fromUtf8("http://news.baidu.com/"));
         //Response response = session->get(QString::fromUtf8("http://127.0.0.1:8000/"));
         qDebug() << response.html();
     } catch(RequestException &e) {
