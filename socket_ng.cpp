@@ -1,5 +1,6 @@
 #include <QThread>
 #include <QCoreApplication>
+#include <QMap>
 #include "socket_ng_p.h"
 #include "coroutine_utils.h"
 
@@ -418,6 +419,19 @@ qint64 QSocketNg::sendto(const QByteArray &data, const QHostAddress &addr, quint
 
 QList<QHostAddress> QSocketNg::resolve(const QString &hostName)
 {
+//    static QMap<QString, QList<QHostAddress>> cache;
+//    if(cache.contains(hostName)) {
+//        return cache.value(hostName);
+//    }
+
+    QHostAddress tmp;
+    if(tmp.setAddress(hostName)) {
+        QList<QHostAddress> result;
+        result.append(tmp);
+//        cache.insert(hostName, result);
+        return result;
+    }
+
     std::function<QHostInfo()> task = [hostName](){
         const QHostInfo &info = QHostInfo::fromName(hostName);
         return info;
@@ -425,7 +439,9 @@ QList<QHostAddress> QSocketNg::resolve(const QString &hostName)
 
     QHostInfo hostInfo = callInThread<QHostInfo>(task);
     //QHostInfo hostInfo = QHostInfo::fromName(hostName);
-    return hostInfo.addresses();
+    const QList<QHostAddress> &result = hostInfo.addresses();
+//    cache.insert(hostName, result);
+    return result;
 }
 
 class PollPrivate

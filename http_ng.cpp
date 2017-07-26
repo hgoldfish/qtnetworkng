@@ -627,7 +627,6 @@ void SessionPrivate::mergeCookies(Request &request, const QUrl &url)
 {
     QList<QNetworkCookie> cookies = cookieJar.cookiesForUrl(url);
     if(cookies.isEmpty()) {
-        qDebug() << "no cookie for" << url;
         return;
     }
     cookies.append(request.cookies);
