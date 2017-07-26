@@ -20,6 +20,7 @@ void DeferCallThread::run()
 
 
 CoroutineGroup::CoroutineGroup()
+    :QObject()
 {
 
 }
@@ -44,6 +45,7 @@ bool CoroutineGroup::add(QCoroutine *coroutine, const QString &name)
         }
         coroutine->setObjectName(name);
     }
+    connect(coroutine, SIGNAL(finished()), SLOT(deleteCoroutine()));
     coroutines.append(coroutine);
     return true;
 }
@@ -148,3 +150,10 @@ bool CoroutineGroup::joinall()
     return hasCoroutines;
 }
 
+void CoroutineGroup::deleteCoroutine()
+{
+    QCoroutine *coroutine = dynamic_cast<QCoroutine*>(sender());
+    Q_ASSERT(coroutine != 0);
+    coroutines.removeAll(coroutine);
+    coroutine->deleteLater();
+}

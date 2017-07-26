@@ -60,7 +60,7 @@ class FormData
 {
 public:
     FormData();
-    QByteArray toByteArray();
+    QByteArray toByteArray() const;
 
     void addFile(const QString &name, const QString &filename, const QByteArray &data, const QString &contentType = QString())
     {
@@ -112,6 +112,12 @@ public:
     Priority priority = NormalPriority;
 public:
     void setFormData(FormData &formData, const QString &method = QString::fromUtf8("post"));
+    static Request fromFormData(const FormData &formData);
+    static Request fromForm(const QUrlQuery &data);
+    static Request fromForm(const QMap<QString, QString> &query);
+    static Request fromJson(const QJsonDocument &json);
+    static Request fromJson(const QJsonArray &json) { return fromJson(QJsonDocument(json)); }
+    static Request fromJson(const QJsonObject &json) { return fromJson(QJsonDocument(json)); }
 };
 
 

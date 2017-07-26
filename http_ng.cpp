@@ -280,7 +280,7 @@ QByteArray formatHeaderParam(const QString &name, const QString &value)
     return data;
 }
 
-QByteArray FormData::toByteArray()
+QByteArray FormData::toByteArray() const
 {
     QByteArray body;
     for(auto itor = query.constBegin(); itor != query.constEnd(); ++itor) {
@@ -300,7 +300,7 @@ QByteArray FormData::toByteArray()
         body.append("Content-Disposition: form-data;");
         body.append(formatHeaderParam(QString::fromUtf8("name"), itor.key()));
         body.append("; ");
-        body.append(formatHeaderParam(QString::fromUtf8("name"), itor.value().filename));
+        body.append(formatHeaderParam(QString::fromUtf8("filename"), itor.value().filename));
         body.append("\r\n");
         body.append("Content-Type: ");
         body.append(itor.value().contentType);
@@ -319,6 +319,43 @@ void Request::setFormData(FormData &formData, const QString &method)
     QString contentType = QString::fromLatin1("multipart/form-data; boundary=%1").arg(QString::fromLatin1(formData.boundary));
     this->headers.insert(QString::fromUtf8("Content-Type"), contentType.toLatin1());
     this->body = formData.toByteArray();
+}
+
+Request Request::fromFormData(const FormData &formData)
+{
+    Request request;
+    request.method = "POST";
+    request.body = formData.toByteArray();
+    QString contentType = QString::fromLatin1("multipart/form-data; boundary=%1").arg(QString::fromLatin1(formData.boundary));
+    request.setContentType(contentType);
+    return request;
+}
+
+Request Request::fromForm(const QUrlQuery &data)
+{
+    Request request;
+    request.setContentType(QString::fromUtf8("application/x-www-form-urlencoded"));
+    request.body = data.toString(QUrl::FullyEncoded).toUtf8();
+    request.method = "POST";
+    return request;
+}
+
+Request Request::fromForm(const QMap<QString, QString> &query)
+{
+    QUrlQuery data;
+    for(auto itor = query.constBegin(); itor != query.constEnd(); ++itor) {
+        data.addQueryItem(itor.key(), itor.value());
+    }
+    return fromForm(data);
+}
+
+Request Request::fromJson(const QJsonDocument &json)
+{
+    Request request;
+    request.setContentType("application/json");
+    request.body = json.toJson();
+    request.method = "POST";
+    return request;
 }
 
 QString Response::text()
@@ -372,18 +409,18 @@ struct HeaderSplitter
     QByteArray nextLine()
     {
         const int MaxLineLength = 1024;
-        QByteArray line; line.reserve(MaxLineLength);
+        QByteArray line;
         bool expectingLineBreak = false;
 
         for(int i = 0; i < MaxLineLength; ++i) {
             if(buf.isEmpty()) {
-                buf = connection->recv(64);
+                buf = connection->recv(1024);
                 if(buf.isEmpty()) {
                     throw InvalidHeader();
                 }
             }
             int j = 0;
-            for(; j < buf.size() && i < MaxLineLength; ++j, ++i) {
+            for(; j < buf.size() && j < MaxLineLength; ++j) {
                 char c = buf.at(j);
                 if(c == '\n') {
                     if(!expectingLineBreak) {
@@ -392,6 +429,9 @@ struct HeaderSplitter
                     buf.remove(0, j + 1);
                     return line;
                 } else if(c == '\r') {
+                    if(expectingLineBreak) {
+                        throw InvalidHeader();
+                    }
                     expectingLineBreak = true;
                 } else {
                     line.append(c);
@@ -469,9 +509,11 @@ Response SessionPrivate::send(Request &request)
 
     QList<QByteArray> commands = splitBytes(firstLine, ' ', 2);
     if(commands.size() != 3) {
+        qDebug() << 1 << firstLine;
         throw InvalidHeader();
     }
     if(commands.at(0) != QByteArray("HTTP/1.0") && commands.at(0) != QByteArray("HTTP/1.1")) {
+        qDebug() << 2 << commands.at(0);
         throw InvalidHeader();
     }
     bool ok;
@@ -489,6 +531,7 @@ Response SessionPrivate::send(Request &request)
         }
         QByteArrayList headerParts = splitBytes(line, ':', 1);
         if(headerParts.size() != 2) {
+            qDebug() << 3 << line << headerParts;
             throw InvalidHeader();
         }
         QString headerName = QString::fromUtf8(headerParts[0]).trimmed();
@@ -576,7 +619,6 @@ QMap<QString, QByteArray> SessionPrivate::makeHeaders(Request &request, const QU
             result += cookie.toRawForm(QNetworkCookie::NameAndValueOnly);
         }
         allHeaders.insert(QString::fromUtf8("Cookie"), result);
-        qDebug() << "Cookie: " << result;
     }
     return allHeaders;
 }

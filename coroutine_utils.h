@@ -20,6 +20,8 @@ struct LambdaFunctor: public Functor
 template<typename T>
 T callInEventLoop(std::function<T ()> func)
 {
+    Q_ASSERT(static_cast<QBaseCoroutine*>(EventLoopCoroutine::get()) != QBaseCoroutine::current());
+
     QSharedPointer<T> result(new T());
     QSharedPointer<Event> done(new Event());
 
@@ -46,6 +48,8 @@ T callInEventLoop(std::function<T ()> func)
 
 inline void callInEventLoop(std::function<void ()> func)
 {
+    Q_ASSERT(static_cast<QBaseCoroutine*>(EventLoopCoroutine::get()) != QBaseCoroutine::current());
+
     QSharedPointer<Event> done(new Event());
 
     auto wrapper = [done, func]() {
@@ -149,8 +153,9 @@ inline QCoroutine *spawnInThread(const std::function<void ()> &func)
 
 class QCoroutine;
 
-class CoroutineGroup
+class CoroutineGroup: public QObject
 {
+    Q_OBJECT
 public:
     CoroutineGroup();
     virtual ~CoroutineGroup();
@@ -165,6 +170,8 @@ public:
     inline void spawn(const std::function<void()> &func);
     inline void spawnInThread(const std::function<void()> &func);
     inline void spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool one = true);
+private slots:
+    void deleteCoroutine();
 private:
     QList<QCoroutine*> coroutines;
 };

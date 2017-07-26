@@ -821,7 +821,7 @@ qint64 QSocketNgPrivate::recv(char *data, qint64 size)
             return total == 0 ? -1 : total;
         }
         WSABUF buf;
-        buf.buf = data;
+        buf.buf = data + total;
         buf.len = size - total;
         DWORD flags = 0;
         DWORD bytesRead = 0;
