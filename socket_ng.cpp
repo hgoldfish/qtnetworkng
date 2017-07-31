@@ -62,6 +62,7 @@ bool QSocketNgPrivate::connect(const QString &hostName, quint16 port, QSocketNg:
     state = QSocketNg::HostLookupState;
     QList<QHostAddress> addresses = QSocketNg::resolve(hostName);
     if(addresses.isEmpty()) {
+        state = QSocketNg::UnconnectedState;
         setError(QSocketNg::HostNotFoundError, QString::fromUtf8("Host not found."));
         return false;
     }
@@ -192,7 +193,6 @@ void QSocketNgPrivate::setError(QSocketNg::SocketError error, ErrorString errorS
 QString QSocketNgPrivate::getErrorString() const
 {
     return errorString;
-
 }
 
 QSocketNg::QSocketNg(NetworkLayerProtocol protocol, SocketType type)

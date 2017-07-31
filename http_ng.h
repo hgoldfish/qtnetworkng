@@ -166,6 +166,7 @@ public:
 
     Response send(Request &request);
     QNetworkCookieJar &getCookieJar();
+    QNetworkCookie getCookie(const QUrl &url, const QString &name);
 private:
     SessionPrivate *d_ptr;
     Q_DECLARE_PRIVATE(Session)

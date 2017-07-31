@@ -264,9 +264,12 @@ FormData::FormData()
 
 QByteArray formatHeaderParam(const QString &name, const QString &value)
 {
-    QTextCodec *utf8Codec = QTextCodec::codecForName("ascii");
+    QTextCodec *asciiCodec = QTextCodec::codecForName("latin1");
+    if(!asciiCodec) {
+        asciiCodec = QTextCodec::codecForName("ascii");
+    }
     QByteArray data;
-    if(utf8Codec->canEncode(value)) {
+    if(asciiCodec->canEncode(value)) {
         data.append(name.toUtf8());
         data.append("=\"");
         data.append(value.toUtf8());
@@ -416,7 +419,7 @@ struct HeaderSplitter
             if(buf.isEmpty()) {
                 buf = connection->recv(1024);
                 if(buf.isEmpty()) {
-                    throw InvalidHeader();
+                    return QByteArray();
                 }
             }
             int j = 0;
@@ -439,6 +442,7 @@ struct HeaderSplitter
             }
             buf.remove(0, j + 1);
         }
+        qDebug() << "exhaused max lines.";
         throw InvalidHeader();
     }
 };
@@ -519,6 +523,7 @@ Response SessionPrivate::send(Request &request)
     bool ok;
     response.statusCode = commands.at(1).toInt(&ok);
     if(!ok) {
+        qDebug() << 3 << commands;
         throw InvalidHeader();
     }
     response.statusText = QString::fromLatin1(commands.at(2));
@@ -801,6 +806,21 @@ QNetworkCookieJar &Session::getCookieJar()
 {
     Q_D(Session);
     return d->getCookieJar();
+}
+
+
+QNetworkCookie Session::getCookie(const QUrl &url, const QString &name)
+{
+    Q_D(Session);
+    const QNetworkCookieJar &jar = d->getCookieJar();
+    QList<QNetworkCookie> cookies = jar.cookiesForUrl(url);
+    for(int i = 0; i < cookies.size(); ++i) {
+        const QNetworkCookie &cookie = cookies.at(i);
+        if(cookie.name() == name) {
+            return cookie;
+        }
+    }
+    return QNetworkCookie();
 }
 
 RequestException::~RequestException()

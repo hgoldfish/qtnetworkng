@@ -239,7 +239,7 @@ QBaseCoroutine::~QBaseCoroutine()
 
 QBaseCoroutine::State QBaseCoroutine::state() const
 {
-    const Q_D(QBaseCoroutine);
+    Q_D(const QBaseCoroutine);
     return d->state;
 }
 

@@ -118,16 +118,19 @@ T callInThread(std::function<T()> func)
 
 inline void callInThread(const std::function<void ()> &func)
 {
-    QSharedPointer<Event> done(new Event());
-    auto callback = [done]()
+    YieldCurrentFunctor *functor = new YieldCurrentFunctor();
+    QPointer<EventLoopCoroutine> eventloop = EventLoopCoroutine::get();
+
+    auto callback = [eventloop, functor]()
     {
-        if(done.isNull())
-            return;
-        done->set();
+        if(!eventloop.isNull()) {
+            eventloop->callLaterThreadSafe(0, functor);
+        }
     };
     DeferCallThread thread(func, callback);
     thread.start();
-    done->wait();
+    eventloop->yield();
+    thread.wait();
 }
 
 
