@@ -1,6 +1,7 @@
 #include <QThread>
 #include <QCoreApplication>
 #include <QMap>
+#include <QCache>
 #include "socket_ng_p.h"
 #include "coroutine_utils.h"
 
@@ -60,7 +61,18 @@ bool QSocketNgPrivate::bind(quint16 port, QSocketNg::BindMode mode)
 bool QSocketNgPrivate::connect(const QString &hostName, quint16 port, QSocketNg::NetworkLayerProtocol protocol)
 {
     state = QSocketNg::HostLookupState;
-    QList<QHostAddress> addresses = QSocketNg::resolve(hostName);
+    QList<QHostAddress> addresses;
+    QHostAddress t;
+    if(t.setAddress(hostName)) {
+        addresses.append(t);
+    } else {
+        if(dnsCache.isNull()) {
+            addresses = QSocketNg::resolve(hostName);
+        } else {
+            addresses = dnsCache->resolve(hostName);
+        }
+    }
+
     if(addresses.isEmpty()) {
         state = QSocketNg::UnconnectedState;
         setError(QSocketNg::HostNotFoundError, QString::fromUtf8("Host not found."));
@@ -80,7 +92,9 @@ bool QSocketNgPrivate::connect(const QString &hostName, quint16 port, QSocketNg:
         if(done)
             return true;
     }
-    setError(QSocketNg::HostNotFoundError, QString::fromUtf8("Host not found."));
+    if(error == QSocketNg::NoError) {
+        setError(QSocketNg::HostNotFoundError, QString::fromUtf8("Host not found."));
+    }
     return false;
 }
 
@@ -444,6 +458,12 @@ QList<QHostAddress> QSocketNg::resolve(const QString &hostName)
     return result;
 }
 
+void QSocketNg::setDnsCache(QSharedPointer<QSocketNgDnsCache> dnsCache)
+{
+    Q_D(QSocketNg);
+    d->dnsCache = dnsCache;
+}
+
 class PollPrivate
 {
 public:
@@ -536,6 +556,7 @@ QSocketNg *PollPrivate::wait(qint64 msecs)
     }
     if(!events.isEmpty())
     {
+        // is there some one hungry?
         QMutableSetIterator<QSocketNg*> itor(events);
         QSocketNg *socket = itor.next();
         itor.remove();
@@ -572,4 +593,43 @@ QSocketNg *Poll::wait(qint64 msecs)
 {
     Q_D(Poll);
     return d->wait(msecs);
+}
+
+class QSocketNgDnsCachePrivate
+{
+public:
+    QSocketNgDnsCachePrivate()
+        :cache(1024)
+    {
+
+    }
+
+    QCache<QString, QList<QHostAddress>> cache;
+};
+
+QSocketNgDnsCache::QSocketNgDnsCache()
+    :d_ptr(new QSocketNgDnsCachePrivate())
+{
+}
+
+QSocketNgDnsCache::~QSocketNgDnsCache()
+{
+    delete d_ptr;
+}
+
+QList<QHostAddress> QSocketNgDnsCache::resolve(const QString &hostName)
+{
+    Q_D(QSocketNgDnsCache);
+    if(d->cache.contains(hostName)) {
+        return *(d->cache.object(hostName));
+    }
+    QList<QHostAddress> *addresses = new QList<QHostAddress>();
+    *addresses = QSocketNg::resolve(hostName);
+    if(addresses->isEmpty()) {
+        delete addresses;
+        return QList<QHostAddress>();
+    } else {
+        d->cache.insert(hostName, addresses);
+        return *addresses;
+    }
 }

@@ -91,6 +91,7 @@ private:
     QHostAddress peerAddress;
     quint16 peerPort;
     qintptr fd;
+    QSharedPointer<QSocketNgDnsCache> dnsCache;
 
     Q_DECLARE_PUBLIC(QSocketNg)
 };

@@ -143,7 +143,8 @@ void EventLoopCoroutine::cancelCall(int callbackId)
     return d->cancelCall(callbackId);
 }
 
-int EventLoopCoroutine::exitCode() {
+int EventLoopCoroutine::exitCode()
+{
     Q_D(EventLoopCoroutine);
     return d->exitCode();
 }
@@ -230,7 +231,7 @@ private:
 QCoroutinePrivate::QCoroutinePrivate(QCoroutine *q, QObject *obj, const char *slot)
     :obj(obj), slot(slot), callbackId(0), q_ptr(q)
 {
-    connect(q_ptr, SIGNAL(finished()), SLOT(setFinishedEvent()));
+    connect(q_ptr, SIGNAL(finished()), SLOT(setFinishedEvent()), Qt::DirectConnection);
 }
 
 QCoroutinePrivate::~QCoroutinePrivate()
@@ -298,7 +299,6 @@ void QCoroutinePrivate::cancelStart()
 
 void QCoroutinePrivate::setFinishedEvent()
 {
-    //qDebug() << q_ptr->objectName() << "finished.";
     finishedEvent.set();
 }
 
@@ -306,10 +306,11 @@ bool QCoroutinePrivate::join()
 {
     Q_Q(const QCoroutine);
 
-    if(q->state() == QBaseCoroutine::Joined || q->state() == QBaseCoroutine::Stopped) {
+    if(q->state() == QBaseCoroutine::Initialized || q->state() == QBaseCoroutine::Started) {
+        return finishedEvent.wait();
+    } else {
         return true;
     }
-    return finishedEvent.wait();
 }
 
 // 开始写 QCoroutine 的实现
@@ -439,23 +440,10 @@ void QTimeout::restart()
     timeoutId = EventLoopCoroutine::get()->callLater(msecs, new CallbackFunctor(triggerTimeout, targs));
 }
 
-class YieldCurrentHelper: public QObject
-{
-    Q_OBJECT
-public:
-    YieldCurrentHelper():current(QBaseCoroutine::current()) {}
-public slots:
-    void yieldCurrent() {current->yield();}
-private:
-    QBaseCoroutine *current;
-};
-
 int start_application()
 {
-    YieldCurrentHelper helper;
-    QObject::connect(currentLoop().get(), SIGNAL(finished()), &helper, SLOT(yieldCurrent()));
     currentLoop().get()->yield();
-    return 0;
+    return currentLoop().get()->exitCode();
 }
 
 #include "eventloop.moc"

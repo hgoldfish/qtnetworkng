@@ -53,6 +53,8 @@ typedef qptrdiff qintptr;
 class EventLoopCoroutinePrivate;
 class EventLoopCoroutine: public QBaseCoroutine
 {
+    Q_OBJECT
+
 public:
     enum EventType
     {
@@ -114,7 +116,7 @@ public:
     virtual void run();
     static QCoroutine *current();
     static void sleep(int msecs);
-    template<typename F> static QCoroutine *spawn(const F &f);
+    inline static QCoroutine *spawn(std::function<void()> f);
 private:
     QCoroutinePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(QCoroutine)
@@ -125,20 +127,19 @@ inline QDebug &operator <<(QDebug &out, const QCoroutine& el)
     return out << QString::fromLatin1("QCoroutine(id=%1)").arg(el.id());
 }
 
-template<typename F>
 class QCoroutineSpawnHelper: public QCoroutine
 {
 public:
-    QCoroutineSpawnHelper(const F &f)
+    QCoroutineSpawnHelper(std::function<void()> f)
         :f(f){}
     virtual void run(){f(); }
 private:
-    F f;
+    std::function<void()> f;
 };
 
-template<typename F> QCoroutine *QCoroutine::spawn(const F &f)
+QCoroutine *QCoroutine::spawn(std::function<void()> f)
 {
-    QCoroutine *c =  new QCoroutineSpawnHelper<F>(f);
+    QCoroutine *c =  new QCoroutineSpawnHelper(f);
     c->start();
     return c;
 }

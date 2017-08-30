@@ -269,7 +269,7 @@ QByteArray formatHeaderParam(const QString &name, const QString &value)
         asciiCodec = QTextCodec::codecForName("ascii");
     }
     QByteArray data;
-    if(asciiCodec->canEncode(value)) {
+    if(asciiCodec && asciiCodec->canEncode(value)) {
         data.append(name.toUtf8());
         data.append("=\"");
         data.append(value.toUtf8());
@@ -286,7 +286,7 @@ QByteArray formatHeaderParam(const QString &name, const QString &value)
 QByteArray FormData::toByteArray() const
 {
     QByteArray body;
-    for(auto itor = query.constBegin(); itor != query.constEnd(); ++itor) {
+    for(QMap<QString, QString>::const_iterator itor = query.constBegin(); itor != query.constEnd(); ++itor) {
         body.append("--");
         body.append(boundary);
         body.append("\r\n");
@@ -296,7 +296,7 @@ QByteArray FormData::toByteArray() const
         body.append(itor.value().toUtf8());
         body.append("\r\n");
     }
-    for(auto itor = files.constBegin(); itor != files.constEnd(); ++itor) {
+    for(QMap<QString, FormDataFile>::const_iterator itor = files.constBegin(); itor != files.constEnd(); ++itor) {
         body.append("--");
         body.append(boundary);
         body.append("\r\n");
@@ -346,7 +346,7 @@ Request Request::fromForm(const QUrlQuery &data)
 Request Request::fromForm(const QMap<QString, QString> &query)
 {
     QUrlQuery data;
-    for(auto itor = query.constBegin(); itor != query.constEnd(); ++itor) {
+    for(QMap<QString, QString>::const_iterator itor = query.constBegin(); itor != query.constEnd(); ++itor) {
         data.addQueryItem(itor.key(), itor.value());
     }
     return fromForm(data);
@@ -385,7 +385,7 @@ QString Response::html()
 
 
 SessionPrivate::SessionPrivate(Session *q_ptr)
-    :q_ptr(q_ptr)
+    :q_ptr(q_ptr), maxConnectionsPerServer(10)
 {
     defaultUserAgent = QString::fromUtf8("Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0");
 }
@@ -471,11 +471,12 @@ Response SessionPrivate::send(Request &request)
 {
     QUrl &url = request.url;
     if(url.scheme() != QString::fromUtf8("http")) {
+        qDebug() << "invalid scheme";
         throw ConnectionError();
     }
     if(!request.query.isEmpty()) {
-        QUrlQuery query;
-        for(auto itor = request.query.constBegin(); itor != request.query.constEnd(); ++itor) {
+        QUrlQuery query(url);
+        for(QMap<QString, QString>::const_iterator itor = request.query.constBegin(); itor != request.query.constEnd(); ++itor) {
             query.addQueryItem(itor.key(), itor.value());
         }
         url.setQuery(query);
@@ -485,15 +486,23 @@ Response SessionPrivate::send(Request &request)
     mergeCookies(request, url);
     QMap<QString, QByteArray> allHeaders = makeHeaders(request, url);
 
+    if(!connectionSemaphores.contains(url.host())) {
+        connectionSemaphores.insert(url.host(), QSharedPointer<Semaphore>(new Semaphore(maxConnectionsPerServer)));
+    }
+    ScopedLock<Semaphore> lock(*connectionSemaphores[url.host()]);Q_UNUSED(lock);
+
+
     QSocketNg connection;
+    connection.setDnsCache(dnsCache);
     if(!connection.connect(url.host(), url.port(80))) {
+        qDebug() << "can not connect to host: " << url.host() << connection.errorString();
         throw ConnectionError();
     }
 
     QByteArrayList lines;
     QByteArray resourcePath = url.toEncoded(QUrl::RemoveAuthority | QUrl::RemoveFragment | QUrl::RemoveScheme);
     lines.append(request.method.toUpper().toUtf8() + QByteArray(" ") + resourcePath + QByteArray(" HTTP/1.0\r\n"));
-    for(auto itor = allHeaders.constBegin(); itor != allHeaders.constEnd(); ++itor) {
+    for(QMap<QString, QByteArray>::const_iterator itor = allHeaders.constBegin(); itor != allHeaders.constEnd(); ++itor) {
         lines.append(itor.key().toUtf8() + QByteArray(": ") + itor.value() + QByteArray("\r\n"));
     }
     lines.append(QByteArray("\r\n"));
@@ -513,17 +522,14 @@ Response SessionPrivate::send(Request &request)
 
     QList<QByteArray> commands = splitBytes(firstLine, ' ', 2);
     if(commands.size() != 3) {
-        qDebug() << 1 << firstLine;
         throw InvalidHeader();
     }
     if(commands.at(0) != QByteArray("HTTP/1.0") && commands.at(0) != QByteArray("HTTP/1.1")) {
-        qDebug() << 2 << commands.at(0);
         throw InvalidHeader();
     }
     bool ok;
     response.statusCode = commands.at(1).toInt(&ok);
     if(!ok) {
-        qDebug() << 3 << commands;
         throw InvalidHeader();
     }
     response.statusText = QString::fromLatin1(commands.at(2));
@@ -536,7 +542,6 @@ Response SessionPrivate::send(Request &request)
         }
         QByteArrayList headerParts = splitBytes(line, ':', 1);
         if(headerParts.size() != 2) {
-            qDebug() << 3 << line << headerParts;
             throw InvalidHeader();
         }
         QString headerName = QString::fromUtf8(headerParts[0]).trimmed();
@@ -547,10 +552,6 @@ Response SessionPrivate::send(Request &request)
         foreach(const QByteArray &value, response.headers.values("Set-Cookie")) {
             response.cookies.append(QNetworkCookie::parseCookies(value));
         }
-        foreach(const QNetworkCookie &cookie, response.cookies) {
-            qDebug() << "set cookies: " << cookie.domain() << cookie.name() << cookie.value() << cookie.path() <<  response.url;
-        }
-
         cookieJar.setCookiesFromUrl(response.cookies, response.url);
     }
 
@@ -561,12 +562,13 @@ Response SessionPrivate::send(Request &request)
     qint64 contentLength = response.getContentLength();
     if(contentLength > 0) {
         if(contentLength > request.maxBodySize) {
-            // warning!
+            throw UnrewindableBodyError();
         } else {
             while(response.body.size() < contentLength) {
                 qint64 leftBytes = qMin((qint64) 1024 * 8, contentLength - response.body.size());
                 QByteArray t = connection.recv(leftBytes);
                 if(t.isEmpty()) {
+                    qDebug() << "no content!";
                     throw ConnectionError();
                 }
                 response.body.append(t);
@@ -823,6 +825,24 @@ QNetworkCookie Session::getCookie(const QUrl &url, const QString &name)
     return QNetworkCookie();
 }
 
+
+void Session::setMaxConnectionsPerServer(int maxConnectionsPerServer)
+{
+    Q_D(Session);
+    if(maxConnectionsPerServer <= 0) {
+        maxConnectionsPerServer = INT_MAX;
+    }
+    d->maxConnectionsPerServer = maxConnectionsPerServer;
+    //TODO update semphores
+}
+
+int Session::getMaxConnectionsPerServer()
+{
+    Q_D(Session);
+    return d->maxConnectionsPerServer;
+}
+
+
 RequestException::~RequestException()
 {}
 
@@ -934,4 +954,8 @@ QString RetryError::what() const throw()
 }
 
 
+QString UnrewindableBodyError::what() const throw()
+{
+    return QString::fromUtf8("Requests encountered an error when trying to rewind a body");
+}
 

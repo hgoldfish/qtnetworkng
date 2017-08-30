@@ -168,11 +168,32 @@ public:
     bool kill(const QString &name);
     bool killall(bool join = true);
     bool joinall();
+    int size() { return coroutines.size(); }
 
     inline void spawnWithName(const QString &name, const std::function<void()> &func, bool one = true);
     inline void spawn(const std::function<void()> &func);
     inline void spawnInThread(const std::function<void()> &func);
     inline void spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool one = true);
+
+    template <typename T, typename S>
+    QList<T> map(std::function<T(S)> func, const QList<S> l)
+    {
+        QList<QCoroutine*> coroutines;
+        QSharedPointer<QList<T>> result(new QList<T>());
+        for(int i = 0; i < l.size(); ++i) {
+            result->append(T());
+            S s = l[i];
+            coroutines.append(QCoroutine::spawn([func, s, result, i]{
+                (*result)[i] = func(s);
+            }));
+        }
+        for(int i = 0; i < coroutines.size(); ++i) {
+            coroutines[i]->join();
+            delete coroutines[i];
+        }
+        return *result;
+    }
+
 private slots:
     void deleteCoroutine();
 private:

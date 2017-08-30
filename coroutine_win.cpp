@@ -145,8 +145,7 @@ bool QBaseCoroutinePrivate::yield()
         currentCoroutine().set(old);
     }
     QCoroutineException *e = old->d_ptr->exception;
-    if(e)
-    {
+    if(e) {
         old->d_ptr->exception = 0;
         qDebug() << "got exception:" << e->what() << old;
         e->raise();

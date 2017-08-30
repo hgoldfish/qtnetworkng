@@ -94,7 +94,14 @@ void notifyWaitersCallback(const Arguments *args)
 
 void SemaphorePrivate::release(int value)
 {
-    counter += value;
+    if(value <= 0) {
+        return;
+    }
+    if(counter > INT_MAX - value) {
+        counter = INT_MAX;
+    } else {
+        counter += value;
+    }
     counter = qMin(static_cast<int>(counter), init_value);
     if(!notified && !waiters.isEmpty())
     {

@@ -17,7 +17,7 @@ QtWatcher::~QtWatcher() {}
 
 struct IoWatcher: public QtWatcher
 {
-    IoWatcher(qintptr fd, EventLoopCoroutine::EventType event);
+    IoWatcher(qintptr fd, EventLoopCoroutine::EventType event, Functor *callback);
     virtual ~IoWatcher();
 
     EventLoopCoroutine::EventType event;
@@ -26,8 +26,8 @@ struct IoWatcher: public QtWatcher
     Functor *callback;
 };
 
-IoWatcher::IoWatcher(qintptr fd, EventLoopCoroutine::EventType event)
-    :event(event), read(fd, QSocketNotifier::Read), write(fd, QSocketNotifier::Write)
+IoWatcher::IoWatcher(qintptr fd, EventLoopCoroutine::EventType event, Functor *callback)
+    :event(event), read(fd, QSocketNotifier::Read), write(fd, QSocketNotifier::Write), callback(callback)
 {
     read.setEnabled(false);
     write.setEnabled(false);
@@ -90,6 +90,7 @@ private slots:
 private:
     QEventLoop *loop;
     QMap<int, QtWatcher*> watchers;
+    QMap<int, int> timers;
     int nextWatcherId;
     int qtExitCode;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
@@ -108,11 +109,10 @@ EventLoopCoroutinePrivateQt::EventLoopCoroutinePrivateQt(EventLoopCoroutine *q)
 
 EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
 {
-    QMapIterator<int, QtWatcher*> itor(watchers);
-    while(itor.hasNext()) {
-        itor.next();
-        delete itor.value();
+    foreach(QtWatcher *watcher, watchers) {
+        delete watcher;
     }
+
     if(loop) {
         loop->quit(); // XXX ::run() may be in other coroutine;
     }
@@ -120,13 +120,21 @@ EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
 
 void EventLoopCoroutinePrivateQt::run()
 {
+    QPointer<EventLoopCoroutinePrivateQt> self(this);
+    int result;
+
     QCoreApplication *app = QCoreApplication::instance();
     if(QThread::currentThread() == app->thread()) {
-        qtExitCode = app->exec();
+        result  = app->exec();
     } else {
+        // XXX loop is deleted in other coroutine, `this` pointer is invalid.
+        // very bad taste! I don't like this.
         volatile QEventLoop *localLoop = loop;
-        qtExitCode = ((QEventLoop*)localLoop)->exec();
+        result = ((QEventLoop*)localLoop)->exec();
         delete localLoop;
+    }
+    if(!self.isNull()) {
+        self->qtExitCode = result;
     }
 }
 
@@ -155,11 +163,10 @@ void EventLoopCoroutinePrivateQt::handleIoEvent(int socket)
 
 int EventLoopCoroutinePrivateQt::createWatcher(EventLoopCoroutine::EventType event, qintptr fd, Functor *callback)
 {
-    IoWatcher *w = new IoWatcher(fd, event);
+    IoWatcher *w = new IoWatcher(fd, event, callback);
 
-    connect(&w->read, SIGNAL(activated(int)), SLOT(handleIoEvent(int)));
-    connect(&w->write, SIGNAL(activated(int)), SLOT(handleIoEvent(int)));
-    w->callback = callback;
+    connect(&w->read, SIGNAL(activated(int)), SLOT(handleIoEvent(int)), Qt::DirectConnection);
+    connect(&w->write, SIGNAL(activated(int)), SLOT(handleIoEvent(int)), Qt::DirectConnection);
     watchers.insert(nextWatcherId, w);
     return nextWatcherId++;
 }
@@ -168,10 +175,12 @@ void EventLoopCoroutinePrivateQt::startWatcher(int watcherId)
 {
     IoWatcher *w = dynamic_cast<IoWatcher*>(watchers.value(watcherId));
     if(w) {
-        if(w->event & EventLoopCoroutine::Read)
+        if(w->event & EventLoopCoroutine::Read) {
             w->read.setEnabled(true);
-        if(w->event & EventLoopCoroutine::Write)
+        }
+        if(w->event & EventLoopCoroutine::Write) {
             w->write.setEnabled(true);
+        }
     }
 }
 
@@ -194,28 +203,29 @@ void EventLoopCoroutinePrivateQt::removeWatcher(int watcherId)
 
 void EventLoopCoroutinePrivateQt::timerEvent(QTimerEvent *event)
 {
-    for(auto itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
-        int watcherId = itor.key();
-        TimerWatcher *watcher = dynamic_cast<TimerWatcher*>(itor.value());
-        if(!watcher)
-            continue;
-        if(watcher->timerId != event->timerId())
-            continue;
-        (*watcher->callback)();
-        if(watcher->singleshot) {
-            // watcher may be deleted!
-            if(watchers.contains(watcherId)) {
-                TimerWatcher *w = dynamic_cast<TimerWatcher*>(watchers.value(watcherId));
-                if(w) {
-                    killTimer(w->timerId);
-                    watchers.remove(watcherId);
-                    delete w;
-                }
-            }
-        } else {
-            watcher->timerId = startTimer(watcher->interval);
-        }
+    if(!timers.contains(event->timerId())) {
         return;
+    }
+
+    int watcherId = timers.value(event->timerId());
+    TimerWatcher *watcher = dynamic_cast<TimerWatcher*>(watchers.value(watcherId));
+
+    if(!watcher) {
+        return;
+    }
+
+    bool singleshot = watcher->singleshot;
+    (*watcher->callback)();
+    if(singleshot) {
+        // watcher may be deleted!
+        if(watchers.contains(watcherId)) {
+            watchers.remove(watcherId);
+            timers.remove(event->timerId());
+            killTimer(event->timerId());
+            delete watcher;
+        }
+    } else {
+        //watcher->timerId = startTimer(watcher->interval);
     }
 }
 
@@ -223,8 +233,9 @@ void EventLoopCoroutinePrivateQt::timerEvent(QTimerEvent *event)
 int EventLoopCoroutinePrivateQt::callLater(int msecs, Functor *callback)
 {
     TimerWatcher *w = new TimerWatcher(msecs, true, callback);
-    w->timerId = startTimer(msecs, Qt::VeryCoarseTimer);
+    w->timerId = startTimer(msecs, Qt::CoarseTimer);
     watchers.insert(nextWatcherId, w);
+    timers.insert(w->timerId, nextWatcherId);
     return nextWatcherId++;
 }
 
@@ -238,6 +249,7 @@ int EventLoopCoroutinePrivateQt::callRepeat(int msecs, Functor *callback)
     TimerWatcher *w = new TimerWatcher(msecs, false, callback);
     w->timerId = startTimer(msecs);
     watchers.insert(nextWatcherId, w);
+    timers.insert(w->timerId, nextWatcherId);
     return nextWatcherId++;
 }
 
@@ -245,6 +257,7 @@ void EventLoopCoroutinePrivateQt::cancelCall(int callbackId)
 {
     TimerWatcher *w = dynamic_cast<TimerWatcher*>(watchers.take(callbackId));
     if(w) {
+        timers.remove(w->timerId);
         killTimer(w->timerId);
         delete w;
     }

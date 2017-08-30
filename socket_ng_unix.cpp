@@ -231,13 +231,14 @@ bool QSocketNgPrivate::connect(const QHostAddress &address, quint16 port)
         do {
             result = ::connect(fd, &aa.a, sockAddrSize);
         } while(result < 0 && errno == EINTR);
-        if(result > 0)
+        if(result >= 0)
         {
             state = QSocketNg::ConnectedState;
             fetchConnectionParameters();
             return true;
         }
-        switch (errno) {
+        int t = errno;
+        switch (t) {
         case EISCONN:
             state = QSocketNg::ConnectedState;
             fetchConnectionParameters();
@@ -286,6 +287,7 @@ bool QSocketNgPrivate::connect(const QHostAddress &address, quint16 port)
             state = QSocketNg::UnconnectedState;
             return false;
         default:
+            qDebug() << t << strerror(t);
             setError(QSocketNg::UnknownSocketError, UnknownSocketErrorString);
             state = QSocketNg::UnconnectedState;
             return false;
@@ -478,14 +480,11 @@ qint64 QSocketNgPrivate::recv(char *data, qint64 size)
                 return total == 0 ? -1 : total;
             }
         }
-        else if(r == 0 && type == QSocketNg::TcpSocket)
-        {
+        else if(r == 0 && type == QSocketNg::TcpSocket) {
             setError(QSocketNg::RemoteHostClosedError, RemoteHostClosedErrorString);
             close();
             return total;
-        }
-        else
-        {
+        } else {
             total += r;
             continue;
         }

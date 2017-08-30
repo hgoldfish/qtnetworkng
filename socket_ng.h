@@ -12,6 +12,7 @@
 class QSocketNgPrivate;
 class QTcpSocketNgPrivate;
 class QTcpServerNgPrivate;
+class QSocketNgDnsCache;
 
 class QSocketNg: public QObject
 {
@@ -134,6 +135,7 @@ public:
     qint64 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port);
 
     static QList<QHostAddress> resolve(const QString &hostName);
+    void setDnsCache(QSharedPointer<QSocketNgDnsCache> dnsCache);
 protected:
     QSocketNgPrivate * const d_ptr;
 private:
@@ -158,6 +160,19 @@ public:
 private:
     PollPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Poll)
+};
+
+class QSocketNgDnsCachePrivate;
+class QSocketNgDnsCache
+{
+public:
+    QSocketNgDnsCache();
+    virtual ~QSocketNgDnsCache();
+public:
+    QList<QHostAddress> resolve(const QString &hostName);
+private:
+    QSocketNgDnsCachePrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(QSocketNgDnsCache)
 };
 
 #endif // SOCKET_NG_H

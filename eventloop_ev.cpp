@@ -134,21 +134,21 @@ EventLoopCoroutinePrivateEv::EventLoopCoroutinePrivateEv(EventLoopCoroutine *par
 
 EventLoopCoroutinePrivateEv::~EventLoopCoroutinePrivateEv()
 {
+    ev_break(loop);
     QMapIterator<int, EvWatcher*> itor(watchers);
     while(itor.hasNext())
     {
         itor.next();
         delete itor.value();
     }
-    ev_break(loop);
 }
 
 void EventLoopCoroutinePrivateEv::run()
 {
-    struct ev_loop *localLoop = loop;
+    volatile struct ev_loop *localLoop = loop;
     try{
-        ev_run(localLoop, 0);
-        ev_loop_destroy(localLoop);
+        ev_run((struct ev_loop *)localLoop, 0);
+        ev_loop_destroy((struct ev_loop *)localLoop);
     } catch(...) {
         qFatal("libev eventloop got exception.");
     }
@@ -184,7 +184,7 @@ void EventLoopCoroutinePrivateEv::stopWatcher(int watcherId)
 
 void EventLoopCoroutinePrivateEv::removeWatcher(int watcherId)
 {
-    IoWatcher *w = dynamic_cast<IoWatcher*>(watchers.value(watcherId));
+    IoWatcher *w = dynamic_cast<IoWatcher*>(watchers.take(watcherId));
     if(w) {
         ev_io_stop(loop, &w->e);
         delete w;
@@ -244,7 +244,7 @@ int EventLoopCoroutinePrivateEv::callRepeat(int msecs, Functor *callback)
 
 void EventLoopCoroutinePrivateEv::cancelCall(int callbackId)
 {
-    TimerWatcher *w = dynamic_cast<TimerWatcher*>(watchers.value(callbackId));
+    TimerWatcher *w = dynamic_cast<TimerWatcher*>(watchers.take(callbackId));
     if(w) {
         ev_timer_stop(loop, &w->e);
         delete w;

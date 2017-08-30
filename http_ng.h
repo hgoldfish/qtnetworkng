@@ -167,6 +167,10 @@ public:
     Response send(Request &request);
     QNetworkCookieJar &getCookieJar();
     QNetworkCookie getCookie(const QUrl &url, const QString &name);
+
+    void setMaxConnectionsPerServer(int maxConnectionsPerServer);
+    int getMaxConnectionsPerServer();
+
 private:
     SessionPrivate *d_ptr;
     Q_DECLARE_PRIVATE(Session)

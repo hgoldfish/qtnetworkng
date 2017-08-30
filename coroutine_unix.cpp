@@ -1,8 +1,9 @@
 #include <stdlib.h>
 #include <errno.h>
-#include <QDebug>
 #include <ucontext.h>
-#include <qlist.h>
+#include <sys/mman.h>
+#include <QDebug>
+#include <QList>
 #include "coroutine_p.h"
 
 // 开始定义 QCoroutinePrivate
@@ -72,7 +73,8 @@ QBaseCoroutinePrivate::QBaseCoroutinePrivate(QBaseCoroutine *q, QBaseCoroutine *
 {
     if(stackSize)
     {
-        stack = operator new(stackSize);
+//        stack = operator new(stackSize);
+        stack = mmap(NULL, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
         if(!stack)
         {
             qFatal("QCoroutine can not malloc new memroy.");
@@ -90,8 +92,13 @@ QBaseCoroutinePrivate::QBaseCoroutinePrivate(QBaseCoroutine *q, QBaseCoroutine *
 QBaseCoroutinePrivate::~QBaseCoroutinePrivate()
 {
     Q_Q(QBaseCoroutine);
-    if(stack)
-        operator delete(stack);
+    if(state == QBaseCoroutine::Started) {
+        qWarning("do not delete running QBaseCoroutine.");
+    }
+    if(stack) {
+//        operator delete(stack);
+        munmap(stack, stackSize);
+    }
 
     if(currentCoroutine().get() == q)
     {
@@ -120,7 +127,7 @@ bool QBaseCoroutinePrivate::yield()
         return false;
 
     currentCoroutine().set(q);
-    //qDebug() << "yield from " << old << "to" << q;
+
     if(swapcontext(old->d_func()->context, this->context) < 0)
     {
         qDebug() << "swapcontext() return error: " << errno;
@@ -131,11 +138,16 @@ bool QBaseCoroutinePrivate::yield()
         currentCoroutine().set(old);
     }
     QCoroutineException *e = old->d_ptr->exception;
-    if(e)
-    {
+    if(e) {
         old->d_func()->exception = 0;
         qDebug() << "got exception:" << e->what() << old;
-        e->raise();
+        try {
+            e->raise();
+        } catch(...) {
+            delete e;
+            e = 0;
+            throw;
+        }
     }
     return true;
 }
@@ -146,26 +158,21 @@ bool QBaseCoroutinePrivate::initContext()
         return true;
 
     context = new ucontext_t;
-    if(!context)
-    {
+    if(!context) {
         qFatal("QCoroutine can not malloc new memroy.");
         bad = true;
         return false;
     }
-    if(getcontext(context) < 0)
-    {
+    if(getcontext(context) < 0) {
         qDebug() <<"getcontext() return error." << errno;
         bad = true;
         return false;
     }
     context->uc_stack.ss_sp = stack;
     context->uc_stack.ss_size = stackSize;
-    if(previous)
-    {
+    if(previous) {
         context->uc_link = previous->d_ptr->context;
-    }
-    else
-    {
+    } else {
         context->uc_link = 0;
     }
     makecontext(context, (void(*)(void))::run_stub, 1, this);
@@ -175,29 +182,26 @@ bool QBaseCoroutinePrivate::initContext()
 bool QBaseCoroutinePrivate::kill(QCoroutineException *exception)
 {
     Q_Q(QBaseCoroutine);
-    if(currentCoroutine().get() == q)
-    {
+    if(currentCoroutine().get() == q) {
         qWarning("can not kill oneself.");
         return false;
     }
 
-    if(this->exception)
-    {
+    if(this->exception) {
         qWarning("coroutine had been killed.");
         return false;
     }
 
-    if(state == QBaseCoroutine::Stopped || state == QBaseCoroutine::Joined)
-    {
+    if(state == QBaseCoroutine::Stopped || state == QBaseCoroutine::Joined) {
         qWarning("coroutine is stopped.");
         return false;
     }
 
-    if(exception)
+    if(exception) {
         this->exception = exception;
-    else
+    } else {
         this->exception = new QCoroutineExitException();
-
+    }
     return yield();
 }
 
@@ -208,14 +212,12 @@ QBaseCoroutine* createMainCoroutine()
         return 0;
     QBaseCoroutinePrivate *mainPrivate = main->d_ptr;
     mainPrivate->context = new ucontext_t;
-    if(!mainPrivate->context)
-    {
+    if(!mainPrivate->context) {
         qFatal("QCoroutine can not malloc new memroy.");
         delete main;
         return 0;
     }
-    if(getcontext(mainPrivate->context) < 0)
-    {
+    if(getcontext(mainPrivate->context) < 0) {
         qDebug() << "getcontext() returns error." << errno;
         delete main;
         return 0;

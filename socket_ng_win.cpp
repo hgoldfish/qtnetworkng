@@ -6,7 +6,7 @@
 #include <QNetworkInterface>
 #include "socket_ng_p.h"
 
-#ifdef Q_OS_WIN
+
 // The following definitions are copied from the MinGW header mswsock.h which
 // was placed in the public domain. The WSASendMsg and WSARecvMsg functions
 // were introduced with Windows Vista, so some Win32 headers are lacking them.
@@ -35,7 +35,6 @@ typedef INT (WSAAPI *LPFN_WSASENDMSG)(SOCKET s, LPWSAMSG lpMsg, DWORD dwFlags,
 
 #    define WSAID_WSASENDMSG {0xa441e712,0x754f,0x43ca,{0x84,0xa7,0x0d,0xee,0x44,0xcf,0x60,0x6d}}
 #  endif
-#endif
 #endif
 
 //Some distributions of mingw (including 4.7.2 from mingw.org) are missing this from headers.

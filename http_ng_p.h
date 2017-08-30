@@ -2,6 +2,8 @@
 #define HTTP_NG_P_H
 
 #include "http_ng.h"
+#include "locks.h"
+#include "socket_ng.h"
 
 class SessionPrivate
 {
@@ -18,6 +20,9 @@ private:
     QNetworkCookieJar cookieJar;
     QString defaultUserAgent;
     Session *q_ptr;
+    int maxConnectionsPerServer;
+    QMap<QString, QSharedPointer<Semaphore>> connectionSemaphores;
+    QSharedPointer<QSocketNgDnsCache> dnsCache;
     Q_DECLARE_PUBLIC(Session)
 };
 
