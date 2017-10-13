@@ -164,6 +164,13 @@ public:
     Response put(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
     Response patch(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
 
+    Response post(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
+        {return post(url, QJsonDocument(json), query, headers, allowRedirects, verify);}
+    Response put(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
+        {return put(url, QJsonDocument(json), query, headers, allowRedirects, verify);}
+    Response patch(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
+        {return patch(url, QJsonDocument(json), query, headers, allowRedirects, verify);}
+
     Response send(Request &request);
     QNetworkCookieJar &getCookieJar();
     QNetworkCookie getCookie(const QUrl &url, const QString &name);

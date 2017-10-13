@@ -108,10 +108,11 @@ T callInThread(std::function<T()> func)
             eventloop->callLaterThreadSafe(0, functor);
         }
     };
-    DeferCallThread thread(makeResult, callback);
-    thread.start();
+    DeferCallThread *thread = new DeferCallThread(makeResult, callback);
+    QObject::connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+    thread->start();
     eventloop->yield();
-    thread.wait();
+    //thread.wait();
     return *result;
 }
 
@@ -127,10 +128,11 @@ inline void callInThread(const std::function<void ()> &func)
             eventloop->callLaterThreadSafe(0, functor);
         }
     };
-    DeferCallThread thread(func, callback);
-    thread.start();
+    DeferCallThread *thread = new DeferCallThread(func, callback);
+    QObject::connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+    thread->start();
     eventloop->yield();
-    thread.wait();
+    //thread.wait();
 }
 
 
