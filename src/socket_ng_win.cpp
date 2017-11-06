@@ -4,7 +4,7 @@
 #include <mswsock.h>
 #include <QSysInfo>
 #include <QNetworkInterface>
-#include "socket_ng_p.h"
+#include "../include/socket_ng_p.h"
 
 
 // The following definitions are copied from the MinGW header mswsock.h which

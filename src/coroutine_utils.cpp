@@ -1,5 +1,5 @@
-#include "coroutine_utils.h"
-#include "eventloop.h"
+#include "../include/coroutine_utils.h"
+#include "../include/eventloop.h"
 
 void LambdaFunctor::operator ()()
 {
@@ -7,15 +7,20 @@ void LambdaFunctor::operator ()()
 }
 
 
-DeferCallThread::DeferCallThread(const std::function<void()> &func, const std::function<void()> &callback)
-:func(func), callback(callback)
+DeferCallThread::DeferCallThread(const std::function<void()> &func, YieldCurrentFunctor *yieldCoroutine, QPointer<EventLoopCoroutine> eventloop)
+:func(func), yieldCoroutine(yieldCoroutine), eventloop(eventloop)
 {
 }
 
 void DeferCallThread::run()
 {
     func();
-    callback();
+    if(!eventloop.isNull()) {
+        eventloop->callLaterThreadSafe(0, yieldCoroutine);
+        eventloop->callLaterThreadSafe(0, new DeleteLaterFunctor<DeferCallThread>(this));
+    } else {
+        delete yieldCoroutine;
+    }
 }
 
 
@@ -27,42 +32,42 @@ CoroutineGroup::CoroutineGroup()
 
 CoroutineGroup::~CoroutineGroup()
 {
-    killall();
+    killall(true);
 }
 
-bool CoroutineGroup::add(QCoroutine *coroutine, const QString &name)
+bool CoroutineGroup::add(QSharedPointer<QCoroutine> coroutine, const QString &name)
 {
     if(!name.isEmpty()) {
-        QListIterator<QCoroutine*> itor(coroutines);
+        QListIterator<QSharedPointer<QCoroutine>> itor(coroutines);
         while(itor.hasNext()) {
-            QCoroutine *oldCoroutine = itor.next();
+            QSharedPointer<QCoroutine> oldCoroutine = itor.next();
             if(oldCoroutine->objectName() == name) {
                 return false;
             }
         }
         coroutine->setObjectName(name);
     }
-    connect(coroutine, SIGNAL(finished()), SLOT(deleteCoroutine()), Qt::DirectConnection);
+    connect(coroutine.data(), SIGNAL(finished()), SLOT(deleteCoroutine()), Qt::DirectConnection);
     coroutines.append(coroutine);
     return true;
 }
 
-QCoroutine *CoroutineGroup::get(const QString &name)
+QSharedPointer<QCoroutine> CoroutineGroup::get(const QString &name)
 {
-    QListIterator<QCoroutine*> itor(coroutines);
+    QListIterator<QSharedPointer<QCoroutine>> itor(coroutines);
     while(itor.hasNext()) {
-        QCoroutine *coroutine = itor.next();
+        QSharedPointer<QCoroutine> coroutine = itor.next();
         if(coroutine->objectName() == name)
             return coroutine;
     }
-    return 0;
+    return QSharedPointer<QCoroutine>();
 }
 
 bool CoroutineGroup::kill(const QString &name)
 {
-    QCoroutine *found = 0;
-    for(QList<QCoroutine*>::const_iterator itor = coroutines.constBegin(); itor != coroutines.constEnd(); ++itor) {
-        QCoroutine *coroutine = *itor;
+    QSharedPointer<QCoroutine> found;
+    for(QList<QSharedPointer<QCoroutine>>::const_iterator itor = coroutines.constBegin(); itor != coroutines.constEnd(); ++itor) {
+        QSharedPointer<QCoroutine> coroutine = *itor;
         if(coroutine->objectName() == name) {
             found = coroutine;
             if(coroutine->isActive()) {
@@ -72,7 +77,7 @@ bool CoroutineGroup::kill(const QString &name)
         }
     }
 
-    if(found) {
+    if(!found.isNull()) {
         coroutines.removeAll(found);
     }
     return false;
@@ -81,10 +86,10 @@ bool CoroutineGroup::kill(const QString &name)
 bool CoroutineGroup::killall(bool join)
 {
     bool hasCoroutines = !coroutines.isEmpty();
-    QList<QCoroutine*> copy = coroutines;
+    QList<QSharedPointer<QCoroutine>> copy = coroutines;
 
-    for(QList<QCoroutine*>::const_iterator itor = copy.constBegin(); itor != copy.constEnd(); ++itor) {
-        QCoroutine *coroutine = *itor;
+    for(QList<QSharedPointer<QCoroutine>>::const_iterator itor = copy.constBegin(); itor != copy.constEnd(); ++itor) {
+        QSharedPointer<QCoroutine> coroutine = *itor;
         if(!coroutines.contains(coroutine)) {
             continue;
         }
@@ -100,8 +105,8 @@ bool CoroutineGroup::killall(bool join)
 
     if(join) {
         copy = coroutines;
-        for(QList<QCoroutine*>::const_iterator itor = copy.constBegin(); itor != copy.constEnd(); ++itor) {
-            QCoroutine *coroutine = *itor;
+        for(QList<QSharedPointer<QCoroutine>>::const_iterator itor = copy.constBegin(); itor != copy.constEnd(); ++itor) {
+            QSharedPointer<QCoroutine> coroutine = *itor;
             if(!coroutines.contains(coroutine)) {
                 continue;
             }
@@ -115,13 +120,12 @@ bool CoroutineGroup::killall(bool join)
         }
     }
 
-    for(QList<QCoroutine*>::const_iterator itor = coroutines.constBegin(); itor != coroutines.constEnd(); ++itor) {
-        QCoroutine *coroutine = *itor;
+    for(QList<QSharedPointer<QCoroutine>>::const_iterator itor = coroutines.constBegin(); itor != coroutines.constEnd(); ++itor) {
+        QSharedPointer<QCoroutine> coroutine = *itor;
         if(coroutine == QCoroutine::current()) {
             qDebug("will not kill current coroutine while killall() is called.");
             continue;
         }
-        delete coroutine;
     }
 
     coroutines.clear();
@@ -132,9 +136,9 @@ bool CoroutineGroup::joinall()
 {
     bool hasCoroutines = !coroutines.isEmpty();
 
-    QList<QCoroutine*> copy = coroutines;
-    for(QList<QCoroutine*>::const_iterator itor = copy.constBegin(); itor != copy.constEnd(); ++itor) {
-        QCoroutine *coroutine = *itor;
+    QList<QSharedPointer<QCoroutine>> copy = coroutines;
+    for(QList<QSharedPointer<QCoroutine>>::const_iterator itor = copy.constBegin(); itor != copy.constEnd(); ++itor) {
+        QSharedPointer<QCoroutine> coroutine = *itor;
         if(!coroutines.contains(coroutine)) {
             continue;
         }
@@ -146,8 +150,8 @@ bool CoroutineGroup::joinall()
     }
 
 
-    for(QList<QCoroutine*>::const_iterator itor = coroutines.constBegin(); itor != coroutines.constEnd(); ++itor) {
-        QCoroutine *coroutine = *itor;
+    for(QList<QSharedPointer<QCoroutine>>::const_iterator itor = coroutines.constBegin(); itor != coroutines.constEnd(); ++itor) {
+        QSharedPointer<QCoroutine> coroutine = *itor;
         if(!coroutines.contains(coroutine)) {
             continue;
         }
@@ -155,7 +159,7 @@ bool CoroutineGroup::joinall()
             qDebug("will not kill current coroutine while joinall() is called.");
             continue;
         }
-        delete coroutine;
+
     }
 
     coroutines.clear();
@@ -164,32 +168,21 @@ bool CoroutineGroup::joinall()
 
 struct DeleteCoroutineFunctor: public Functor
 {
-    virtual ~DeleteCoroutineFunctor()
-    {
-        if(coroutine.isNull()) {
-            return;
-        }
-        delete coroutine.data();
-    }
-
-    virtual void operator()()
-    {
-        if(coroutine.isNull()) {
-            return;
-        }
-        delete coroutine.data();
-    }
-
-    QPointer<QBaseCoroutine> coroutine;
+    virtual void operator()() {}
+    QSharedPointer<QBaseCoroutine> coroutine;
 };
 
 void CoroutineGroup::deleteCoroutine()
 {
     QCoroutine *coroutine = dynamic_cast<QCoroutine*>(sender());
     Q_ASSERT(coroutine != 0);
-    coroutines.removeAll(coroutine);
-
-    DeleteCoroutineFunctor *callback = new DeleteCoroutineFunctor();
-    callback->coroutine = QPointer<QBaseCoroutine>(coroutine);
-    EventLoopCoroutine::get()->callLater(0, callback);
+    for(QList<QSharedPointer<QCoroutine>>::iterator itor = coroutines.begin(); itor != coroutines.end(); ++itor) {
+        if(itor->data() == coroutine) {
+            DeleteCoroutineFunctor *callback = new DeleteCoroutineFunctor();
+            callback->coroutine = *itor;
+            EventLoopCoroutine::get()->callLater(0, callback);
+            coroutines.erase(itor);
+            break;
+        }
+    }
 }

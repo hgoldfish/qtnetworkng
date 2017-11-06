@@ -1,8 +1,11 @@
 #include <QDebug>
 #include <QPointer>
 #include <QObject>
-#include "eventloop.h"
-#include "locks.h"
+#include "../include/eventloop.h"
+#include "../include/locks.h"
+#ifdef Q_OS_UNIX
+#include <signal.h>
+#endif
 
 Functor::~Functor()
 {}
@@ -440,9 +443,44 @@ void QTimeout::restart()
     timeoutId = EventLoopCoroutine::get()->callLater(msecs, new CallbackFunctor(triggerTimeout, targs));
 }
 
+#ifdef Q_OS_UNIX
+
+QPointer<EventLoopCoroutine> mainLoop;
+QPointer<QBaseCoroutine> mainCoroutine;
+
+struct ExitLoopFunctor: public Functor
+{
+    virtual void operator ()()
+    {
+        if(mainCoroutine.isNull())
+            return;
+        mainCoroutine->yield();
+    }
+};
+
+void handle_sigint(int sig)
+{
+    Q_UNUSED(sig)
+    qDebug() << "terminate event loop.";
+    if(mainLoop.isNull()) {
+        return;
+    }
+    mainLoop->callLaterThreadSafe(0, new ExitLoopFunctor());
+}
+
+#endif
+
 int start_application()
 {
+#ifdef Q_OS_UNIX
+    mainLoop = QPointer<EventLoopCoroutine>(currentLoop().get());
+    mainCoroutine = QBaseCoroutine::current();
+    auto old_handler = signal(SIGINT, handle_sigint);
     currentLoop().get()->yield();
+    signal(SIGINT, old_handler);
+#else
+    currentLoop().get()->yield();
+#endif
     return currentLoop().get()->exitCode();
 }
 

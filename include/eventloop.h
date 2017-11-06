@@ -24,7 +24,6 @@ typedef void (*Callback)(const Arguments *args);
 
 struct DoNothingFunctor: public Functor
 {
-
     virtual void operator()();
 };
 
@@ -44,6 +43,18 @@ struct YieldCurrentFunctor: public Functor
     explicit YieldCurrentFunctor();
     virtual void operator()();
     QPointer<QBaseCoroutine> coroutine;
+};
+
+template<typename T>
+struct DeleteLaterFunctor: public Functor
+{
+    explicit DeleteLaterFunctor(const T* p)
+        :p(p) {}
+    virtual void operator()()
+    {
+        delete p;
+    }
+    const T* p;
 };
 
 #if QT_VERSION < 0x050000

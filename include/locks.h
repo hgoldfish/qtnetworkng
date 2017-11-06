@@ -54,6 +54,7 @@ public:
     bool wait();
     void notify(int value = 1);
     void notifyAll();
+    int getting() const;
 private:
     ConditionPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Condition)
@@ -71,10 +72,39 @@ public:
     void set();
     void clear();
     bool isSet() const;
+    int getting() const;
 private:
     EventPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Event)
 };
+
+template<typename Value>
+class ValueEvent
+{
+public:
+    void send(const Value &value);
+    Value wait(bool blocking = true);
+    void set() { event.set(); }
+    void clear() { event.clear(); }
+    bool isSet() const { return event.isSet(); }
+public:
+    Event event;
+    Value value;
+};
+
+template<typename Value>
+void ValueEvent<Value>::send(const Value &value)
+{
+    this->value = value;
+    event.set();
+}
+
+template<typename Value>
+Value ValueEvent<Value>::wait(bool blocking)
+{
+    event.wait(blocking);
+    return value;
+}
 
 class GatePrivate;
 class Gate
@@ -84,6 +114,7 @@ public:
     virtual ~Gate();
 public:
     bool goThrough(bool blocking = true);
+    bool wait(bool blocking = true) { return goThrough(blocking); }
     void open();
     void close();
     bool isOpen() const;
@@ -121,6 +152,9 @@ public:
     T get();
     bool isEmpty() const;
     bool isFull() const;
+    int getCapacity() const { return capacity; }
+    int size() const { return queue.size(); }
+    int getting() const { return notEmpty.getting();}
 private:
     QQueue<T> queue;
     Event notEmpty;

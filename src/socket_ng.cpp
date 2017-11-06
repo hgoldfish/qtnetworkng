@@ -2,8 +2,8 @@
 #include <QCoreApplication>
 #include <QMap>
 #include <QCache>
-#include "socket_ng_p.h"
-#include "coroutine_utils.h"
+#include "../include/socket_ng_p.h"
+#include "../include/coroutine_utils.h"
 
 QSocketNgPrivate::QSocketNgPrivate(QSocketNg::NetworkLayerProtocol protocol,
         QSocketNg::SocketType type, QSocketNg *parent)

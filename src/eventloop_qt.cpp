@@ -6,7 +6,7 @@
 #include <QDebug>
 #include <QTimer>
 #include <QPointer>
-#include "eventloop.h"
+#include "../include/eventloop.h"
 
 struct QtWatcher
 {

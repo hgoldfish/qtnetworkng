@@ -4,8 +4,8 @@
 #include <QJsonParseError>
 #include <QDateTime>
 #include <QTextCodec>
-#include "http_ng_p.h"
-#include "socket_ng.h"
+#include "../include/http_ng_p.h"
+#include "../include/socket_ng.h"
 
 
 Request::Request()
@@ -793,7 +793,6 @@ Response Session::send(Request &request)
             if(!newRequest.url.isValid()) {
                 throw InvalidURL();
             }
-            qDebug() << "redirect to: " << newRequest.url;
             Response newResponse = d->send(newRequest);
             history.append(response);
             response = newResponse;

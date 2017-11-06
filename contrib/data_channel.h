@@ -3,42 +3,53 @@
 
 #include <QObject>
 #include <QSharedPointer>
-#include "socket_ng.h"
-
-void noop();
+#include "../include/socket_ng.h"
 
 enum DataChannelPole {
     PositivePole = 1,
-    NegativePole = -1
+    NegativePole = -1,
 };
 
-class VirtualChannel;
+enum SystemChannelNubmer {
+    CommandChannelNumber = 0,
+    DataChannelNumber = 1,
+};
 
-class BaseDataChannelPrivate;
-class BaseDataChannel: public QObject
+class DisconnectedException: public std::exception {};
+
+class VirtualChannel;
+class DataChannelPrivate;
+
+class DataChannel: public QObject
 {
     Q_OBJECT
-    Q_DISABLE_COPY(BaseDataChannel)
+    Q_DISABLE_COPY(DataChannel)
+
 public:
-    virtual ~BaseDataChannel();
+    DataChannel(DataChannelPrivate *d);
+    virtual ~DataChannel();
 public:
+    QString toString() const;
+    void setMaxPacketSize(int size);
+    int maxPacketSize() const;
+    void setCapacity(int capacity);
+    int capacity();
+    DataChannelPole pole() const;
+
     bool isBroken() const;
     bool sendPacket(const QByteArray &packet);
-    bool sendPacketAsync(const QByteArray &packet, std::function<void()> callback = noop);
+    bool sendPacketAsync(const QByteArray &packet);
     QByteArray recvPacket();
     void close();
     QSharedPointer<VirtualChannel> makeChannel();
     QSharedPointer<VirtualChannel> getChannel(quint32 channelNumber);
-    void setBufferSize(int bufferSize);
 protected:
-    BaseDataChannel(BaseDataChannelPrivate *d);
-    BaseDataChannelPrivate * const d_ptr;
-private:
-    Q_DECLARE_PRIVATE(BaseDataChannel)
+    Q_DECLARE_PRIVATE(DataChannel)
+    DataChannelPrivate * const d_ptr;
 };
 
 class SocketChannelPrivate;
-class SocketChannel: public BaseDataChannel
+class SocketChannel: public DataChannel
 {
     Q_OBJECT
     Q_DISABLE_COPY(SocketChannel)
@@ -49,15 +60,16 @@ private:
 };
 
 class VirtualChannelPrivate;
-class VirtualChannel: public BaseDataChannel
+class VirtualChannel: public DataChannel
 {
     Q_OBJECT
     Q_DISABLE_COPY(VirtualChannel)
 protected:
-    VirtualChannel(BaseDataChannel* parentChannel, DataChannelPole pole, quint32 channelNumber);
+    VirtualChannel(DataChannel* parentChannel, DataChannelPole pole, quint32 channelNumber);
 private:
     Q_DECLARE_PRIVATE(VirtualChannel)
-    friend class BaseDataChannelPrivate;
+    friend class DataChannelPrivate;
+    friend class SocketChannelPrivate;
 };
 
 #endif // DATA_CHANNEL_H

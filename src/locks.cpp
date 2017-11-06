@@ -1,7 +1,7 @@
 #include <QPointer>
 #include <QSharedPointer>
-#include "eventloop.h"
-#include "locks.h"
+#include "../include/eventloop.h"
+#include "../include/locks.h"
 
 
 class SemaphorePrivate: public QObject
@@ -133,7 +133,7 @@ Semaphore::Semaphore(int value)
 
 Semaphore::~Semaphore()
 {
-    d_ptr->deleteLater();
+    EventLoopCoroutine::get()->callLater(0, new DeleteLaterFunctor<SemaphorePrivate>(d_ptr));
 }
 
 bool Semaphore::acquire(bool blocking)
@@ -351,6 +351,12 @@ void Condition::notifyAll()
     d->notify(d->waiters.size());
 }
 
+int Condition::getting() const
+{
+    Q_D(const Condition);
+    return d->waiters.size();
+}
+
 class EventPrivate
 {
 public:
@@ -430,7 +436,7 @@ void Event::set()
 
 bool Event::isSet() const
 {
-    const Q_D(Event);
+    Q_D(const Event);
     return d->flag;
 }
 
@@ -440,6 +446,11 @@ void Event::clear()
     d->clear();
 }
 
+int Event::getting() const
+{
+    Q_D(const Event);
+    return d->condition.getting();
+}
 
 class GatePrivate
 {

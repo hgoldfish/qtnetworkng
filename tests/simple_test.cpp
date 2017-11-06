@@ -2,9 +2,7 @@
 #include <QCoreApplication>
 #include <QList>
 #include <QTime>
-#include "socket_ng.h"
-#include "http_ng.h"
-#include "coroutine_utils.h"
+#include "qtnetworkng.h"
 
 class GetBaiduCoroutine: public QCoroutine
 {
@@ -73,11 +71,11 @@ int main(int argc, char *argv[])
         total += 1;
         operations.spawn([&session, &semp, &timer, total] {
             try {
-                Response response = session.get(QString::fromUtf8("http://127.0.0.1/"));
+                Response response = session.get(QString::fromUtf8("http://127.0.0.1:8000/"));
                 float rps = total * 1.0 / timer.elapsed() * 1000;
-                qDebug() << total << ":" << rps << response.html();
+                //qDebug() << total << ":" << rps << response.html();
             } catch (RequestException &e) {
-                qDebug() << total << ":" << "failed";
+                //qDebug() << total << ":" << "failed";
             }
             semp.release();
         });

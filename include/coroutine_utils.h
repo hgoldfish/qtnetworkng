@@ -68,6 +68,13 @@ inline void callInEventLoop(std::function<void ()> func)
 }
 
 
+inline void callInEventLoopAsync(std::function<void ()> func)
+{
+//    Q_ASSERT(static_cast<QBaseCoroutine*>(EventLoopCoroutine::get()) != QBaseCoroutine::current());
+    EventLoopCoroutine::get()->callLater(0, new LambdaFunctor(func));
+}
+
+
 template<typename EventLoop>
 void runLocalLoop(EventLoop *loop)
 {
@@ -81,55 +88,39 @@ class DeferCallThread: public QThread
 {
     Q_OBJECT
 public:
-    DeferCallThread(const std::function<void()> &func, const std::function<void()> &callback);
+    DeferCallThread(const std::function<void()> &func, YieldCurrentFunctor *yieldCoroutine, QPointer<EventLoopCoroutine> eventloop);
     virtual void run();
 private:
     std::function<void()> func;
-    std::function<void()> callback;
+    YieldCurrentFunctor *yieldCoroutine;
+    QPointer<EventLoopCoroutine> eventloop;
 };
 
 
 template<typename T>
 T callInThread(std::function<T()> func)
 {
-
     QSharedPointer<T> result(new T());
-    YieldCurrentFunctor *functor = new YieldCurrentFunctor();
+    YieldCurrentFunctor *yieldCoroutine = new YieldCurrentFunctor();
     QPointer<EventLoopCoroutine> eventloop = EventLoopCoroutine::get();
 
-    auto makeResult = [result, func]() mutable
+    std::function<void()> makeResult = [result, func]() mutable
     {
         *result = func();
     };
-    auto callback = [eventloop, functor]()
-    {
-        if(!eventloop.isNull())
-        {
-            eventloop->callLaterThreadSafe(0, functor);
-        }
-    };
-    DeferCallThread *thread = new DeferCallThread(makeResult, callback);
-    QObject::connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+
+    DeferCallThread *thread = new DeferCallThread(makeResult, yieldCoroutine, eventloop);
     thread->start();
     eventloop->yield();
-    //thread.wait();
     return *result;
 }
 
 
 inline void callInThread(const std::function<void ()> &func)
 {
-    YieldCurrentFunctor *functor = new YieldCurrentFunctor();
+    YieldCurrentFunctor *yieldCoroutine = new YieldCurrentFunctor();
     QPointer<EventLoopCoroutine> eventloop = EventLoopCoroutine::get();
-
-    auto callback = [eventloop, functor]()
-    {
-        if(!eventloop.isNull()) {
-            eventloop->callLaterThreadSafe(0, functor);
-        }
-    };
-    DeferCallThread *thread = new DeferCallThread(func, callback);
-    QObject::connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+    DeferCallThread *thread = new DeferCallThread(func, yieldCoroutine, eventloop);
     thread->start();
     eventloop->yield();
     //thread.wait();
@@ -165,8 +156,8 @@ public:
     CoroutineGroup();
     virtual ~CoroutineGroup();
 public:
-    bool add(QCoroutine *coroutine, const QString &name = QString());
-    QCoroutine *get(const QString &name);
+    bool add(QSharedPointer<QCoroutine> coroutine, const QString &name = QString());
+    QSharedPointer<QCoroutine> get(const QString &name);
     bool kill(const QString &name);
     bool killall(bool join = true);
     bool joinall();
@@ -178,9 +169,9 @@ public:
     inline void spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool one = true);
 
     template <typename T, typename S>
-    QList<T> map(std::function<T(S)> func, const QList<S> l)
+    QList<T> map(std::function<T(S)> func, const QList<S> &l)
     {
-        QList<QCoroutine*> coroutines;
+        QList<QSharedPointer<QCoroutine>> coroutines;
         QSharedPointer<QList<T>> result(new QList<T>());
         for(int i = 0; i < l.size(); ++i) {
             result->append(T());
@@ -191,15 +182,28 @@ public:
         }
         for(int i = 0; i < coroutines.size(); ++i) {
             coroutines[i]->join();
-            delete coroutines[i];
         }
         return *result;
+    }
+
+    template <typename S>
+    void each(std::function<void(S)> func, const QList<S> &l) {
+        QList<QSharedPointer<QCoroutine>> coroutines;
+        for(int i = 0; i < l.size(); ++i) {
+            S s = l[i];
+            coroutines.append(QCoroutine::spawn([func, s] {
+                func(s);
+            }));
+        }
+        for(int i = 0; i < coroutines.size(); ++i) {
+            coroutines[i]->join();
+        }
     }
 
 private slots:
     void deleteCoroutine();
 private:
-    QList<QCoroutine*> coroutines;
+    QList<QSharedPointer<QCoroutine>> coroutines;
 };
 
 
@@ -210,21 +214,21 @@ void CoroutineGroup::spawnWithName(const QString &name, const std::function<void
             return;
         kill(name);
     }
-    QCoroutine *coroutine = QCoroutine::spawn(func);
+    QSharedPointer<QCoroutine> coroutine(QCoroutine::spawn(func));
     add(coroutine, name);
 }
 
 
 void CoroutineGroup::spawn(const std::function<void ()> &func)
 {
-    QCoroutine *coroutine = QCoroutine::spawn(func);
+    QSharedPointer<QCoroutine> coroutine(QCoroutine::spawn(func));
     add(coroutine);
 }
 
 
 void CoroutineGroup::spawnInThread(const std::function<void ()> &func)
 {
-    QCoroutine *coroutine = ::spawnInThread(func);
+    QSharedPointer<QCoroutine> coroutine(::spawnInThread(func));
     add(coroutine);
 }
 
@@ -234,7 +238,7 @@ void CoroutineGroup::spawnInThreadWithName(const QString &name, const std::funct
     if(one && get(name) != 0){
         return;
     }
-    QCoroutine *coroutine = ::spawnInThread(func);
+    QSharedPointer<QCoroutine> coroutine(::spawnInThread(func));
     add(coroutine, name);
 }
 

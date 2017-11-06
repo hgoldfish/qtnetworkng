@@ -7,7 +7,7 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include "socket_ng_p.h"
+#include "../include/socket_ng_p.h"
 
 
 union qt_sockaddr {

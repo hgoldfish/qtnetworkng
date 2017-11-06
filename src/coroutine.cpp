@@ -1,4 +1,4 @@
-#include "coroutine_p.h"
+#include "../include/coroutine_p.h"
 
 QCoroutineException::QCoroutineException() throw ()
 {

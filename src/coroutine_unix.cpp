@@ -4,7 +4,7 @@
 #include <sys/mman.h>
 #include <QDebug>
 #include <QList>
-#include "coroutine_p.h"
+#include "../include/coroutine_p.h"
 
 // 开始定义 QCoroutinePrivate
 
