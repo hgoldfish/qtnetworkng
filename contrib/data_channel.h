@@ -35,6 +35,8 @@ public:
     void setCapacity(int capacity);
     int capacity();
     DataChannelPole pole() const;
+    void setName(const QString &name);
+    QString name() const;
 
     bool isBroken() const;
     bool sendPacket(const QByteArray &packet);
@@ -64,6 +66,8 @@ class VirtualChannel: public DataChannel
 {
     Q_OBJECT
     Q_DISABLE_COPY(VirtualChannel)
+public:
+    quint32 channelNumber() const;
 protected:
     VirtualChannel(DataChannel* parentChannel, DataChannelPole pole, quint32 channelNumber);
 private:

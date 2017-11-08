@@ -7,5 +7,6 @@
 #include "include/socket_ng.h"
 #include "include/coroutine_utils.h"
 #include "include/http_ng.h"
+#include "contrib/data_channel.h"
 
 #endif // QTNETWORKNG_H

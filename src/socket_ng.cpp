@@ -384,9 +384,9 @@ QByteArray QSocketNg::recv(qint64 size)
     Q_D(QSocketNg);
     QByteArray bs;
     bs.resize(size);
+
     qint64 bytes = d->recv(bs.data(), bs.size());
-    if(bytes > 0)
-    {
+    if(bytes > 0) {
         bs.resize(bytes);
         return bs;
     }

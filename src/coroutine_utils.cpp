@@ -70,6 +70,9 @@ bool CoroutineGroup::kill(const QString &name)
         QSharedPointer<QCoroutine> coroutine = *itor;
         if(coroutine->objectName() == name) {
             found = coroutine;
+            if(coroutine.data() == QBaseCoroutine::current()) {
+                qWarning("killing current coroutine?");
+            }
             if(coroutine->isActive()) {
                 coroutine->kill(); // maybe current coroutine.
             }
@@ -87,13 +90,7 @@ bool CoroutineGroup::killall(bool join)
 {
     bool hasCoroutines = !coroutines.isEmpty();
     QList<QSharedPointer<QCoroutine>> copy = coroutines;
-
-    for(QList<QSharedPointer<QCoroutine>>::const_iterator itor = copy.constBegin(); itor != copy.constEnd(); ++itor) {
-        QSharedPointer<QCoroutine> coroutine = *itor;
-        if(!coroutines.contains(coroutine)) {
-            continue;
-        }
-
+    foreach(const QSharedPointer<QCoroutine> &coroutine, copy) {
         if(coroutine == QCoroutine::current()) {
             qWarning("will not kill current coroutine while killall() is called.");
             continue;
@@ -105,13 +102,9 @@ bool CoroutineGroup::killall(bool join)
 
     if(join) {
         copy = coroutines;
-        for(QList<QSharedPointer<QCoroutine>>::const_iterator itor = copy.constBegin(); itor != copy.constEnd(); ++itor) {
-            QSharedPointer<QCoroutine> coroutine = *itor;
-            if(!coroutines.contains(coroutine)) {
-                continue;
-            }
+        foreach(const QSharedPointer<QCoroutine> &coroutine, copy) {
             if(coroutine == QCoroutine::current()) {
-                qWarning("will not join current coroutine while killall() is called.");
+                qWarning("will not kill current coroutine while killall() is called.");
                 continue;
             }
             if(coroutine->isActive()) {
@@ -119,15 +112,6 @@ bool CoroutineGroup::killall(bool join)
             }
         }
     }
-
-    for(QList<QSharedPointer<QCoroutine>>::const_iterator itor = coroutines.constBegin(); itor != coroutines.constEnd(); ++itor) {
-        QSharedPointer<QCoroutine> coroutine = *itor;
-        if(coroutine == QCoroutine::current()) {
-            qDebug("will not kill current coroutine while killall() is called.");
-            continue;
-        }
-    }
-
     coroutines.clear();
     return hasCoroutines;
 }
@@ -135,33 +119,14 @@ bool CoroutineGroup::killall(bool join)
 bool CoroutineGroup::joinall()
 {
     bool hasCoroutines = !coroutines.isEmpty();
-
     QList<QSharedPointer<QCoroutine>> copy = coroutines;
-    for(QList<QSharedPointer<QCoroutine>>::const_iterator itor = copy.constBegin(); itor != copy.constEnd(); ++itor) {
-        QSharedPointer<QCoroutine> coroutine = *itor;
-        if(!coroutines.contains(coroutine)) {
-            continue;
-        }
-        if(coroutine == QCoroutine::current()) {
-            qDebug("will not join current coroutine while joinall() is called.");
-            continue;
-        }
-        coroutine->join();
-    }
-
-
-    for(QList<QSharedPointer<QCoroutine>>::const_iterator itor = coroutines.constBegin(); itor != coroutines.constEnd(); ++itor) {
-        QSharedPointer<QCoroutine> coroutine = *itor;
-        if(!coroutines.contains(coroutine)) {
-            continue;
-        }
+    foreach(const QSharedPointer<QCoroutine> &coroutine, copy) {
         if(coroutine == QCoroutine::current()) {
             qDebug("will not kill current coroutine while joinall() is called.");
             continue;
         }
-
+        coroutine->join();
     }
-
     coroutines.clear();
     return hasCoroutines;
 }

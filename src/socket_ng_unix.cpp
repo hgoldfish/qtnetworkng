@@ -153,7 +153,6 @@ void QSocketNgPrivate::setPortAndAddress(quint16 port, const QHostAddress &addre
 
 bool QSocketNgPrivate::bind(const QHostAddress &address, quint16 port, QSocketNg::BindMode mode)
 {
-    Q_UNUSED(mode);
     if(!isValid())
         return false;
     if(state != QSocketNg::UnconnectedState)
@@ -162,7 +161,9 @@ bool QSocketNgPrivate::bind(const QHostAddress &address, quint16 port, QSocketNg
     QT_SOCKLEN_T sockAddrSize;
     setPortAndAddress(port, address, &aa, &sockAddrSize);
 
-
+    if(mode & QSocketNg::ReuseAddressHint) {
+        setOption(QSocketNg::AddressReusable, true);
+    }
 #ifdef IPV6_V6ONLY
     if (aa.a.sa_family == AF_INET6) {
         int ipv6only = 0;
@@ -297,11 +298,13 @@ bool QSocketNgPrivate::connect(const QHostAddress &address, quint16 port)
 }
 
 
+
 bool QSocketNgPrivate::close()
 {
     if(fd > 0)
     {
         ::close(fd);
+        EventLoopCoroutine::get()->triggerIoWatchers(fd);
         fd = -1;
     }
     state = QSocketNg::UnconnectedState;

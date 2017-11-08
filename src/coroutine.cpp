@@ -56,6 +56,7 @@ QBaseCoroutine *CurrentCoroutineStorage::get()
         return storage.localData().value;
     }
     QBaseCoroutine *main = createMainCoroutine();
+    main->setObjectName("main_coroutine");
     storage.localData().value = main;
     return main;
 }

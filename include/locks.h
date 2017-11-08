@@ -3,6 +3,7 @@
 
 #include <QtGlobal>
 #include <QQueue>
+#include <QDebug>
 
 class SemaphorePrivate;
 class Semaphore
@@ -15,14 +16,17 @@ public:
     void release();
     bool isLocked() const;
 private:
-    SemaphorePrivate * const d_ptr;
+    SemaphorePrivate * d_ptr;
     Q_DECLARE_PRIVATE(Semaphore)
+    Q_DISABLE_COPY(Semaphore)
 };
 
 class Lock: public Semaphore
 {
 public:
     Lock();
+private:
+    Q_DISABLE_COPY(Lock)
 };
 
 class RLockPrivate;
@@ -39,6 +43,7 @@ public:
 private:
     RLockPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(RLock)
+    Q_DISABLE_COPY(RLock)
     friend class ConditionPrivate;
 };
 
@@ -58,6 +63,7 @@ public:
 private:
     ConditionPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Condition)
+    Q_DISABLE_COPY(Condition)
 };
 
 
@@ -76,12 +82,14 @@ public:
 private:
     EventPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Event)
+    Q_DISABLE_COPY(Event)
 };
 
 template<typename Value>
 class ValueEvent
 {
 public:
+    ValueEvent() {}
     void send(const Value &value);
     Value wait(bool blocking = true);
     void set() { event.set(); }
@@ -90,6 +98,8 @@ public:
 public:
     Event event;
     Value value;
+private:
+    Q_DISABLE_COPY(ValueEvent)
 };
 
 template<typename Value>
@@ -102,6 +112,7 @@ void ValueEvent<Value>::send(const Value &value)
 template<typename Value>
 Value ValueEvent<Value>::wait(bool blocking)
 {
+    value = Value();
     event.wait(blocking);
     return value;
 }
@@ -121,6 +132,7 @@ public:
 private:
     GatePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Gate)
+    Q_DISABLE_COPY(Gate)
 };
 
 template <typename LockType>
@@ -128,16 +140,19 @@ class ScopedLock
 {
 public:
     ScopedLock(LockType &lock)
-        :lock(lock)
+        :lock(lock), success(false)
     {
-        lock.acquire();
+        success = lock.acquire();
     }
     ~ScopedLock()
     {
-        lock.release();
+        if(success) {
+            lock.release();
+        }
     }
 private:
     LockType & lock;
+    bool success;
 };
 
 
@@ -148,7 +163,7 @@ public:
     Queue(int capacity);
     ~Queue();
     void setCapacity(int capacity);
-    void put(const T &e);
+    bool put(const T &e);
     T get();
     bool isEmpty() const;
     bool isFull() const;
@@ -160,6 +175,7 @@ private:
     Event notEmpty;
     Event notFull;
     int capacity;
+    Q_DISABLE_COPY(Queue)
 };
 
 template<typename T>
@@ -173,46 +189,59 @@ Queue<T>::Queue(int capacity)
 template<typename T>
 Queue<T>::~Queue()
 {
-    notFull.set();
-    notEmpty.set();
+    if(queue.size() > 0) {
+        qDebug() << "queue is free with element left.";
+    }
 }
 
 template<typename T>
 void Queue<T>::setCapacity(int capacity)
 {
     this->capacity = capacity;
-    if(this->capacity <= 0 || queue.size() < this->capacity)
-        notFull.set();
+    if(isFull()) {
+        notFull.clear();
+    }
 }
 
 template<typename T>
-void Queue<T>::put(const T &e)
+bool Queue<T>::put(const T &e)
 {
-    notFull.wait();
+    if(!notFull.wait()) {
+        return false;
+    }
     queue.enqueue(e);
     notEmpty.set();
+    if(isFull()) {
+        notFull.clear();
+    }
+    return true;
 }
 
 template<typename T>
 T Queue<T>::get()
 {
-    notEmpty.wait();
+    if(!notEmpty.wait())
+        return T();
     const T &e = queue.dequeue();
-    if(this->capacity <= 0 || queue.size() < this->capacity)
+    if(isEmpty()) {
+        notEmpty.clear();
+    }
+    if(!isFull()) {
         notFull.set();
+    }
     return e;
 }
 
 template<typename T>
-bool Queue<T>::isEmpty() const
+inline bool Queue<T>::isEmpty() const
 {
     return queue.isEmpty();
 }
 
 template<typename T>
-bool Queue<T>::isFull() const
+inline bool Queue<T>::isFull() const
 {
-    return this->capacity > 0 && queue.size() >= this->capacity;
+    return capacity > 0 && queue.size() >= capacity;
 }
 
 #endif // LOCKS_H

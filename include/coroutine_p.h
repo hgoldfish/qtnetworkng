@@ -12,7 +12,7 @@ class QBaseCoroutinePrivatePlatformCommon
 public:
     QBaseCoroutinePrivatePlatformCommon(QBaseCoroutine *q, QBaseCoroutine *previous, size_t stackSize);
     virtual ~QBaseCoroutinePrivatePlatformCommon();
-    bool kill(QCoroutineException *exception = 0);
+    bool raise(QCoroutineException *exception = 0);
     bool yield();
 protected:
     QBaseCoroutine * const q_ptr;

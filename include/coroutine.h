@@ -42,7 +42,7 @@ public:
     virtual void run();
 
     State state() const;
-    bool kill(QCoroutineException *exception = 0);
+    bool raise(QCoroutineException *exception = 0);
     bool yield();
     quintptr id() const;
     static QBaseCoroutine *current();

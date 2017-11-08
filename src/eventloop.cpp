@@ -120,6 +120,12 @@ void EventLoopCoroutine::removeWatcher(int watcherId)
     return d->removeWatcher(watcherId);
 }
 
+void EventLoopCoroutine::triggerIoWatchers(qintptr fd)
+{
+    Q_D(EventLoopCoroutine);
+    return d->triggerIoWatchers(fd);
+}
+
 int EventLoopCoroutine::callLater(int msecs, Functor *callback)
 {
     Q_D(EventLoopCoroutine);
@@ -214,6 +220,7 @@ public:
     QCoroutinePrivate(QCoroutine *q, QObject *obj, const char *slot);
     virtual ~QCoroutinePrivate();
     void start(int msecs);
+    void kill(QCoroutineException *e, int msecs);
     void cancelStart();
     bool join();
 private slots:
@@ -241,14 +248,14 @@ QCoroutinePrivate::~QCoroutinePrivate()
 {
 }
 
-struct CoroutineArguments: public Arguments
+struct StartCoroutineArguments: public Arguments
 {
     QPointer<QCoroutinePrivate> cp;
 };
 
 void startCoroutine(const Arguments *args)
 {
-    const CoroutineArguments *cargs = dynamic_cast<const CoroutineArguments*>(args);
+    const StartCoroutineArguments *cargs = dynamic_cast<const StartCoroutineArguments*>(args);
     if(!cargs || cargs->cp.isNull()) {
         qWarning("startCouroutine is called without coroutine.");
         return;
@@ -257,30 +264,57 @@ void startCoroutine(const Arguments *args)
         qDebug("coroutine has been started or stopped.");
         return;
     }
+    cargs->cp->callbackId = 0;
     cargs->cp->q_func()->yield();
 }
 
+struct KillCoroutineArguments: public Arguments
+{
+    QPointer<QCoroutinePrivate> cp;
+    QCoroutineException *e;
+};
+
 void killCoroutine(const Arguments *args)
 {
-    const CoroutineArguments *cargs = dynamic_cast<const CoroutineArguments*>(args);
-    if(!cargs || !cargs->cp.isNull()) {
+    const KillCoroutineArguments *cargs = dynamic_cast<const KillCoroutineArguments*>(args);
+    if(!cargs || cargs->cp.isNull()) {
         qWarning("killCoroutine is called without coroutine");
         return;
     }
     if(cargs->cp->q_func()->state() != QBaseCoroutine::Started) {
-        qWarning("killCoroutine try to kill a non-running coroutine.");
+//        qDebug("killCoroutine try to kill a non-running coroutine.");
         return;
     }
-    cargs->cp->q_func()->kill(new QCoroutineExitException());
+    cargs->cp->q_func()->raise(cargs->e);
 }
 
 void QCoroutinePrivate::start(int msecs)
 {
     if(callbackId > 0)
         return;
-    CoroutineArguments *cargs = new CoroutineArguments();
+    StartCoroutineArguments *cargs = new StartCoroutineArguments();
     cargs->cp = this;
     callbackId = EventLoopCoroutine::get()->callLater(msecs, new CallbackFunctor(startCoroutine, cargs));
+}
+
+
+void QCoroutinePrivate::kill(QCoroutineException *e, int msecs)
+{
+    Q_Q(QCoroutine);
+    EventLoopCoroutine *c = EventLoopCoroutine::get();
+    if(q->state() == QCoroutine::Initialized) {
+        qDebug("coroutine is not started yet, will be starting now. would you check isAlive()?");
+    } else if(q->state() == QCoroutine::Stopped || q->state() == QCoroutine::Joined) {
+        qWarning("coroutine was dead. do you check isAlive()?");
+        return;
+    } else if(q->state() == QCoroutine::Started){
+        KillCoroutineArguments *cargs = new KillCoroutineArguments();
+        cargs->cp = this;
+        cargs->e = e;
+        c->callLater(msecs, new CallbackFunctor(killCoroutine, cargs));
+    } else {
+        qFatal("invalid state while kiling coroutine.");
+    }
 }
 
 void QCoroutinePrivate::cancelStart()
@@ -291,10 +325,12 @@ void QCoroutinePrivate::cancelStart()
         c->cancelCall(callbackId);
     if(q->state() == QCoroutine::Initialized) {
         q->setState(QCoroutine::Stopped);
+        setFinishedEvent();
     }
     else if(q->state() == QCoroutine::Started) {
-        CoroutineArguments *cargs = new CoroutineArguments();
+        KillCoroutineArguments *cargs = new KillCoroutineArguments();
         cargs->cp = this;
+        cargs->e = new QCoroutineExitException();
         c->callLater(0, new CallbackFunctor(killCoroutine, cargs));
     }
     callbackId = 0;
@@ -339,10 +375,17 @@ bool QCoroutine::isActive() const
     return state() == QBaseCoroutine::Started;
 }
 
-void QCoroutine::start(int msecs)
+QCoroutine *QCoroutine::start(int msecs)
 {
     Q_D(QCoroutine);
     d->start(msecs);
+    return this;
+}
+
+void QCoroutine::kill(QCoroutineException *e, int msecs)
+{
+    Q_D(QCoroutine);
+    d->kill(e, msecs);
 }
 
 void QCoroutine::cancelStart()
@@ -404,7 +447,7 @@ void triggerTimeout(const Arguments *args)
         qDebug("triggerTimeout is called while timeout or coroutine is deleted.");
         return;
     }
-    targs->coroutine->kill(new QTimeoutException());
+    targs->coroutine->raise(new QTimeoutException());
 }
 
 QTimeoutException::QTimeoutException()

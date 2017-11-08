@@ -8,7 +8,7 @@ public:
     QBaseCoroutinePrivate(QBaseCoroutine *q, QBaseCoroutine *previous, size_t stackSize);
     virtual ~QBaseCoroutinePrivate();
     bool initContext();
-    bool kill(QCoroutineException *exception = 0);
+    bool raise(QCoroutineException *exception = 0);
     bool yield();
 private:
     QBaseCoroutine * const q_ptr;
@@ -94,7 +94,7 @@ bool QBaseCoroutinePrivate::initContext()
     return true;
 }
 
-bool QBaseCoroutinePrivate::kill(QCoroutineException *exception)
+bool QBaseCoroutinePrivate::raise(QCoroutineException *exception)
 {
     Q_Q(QBaseCoroutine);
     if(currentCoroutine().get() == q)
@@ -147,7 +147,9 @@ bool QBaseCoroutinePrivate::yield()
     QCoroutineException *e = old->d_ptr->exception;
     if(e) {
         old->d_ptr->exception = 0;
-        qDebug() << "got exception:" << e->what() << old;
+        if(!dynamic_cast<QCoroutineExitException*>(e)) {
+            qDebug() << "got exception:" << e->what() << old;
+        }
         e->raise();
     }
     return true;
@@ -189,10 +191,10 @@ QBaseCoroutine::State QBaseCoroutine::state() const
     return d->state;
 }
 
-bool QBaseCoroutine::kill(QCoroutineException *exception)
+bool QBaseCoroutine::raise(QCoroutineException *exception)
 {
     Q_D(QBaseCoroutine);
-    return d->kill(exception);
+    return d->raise(exception);
 }
 
 bool QBaseCoroutine::yield()

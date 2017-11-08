@@ -12,7 +12,8 @@ public:
 public:
     bool acquire(bool blocking);
     void release(int value);
-    void notifyWaiters();
+    void notifyWaiters(bool force);
+    void scheduleDelete();
 private:
     const int init_value;
     volatile int counter;
@@ -29,24 +30,25 @@ SemaphorePrivate::SemaphorePrivate(Semaphore *q, int value)
 
 SemaphorePrivate::~SemaphorePrivate()
 {
-    if(!waiters.isEmpty()) {
-        qWarning("Semaphore is deleted but some one waited.");
-    }
+    Q_ASSERT(waiters.isEmpty());
+}
+
+void SemaphorePrivate::scheduleDelete()
+{
     if(notified) {
         EventLoopCoroutine::get()->cancelCall(notified);
+        notified = 0;
     }
-    while(!waiters.isEmpty()) {
-        const QPointer<QBaseCoroutine> &waiter = waiters.takeFirst();
-        if(waiter.isNull())
-            continue;
-        waiter->yield();
+    notifyWaiters(true);
+    if(counter != init_value) {
+        qWarning("Semaphore is deleted but caught by some one.");
     }
+    EventLoopCoroutine::get()->callLater(0, new DeleteLaterFunctor<SemaphorePrivate>(this));
 }
 
 bool SemaphorePrivate::acquire(bool blocking)
 {
-    if(counter > 0)
-    {
+    if(counter > 0) {
         counter -= 1;
         return true;
     }
@@ -54,20 +56,19 @@ bool SemaphorePrivate::acquire(bool blocking)
         return false;
 
     waiters.append(QBaseCoroutine::current());
-    try
-    {
+    try {
         EventLoopCoroutine::get()->yield();
         // if there is no exception, the release() has remove the waiter.
-        Q_ASSERT(!waiters.contains(QBaseCoroutine::current()));
-    }
-    catch(...)
-    {
+        bool found = waiters.contains(QBaseCoroutine::current());
+        Q_ASSERT(!found);
+    } catch(...) {
         // if we caught an exception, the release() must not touch me.
         // the waiter should be remove.
-        waiters.removeOne(QBaseCoroutine::current());
+        bool found = waiters.removeOne(QBaseCoroutine::current());
+        Q_ASSERT(found);
         throw;
     }
-    return true;
+    return notified != 0;
 }
 
 struct SemaphoreNotifyWaitersArguments: public Arguments
@@ -79,17 +80,15 @@ struct SemaphoreNotifyWaitersArguments: public Arguments
 void notifyWaitersCallback(const Arguments *args)
 {
     const SemaphoreNotifyWaitersArguments *snwargs = dynamic_cast<const SemaphoreNotifyWaitersArguments*>(args);
-    if(!snwargs)
-    {
+    if(!snwargs) {
         qWarning("call notifyWaitersCallback without arguments.");
         return;
     }
-    if(!snwargs->sp)
-    {
+    if(!snwargs->sp) {
         qWarning("SemaphorePrivate is deleted while calling notifyWaitersCallback.");
         return;
     }
-    snwargs->sp->notifyWaiters();
+    snwargs->sp->notifyWaiters(false);
 }
 
 void SemaphorePrivate::release(int value)
@@ -103,26 +102,27 @@ void SemaphorePrivate::release(int value)
         counter += value;
     }
     counter = qMin(static_cast<int>(counter), init_value);
-    if(!notified && !waiters.isEmpty())
-    {
+    if(!notified && !waiters.isEmpty()) {
         SemaphoreNotifyWaitersArguments *snwargs = new SemaphoreNotifyWaitersArguments;
         snwargs->sp = this;
         notified = EventLoopCoroutine::get()->callLater(0, new CallbackFunctor(notifyWaitersCallback, snwargs));
     }
 }
 
-void SemaphorePrivate::notifyWaiters()
+void SemaphorePrivate::notifyWaiters(bool force)
 {
-    while(!waiters.isEmpty() && counter > 0)
-    {
+    if(notified == 0 && !force) {
+        return;
+    }
+    while(!waiters.isEmpty() && counter > 0) {
         const QPointer<QBaseCoroutine> &waiter = waiters.takeFirst();
-        if(waiter.isNull())
+        if(waiter.isNull()) {
+            qDebug() << "waiter was deleted.";
             continue;
+        }
         counter -= 1;
         waiter->yield();
     }
-
-    Q_ASSERT(notified > 0);
     notified = 0;
 }
 
@@ -133,24 +133,34 @@ Semaphore::Semaphore(int value)
 
 Semaphore::~Semaphore()
 {
-    EventLoopCoroutine::get()->callLater(0, new DeleteLaterFunctor<SemaphorePrivate>(d_ptr));
+    d_ptr->scheduleDelete();
+    d_ptr = 0;
 }
 
 bool Semaphore::acquire(bool blocking)
 {
     Q_D(Semaphore);
+    if(!d) {
+        return false;
+    }
     return d->acquire(blocking);
 }
 
 void Semaphore::release()
 {
     Q_D(Semaphore);
+    if(!d) {
+        return;
+    }
     d->release(1);
 }
 
 bool Semaphore::isLocked() const
 {
-    const Q_D(Semaphore);
+    Q_D(const Semaphore);
+    if(!d) {
+        return false;
+    }
     return d->counter <= 0;
 }
 
@@ -194,30 +204,26 @@ RLockPrivate::~RLockPrivate()
 
 bool RLockPrivate::acquire(bool blocking)
 {
-    if(holder == QBaseCoroutine::current()->id())
-    {
+    if(holder == QBaseCoroutine::current()->id()) {
         counter += 1;
         return true;
     }
-    if(lock.acquire(blocking))
-    {
+    if(lock.acquire(blocking)) {
         counter = 1;
         holder = QBaseCoroutine::current()->id();
         return true;
     }
-    return false; // how can i reach here?
+    return false; // XXX lock is deleted.
 }
 
 void RLockPrivate::release()
 {
-    if(holder != QBaseCoroutine::current()->id())
-    {
+    if(holder != QBaseCoroutine::current()->id()) {
         qWarning("do not release other coroutine's rlock.");
         return;
     }
     counter -= 1;
-    if(counter == 0)
-    {
+    if(counter == 0) {
         holder = 0;
         lock.release();
     }
@@ -268,13 +274,13 @@ void RLock::release()
 
 bool RLock::isLocked() const
 {
-    const Q_D(RLock);
+    Q_D(const RLock);
     return d->lock.isLocked();
 }
 
 bool RLock::isOwned() const
 {
-    const Q_D(RLock);
+    Q_D(const RLock);
     return d->holder == QBaseCoroutine::current()->id();
 }
 
@@ -307,15 +313,25 @@ ConditionPrivate::~ConditionPrivate()
 bool ConditionPrivate::wait()
 {
     QSharedPointer<Lock> waiter(new Lock());
-    waiter->acquire();
+    if(!waiter->acquire())
+        return false;
     waiters.append(waiter);
-    return waiter->acquire();
+    try{
+        if(waiter->acquire()) {
+            waiter->release();
+            return true;
+        } else {
+            return false;
+        }
+    } catch (...) {
+        waiter->release();
+        throw;
+    }
 }
 
 void ConditionPrivate::notify(int value)
 {
-    for(int i = 0; i < value && !waiters.isEmpty(); ++i)
-    {
+    for(int i = 0; i < value && !waiters.isEmpty(); ++i) {
         QSharedPointer<Lock> waiter = waiters.takeFirst();
         waiter->release();
     }
@@ -380,7 +396,9 @@ EventPrivate::EventPrivate(Event *q)
 
 EventPrivate::~EventPrivate()
 {
-    set();
+    if(!flag) {
+        condition.notifyAll();
+    }
 }
 
 void EventPrivate::set()
@@ -398,14 +416,10 @@ void EventPrivate::clear()
 
 bool EventPrivate::wait(bool blocking)
 {
-    if(!blocking)
-    {
+    if(!blocking) {
         return flag;
-    }
-    else
-    {
-        if(!flag)
-        {
+    } else {
+        if(!flag) {
             condition.wait();
         }
         return flag;
@@ -484,7 +498,7 @@ void Gate::open()
 
 bool Gate::isOpen() const
 {
-    const Q_D(Gate);
+    Q_D(const Gate);
     return d->event.isSet();
 }
 

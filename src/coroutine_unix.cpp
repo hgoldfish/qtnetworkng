@@ -8,16 +8,13 @@
 
 // 开始定义 QCoroutinePrivate
 
-class QBaseCoroutinePrivate;
-static void run_stub(QBaseCoroutinePrivate *coroutine);
-
 class QBaseCoroutinePrivate
 {
 public:
     QBaseCoroutinePrivate(QBaseCoroutine *q, QBaseCoroutine *previous, size_t stackSize);
     ~QBaseCoroutinePrivate();
     bool initContext();
-    bool kill(QCoroutineException *exception = 0);
+    bool raise(QCoroutineException *exception = 0);
     bool yield();
 private:
     QBaseCoroutine * const q_ptr;
@@ -30,13 +27,13 @@ private:
     ucontext_t *context;
     Q_DECLARE_PUBLIC(QBaseCoroutine)
 private:
-    friend void run_stub(QBaseCoroutinePrivate *coroutine);
+    static void run_stub(QBaseCoroutinePrivate *coroutine);
     friend QBaseCoroutine* createMainCoroutine();
 };
 
 
 // 开始实现 QCoroutinePrivate
-static void run_stub(QBaseCoroutinePrivate *coroutine)
+void QBaseCoroutinePrivate::run_stub(QBaseCoroutinePrivate *coroutine)
 {
     coroutine->state = QBaseCoroutine::Started;
     emit coroutine->q_ptr->started();
@@ -64,6 +61,7 @@ static void run_stub(QBaseCoroutinePrivate *coroutine)
         emit coroutine->q_ptr->finished();
         throw; // cause undefined behaviors
     }
+//    swapcontext(coroutine->context, coroutine->previous->d_ptr->context);
 }
 
 
@@ -140,7 +138,9 @@ bool QBaseCoroutinePrivate::yield()
     QCoroutineException *e = old->d_ptr->exception;
     if(e) {
         old->d_func()->exception = 0;
-        qDebug() << "got exception:" << e->what() << old;
+        if(!dynamic_cast<QCoroutineExitException*>(e)) {
+            qDebug() << "got exception:" << e->what() << old;
+        }
         try {
             e->raise();
         } catch(...) {
@@ -175,11 +175,11 @@ bool QBaseCoroutinePrivate::initContext()
     } else {
         context->uc_link = 0;
     }
-    makecontext(context, (void(*)(void))::run_stub, 1, this);
+    makecontext(context, (void(*)(void))run_stub, 1, this);
     return true;
 }
 
-bool QBaseCoroutinePrivate::kill(QCoroutineException *exception)
+bool QBaseCoroutinePrivate::raise(QCoroutineException *exception)
 {
     Q_Q(QBaseCoroutine);
     if(currentCoroutine().get() == q) {
@@ -251,10 +251,10 @@ void QBaseCoroutine::setState(QBaseCoroutine::State state)
     d->state = state;
 }
 
-bool QBaseCoroutine::kill(QCoroutineException *exception)
+bool QBaseCoroutine::raise(QCoroutineException *exception)
 {
     Q_D(QBaseCoroutine);
-    return d->kill(exception);
+    return d->raise(exception);
 }
 
 bool QBaseCoroutine::yield()

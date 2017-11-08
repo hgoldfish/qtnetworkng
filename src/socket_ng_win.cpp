@@ -653,6 +653,7 @@ bool QSocketNgPrivate::close()
     if(fd > 0)
     {
         ::closesocket(fd);
+        EventLoopCoroutine::get()->triggerIoWatchers(fd);
         fd = -1;
     }
     state = QSocketNg::UnconnectedState;

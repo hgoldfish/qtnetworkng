@@ -83,6 +83,7 @@ public:
     void startWatcher(int watcherId);
     void stopWatcher(int watcherId);
     void removeWatcher(int watcherId);
+    void triggerIoWatchers(qintptr fd);
     int callLater(int msecs, Functor *callback);
     void callLaterThreadSafe(int msecs, Functor *callback);
     int callRepeat(int msecs, Functor *callback);
@@ -121,7 +122,8 @@ public:
     virtual ~QCoroutine();
 public:
     bool isActive() const;
-    void start(int msecs = 0);
+    QCoroutine *start(int msecs = 0);
+    void kill(QCoroutineException *e = 0, int msecs = 0);
     void cancelStart();
     bool join();
     virtual void run();
@@ -166,6 +168,7 @@ public:
     virtual void startWatcher(int watcherId) = 0;
     virtual void stopWatcher(int watcherId) = 0;
     virtual void removeWatcher(int watcherId) = 0;
+    virtual void triggerIoWatchers(qintptr fd) = 0;
     virtual int callLater(int msecs, Functor * callback) = 0;
     virtual void callLaterThreadSafe(int msecs, Functor *callback) = 0;
     virtual int callRepeat(int msecs, Functor * callback) = 0;

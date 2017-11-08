@@ -103,6 +103,7 @@ public:
     virtual void startWatcher(int watcherId);
     virtual void stopWatcher(int watcherId);
     virtual void removeWatcher(int watcherId);
+    virtual void triggerIoWatchers(qintptr fd);
     virtual int callLater(int msecs, Functor *callback);
     virtual int callRepeat(int msecs, Functor *callback);
     virtual void cancelCall(int callbackId);
@@ -120,6 +121,7 @@ private:
     ev_async asyncContext;
     QAtomicInteger<bool> exitingFlag;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
+    friend void triggerIoWatchers(const Arguments *args);
 };
 
 EventLoopCoroutinePrivateEv::EventLoopCoroutinePrivateEv(EventLoopCoroutine *parent)
@@ -188,6 +190,39 @@ void EventLoopCoroutinePrivateEv::removeWatcher(int watcherId)
     if(w) {
         ev_io_stop(loop, &w->e);
         delete w;
+    }
+}
+
+struct TriggerIoWatchersArguments: public Arguments
+{
+    int watcherId;
+    EventLoopCoroutinePrivateEv *eventloop;
+};
+
+void triggerIoWatchers(const Arguments *args)
+{
+    const TriggerIoWatchersArguments *t = dynamic_cast<const TriggerIoWatchersArguments*>(args);
+    if(!t) {
+        qWarning("triggerIoWatchers() is called without TriggerIoWatchersArguments.");
+        return;
+    }
+    IoWatcher *w = dynamic_cast<IoWatcher*>(t->eventloop->watchers.value(t->watcherId));
+    if(w) {
+        (*w->callback)();
+    }
+}
+
+void EventLoopCoroutinePrivateEv::triggerIoWatchers(qintptr fd)
+{
+    for(QMap<int, EvWatcher*>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
+        IoWatcher *w = dynamic_cast<IoWatcher*>(itor.value());
+        if(w && w->e.fd == fd) {
+            ev_io_stop(loop, &w->e);
+            TriggerIoWatchersArguments *args = new TriggerIoWatchersArguments();
+            args->eventloop = this;
+            args->watcherId = itor.key();
+            callLater(0, new CallbackFunctor(::triggerIoWatchers, args));
+        }
     }
 }
 

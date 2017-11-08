@@ -157,6 +157,8 @@ public:
     virtual ~CoroutineGroup();
 public:
     bool add(QSharedPointer<QCoroutine> coroutine, const QString &name = QString());
+    bool add(QCoroutine *coroutine, const QString &name = QString()) {return add(QSharedPointer<QCoroutine>(coroutine), name);}
+    bool start(QCoroutine *coroutine, const QString &name = QString()) { return add(coroutine->start(), name); }
     QSharedPointer<QCoroutine> get(const QString &name);
     bool kill(const QString &name);
     bool killall(bool join = true);
