@@ -56,7 +56,7 @@ void QBaseCoroutinePrivate::run_stub(QBaseCoroutinePrivate *coroutine)
     }
     catch(...)
     {
-        qWarning("coroutine throw a unhandled exception.");
+        qWarning() << "coroutine throw a unhandled exception.";
         coroutine->state = QBaseCoroutine::Stopped;
         emit coroutine->q_ptr->finished();
         throw; // cause undefined behaviors
@@ -91,7 +91,7 @@ QBaseCoroutinePrivate::~QBaseCoroutinePrivate()
 {
     Q_Q(QBaseCoroutine);
     if(state == QBaseCoroutine::Started) {
-        qWarning("do not delete running QBaseCoroutine.");
+        qWarning() << "do not delete running QBaseCoroutine: %1";
     }
     if(stack) {
 //        operator delete(stack);

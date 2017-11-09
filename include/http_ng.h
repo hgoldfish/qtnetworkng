@@ -136,7 +136,7 @@ public:
     QByteArray body;
     qint64 elapsed;
     QList<Response> history;
-    bool isOk() { return statusCode == 200; }
+    bool isOk() { return statusCode >= 200 && statusCode < 300; }
 };
 
 
@@ -177,6 +177,9 @@ public:
 
     void setMaxConnectionsPerServer(int maxConnectionsPerServer);
     int getMaxConnectionsPerServer();
+
+    void setDebugLevel(int level);
+    void disableDebug();
 
 private:
     SessionPrivate *d_ptr;

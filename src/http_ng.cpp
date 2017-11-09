@@ -385,7 +385,7 @@ QString Response::html()
 
 
 SessionPrivate::SessionPrivate(Session *q_ptr)
-    :q_ptr(q_ptr), maxConnectionsPerServer(10)
+    :q_ptr(q_ptr), maxConnectionsPerServer(10), debugLevel(0)
 {
     defaultUserAgent = QString::fromUtf8("Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0");
 }
@@ -506,9 +506,15 @@ Response SessionPrivate::send(Request &request)
         lines.append(itor.key().toUtf8() + QByteArray(": ") + itor.value() + QByteArray("\r\n"));
     }
     lines.append(QByteArray("\r\n"));
+    if(debugLevel > 0) {
+        qDebug() << "sending headers:" << lines.join();
+    }
     connection.sendall(lines.join());
 
     if(!request.body.isEmpty()) {
+        if(debugLevel > 1) {
+            qDebug() << "sending body:" << request.body;
+        }
         connection.sendall(request.body);
     }
 
@@ -547,10 +553,17 @@ Response SessionPrivate::send(Request &request)
         QString headerName = QString::fromUtf8(headerParts[0]).trimmed();
         QByteArray headerValue = headerParts[1].trimmed();
         response.headers.insertMulti(normalizeHeaderName(headerName), headerValue);
+        if(debugLevel > 0)  {
+            qDebug() << "receiving header: " << headerName << headerValue;
+        }
     }
     if(response.headers.contains(QString::fromUtf8("Set-Cookie"))) {
         foreach(const QByteArray &value, response.headers.values("Set-Cookie")) {
-            response.cookies.append(QNetworkCookie::parseCookies(value));
+            const QList<QNetworkCookie> &cookies = QNetworkCookie::parseCookies(value);
+            if(debugLevel > 0 && !cookies.isEmpty()) {
+                qDebug() << "receiving cookie:" << cookies[0].toRawForm();
+            }
+            response.cookies.append(cookies);
         }
         cookieJar.setCookiesFromUrl(response.cookies, response.url);
     }
@@ -586,6 +599,9 @@ Response SessionPrivate::send(Request &request)
         if(!response.body.isEmpty()) {
             // warning!
         }
+    }
+    if(debugLevel > 1 && !response.body.isEmpty()) {
+        qDebug() << "receiving body:" << response.body;
     }
     return response;
 }
@@ -841,6 +857,18 @@ int Session::getMaxConnectionsPerServer()
     return d->maxConnectionsPerServer;
 }
 
+
+void Session::setDebugLevel(int level)
+{
+    Q_D(Session);
+    d->debugLevel = level;
+}
+
+void Session::disableDebug()
+{
+    Q_D(Session);
+    d->debugLevel = 0;
+}
 
 RequestException::~RequestException()
 {}

@@ -21,6 +21,7 @@ private:
     QString defaultUserAgent;
     Session *q_ptr;
     int maxConnectionsPerServer;
+    int debugLevel;
     QMap<QString, QSharedPointer<Semaphore>> connectionSemaphores;
     QSharedPointer<QSocketNgDnsCache> dnsCache;
     Q_DECLARE_PUBLIC(Session)

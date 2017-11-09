@@ -161,7 +161,7 @@ public:
     bool start(QCoroutine *coroutine, const QString &name = QString()) { return add(coroutine->start(), name); }
     QSharedPointer<QCoroutine> get(const QString &name);
     bool kill(const QString &name);
-    bool killall(bool join = true);
+    bool killall(bool join = true, bool skipMyself = false);
     bool joinall();
     int size() { return coroutines.size(); }
 

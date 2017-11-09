@@ -124,7 +124,7 @@ struct DataChannelPrivate
     QString toString();
 
     // must be implemented by subclasses
-    virtual void close() = 0;
+    virtual void close();
     virtual bool isBroken() const = 0;
     virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet) = 0;
     virtual bool sendPacketRawAsync(quint32 channelNumber, const QByteArray &packet) = 0;
@@ -155,7 +155,8 @@ struct DataChannelPrivate
 
 struct WritingPacket
 {
-    WritingPacket() {}
+    WritingPacket()
+        :channelNumber(0) {}
     WritingPacket(quint32 channelNumber, const QByteArray &packet, const QSharedPointer<ValueEvent<bool>> &done)
         :channelNumber(channelNumber), packet(packet), done(done) {}
     quint32 channelNumber;
@@ -247,6 +248,20 @@ QString DataChannelPrivate::toString()
     return pattern.arg(clazz, name, state);
 }
 
+void DataChannelPrivate::close()
+{
+    broken = true;
+    for(int i = 0; i < receivingQueue.getting(); ++i) {
+        receivingQueue.put(QByteArray());
+    }
+    goThrough.open();
+    for(QMapIterator<quint32, QWeakPointer<VirtualChannel>> itor(subChannels); itor.hasNext();) {
+        const QWeakPointer<VirtualChannel> &subChannel = itor.next().value();
+        if(!subChannel.isNull()) {
+            subChannel.data()->close();
+        }
+    }
+}
 
 QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannel()
 {
@@ -531,6 +546,8 @@ void SocketChannelPrivate::close()
             writingPacket.done->send(false);
         }
     }
+    operations->killall(true, true);
+    DataChannelPrivate::close();
 }
 
 bool SocketChannelPrivate::isBroken() const
@@ -585,7 +602,6 @@ VirtualChannelPrivate::VirtualChannelPrivate(DataChannel *parentChannel, DataCha
 
 VirtualChannelPrivate::~VirtualChannelPrivate()
 {
-    close();
 }
 
 bool VirtualChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet)
@@ -658,6 +674,7 @@ void VirtualChannelPrivate::close()
     if(!notPending.isOpen()) {
         notPending.open();
     }
+    DataChannelPrivate::close();
 }
 
 void VirtualChannelPrivate::cleanChannel(quint32 channelNumber)
