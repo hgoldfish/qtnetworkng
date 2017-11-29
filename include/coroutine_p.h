@@ -1,10 +1,12 @@
-#ifndef COROUTINE_P_H
-#define COROUTINE_P_H
+#ifndef QTNG_COROUTINE_P_H
+#define QTNG_COROUTINE_P_H
 
-#include <QThreadStorage>
+#include <QtCore/QThreadStorage>
 #include "coroutine.h"
 
 // this file is not used by other code, but just a stub figure out how to write a new coroutine implementation.
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 class QBaseCoroutinePrivate;
 class QBaseCoroutinePrivatePlatformCommon
@@ -46,4 +48,7 @@ private:
 
 CurrentCoroutineStorage &currentCoroutine();
 
-#endif // COROUTINE_P_H
+QTNETWORKNG_NAMESPACE_END
+
+#endif // QTNG_COROUTINE_P_H
+

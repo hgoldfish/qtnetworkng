@@ -2,9 +2,11 @@
 #include <errno.h>
 #include <ucontext.h>
 #include <sys/mman.h>
-#include <QDebug>
-#include <QList>
+#include <QtCore/QDebug>
+#include <QtCore/QList>
 #include "../include/coroutine_p.h"
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 // 开始定义 QCoroutinePrivate
 
@@ -264,3 +266,4 @@ bool QBaseCoroutine::yield()
 }
 
 
+QTNETWORKNG_NAMESPACE_END

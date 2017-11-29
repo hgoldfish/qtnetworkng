@@ -1,11 +1,14 @@
-#include <QDebug>
-#include <QPointer>
-#include <QObject>
+#include <QtCore/QDebug>
+#include <QtCore/QPointer>
+#include <QtCore/QObject>
 #include "../include/eventloop.h"
 #include "../include/locks.h"
 #ifdef Q_OS_UNIX
 #include <signal.h>
 #endif
+
+QTNETWORKNG_NAMESPACE_BEGIN
+
 
 Functor::~Functor()
 {}
@@ -526,5 +529,7 @@ int start_application()
 #endif
     return currentLoop().get()->exitCode();
 }
+
+QTNETWORKNG_NAMESPACE_END
 
 #include "eventloop.moc"

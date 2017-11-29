@@ -1,14 +1,16 @@
-#include <QMap>
-#include <QDataStream>
-#include <QPointer>
-#include <QWeakPointer>
-#include <QtEndian>
+#include <QtCore/QMap>
+#include <QtCore/QDataStream>
+#include <QtCore/QPointer>
+#include <QtCore/QWeakPointer>
+#include <QtCore/QtEndian>
 #include "../include/locks.h"
 #include "../include/coroutine_utils.h"
 #include "./data_pack.h"
 #include "./data_channel.h"
 
 #define DEBUG_PROTOCOL
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 const quint8 MAKE_CHANNEL_REQUEST = 1;
 const quint8 CHANNEL_MADE_REQUEST = 2;
@@ -170,7 +172,7 @@ struct WritingPacket
 
 struct SocketChannelPrivate: public DataChannelPrivate
 {
-    SocketChannelPrivate(QSocketNg *socket, DataChannelPole pole, SocketChannel *parent);
+    SocketChannelPrivate(const QSharedPointer<QSocketNg> connection, DataChannelPole pole, SocketChannel *parent);
     virtual ~SocketChannelPrivate() override;
     virtual bool isBroken() const override;
     virtual void close() override;
@@ -182,9 +184,9 @@ struct SocketChannelPrivate: public DataChannelPrivate
     void doReceive();
     QHostAddress getPeerAddress();
 
-    QSocketNg *connection;
-    CoroutineGroup *operations;
+    const QSharedPointer<QSocketNg> connection;
     Queue<WritingPacket> sendingQueue;
+    CoroutineGroup *operations;
 
     Q_DECLARE_PUBLIC(SocketChannel)
 };
@@ -368,8 +370,8 @@ void DataChannelPrivate::notifyChannelClose(quint32 channelNumber)
     sendPacketRawAsync(CommandChannelNumber, packDestoryChannelRequest(channelNumber));
 }
 
-SocketChannelPrivate::SocketChannelPrivate(QSocketNg *connection, DataChannelPole pole, SocketChannel *parent)
-    :DataChannelPrivate(pole, parent), connection(connection), operations(new CoroutineGroup()), sendingQueue(1024)
+SocketChannelPrivate::SocketChannelPrivate(const QSharedPointer<QSocketNg> connection, DataChannelPole pole, SocketChannel *parent)
+    :DataChannelPrivate(pole, parent), connection(connection), sendingQueue(1024), operations(new CoroutineGroup())
 {
     connection->setOption(QSocketNg::LowDelayOption, true);
     operations->spawnWithName(QString::fromLatin1("receivingCoroutine"), [this]{
@@ -384,7 +386,6 @@ SocketChannelPrivate::~SocketChannelPrivate()
 {
     close();
     delete operations;
-    delete connection;
 }
 
 bool SocketChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet)
@@ -748,7 +749,7 @@ bool VirtualChannelPrivate::sendPacketRawAsync(quint32 channelNumber, const QByt
 }
 
 
-SocketChannel::SocketChannel(QSocketNg *connection, DataChannelPole pole)
+SocketChannel::SocketChannel(const QSharedPointer<QSocketNg> connection, DataChannelPole pole)
     :DataChannel(new SocketChannelPrivate(connection, pole, this))
 {
 
@@ -874,3 +875,5 @@ quint32 VirtualChannel::channelNumber() const
     Q_D(const VirtualChannel);
     return d->channelNumber;
 }
+
+QTNETWORKNG_NAMESPACE_END

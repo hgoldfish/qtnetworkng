@@ -1,12 +1,15 @@
-#ifndef EVENTLOOP_NG_H
-#define EVENTLOOP_NG_H
+#ifndef QTNG_EVENTLOOP_NG_H
+#define QTNG_EVENTLOOP_NG_H
 
-#include <QThreadStorage>
-#include <QVariantList>
-#include <QDebug>
-#include <QPointer>
 #include <functional>
+#include <QtCore/QThreadStorage>
+#include <QtCore/QVariantList>
+#include <QtCore/QDebug>
+#include <QtCore/QPointer>
 #include "coroutine.h"
+
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 struct Functor
 {
@@ -200,4 +203,7 @@ private:
 
 int start_application();
 
-#endif // EVENTLOOP_NG_H
+
+QTNETWORKNG_NAMESPACE_END
+
+#endif // QTNG_EVENTLOOP_NG_H

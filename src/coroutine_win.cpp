@@ -2,6 +2,8 @@
 #include <windows.h>
 #include <winbase.h>
 
+QTNETWORKNG_NAMESPACE_BEGIN
+
 class QBaseCoroutinePrivate
 {
 public:
@@ -208,3 +210,5 @@ void QBaseCoroutine::setState(QBaseCoroutine::State state)
     Q_D(QBaseCoroutine);
     d->state = state;
 }
+
+QTNETWORKNG_NAMESPACE_END

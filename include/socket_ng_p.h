@@ -1,16 +1,13 @@
-#ifndef SOCKET_NG_P_H
-#define SOCKET_NG_P_H
+#ifndef QTNG_SOCKET_NG_P_H
+#define QTNG_SOCKET_NG_P_H
 
-#include <QSharedPointer>
-#include <QString>
-#include <QHostAddress>
-#include <QByteArray>
+#include <QtCore/QSharedPointer>
+#include <QtCore/QString>
+#include <QtCore/QByteArray>
+#include <QtNetwork/QHostAddress>
 #include "socket_ng.h"
-#include <qplatformdefs.h>
-#ifdef Q_OS_WIN
-#define QT_SOCKLEN_T int
-#define QT_SOCKOPTLEN_T int
-#endif
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 union qt_sockaddr;
 
@@ -101,4 +98,6 @@ void initWinSock();
 void freeWinSock();
 #endif
 
-#endif // SOCKET_NG_P_H
+QTNETWORKNG_NAMESPACE_END
+
+#endif // QTNG_SOCKET_NG_P_H

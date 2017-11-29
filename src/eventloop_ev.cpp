@@ -1,13 +1,14 @@
 #include <ev.h>
-#include <QMap>
-#include <QMutex>
-#include <QMutexLocker>
-#include <QQueue>
-#include <QPointer>
-#include <QDebug>
+#include <QtCore/QMap>
+#include <QtCore/QMutex>
+#include <QtCore/QMutexLocker>
+#include <QtCore/QQueue>
+#include <QtCore/QPointer>
+#include <QtCore/QDebug>
 #include <stddef.h>
 #include "../include/eventloop.h"
 
+QTNETWORKNG_NAMESPACE_BEGIN
 
 struct EvWatcher
 {
@@ -221,7 +222,7 @@ void EventLoopCoroutinePrivateEv::triggerIoWatchers(qintptr fd)
             TriggerIoWatchersArguments *args = new TriggerIoWatchersArguments();
             args->eventloop = this;
             args->watcherId = itor.key();
-            callLater(0, new CallbackFunctor(::triggerIoWatchers, args));
+            callLater(0, new CallbackFunctor(QTNETWORKNG_NAMESPACE::triggerIoWatchers, args));
         }
     }
 }
@@ -296,3 +297,5 @@ EventLoopCoroutine::EventLoopCoroutine()
 {
 
 }
+
+QTNETWORKNG_NAMESPACE_END

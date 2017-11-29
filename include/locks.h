@@ -1,9 +1,11 @@
-#ifndef LOCKS_H
-#define LOCKS_H
+#ifndef QTNG_LOCKS_H
+#define QTNG_LOCKS_H
 
-#include <QtGlobal>
-#include <QQueue>
-#include <QDebug>
+#include <QtCore/QQueue>
+#include <QtCore/QDebug>
+#include "coroutine.h"
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 class SemaphorePrivate;
 class Semaphore
@@ -244,4 +246,6 @@ inline bool Queue<T>::isFull() const
     return capacity > 0 && queue.size() >= capacity;
 }
 
-#endif // LOCKS_H
+QTNETWORKNG_NAMESPACE_END
+
+#endif // QTNG_LOCKS_H

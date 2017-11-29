@@ -1,9 +1,11 @@
-#include <QThread>
-#include <QCoreApplication>
-#include <QMap>
-#include <QCache>
+#include <QtCore/QThread>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QMap>
+#include <QtCore/QCache>
 #include "../include/socket_ng_p.h"
 #include "../include/coroutine_utils.h"
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 QSocketNgPrivate::QSocketNgPrivate(QSocketNg::NetworkLayerProtocol protocol,
         QSocketNg::SocketType type, QSocketNg *parent)
@@ -633,3 +635,5 @@ QList<QHostAddress> QSocketNgDnsCache::resolve(const QString &hostName)
         return *addresses;
     }
 }
+
+QTNETWORKNG_NAMESPACE_END

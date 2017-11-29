@@ -1,12 +1,15 @@
-#ifndef COROUTINE_UTILS_H
-#define COROUTINE_UTILS_H
-#include <QObject>
-#include <QVariant>
-#include <QThread>
+#ifndef QTNG_COROUTINE_UTILS_H
+#define QTNG_COROUTINE_UTILS_H
 #include <functional>
-#include <QSharedPointer>
+#include <QtCore/QObject>
+#include <QtCore/QVariant>
+#include <QtCore/QThread>
+#include <QtCore/QSharedPointer>
 #include "locks.h"
 #include "eventloop.h"
+
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 struct LambdaFunctor: public Functor
 {
@@ -230,7 +233,7 @@ QSharedPointer<QCoroutine> CoroutineGroup::spawn(const std::function<void ()> &f
 
 QSharedPointer<QCoroutine> CoroutineGroup::spawnInThread(const std::function<void ()> &func)
 {
-    QSharedPointer<QCoroutine> coroutine(::spawnInThread(func));
+    QSharedPointer<QCoroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));
     add(coroutine);
     return coroutine;
 }
@@ -244,10 +247,12 @@ QSharedPointer<QCoroutine> CoroutineGroup::spawnInThreadWithName(const QString &
             return old;
         kill(name);
     }
-    QSharedPointer<QCoroutine> coroutine(::spawnInThread(func));
+    QSharedPointer<QCoroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));
     add(coroutine, name);
     return coroutine;
 }
 
 
-#endif // COROUTINE_UTILS_H
+QTNETWORKNG_NAMESPACE_END
+
+#endif // QTNG_COROUTINE_UTILS_H

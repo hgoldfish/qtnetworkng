@@ -1,13 +1,31 @@
-#ifndef SOCKET_NG_H
-#define SOCKET_NG_H
+#ifndef QTNG_SOCKET_NG_H
+#define QTNG_SOCKET_NG_H
 
-#include <QHostAddress>
-#include <QHostInfo>
-#include <QString>
-#include <QByteArray>
-#include <QObject>
+#include <QtCore/QString>
+#include <QtCore/QByteArray>
+#include <QtCore/QObject>
+#include <QtNetwork/QHostAddress>
+#include <QtNetwork/QHostInfo>
+
 #include "eventloop.h"
 #include "locks.h"
+
+// #include <qplatformdefs.h>
+#ifdef Q_OS_WIN
+    #define QT_SOCKLEN_T int
+    //#define QT_SOCKOPTLEN_T int
+#endif
+
+#ifdef Q_OS_UNIX
+    #include <unistd.h>
+    #if defined(__GLIBC__) && (__GLIBC__ < 2)
+        #define QT_SOCKLEN_T            int
+    #else
+        #define QT_SOCKLEN_T            socklen_t
+    #endif
+#endif
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 class QSocketNgPrivate;
 class QTcpSocketNgPrivate;
@@ -144,8 +162,6 @@ private:
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QSocketNg::BindMode)
-Q_DECLARE_METATYPE(QSocketNg::SocketState)
-Q_DECLARE_METATYPE(QSocketNg::SocketError)
 
 class PollPrivate;
 class Poll
@@ -175,4 +191,11 @@ private:
     Q_DECLARE_PRIVATE(QSocketNgDnsCache)
 };
 
-#endif // SOCKET_NG_H
+
+QTNETWORKNG_NAMESPACE_END
+
+Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::QSocketNg::SocketState)
+Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::QSocketNg::SocketError)
+
+
+#endif // QTNG_SOCKET_NG_H

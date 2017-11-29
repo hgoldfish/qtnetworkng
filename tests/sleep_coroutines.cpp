@@ -1,7 +1,7 @@
 #include <QCoreApplication>
 #include "qtnetworkng.h"
 
-class SleepCoroutine: public QCoroutine
+class SleepCoroutine: public qtng::QCoroutine
 {
 public:
     virtual void run();
@@ -21,7 +21,7 @@ void SleepCoroutine::run()
 int sleep_coroutines(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
-    CoroutineGroup operations;
+    qtng::CoroutineGroup operations;
     operations.start(new SleepCoroutine);
     operations.joinall();
     return 0;

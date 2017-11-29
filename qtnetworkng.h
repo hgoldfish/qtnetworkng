@@ -1,5 +1,5 @@
-#ifndef QTNETWORKNG_H
-#define QTNETWORKNG_H
+#ifndef QTNG_QTNETWORKNG_H
+#define QTNG_QTNETWORKNG_H
 
 #include "include/coroutine.h"
 #include "include/locks.h"
@@ -9,4 +9,4 @@
 #include "include/http_ng.h"
 #include "contrib/data_channel.h"
 
-#endif // QTNETWORKNG_H
+#endif // QTNG_QTNETWORKNG_H

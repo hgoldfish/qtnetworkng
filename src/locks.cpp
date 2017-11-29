@@ -1,8 +1,9 @@
-#include <QPointer>
-#include <QSharedPointer>
+#include <QtCore/QPointer>
+#include <QtCore/QSharedPointer>
 #include "../include/eventloop.h"
 #include "../include/locks.h"
 
+QTNETWORKNG_NAMESPACE_BEGIN
 
 class SemaphorePrivate: public QObject
 {
@@ -507,3 +508,5 @@ void Gate::close()
     Q_D(Gate);
     d->event.clear();
 }
+
+QTNETWORKNG_NAMESPACE_END

@@ -1,5 +1,5 @@
-#ifndef DATAPACK_H
-#define DATAPACK_H
+#ifndef QTNG_DATAPACK_H
+#define QTNG_DATAPACK_H
 
 #include <type_traits>
 #include <QDataStream>
@@ -79,4 +79,4 @@ QDataStream &operator<<(QDataStream &ds, const CommandPack &command)
 }
 
 
-#endif
+#endif //QTNG_DATAPACK_H

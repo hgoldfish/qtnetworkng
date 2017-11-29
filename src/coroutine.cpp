@@ -1,5 +1,7 @@
 #include "../include/coroutine_p.h"
 
+QTNETWORKNG_NAMESPACE_BEGIN
+
 QCoroutineException::QCoroutineException() throw ()
 {
 }
@@ -78,3 +80,6 @@ QBaseCoroutine *QBaseCoroutine::current()
 {
     return currentCoroutine().get();
 }
+
+
+QTNETWORKNG_NAMESPACE_END

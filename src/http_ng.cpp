@@ -1,20 +1,21 @@
-#include <QUrl>
-#include <QUrlQuery>
-#include <QJsonDocument>
-#include <QJsonParseError>
-#include <QDateTime>
-#include <QTextCodec>
+#include <QtCore/QUrl>
+#include <QtCore/QUrlQuery>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonParseError>
+#include <QtCore/QDateTime>
+#include <QtCore/QTextCodec>
 #include "../include/http_ng_p.h"
 #include "../include/socket_ng.h"
 
+QTNETWORKNG_NAMESPACE_BEGIN
 
-Request::Request()
+HttpRequest::HttpRequest()
     :maxBodySize(1024 * 1024 * 8), maxRedirects(8)
 {
 
 }
 
-Request::~Request()
+HttpRequest::~HttpRequest()
 {
 
 }
@@ -316,7 +317,7 @@ QByteArray FormData::toByteArray() const
     return body;
 }
 
-void Request::setFormData(FormData &formData, const QString &method)
+void HttpRequest::setFormData(FormData &formData, const QString &method)
 {
     this->method = method;
     QString contentType = QString::fromLatin1("multipart/form-data; boundary=%1").arg(QString::fromLatin1(formData.boundary));
@@ -324,9 +325,9 @@ void Request::setFormData(FormData &formData, const QString &method)
     this->body = formData.toByteArray();
 }
 
-Request Request::fromFormData(const FormData &formData)
+HttpRequest HttpRequest::fromFormData(const FormData &formData)
 {
-    Request request;
+    HttpRequest request;
     request.method = "POST";
     request.body = formData.toByteArray();
     QString contentType = QString::fromLatin1("multipart/form-data; boundary=%1").arg(QString::fromLatin1(formData.boundary));
@@ -334,16 +335,16 @@ Request Request::fromFormData(const FormData &formData)
     return request;
 }
 
-Request Request::fromForm(const QUrlQuery &data)
+HttpRequest HttpRequest::fromForm(const QUrlQuery &data)
 {
-    Request request;
+    HttpRequest request;
     request.setContentType(QString::fromUtf8("application/x-www-form-urlencoded"));
     request.body = data.toString(QUrl::FullyEncoded).toUtf8();
     request.method = "POST";
     return request;
 }
 
-Request Request::fromForm(const QMap<QString, QString> &query)
+HttpRequest HttpRequest::fromForm(const QMap<QString, QString> &query)
 {
     QUrlQuery data;
     for(QMap<QString, QString>::const_iterator itor = query.constBegin(); itor != query.constEnd(); ++itor) {
@@ -352,21 +353,21 @@ Request Request::fromForm(const QMap<QString, QString> &query)
     return fromForm(data);
 }
 
-Request Request::fromJson(const QJsonDocument &json)
+HttpRequest HttpRequest::fromJson(const QJsonDocument &json)
 {
-    Request request;
+    HttpRequest request;
     request.setContentType("application/json");
     request.body = json.toJson();
     request.method = "POST";
     return request;
 }
 
-QString Response::text()
+QString HttpResponse::text()
 {
     return QString::fromUtf8(body);
 }
 
-QJsonDocument Response::json()
+QJsonDocument HttpResponse::json()
 {
     QJsonParseError error;
     QJsonDocument jsonDocument = QJsonDocument::fromJson(body, &error);
@@ -377,25 +378,25 @@ QJsonDocument Response::json()
     }
 }
 
-QString Response::html()
+QString HttpResponse::html()
 {
     // TODO detect encoding;
     return QString::fromUtf8(body);
 }
 
 
-SessionPrivate::SessionPrivate(Session *q_ptr)
+HttpSessionPrivate::HttpSessionPrivate(HttpSession *q_ptr)
     :q_ptr(q_ptr), maxConnectionsPerServer(10), debugLevel(0)
 {
     defaultUserAgent = QString::fromUtf8("Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0");
 }
 
-SessionPrivate::~SessionPrivate()
+HttpSessionPrivate::~HttpSessionPrivate()
 {
 
 }
 
-void SessionPrivate::setDefaultUserAgent(const QString &userAgent)
+void HttpSessionPrivate::setDefaultUserAgent(const QString &userAgent)
 {
     defaultUserAgent = userAgent;
 }
@@ -467,7 +468,7 @@ QList<QByteArray> splitBytes(const QByteArray &bs, char sep, int maxSplit = -1)
 }
 
 
-Response SessionPrivate::send(Request &request)
+HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 {
     QUrl &url = request.url;
     if(url.scheme() != QString::fromUtf8("http")) {
@@ -518,7 +519,7 @@ Response SessionPrivate::send(Request &request)
         connection.sendall(request.body);
     }
 
-    Response response;
+    HttpResponse response;
     response.request = request;
     response.url = request.url;  // redirect?
 
@@ -607,7 +608,7 @@ Response SessionPrivate::send(Request &request)
 }
 
 
-QMap<QString, QByteArray> SessionPrivate::makeHeaders(Request &request, const QUrl &url)
+QMap<QString, QByteArray> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QUrl &url)
 {
     QMap<QString, QByteArray> allHeaders = request.headers;
     if(!allHeaders.contains(QString::fromUtf8("Host"))) {
@@ -646,7 +647,7 @@ QMap<QString, QByteArray> SessionPrivate::makeHeaders(Request &request, const QU
     return allHeaders;
 }
 
-void SessionPrivate::mergeCookies(Request &request, const QUrl &url)
+void HttpSessionPrivate::mergeCookies(HttpRequest &request, const QUrl &url)
 {
     QList<QNetworkCookie> cookies = cookieJar.cookiesForUrl(url);
     if(cookies.isEmpty()) {
@@ -657,11 +658,11 @@ void SessionPrivate::mergeCookies(Request &request, const QUrl &url)
 }
 
 
-Session::Session()
-    :d_ptr(new SessionPrivate(this)) {}
+HttpSession::HttpSession()
+    :d_ptr(new HttpSessionPrivate(this)) {}
 
 
-Session::~Session()
+HttpSession::~HttpSession()
 {
     delete d_ptr;
 }
@@ -672,11 +673,11 @@ Session::~Session()
     bool allowRedirects, \
     bool verify \
 
-Response Session::get(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::get(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
     Q_UNUSED(allowRedirects);
     Q_UNUSED(verify);
-    Request request;
+    HttpRequest request;
     request.method = QString::fromLatin1("GET");
     request.url = url;
     request.headers = headers;
@@ -684,11 +685,11 @@ Response Session::get(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
     return send(request);
 }
 
-Response Session::head(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::head(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
     Q_UNUSED(allowRedirects);
     Q_UNUSED(verify);
-    Request request;
+    HttpRequest request;
     request.method = QString::fromLatin1("HEAD");
     request.url = url;
     request.headers = headers;
@@ -696,11 +697,11 @@ Response Session::head(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
     return send(request);
 }
 
-Response Session::options(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::options(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
     Q_UNUSED(allowRedirects);
     Q_UNUSED(verify);
-    Request request;
+    HttpRequest request;
     request.method = QString::fromLatin1("OPTIONS");
     request.url = url;
     request.headers = headers;
@@ -708,11 +709,11 @@ Response Session::options(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
     return send(request);
 }
 
-Response Session::delete_(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::delete_(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
     Q_UNUSED(allowRedirects);
     Q_UNUSED(verify);
-    Request request;
+    HttpRequest request;
     request.method = QString::fromLatin1("DELETE");
     request.url = url;
     request.headers = headers;
@@ -720,11 +721,11 @@ Response Session::delete_(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
     return send(request);
 }
 
-Response Session::post(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::post(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
     Q_UNUSED(allowRedirects);
     Q_UNUSED(verify);
-    Request request;
+    HttpRequest request;
     request.method = QString::fromLatin1("POST");
     request.url = url;
     request.headers = headers;
@@ -733,11 +734,11 @@ Response Session::post(const QUrl &url, const QByteArray &body, COMMON_PARAMETER
     return send(request);
 }
 
-Response Session::put(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::put(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
     Q_UNUSED(allowRedirects);
     Q_UNUSED(verify);
-    Request request;
+    HttpRequest request;
     request.method = QString::fromLatin1("PUT");
     request.url = url;
     request.headers = headers;
@@ -746,11 +747,11 @@ Response Session::put(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS
     return send(request);
 }
 
-Response Session::patch(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::patch(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
     Q_UNUSED(allowRedirects);
     Q_UNUSED(verify);
-    Request request;
+    HttpRequest request;
     request.method = QString::fromLatin1("PATCH");
     request.url = url;
     request.headers = headers;
@@ -760,7 +761,7 @@ Response Session::patch(const QUrl &url, const QByteArray &body, COMMON_PARAMETE
 }
 
 
-Response Session::post(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::post(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
     QByteArray data = json.toJson();
     QMap<QString, QByteArray> newHeaders(headers);
@@ -769,7 +770,7 @@ Response Session::post(const QUrl &url, const QJsonDocument &json, COMMON_PARAME
 }
 
 
-Response Session::put(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::put(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
     QByteArray data = json.toJson();
     QMap<QString, QByteArray> newHeaders(headers);
@@ -778,7 +779,7 @@ Response Session::put(const QUrl &url, const QJsonDocument &json, COMMON_PARAMET
 }
 
 
-Response Session::patch(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::patch(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
     QByteArray data = json.toJson();
     QMap<QString, QByteArray> newHeaders(headers);
@@ -787,11 +788,11 @@ Response Session::patch(const QUrl &url, const QJsonDocument &json, COMMON_PARAM
 }
 
 
-Response Session::send(Request &request)
+HttpResponse HttpSession::send(HttpRequest &request)
 {
-    Q_D(Session);
-    Response response = d->send(request);
-    QList<Response> history;
+    Q_D(HttpSession);
+    HttpResponse response = d->send(request);
+    QList<HttpResponse> history;
 
     if(request.maxRedirects > 0) {
         int tries = 0;
@@ -799,7 +800,7 @@ Response Session::send(Request &request)
             if(tries > request.maxRedirects) {
                 throw TooManyRedirects();
             }
-            Request newRequest;
+            HttpRequest newRequest;
             if(response.statusCode == 303 || response.statusCode == 307) {
                 newRequest = request;
             } else {
@@ -809,7 +810,7 @@ Response Session::send(Request &request)
             if(!newRequest.url.isValid()) {
                 throw InvalidURL();
             }
-            Response newResponse = d->send(newRequest);
+            HttpResponse newResponse = d->send(newRequest);
             history.append(response);
             response = newResponse;
             ++tries;
@@ -819,16 +820,16 @@ Response Session::send(Request &request)
     return response;
 }
 
-QNetworkCookieJar &Session::getCookieJar()
+QNetworkCookieJar &HttpSession::getCookieJar()
 {
-    Q_D(Session);
+    Q_D(HttpSession);
     return d->getCookieJar();
 }
 
 
-QNetworkCookie Session::getCookie(const QUrl &url, const QString &name)
+QNetworkCookie HttpSession::getCookie(const QUrl &url, const QString &name)
 {
-    Q_D(Session);
+    Q_D(HttpSession);
     const QNetworkCookieJar &jar = d->getCookieJar();
     QList<QNetworkCookie> cookies = jar.cookiesForUrl(url);
     for(int i = 0; i < cookies.size(); ++i) {
@@ -841,9 +842,9 @@ QNetworkCookie Session::getCookie(const QUrl &url, const QString &name)
 }
 
 
-void Session::setMaxConnectionsPerServer(int maxConnectionsPerServer)
+void HttpSession::setMaxConnectionsPerServer(int maxConnectionsPerServer)
 {
-    Q_D(Session);
+    Q_D(HttpSession);
     if(maxConnectionsPerServer <= 0) {
         maxConnectionsPerServer = INT_MAX;
     }
@@ -851,22 +852,22 @@ void Session::setMaxConnectionsPerServer(int maxConnectionsPerServer)
     //TODO update semphores
 }
 
-int Session::getMaxConnectionsPerServer()
+int HttpSession::getMaxConnectionsPerServer()
 {
-    Q_D(Session);
+    Q_D(HttpSession);
     return d->maxConnectionsPerServer;
 }
 
 
-void Session::setDebugLevel(int level)
+void HttpSession::setDebugLevel(int level)
 {
-    Q_D(Session);
+    Q_D(HttpSession);
     d->debugLevel = level;
 }
 
-void Session::disableDebug()
+void HttpSession::disableDebug()
 {
-    Q_D(Session);
+    Q_D(HttpSession);
     d->debugLevel = 0;
 }
 
@@ -986,3 +987,4 @@ QString UnrewindableBodyError::what() const throw()
     return QString::fromUtf8("Requests encountered an error when trying to rewind a body");
 }
 
+QTNETWORKNG_NAMESPACE_END

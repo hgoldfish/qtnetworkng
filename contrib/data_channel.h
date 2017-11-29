@@ -1,9 +1,11 @@
-#ifndef DATA_CHANNEL_H
-#define DATA_CHANNEL_H
+#ifndef QTNG_DATA_CHANNEL_H
+#define QTNG_DATA_CHANNEL_H
 
-#include <QObject>
-#include <QSharedPointer>
+#include <QtCore/QObject>
+#include <QtCore/QSharedPointer>
 #include "../include/socket_ng.h"
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 enum DataChannelPole {
     PositivePole = 1,
@@ -56,7 +58,7 @@ class SocketChannel: public DataChannel
     Q_OBJECT
     Q_DISABLE_COPY(SocketChannel)
 public:
-    SocketChannel(QSocketNg *socket, DataChannelPole pole);
+    SocketChannel(const QSharedPointer<QSocketNg> socket, DataChannelPole pole);
 private:
     Q_DECLARE_PRIVATE(SocketChannel)
 };
@@ -76,4 +78,6 @@ private:
     friend class SocketChannelPrivate;
 };
 
-#endif // DATA_CHANNEL_H
+QTNETWORKNG_NAMESPACE_END
+
+#endif // QTNG_DATA_CHANNEL_H

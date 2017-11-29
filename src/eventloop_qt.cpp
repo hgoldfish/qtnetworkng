@@ -1,12 +1,14 @@
-#include <QMap>
-#include <QEventLoop>
-#include <QThread>
-#include <QCoreApplication>
-#include <QSocketNotifier>
-#include <QDebug>
-#include <QTimer>
-#include <QPointer>
+#include <QtCore/QMap>
+#include <QtCore/QEventLoop>
+#include <QtCore/QThread>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QSocketNotifier>
+#include <QtCore/QDebug>
+#include <QtCore/QTimer>
+#include <QtCore/QPointer>
 #include "../include/eventloop.h"
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 struct QtWatcher
 {
@@ -239,7 +241,7 @@ void EventLoopCoroutinePrivateQt::triggerIoWatchers(qintptr fd)
             TriggerIoWatchersArguments *args = new TriggerIoWatchersArguments();
             args->eventloop = this;
             args->watcherId = itor.key();
-            callLater(0, new CallbackFunctor(::triggerIoWatchers, args));
+            callLater(0, new CallbackFunctor(QTNETWORKNG_NAMESPACE::triggerIoWatchers, args));
         }
     }
 }
@@ -316,5 +318,7 @@ EventLoopCoroutine::EventLoopCoroutine()
 {
 
 }
+
+QTNETWORKNG_NAMESPACE_END
 
 #include "eventloop_qt.moc"

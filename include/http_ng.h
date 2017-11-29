@@ -1,12 +1,16 @@
-#ifndef HTTP_NG_H
-#define HTTP_NG_H
+#ifndef QTNG_HTTP_NG_H
+#define QTNG_HTTP_NG_H
 
-#include <QString>
-#include <QMap>
-#include <QNetworkCookie>
-#include <QNetworkCookieJar>
-#include <QJsonDocument>
-#include <QMimeDatabase>
+#include <QtCore/QString>
+#include <QtCore/QMap>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QMimeDatabase>
+#include <QtNetwork/QNetworkCookie>
+#include <QtNetwork/QNetworkCookieJar>
+
+#include "coroutine.h"
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 class HeaderOperationMixin
 {
@@ -84,7 +88,7 @@ public:
     QByteArray boundary;
 };
 
-class Request: public HeaderOperationMixin
+class HttpRequest: public HeaderOperationMixin
 {
 public:
     enum CacheLoadControl {
@@ -99,8 +103,8 @@ public:
         LowPriority = 5
     };
 
-    Request();
-    virtual ~Request();
+    HttpRequest();
+    virtual ~HttpRequest();
 public:
     QString method;
     QUrl url;
@@ -112,16 +116,16 @@ public:
     Priority priority = NormalPriority;
 public:
     void setFormData(FormData &formData, const QString &method = QString::fromUtf8("post"));
-    static Request fromFormData(const FormData &formData);
-    static Request fromForm(const QUrlQuery &data);
-    static Request fromForm(const QMap<QString, QString> &query);
-    static Request fromJson(const QJsonDocument &json);
-    static Request fromJson(const QJsonArray &json) { return fromJson(QJsonDocument(json)); }
-    static Request fromJson(const QJsonObject &json) { return fromJson(QJsonDocument(json)); }
+    static HttpRequest fromFormData(const FormData &formData);
+    static HttpRequest fromForm(const QUrlQuery &data);
+    static HttpRequest fromForm(const QMap<QString, QString> &query);
+    static HttpRequest fromJson(const QJsonDocument &json);
+    static HttpRequest fromJson(const QJsonArray &json) { return fromJson(QJsonDocument(json)); }
+    static HttpRequest fromJson(const QJsonObject &json) { return fromJson(QJsonDocument(json)); }
 };
 
 
-class Response: public HeaderOperationMixin
+class HttpResponse: public HeaderOperationMixin
 {
 public:
     QString text();
@@ -132,10 +136,10 @@ public:
     int statusCode;
     QString statusText;
     QList<QNetworkCookie> cookies;
-    Request request;
+    HttpRequest request;
     QByteArray body;
     qint64 elapsed;
-    QList<Response> history;
+    QList<HttpResponse> history;
     bool isOk() { return statusCode >= 200 && statusCode < 300; }
 };
 
@@ -146,32 +150,32 @@ public:
     bool allowRedirects = true, \
     bool verify = false \
 
-class SessionPrivate;
-class Session
+class HttpSessionPrivate;
+class HttpSession
 {
 public:
-    Session();
-    virtual ~Session();
+    HttpSession();
+    virtual ~HttpSession();
 public:
-    Response get(const QUrl &url, COMMON_PARAMETERS);
-    Response head(const QUrl &url, COMMON_PARAMETERS);
-    Response options(const QUrl &url, COMMON_PARAMETERS);
-    Response delete_(const QUrl &url, COMMON_PARAMETERS);
-    Response post(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS);
-    Response put(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS);
-    Response patch(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS);
-    Response post(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
-    Response put(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
-    Response patch(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
+    HttpResponse get(const QUrl &url, COMMON_PARAMETERS);
+    HttpResponse head(const QUrl &url, COMMON_PARAMETERS);
+    HttpResponse options(const QUrl &url, COMMON_PARAMETERS);
+    HttpResponse delete_(const QUrl &url, COMMON_PARAMETERS);
+    HttpResponse post(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS);
+    HttpResponse put(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS);
+    HttpResponse patch(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS);
+    HttpResponse post(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
+    HttpResponse put(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
+    HttpResponse patch(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
 
-    Response post(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
+    HttpResponse post(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
         {return post(url, QJsonDocument(json), query, headers, allowRedirects, verify);}
-    Response put(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
+    HttpResponse put(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
         {return put(url, QJsonDocument(json), query, headers, allowRedirects, verify);}
-    Response patch(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
+    HttpResponse patch(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
         {return patch(url, QJsonDocument(json), query, headers, allowRedirects, verify);}
 
-    Response send(Request &request);
+    HttpResponse send(HttpRequest &request);
     QNetworkCookieJar &getCookieJar();
     QNetworkCookie getCookie(const QUrl &url, const QString &name);
 
@@ -182,8 +186,8 @@ public:
     void disableDebug();
 
 private:
-    SessionPrivate *d_ptr;
-    Q_DECLARE_PRIVATE(Session)
+    HttpSessionPrivate *d_ptr;
+    Q_DECLARE_PRIVATE(HttpSession)
 };
 
 
@@ -319,4 +323,7 @@ public:
     virtual QString what() const throw ();
 };
 
-#endif // HTTP_NG_H
+
+QTNETWORKNG_NAMESPACE_END
+
+#endif // QTNG_HTTP_NG_H

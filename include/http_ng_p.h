@@ -1,30 +1,34 @@
-#ifndef HTTP_NG_P_H
-#define HTTP_NG_P_H
+#ifndef QTNG_HTTP_NG_P_H
+#define QTNG_HTTP_NG_P_H
 
 #include "http_ng.h"
 #include "locks.h"
 #include "socket_ng.h"
 
-class SessionPrivate
+QTNETWORKNG_NAMESPACE_BEGIN
+
+class HttpSessionPrivate
 {
 public:
-    SessionPrivate(Session *q_ptr);
-    virtual ~SessionPrivate();
+    HttpSessionPrivate(HttpSession *q_ptr);
+    virtual ~HttpSessionPrivate();
 
     void setDefaultUserAgent(const QString &userAgent);
-    QMap<QString, QByteArray> makeHeaders(Request &request, const QUrl &url);
-    void mergeCookies(Request &request, const QUrl &url);
-    Response send(Request &req);
+    QMap<QString, QByteArray> makeHeaders(HttpRequest &request, const QUrl &url);
+    void mergeCookies(HttpRequest &request, const QUrl &url);
+    HttpResponse send(HttpRequest &req);
     QNetworkCookieJar &getCookieJar() { return cookieJar; }
 private:
     QNetworkCookieJar cookieJar;
     QString defaultUserAgent;
-    Session *q_ptr;
+    HttpSession *q_ptr;
     int maxConnectionsPerServer;
     int debugLevel;
     QMap<QString, QSharedPointer<Semaphore>> connectionSemaphores;
     QSharedPointer<QSocketNgDnsCache> dnsCache;
-    Q_DECLARE_PUBLIC(Session)
+    Q_DECLARE_PUBLIC(HttpSession)
 };
 
-#endif // HTTP_NG_P_H
+QTNETWORKNG_NAMESPACE_END
+
+#endif // QTNG_HTTP_NG_P_H

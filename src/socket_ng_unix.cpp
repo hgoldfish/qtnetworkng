@@ -9,6 +9,7 @@
 #include <netinet/tcp.h>
 #include "../include/socket_ng_p.h"
 
+QTNETWORKNG_NAMESPACE_BEGIN
 
 union qt_sockaddr {
     sockaddr a;
@@ -1010,3 +1011,4 @@ QSocketNg *QSocketNgPrivate::accept()
 }
 
 
+QTNETWORKNG_NAMESPACE_END

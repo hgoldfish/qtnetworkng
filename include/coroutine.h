@@ -1,9 +1,19 @@
-#ifndef COROUTINE_H
-#define COROUTINE_H
+#ifndef QTNG_COROUTINE_H
+#define QTNG_COROUTINE_H
 
-#include <QObject>
-#include <QString>
-#include <QDebug>
+#include <QtCore/QObject>
+#include <QtCore/QString>
+#include <QtCore/QDebug>
+
+#ifndef QTNETWORKNG_NAMESPACE
+#define QTNETWORKNG_NAMESPACE qtng
+#endif
+
+#define QTNETWORKNG_NAMESPACE_BEGIN namespace QTNETWORKNG_NAMESPACE {
+#define QTNETWORKNG_NAMESPACE_END }
+
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 class QCoroutineException
 {
@@ -65,6 +75,6 @@ inline QDebug &operator <<(QDebug &out, const QBaseCoroutine& coroutine)
         return out << QString::fromLatin1("%1(id=%2)").arg(coroutine.objectName(), coroutine.id());
 }
 
+QTNETWORKNG_NAMESPACE_END
 
-
-#endif // COROUTINE_H
+#endif // QTNG_COROUTINE_H

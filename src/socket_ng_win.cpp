@@ -2,8 +2,8 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
-#include <QSysInfo>
-#include <QNetworkInterface>
+#include <QtCore/QSysInfo>
+#include <QtNetwork/QNetworkInterface>
 #include "../include/socket_ng_p.h"
 
 
@@ -48,7 +48,7 @@ typedef INT (WSAAPI *LPFN_WSASENDMSG)(SOCKET s, LPWSAMSG lpMsg, DWORD dwFlags,
 
 #if defined(QSOCKETNG_DEBUG)
 
-void verboseWSErrorDebug(int r)
+static void verboseWSErrorDebug(int r)
 {
     switch (r) {
         case WSANOTINITIALISED : qDebug("WSA error : WSANOTINITIALISED"); break;
@@ -144,6 +144,9 @@ static QByteArray qt_prettyDebug(const char *data, int len, int maxLength)
 #ifndef SO_EXCLUSIVEADDRUSE
 #define SO_EXCLUSIVEADDRUSE ((int)(~SO_REUSEADDR)) /* disallow local address reuse */
 #endif
+
+
+QTNETWORKNG_NAMESPACE_BEGIN
 
 union qt_sockaddr {
     sockaddr a;
@@ -1323,3 +1326,4 @@ QSocketNg *QSocketNgPrivate::accept()
 }
 
 
+QTNETWORKNG_NAMESPACE_END

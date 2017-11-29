@@ -1,6 +1,8 @@
 #include "../include/coroutine_utils.h"
 #include "../include/eventloop.h"
 
+QTNETWORKNG_NAMESPACE_BEGIN
+
 void LambdaFunctor::operator ()()
 {
     callback();
@@ -146,3 +148,5 @@ void CoroutineGroup::deleteCoroutine()
         }
     }
 }
+
+QTNETWORKNG_NAMESPACE_END
