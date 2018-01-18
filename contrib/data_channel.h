@@ -3,7 +3,7 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QSharedPointer>
-#include "../include/socket_ng.h"
+#include "../include/socket.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -58,7 +58,7 @@ class SocketChannel: public DataChannel
     Q_OBJECT
     Q_DISABLE_COPY(SocketChannel)
 public:
-    SocketChannel(const QSharedPointer<QSocketNg> socket, DataChannelPole pole);
+    SocketChannel(const QSharedPointer<QSocket> socket, DataChannelPole pole);
 private:
     Q_DECLARE_PRIVATE(SocketChannel)
 };

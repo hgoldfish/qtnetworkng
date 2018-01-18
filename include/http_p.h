@@ -1,9 +1,9 @@
-#ifndef QTNG_HTTP_NG_P_H
-#define QTNG_HTTP_NG_P_H
+#ifndef QTNG_HTTP_P_H
+#define QTNG_HTTP_P_H
 
-#include "http_ng.h"
+#include "http.h"
 #include "locks.h"
-#include "socket_ng.h"
+#include "socket.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -25,10 +25,10 @@ private:
     int maxConnectionsPerServer;
     int debugLevel;
     QMap<QString, QSharedPointer<Semaphore>> connectionSemaphores;
-    QSharedPointer<QSocketNgDnsCache> dnsCache;
+    QSharedPointer<QSocketDnsCache> dnsCache;
     Q_DECLARE_PUBLIC(HttpSession)
 };
 
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_HTTP_NG_P_H
+#endif // QTNG_HTTP_P_H

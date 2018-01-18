@@ -7,7 +7,7 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include "../include/socket_ng_p.h"
+#include "../include/socket_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -66,22 +66,22 @@ static inline void qt_socket_getPortAndAddress(const qt_sockaddr *s, quint16 *po
     }
 }
 
-bool QSocketNgPrivate::createSocket()
+bool QSocketPrivate::createSocket()
 {
     qt_ignore_sigpipe();
     int flags = SOCK_NONBLOCK ; //| SOCK_CLOEXEC
     int family = AF_INET;
-    if(protocol == QSocketNg::IPv6Protocol || protocol == QSocketNg::AnyIPProtocol) {
+    if(protocol == QSocket::IPv6Protocol || protocol == QSocket::AnyIPProtocol) {
         family = AF_INET6;
     }
-    if(type == QSocketNg::TcpSocket)
+    if(type == QSocket::TcpSocket)
         flags = SOCK_STREAM | flags;
     else
         flags = SOCK_DGRAM | flags;
     fd = socket(family, flags, 0);
-    if(fd < 0 && protocol == QSocketNg::AnyIPProtocol && errno == EAFNOSUPPORT) {
+    if(fd < 0 && protocol == QSocket::AnyIPProtocol && errno == EAFNOSUPPORT) {
         fd = socket(AF_INET, flags, 0);
-        this->protocol = QSocketNg::IPv4Protocol;
+        this->protocol = QSocket::IPv4Protocol;
     }
     if(fd < 0) {
         int ecopy = errno;
@@ -89,16 +89,16 @@ bool QSocketNgPrivate::createSocket()
         case EPROTONOSUPPORT:
         case EAFNOSUPPORT:
         case EINVAL:
-            setError(QSocketNg::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
+            setError(QSocket::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
             break;
         case ENFILE:
         case EMFILE:
         case ENOBUFS:
         case ENOMEM:
-            setError(QSocketNg::SocketResourceError, ResourceErrorString);
+            setError(QSocket::SocketResourceError, ResourceErrorString);
             break;
         case EACCES:
-            setError(QSocketNg::SocketAccessError, AccessErrorString);
+            setError(QSocket::SocketAccessError, AccessErrorString);
             break;
         default:
             break;
@@ -128,12 +128,12 @@ namespace SetSALen {
 }
 }
 
-void QSocketNgPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, QT_SOCKLEN_T *sockAddrSize)
+void QSocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, QT_SOCKLEN_T *sockAddrSize)
 {
     if (address.protocol() == QAbstractSocket::IPv6Protocol
         || address.protocol() == QAbstractSocket::AnyIPProtocol
-        || protocol == QSocketNg::IPv6Protocol
-        || protocol == QSocketNg::AnyIPProtocol) {
+        || protocol == QSocket::IPv6Protocol
+        || protocol == QSocket::AnyIPProtocol) {
         memset(&aa->a6, 0, sizeof(sockaddr_in6));
         aa->a6.sin6_family = AF_INET6;
         aa->a6.sin6_scope_id = scopeIdFromString(address.scopeId());
@@ -152,18 +152,18 @@ void QSocketNgPrivate::setPortAndAddress(quint16 port, const QHostAddress &addre
     }
 }
 
-bool QSocketNgPrivate::bind(const QHostAddress &address, quint16 port, QSocketNg::BindMode mode)
+bool QSocketPrivate::bind(const QHostAddress &address, quint16 port, QSocket::BindMode mode)
 {
     if(!isValid())
         return false;
-    if(state != QSocketNg::UnconnectedState)
+    if(state != QSocket::UnconnectedState)
         return false;
     qt_sockaddr aa;
     QT_SOCKLEN_T sockAddrSize;
     setPortAndAddress(port, address, &aa, &sockAddrSize);
 
-    if(mode & QSocketNg::ReuseAddressHint) {
-        setOption(QSocketNg::AddressReusable, true);
+    if(mode & QSocket::ReuseAddressHint) {
+        setOption(QSocket::AddressReusable, true);
     }
 #ifdef IPV6_V6ONLY
     if (aa.a.sa_family == AF_INET6) {
@@ -190,44 +190,44 @@ bool QSocketNgPrivate::bind(const QHostAddress &address, quint16 port, QSocketNg
         switch(errno)
         {
         case EADDRINUSE:
-            setError(QSocketNg::AddressInUseError, AddressInuseErrorString);
+            setError(QSocket::AddressInUseError, AddressInuseErrorString);
             break;
         case EACCES:
-            setError(QSocketNg::SocketAccessError, AddressProtectedErrorString);
+            setError(QSocket::SocketAccessError, AddressProtectedErrorString);
             break;
         case EINVAL:
-            setError(QSocketNg::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+            setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
             break;
         case EADDRNOTAVAIL:
-            setError(QSocketNg::SocketAddressNotAvailableError,AddressNotAvailableErrorString);
+            setError(QSocket::SocketAddressNotAvailableError,AddressNotAvailableErrorString);
             break;
         default:
-            setError(QSocketNg::UnknownSocketError, UnknownSocketErrorString);
+            setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
             break;
         }
         return false;
     }
-    state = QSocketNg::BoundState;
+    state = QSocket::BoundState;
     return true;
 }
 
 
-bool QSocketNgPrivate::connect(const QHostAddress &address, quint16 port)
+bool QSocketPrivate::connect(const QHostAddress &address, quint16 port)
 {
     if(!isValid())
         return false;
-    if(state != QSocketNg::UnconnectedState && state != QSocketNg::BoundState && state != QSocketNg::ConnectingState)
+    if(state != QSocket::UnconnectedState && state != QSocket::BoundState && state != QSocket::ConnectingState)
         return false;
     qt_sockaddr aa;
     QT_SOCKLEN_T sockAddrSize;
     setPortAndAddress(port, address, &aa, &sockAddrSize);
-    state = QSocketNg::ConnectingState;
+    state = QSocket::ConnectingState;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     while(true)
     {
         if(!isValid())
             return false;
-        if(state != QSocketNg::ConnectingState)
+        if(state != QSocket::ConnectingState)
             return false;
         int result;
         do {
@@ -235,14 +235,14 @@ bool QSocketNgPrivate::connect(const QHostAddress &address, quint16 port)
         } while(result < 0 && errno == EINTR);
         if(result >= 0)
         {
-            state = QSocketNg::ConnectedState;
+            state = QSocket::ConnectedState;
             fetchConnectionParameters();
             return true;
         }
         int t = errno;
         switch (t) {
         case EISCONN:
-            state = QSocketNg::ConnectedState;
+            state = QSocket::ConnectedState;
             fetchConnectionParameters();
             return true;
         case EINPROGRESS:
@@ -252,46 +252,46 @@ bool QSocketNgPrivate::connect(const QHostAddress &address, quint16 port)
 
         case ECONNREFUSED:
         case EINVAL:
-            setError(QSocketNg::ConnectionRefusedError, ConnectionRefusedErrorString);
-            state = QSocketNg::UnconnectedState;
+            setError(QSocket::ConnectionRefusedError, ConnectionRefusedErrorString);
+            state = QSocket::UnconnectedState;
             return false;
         case ETIMEDOUT:
-            setError(QSocketNg::NetworkError, ConnectionTimeOutErrorString);
-            state = QSocketNg::UnconnectedState;
+            setError(QSocket::NetworkError, ConnectionTimeOutErrorString);
+            state = QSocket::UnconnectedState;
             return false;
         case EHOSTUNREACH:
-            setError(QSocketNg::NetworkError, HostUnreachableErrorString);
-            state = QSocketNg::UnconnectedState;
+            setError(QSocket::NetworkError, HostUnreachableErrorString);
+            state = QSocket::UnconnectedState;
             return false;
         case ENETUNREACH:
-            setError(QSocketNg::NetworkError, NetworkUnreachableErrorString);
-            state = QSocketNg::UnconnectedState;
+            setError(QSocket::NetworkError, NetworkUnreachableErrorString);
+            state = QSocket::UnconnectedState;
             return false;
         case EADDRINUSE:
-            setError(QSocketNg::NetworkError, AddressInuseErrorString);
-            state = QSocketNg::UnconnectedState;
+            setError(QSocket::NetworkError, AddressInuseErrorString);
+            state = QSocket::UnconnectedState;
             return false;
         case EADDRNOTAVAIL:
-            setError(QSocketNg::NetworkError, UnknownSocketErrorString);
-            state = QSocketNg::UnconnectedState;
+            setError(QSocket::NetworkError, UnknownSocketErrorString);
+            state = QSocket::UnconnectedState;
             return false;
         case EACCES:
         case EPERM:
-            setError(QSocketNg::SocketAccessError, AccessErrorString);
-            state = QSocketNg::UnconnectedState;
+            setError(QSocket::SocketAccessError, AccessErrorString);
+            state = QSocket::UnconnectedState;
             return false;
         case EAFNOSUPPORT:
         case EBADF:
         case EFAULT:
         case ENOTSOCK:
             fd = -1;
-            setError(QSocketNg::UnsupportedSocketOperationError, UnknownSocketErrorString);
-            state = QSocketNg::UnconnectedState;
+            setError(QSocket::UnsupportedSocketOperationError, UnknownSocketErrorString);
+            state = QSocket::UnconnectedState;
             return false;
         default:
             qDebug() << t << strerror(t);
-            setError(QSocketNg::UnknownSocketError, UnknownSocketErrorString);
-            state = QSocketNg::UnconnectedState;
+            setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
+            state = QSocket::UnconnectedState;
             return false;
         }
         watcher.start();
@@ -300,7 +300,7 @@ bool QSocketNgPrivate::connect(const QHostAddress &address, quint16 port)
 
 
 
-bool QSocketNgPrivate::close()
+bool QSocketPrivate::close()
 {
     if(fd > 0)
     {
@@ -308,7 +308,7 @@ bool QSocketNgPrivate::close()
         EventLoopCoroutine::get()->triggerIoWatchers(fd);
         fd = -1;
     }
-    state = QSocketNg::UnconnectedState;
+    state = QSocket::UnconnectedState;
     localAddress.clear();
     localPort = 0;
     peerAddress.clear();
@@ -316,31 +316,31 @@ bool QSocketNgPrivate::close()
     return true;
 }
 
-bool QSocketNgPrivate::listen(int backlog)
+bool QSocketPrivate::listen(int backlog)
 {
     if(!isValid())
         return false;
-    if(state != QSocketNg::BoundState && state != QSocketNg::UnconnectedState)
+    if(state != QSocket::BoundState && state != QSocket::UnconnectedState)
         return false;
 
     if (::listen(fd, backlog) < 0) {
         switch (errno) {
         case EADDRINUSE:
-            setError(QSocketNg::AddressInUseError, PortInuseErrorString);
+            setError(QSocket::AddressInUseError, PortInuseErrorString);
             break;
         default:
-            setError(QSocketNg::UnknownSocketError, UnknownSocketErrorString);
+            setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
             break;
         }
         return false;
     }
-    state = QSocketNg::ListeningState;
+    state = QSocket::ListeningState;
     fetchConnectionParameters();
     return true;
 }
 
 
-bool QSocketNgPrivate::fetchConnectionParameters()
+bool QSocketPrivate::fetchConnectionParameters()
 {
     localPort = 0;
     localAddress.clear();
@@ -363,19 +363,19 @@ bool QSocketNgPrivate::fetchConnectionParameters()
         switch (sa.a.sa_family)
         {
         case AF_INET:
-            protocol = QSocketNg::IPv4Protocol;
+            protocol = QSocket::IPv4Protocol;
             break;
         case AF_INET6:
-            protocol = QSocketNg::IPv6Protocol;
+            protocol = QSocket::IPv6Protocol;
             break;
         default:
-            protocol = QSocketNg::UnknownNetworkLayerProtocol;
+            protocol = QSocket::UnknownNetworkLayerProtocol;
             break;
         }
     }
     else if (errno == EBADF)
     {
-        setError(QSocketNg::UnsupportedSocketOperationError, InvalidSocketErrorString);
+        setError(QSocket::UnsupportedSocketOperationError, InvalidSocketErrorString);
         return false;
     }
 
@@ -386,13 +386,13 @@ bool QSocketNgPrivate::fetchConnectionParameters()
     // in either case, the IPV6_V6ONLY option is cleared
     int ipv6only = 0;
     socklen_t optlen = sizeof(ipv6only);
-    if (protocol == QSocketNg::IPv6Protocol
+    if (protocol == QSocket::IPv6Protocol
         && (localAddress == QHostAddress::AnyIPv4 || localAddress == QHostAddress::AnyIPv6)
         && !getsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, &optlen )) {
             if (optlen != sizeof(ipv6only))
                 qWarning("unexpected size of IPV6_V6ONLY socket option");
             if (!ipv6only) {
-                protocol = QSocketNg::AnyIPProtocol;
+                protocol = QSocket::AnyIPProtocol;
                 localAddress = QHostAddress::Any;
             }
     }
@@ -408,47 +408,40 @@ bool QSocketNgPrivate::fetchConnectionParameters()
     if (::getsockopt(fd, SOL_SOCKET, SO_TYPE, &value, &valueSize) == 0)
     {
         if (value == SOCK_STREAM)
-            type = QSocketNg::TcpSocket;
+            type = QSocket::TcpSocket;
         else if (value == SOCK_DGRAM)
-            type = QSocketNg::UdpSocket;
+            type = QSocket::UdpSocket;
         else
-            type = QSocketNg::UnknownSocketType;
+            type = QSocket::UnknownSocketType;
     }
     return true;
 }
 
 
-qint64 QSocketNgPrivate::recv(char *data, qint64 size)
+qint64 QSocketPrivate::recv(char *data, qint64 size, bool all)
 {
     if(!isValid()) {
         return -1;
     }
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     qint64 total = 0;
-    while(total < size)
-    {
-        if(!isValid())
-        {
-            setError(QSocketNg::SocketAccessError, AccessErrorString);
+    while(total < size) {
+        if(!isValid()) {
+            setError(QSocket::SocketAccessError, AccessErrorString);
             return total == 0 ? -1: total;
         }
-        if(type == QSocketNg::TcpSocket)
-        {
-            if(state != QSocketNg::ConnectedState)
-            {
-                setError(QSocketNg::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+        if(type == QSocket::TcpSocket) {
+            if(state != QSocket::ConnectedState) {
+                setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
                 return total == 0 ? -1 : total;
             }
-        }
-        else if(type == QSocketNg::UdpSocket)
-        {
-            if(state != QSocketNg::UnconnectedState && state != QSocketNg::BoundState)
-            {
-                setError(QSocketNg::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+        } else if(type == QSocket::UdpSocket) {
+            if(state != QSocket::UnconnectedState && state != QSocket::BoundState) {
+                setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
                 return total == 0 ? -1 : total;
             }
         } else {
-            setError(QSocketNg::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+            setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
             return total == 0 ? -1 : total;
         }
 
@@ -457,8 +450,7 @@ qint64 QSocketNgPrivate::recv(char *data, qint64 size)
             r = ::recv(fd, data + total, size - total, 0);
         } while(r < 0 && errno == EINTR);
 
-        if (r < 0)
-        {
+        if (r < 0) {
             switch (errno) {
 #if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
@@ -469,9 +461,9 @@ qint64 QSocketNgPrivate::recv(char *data, qint64 size)
 #if defined(Q_OS_VXWORKS)
             case ESHUTDOWN:
 #endif
-                if(type == QSocketNg::TcpSocket)
+                if(type == QSocket::TcpSocket)
                 {
-                    setError(QSocketNg::RemoteHostClosedError, RemoteHostClosedErrorString);
+                    setError(QSocket::RemoteHostClosedError, RemoteHostClosedErrorString);
                     close();
                 }
                 return total;
@@ -479,25 +471,24 @@ qint64 QSocketNgPrivate::recv(char *data, qint64 size)
             case EINVAL:
             case EIO:
             default:
-                setError(QSocketNg::NetworkError, InvalidSocketErrorString);
+                setError(QSocket::NetworkError, InvalidSocketErrorString);
                 close();
                 return total == 0 ? -1 : total;
             }
-        }
-        else if(r == 0 && type == QSocketNg::TcpSocket) {
-            setError(QSocketNg::RemoteHostClosedError, RemoteHostClosedErrorString);
+        } else if(r == 0 && type == QSocket::TcpSocket) {
+            setError(QSocket::RemoteHostClosedError, RemoteHostClosedErrorString);
             close();
             return total;
         } else {
             total += r;
-            continue;
+            if(all) continue; else return total;
         }
         watcher.start();
     }
     return total;
 }
 
-//qint64 QSocketNgPrivate::send(const char *data, qint64 size)
+//qint64 QSocketPrivate::send(const char *data, qint64 size)
 //{
 //    if(!isValid()) {
 //        return -1;
@@ -521,25 +512,25 @@ qint64 QSocketNgPrivate::recv(char *data, qint64 size)
 //            case EAGAIN:
 //                break;
 //            case EACCES:
-//                setError(QSocketNg::SocketAccessError);
+//                setError(QSocket::SocketAccessError);
 //                return -1;
 //            case EBADF:
 //            case EFAULT:
 //            case EINVAL:
 //            case ENOTCONN:
 //            case ENOTSOCK:
-//                setError(QSocketNg::UnsupportedSocketOperationError);
+//                setError(QSocket::UnsupportedSocketOperationError);
 //                close();
 //                return -1;
 //            case EMSGSIZE:
 //            case ENOBUFS:
 //            case ENOMEM:
-//                setError(QSocketNg::DatagramTooLargeError);
+//                setError(QSocket::DatagramTooLargeError);
 //                return -1;
 //            case EPIPE:
 //            case ECONNRESET:
 //            default:
-//                setError(QSocketNg::RemoteHostClosedError);
+//                setError(QSocket::RemoteHostClosedError);
 //                close();
 //                return -1;
 //            }
@@ -548,7 +539,7 @@ qint64 QSocketNgPrivate::recv(char *data, qint64 size)
 //    }
 //}
 
-qint64 QSocketNgPrivate::send(const char *data, qint64 size, bool all)
+qint64 QSocketPrivate::send(const char *data, qint64 size, bool all)
 {
     if(!isValid()) {
         return 0;
@@ -575,7 +566,7 @@ qint64 QSocketNgPrivate::send(const char *data, qint64 size, bool all)
             case EAGAIN:
                 break;
             case EACCES:
-                setError(QSocketNg::SocketAccessError, AccessErrorString);
+                setError(QSocket::SocketAccessError, AccessErrorString);
                 close();
                 return sent;
             case EBADF:
@@ -583,21 +574,21 @@ qint64 QSocketNgPrivate::send(const char *data, qint64 size, bool all)
             case EINVAL:
             case ENOTCONN:
             case ENOTSOCK:
-                setError(QSocketNg::UnsupportedSocketOperationError, InvalidSocketErrorString);
+                setError(QSocket::UnsupportedSocketOperationError, InvalidSocketErrorString);
                 close();
                 return sent;
             case EMSGSIZE:
             case ENOBUFS:
             case ENOMEM:
-                setError(QSocketNg::DatagramTooLargeError, DatagramTooLargeErrorString);
+                setError(QSocket::DatagramTooLargeError, DatagramTooLargeErrorString);
                 return sent;
             case EPIPE:
             case ECONNRESET:
-                setError(QSocketNg::RemoteHostClosedError, RemoteHostClosedErrorString);
+                setError(QSocket::RemoteHostClosedError, RemoteHostClosedErrorString);
                 close();
                 return sent;
             default:
-                setError(QSocketNg::UnknownSocketError, UnknownSocketErrorString);
+                setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
                 close();
                 return sent;
             }
@@ -607,7 +598,7 @@ qint64 QSocketNgPrivate::send(const char *data, qint64 size, bool all)
     return sent;
 }
 
-qint64 QSocketNgPrivate::recvfrom(char *data, qint64 maxSize, QHostAddress *addr, quint16 *port)
+qint64 QSocketPrivate::recvfrom(char *data, qint64 maxSize, QHostAddress *addr, quint16 *port)
 {
     if(!isValid()) {
         return 0;
@@ -650,14 +641,14 @@ qint64 QSocketNgPrivate::recvfrom(char *data, qint64 maxSize, QHostAddress *addr
 #if defined(Q_OS_VXWORKS)
             case ESHUTDOWN:
 #endif
-                if(type == QSocketNg::TcpSocket)
+                if(type == QSocket::TcpSocket)
                 {
-                    setError(QSocketNg::RemoteHostClosedError, RemoteHostClosedErrorString);
+                    setError(QSocket::RemoteHostClosedError, RemoteHostClosedErrorString);
                     close();
                 }
                 return -1;
             case ENOMEM:
-                setError(QSocketNg::SocketResourceError, ResourceErrorString);
+                setError(QSocket::SocketResourceError, ResourceErrorString);
                 return -1;
             case ENOTSOCK:
             case EBADF:
@@ -665,7 +656,7 @@ qint64 QSocketNgPrivate::recvfrom(char *data, qint64 maxSize, QHostAddress *addr
             case EIO:
             case EFAULT:
             default:
-                setError(QSocketNg::NetworkError, InvalidSocketErrorString);
+                setError(QSocket::NetworkError, InvalidSocketErrorString);
                 close();
                 return -1;
             }
@@ -678,7 +669,7 @@ qint64 QSocketNgPrivate::recvfrom(char *data, qint64 maxSize, QHostAddress *addr
     }
 }
 
-qint64 QSocketNgPrivate::sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port)
+qint64 QSocketPrivate::sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port)
 {
     if(!isValid()) {
         return -1;
@@ -722,32 +713,32 @@ qint64 QSocketNgPrivate::sendto(const char *data, qint64 size, const QHostAddres
             case EAGAIN:
                 break;
             case EACCES:
-                setError(QSocketNg::SocketAccessError, AccessErrorString);
+                setError(QSocket::SocketAccessError, AccessErrorString);
                 return -1;
             case EMSGSIZE:
-                setError(QSocketNg::DatagramTooLargeError, DatagramTooLargeErrorString);
+                setError(QSocket::DatagramTooLargeError, DatagramTooLargeErrorString);
                 return -1;
             case ECONNRESET:
             case ENOTSOCK:
-                if(type == QSocketNg::TcpSocket)
+                if(type == QSocket::TcpSocket)
                 {
-                    setError(QSocketNg::RemoteHostClosedError, RemoteHostClosedErrorString);
+                    setError(QSocket::RemoteHostClosedError, RemoteHostClosedErrorString);
                     close();
                 }
                 return -1;
             case EDESTADDRREQ: // not happen in sendto()
             case EISCONN: // happens in udp socket
             case ENOTCONN: // happens in tcp socket
-                setError(QSocketNg::UnsupportedSocketOperationError,InvalidSocketErrorString);
+                setError(QSocket::UnsupportedSocketOperationError,InvalidSocketErrorString);
                 return -1;
             case ENOBUFS:
             case ENOMEM:
-                setError(QSocketNg::SocketResourceError, ResourceErrorString);
+                setError(QSocket::SocketResourceError, ResourceErrorString);
                 return -1;
             case EFAULT:
             case EINVAL:
             default:
-                setError(QSocketNg::NetworkError, InvalidSocketErrorString);
+                setError(QSocket::NetworkError, InvalidSocketErrorString);
                 return -1;
             }
         }
@@ -760,37 +751,37 @@ qint64 QSocketNgPrivate::sendto(const char *data, qint64 size, const QHostAddres
 }
 
 
-static void convertToLevelAndOption(QSocketNg::SocketOption opt,
-                                    QSocketNg::NetworkLayerProtocol socketProtocol, int *level, int *n)
+static void convertToLevelAndOption(QSocket::SocketOption opt,
+                                    QSocket::NetworkLayerProtocol socketProtocol, int *level, int *n)
 {
     *n = -1;
     *level = SOL_SOCKET; // default
 
     switch (opt) {
-    case QSocketNg::BroadcastSocketOption:
+    case QSocket::BroadcastSocketOption:
         *n = SO_BROADCAST;
         break;
-    case QSocketNg::ReceiveBufferSizeSocketOption:
+    case QSocket::ReceiveBufferSizeSocketOption:
         *n = SO_RCVBUF;
         break;
-    case QSocketNg::SendBufferSizeSocketOption:
+    case QSocket::SendBufferSizeSocketOption:
         *n = SO_SNDBUF;
         break;
-    case QSocketNg::AddressReusable:
+    case QSocket::AddressReusable:
         *n = SO_REUSEADDR;
         break;
-    case QSocketNg::ReceiveOutOfBandData:
+    case QSocket::ReceiveOutOfBandData:
         *n = SO_OOBINLINE;
         break;
-    case QSocketNg::LowDelayOption:
+    case QSocket::LowDelayOption:
         *level = IPPROTO_TCP;
         *n = TCP_NODELAY;
         break;
-    case QSocketNg::KeepAliveOption:
+    case QSocket::KeepAliveOption:
         *n = SO_KEEPALIVE;
         break;
-    case QSocketNg::MulticastTtlOption:
-        if (socketProtocol == QSocketNg::IPv6Protocol || socketProtocol == QSocketNg::AnyIPProtocol) {
+    case QSocket::MulticastTtlOption:
+        if (socketProtocol == QSocket::IPv6Protocol || socketProtocol == QSocket::AnyIPProtocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_MULTICAST_HOPS;
         } else
@@ -799,8 +790,8 @@ static void convertToLevelAndOption(QSocketNg::SocketOption opt,
             *n = IP_MULTICAST_TTL;
         }
         break;
-    case QSocketNg::MulticastLoopbackOption:
-        if (socketProtocol == QSocketNg::IPv6Protocol || socketProtocol == QSocketNg::AnyIPProtocol) {
+    case QSocket::MulticastLoopbackOption:
+        if (socketProtocol == QSocket::IPv6Protocol || socketProtocol == QSocket::AnyIPProtocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_MULTICAST_LOOP;
         } else
@@ -809,17 +800,17 @@ static void convertToLevelAndOption(QSocketNg::SocketOption opt,
             *n = IP_MULTICAST_LOOP;
         }
         break;
-    case QSocketNg::TypeOfServiceOption:
-        if (socketProtocol == QSocketNg::IPv4Protocol) {
+    case QSocket::TypeOfServiceOption:
+        if (socketProtocol == QSocket::IPv4Protocol) {
             *level = IPPROTO_IP;
             *n = IP_TOS;
         }
         break;
-    case QSocketNg::ReceivePacketInformation:
-        if (socketProtocol == QSocketNg::IPv6Protocol || socketProtocol == QSocketNg::AnyIPProtocol) {
+    case QSocket::ReceivePacketInformation:
+        if (socketProtocol == QSocket::IPv6Protocol || socketProtocol == QSocket::AnyIPProtocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_RECVPKTINFO;
-        } else if (socketProtocol == QSocketNg::IPv4Protocol) {
+        } else if (socketProtocol == QSocket::IPv4Protocol) {
             *level = IPPROTO_IP;
 #ifdef IP_PKTINFO
             *n = IP_PKTINFO;
@@ -830,33 +821,33 @@ static void convertToLevelAndOption(QSocketNg::SocketOption opt,
 #endif
         }
         break;
-    case QSocketNg::ReceiveHopLimit:
-        if (socketProtocol == QSocketNg::IPv6Protocol || socketProtocol == QSocketNg::AnyIPProtocol) {
+    case QSocket::ReceiveHopLimit:
+        if (socketProtocol == QSocket::IPv6Protocol || socketProtocol == QSocket::AnyIPProtocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_RECVHOPLIMIT;
-        } else if (socketProtocol == QSocketNg::IPv4Protocol) {
+        } else if (socketProtocol == QSocket::IPv4Protocol) {
 #ifdef IP_RECVTTL               // IP_RECVTTL is a non-standard extension supported on some OS
             *level = IPPROTO_IP;
             *n = IP_RECVTTL;
 #endif
         }
         break;
-    case QSocketNg::MaxStreamsSocketOption:
+    case QSocket::MaxStreamsSocketOption:
         // FIXME support stcp
         break;
-    case QSocketNg::NonBlockingSocketOption:
-    case QSocketNg::BindExclusively:
+    case QSocket::NonBlockingSocketOption:
+    case QSocket::BindExclusively:
         Q_UNREACHABLE();
     }
 }
 
 
-QVariant QSocketNgPrivate::option(QSocketNg::SocketOption option) const
+QVariant QSocketPrivate::option(QSocket::SocketOption option) const
 {
     if(!isValid())
         return QVariant();
 
-    if(option == QSocketNg::BroadcastSocketOption) {
+    if(option == QSocket::BroadcastSocketOption) {
         return QVariant(true);
     }
     int n, level;
@@ -871,12 +862,12 @@ QVariant QSocketNgPrivate::option(QSocketNg::SocketOption option) const
 }
 
 
-bool QSocketNgPrivate::setOption(QSocketNg::SocketOption option, const QVariant &value)
+bool QSocketPrivate::setOption(QSocket::SocketOption option, const QVariant &value)
 {
     if(!isValid())
         return false;
 
-    if(option == QSocketNg::BroadcastSocketOption) {
+    if(option == QSocket::BroadcastSocketOption) {
         return true;
     }
 
@@ -889,7 +880,7 @@ bool QSocketNgPrivate::setOption(QSocketNg::SocketOption option, const QVariant 
     convertToLevelAndOption(option, protocol, &level, &n);
 
 #if defined(SO_REUSEPORT) && !defined(Q_OS_LINUX)
-    if (option == QSocketNg::AddressReusable) {
+    if (option == QSocket::AddressReusable) {
         // on OS X, SO_REUSEADDR isn't sufficient to allow multiple binds to the
         // same port (which is useful for multicast UDP). SO_REUSEPORT is, but
         // we most definitely do not want to use this for TCP. See QTBUG-6305.
@@ -900,7 +891,7 @@ bool QSocketNgPrivate::setOption(QSocketNg::SocketOption option, const QVariant 
     return ::setsockopt(fd, level, n, reinterpret_cast<char*>(&v), sizeof(v)) == 0;
 }
 
-bool QSocketNgPrivate::setNonblocking()
+bool QSocketPrivate::setNonblocking()
 {
 #if !defined(Q_OS_VXWORKS)
         int flags = ::fcntl(fd, F_GETFL, 0);
@@ -948,13 +939,13 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrle
     return fd;
 }
 
-QSocketNg *QSocketNgPrivate::accept()
+QSocket *QSocketPrivate::accept()
 {
     if(!isValid()) {
         return 0;
     }
 
-    if(state != QSocketNg::ListeningState || type != QSocketNg::TcpSocket) {
+    if(state != QSocket::ListeningState || type != QSocket::TcpSocket) {
         return 0;
     }
 
@@ -966,33 +957,33 @@ QSocketNg *QSocketNgPrivate::accept()
             switch (errno) {
             case EBADF:
             case EOPNOTSUPP:
-                setError(QSocketNg::UnsupportedSocketOperationError, InvalidSocketErrorString);
+                setError(QSocket::UnsupportedSocketOperationError, InvalidSocketErrorString);
                 return 0;
             case ECONNABORTED:
-                setError(QSocketNg::NetworkError, RemoteHostClosedErrorString);
+                setError(QSocket::NetworkError, RemoteHostClosedErrorString);
                 return 0;
             case EFAULT:
             case ENOTSOCK:
-                setError(QSocketNg::SocketResourceError, NotSocketErrorString);
+                setError(QSocket::SocketResourceError, NotSocketErrorString);
                 return 0;
             case EPROTONOSUPPORT:
             case EPROTO:
             case EAFNOSUPPORT:
             case EINVAL:
-                setError(QSocketNg::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
+                setError(QSocket::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
                 return 0;
             case ENFILE:
             case EMFILE:
             case ENOBUFS:
             case ENOMEM:
-                setError(QSocketNg::SocketResourceError, ResourceErrorString);
+                setError(QSocket::SocketResourceError, ResourceErrorString);
                 return 0;
             case EACCES:
             case EPERM:
-                setError(QSocketNg::SocketAccessError, AccessErrorString);
+                setError(QSocket::SocketAccessError, AccessErrorString);
                 return 0;
             default:
-                setError(QSocketNg::UnknownSocketError, UnknownSocketErrorString);
+                setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
                 return 0;
 #if EAGAIN != EWOULDBLOCK
             case EWOULDBLOCK:
@@ -1003,7 +994,7 @@ QSocketNg *QSocketNgPrivate::accept()
         }
         else
         {
-            QSocketNg *conn = new QSocketNg(acceptedDescriptor);
+            QSocket *conn = new QSocket(acceptedDescriptor);
             return conn;
         }
         watcher.start();

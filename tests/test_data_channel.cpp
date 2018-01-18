@@ -11,26 +11,21 @@ public:
         setObjectName("server");
     }
 
-    ~ServerCoroutine()
-    {
-//        qDebug() << "delete server.";
-    }
-
     virtual void run()
     {
-        qtng::QSocketNg server;
-        bool success = server.bind((quint16)7923, qtng::QSocketNg::ReuseAddressHint);
+        qtng::QSocket server;
+        bool success = server.bind((quint16)7923, qtng::QSocket::ReuseAddressHint);
         if(!success) {
             qDebug() << "port is used.";
             return;
         }
         server.listen(5);
-        qtng::QSocketNg *request = server.accept();
+        qtng::QSocket *request = server.accept();
         if(!request) {
             qDebug() << "bad request.";
             return;
         }
-        qtng::SocketChannel channel(QSharedPointer<qtng::QSocketNg>(request), qtng::NegativePole);
+        qtng::SocketChannel channel(QSharedPointer<qtng::QSocket>(request), qtng::NegativePole);
         channel.setName("server_channel");
         QByteArray t = channel.recvPacket();
         quint32 channelNumber = t.toUInt();
@@ -39,9 +34,6 @@ public:
         if(subChannel.isNull()) {
             return;
         }
-        qDebug() << "exit server.";
-        return;
-//        channel.close();
         while(true) {
             const QByteArray &packet = subChannel->recvPacket();
             if(packet.isEmpty()) {
@@ -49,6 +41,7 @@ public:
             }
             qDebug() << packet;
         }
+        qDebug() << "exit server.";
     }
 };
 
@@ -63,7 +56,7 @@ public:
 
     virtual void run()
     {
-        QSharedPointer<qtng::QSocketNg> client = QSharedPointer<qtng::QSocketNg>::create();
+        QSharedPointer<qtng::QSocket> client = QSharedPointer<qtng::QSocket>::create();
         bool success = client->connect(QHostAddress::LocalHost, 7923);
         if(!success) {
             return;
@@ -84,7 +77,7 @@ public:
     }
 };
 
-int main(int argc, char** argv) //simple_data_channel
+int test_datachannel(int argc, char** argv) //simple_data_channel
 {
     QCoreApplication app(argc, argv);
     Q_UNUSED(app);

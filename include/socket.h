@@ -1,11 +1,11 @@
-#ifndef QTNG_SOCKET_NG_H
-#define QTNG_SOCKET_NG_H
+#ifndef QTNG_SOCKET_H
+#define QTNG_SOCKET_H
 
-#include <QtCore/QString>
-#include <QtCore/QByteArray>
-#include <QtCore/QObject>
-#include <QtNetwork/QHostAddress>
-#include <QtNetwork/QHostInfo>
+#include <QtCore/qstring.h>
+#include <QtCore/qbytearray.h>
+#include <QtCore/qobject.h>
+#include <QtNetwork/qhostaddress.h>
+#include <QtNetwork/qhostinfo.h>
 
 #include "eventloop.h"
 #include "locks.h"
@@ -27,12 +27,12 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-class QSocketNgPrivate;
-class QTcpSocketNgPrivate;
-class QTcpServerNgPrivate;
-class QSocketNgDnsCache;
+class QSocketPrivate;
+class QTcpSocketPrivate;
+class QTcpServerPrivate;
+class QSocketDnsCache;
 
-class QSocketNg: public QObject
+class QSocket: public QObject
 {
 public:
     enum SocketType {
@@ -113,9 +113,9 @@ public:
     };
     Q_DECLARE_FLAGS(BindMode, BindFlag)
 public:
-    QSocketNg(NetworkLayerProtocol protocol = AnyIPProtocol, SocketType type = TcpSocket);
-    QSocketNg(qintptr socketDescriptor);
-    virtual ~QSocketNg();
+    QSocket(NetworkLayerProtocol protocol = AnyIPProtocol, SocketType type = TcpSocket);
+    QSocket(qintptr socketDescriptor);
+    virtual ~QSocket();
 public:
     SocketError error() const;
     QString errorString() const;
@@ -130,7 +130,7 @@ public:
     SocketState state() const;
     NetworkLayerProtocol protocol() const;
 
-    QSocketNg *accept();
+    QSocket *accept();
     bool bind(QHostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool bind(quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool connect(const QHostAddress &host, quint16 port);
@@ -141,11 +141,13 @@ public:
     QVariant option(SocketOption option) const;
 
     qint64 recv(char *data, qint64 size);
+    qint64 recvall(char *data, qint64 size);
     qint64 send(const char *data, qint64 size);
     qint64 sendall(const char *data, qint64 size);
     qint64 recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port);
     qint64 sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port);
 
+    QByteArray recvall(qint64 size);
     QByteArray recv(qint64 size);
     qint64 send(const QByteArray &data);
     qint64 sendall(const QByteArray &data);
@@ -153,15 +155,15 @@ public:
     qint64 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port);
 
     static QList<QHostAddress> resolve(const QString &hostName);
-    void setDnsCache(QSharedPointer<QSocketNgDnsCache> dnsCache);
+    void setDnsCache(QSharedPointer<QSocketDnsCache> dnsCache);
 protected:
-    QSocketNgPrivate * const d_ptr;
+    QSocketPrivate * const d_ptr;
 private:
-    Q_DECLARE_PRIVATE(QSocketNg)
-    Q_DISABLE_COPY(QSocketNg)
+    Q_DECLARE_PRIVATE(QSocket)
+    Q_DISABLE_COPY(QSocket)
 };
 
-Q_DECLARE_OPERATORS_FOR_FLAGS(QSocketNg::BindMode)
+Q_DECLARE_OPERATORS_FOR_FLAGS(QSocket::BindMode)
 
 class PollPrivate;
 class Poll
@@ -170,32 +172,32 @@ public:
     Poll();
     virtual ~Poll();
 public:
-    void add(QSocketNg *socket, EventLoopCoroutine::EventType event);
-    void remove(QSocketNg *socket);
-    QSocketNg *wait(qint64 msecs = 0);
+    void add(QSocket *socket, EventLoopCoroutine::EventType event);
+    void remove(QSocket *socket);
+    QSocket *wait(qint64 msecs = 0);
 private:
     PollPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Poll)
 };
 
-class QSocketNgDnsCachePrivate;
-class QSocketNgDnsCache
+class QSocketDnsCachePrivate;
+class QSocketDnsCache
 {
 public:
-    QSocketNgDnsCache();
-    virtual ~QSocketNgDnsCache();
+    QSocketDnsCache();
+    virtual ~QSocketDnsCache();
 public:
     QList<QHostAddress> resolve(const QString &hostName);
 private:
-    QSocketNgDnsCachePrivate * const d_ptr;
-    Q_DECLARE_PRIVATE(QSocketNgDnsCache)
+    QSocketDnsCachePrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(QSocketDnsCache)
 };
 
 
 QTNETWORKNG_NAMESPACE_END
 
-Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::QSocketNg::SocketState)
-Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::QSocketNg::SocketError)
+Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::QSocket::SocketState)
+Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::QSocket::SocketError)
 
 
-#endif // QTNG_SOCKET_NG_H
+#endif // QTNG_SOCKET_H

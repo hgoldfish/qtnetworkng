@@ -6,38 +6,42 @@ QMAKE_CXXFLAGS += -Wno-invalid-offsetof
 
 #INCLUDEPATH += $$PWD/include/
 
-SOURCES += $$PWD/src/socket_ng.cpp \
+SOURCES += \
+    $$PWD/src/socket.cpp \
     $$PWD/src/eventloop.cpp \
     $$PWD/src/coroutine.cpp \
     $$PWD/src/locks.cpp \
     $$PWD/src/coroutine_utils.cpp \
-    $$PWD/src/http_ng.cpp \
-    $$PWD/contrib/data_channel.cpp
+    $$PWD/src/http.cpp \
+    $$PWD/contrib/data_channel.cpp \
+    $$PWD/src/socket_utils.cpp
 
 unix {
-    SOURCES += $$PWD/src/socket_ng_unix.cpp \
+    SOURCES += $$PWD/src/socket_unix.cpp \
         $$PWD/src/coroutine_unix.cpp
 }
 
 windows{
-    SOURCES += $$PWD/src/socket_ng_win.cpp \
+    SOURCES += $$PWD/src/socket_win.cpp \
         $$PWD/src/coroutine_win.cpp
     LIBS += -lws2_32
 }
 
 HEADERS += \
     $$PWD/qtnetworkng.h \
+    $$PWD/include/config.h \
     $$PWD/include/coroutine.h \
-    $$PWD/include/socket_ng.h \
-    $$PWD/include/socket_ng_p.h \
+    $$PWD/include/socket.h \
+    $$PWD/include/socket_p.h \
     $$PWD/include/eventloop.h \
     $$PWD/include/locks.h \
     $$PWD/include/coroutine_utils.h \
     $$PWD/include/coroutine_p.h \
-    $$PWD/include/http_ng.h \
-    $$PWD/include/http_ng_p.h \
+    $$PWD/include/http.h \
+    $$PWD/include/http_p.h \
     $$PWD/contrib/data_pack.h \
-    $$PWD/contrib/data_channel.h
+    $$PWD/contrib/data_channel.h \
+    $$PWD/include/socket_utils.h
 
 
 networkng_ev {

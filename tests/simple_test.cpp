@@ -3,6 +3,7 @@
 #include <QList>
 #include <QTime>
 #include "qtnetworkng.h"
+#include "qtsslng.h"
 
 class GetNeteaseCoroutine: public qtng::QCoroutine
 {
@@ -22,7 +23,7 @@ void GetNeteaseCoroutine::run()
 {
     qtng::QTimeout out(5000);Q_UNUSED(out);
     try{
-        qtng::HttpResponse response = session->get(QString::fromUtf8("http://www.163.com/"));
+        qtng::HttpResponse response = session->get(QString::fromUtf8("https://www.baidu.com/"));
         qDebug() << response.html();
     } catch(qtng::RequestException &e) {
         qDebug() << "got exception: " << e.what();
@@ -32,7 +33,7 @@ void GetNeteaseCoroutine::run()
 
 
 
-int get_netease(int argc, char *argv[])
+int get_baidu(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
     Q_UNUSED(app);
@@ -42,7 +43,7 @@ int get_netease(int argc, char *argv[])
     for(int i = 0; i < 500; ++i)
     {
         qtng::QCoroutine *coroutine = new GetNeteaseCoroutine(&session);
-        coroutine->setObjectName(QString::fromUtf8("get_netease_%1").arg(i + 1));
+        coroutine->setObjectName(QString::fromUtf8("get_baidu%1").arg(i + 1));
         operations.add(coroutine);
         coroutine->start();
     }

@@ -19,7 +19,7 @@ void DeferCallThread::run()
     func();
     if(!eventloop.isNull()) {
         eventloop->callLaterThreadSafe(0, yieldCoroutine);
-        eventloop->callLaterThreadSafe(0, new DeleteLaterFunctor<DeferCallThread>(this));
+        eventloop->callLaterThreadSafe(100, new DeleteLaterFunctor<DeferCallThread>(this));
     } else {
         delete yieldCoroutine;
     }

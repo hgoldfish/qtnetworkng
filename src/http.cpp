@@ -4,8 +4,10 @@
 #include <QtCore/QJsonParseError>
 #include <QtCore/QDateTime>
 #include <QtCore/QTextCodec>
-#include "../include/http_ng_p.h"
-#include "../include/socket_ng.h"
+#include "../include/http_p.h"
+#include "../include/socket.h"
+#include "../include/socket_utils.h"
+#include "../include/ssl.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -217,6 +219,7 @@ static QStringList knownHeaders = {
     QString::fromUtf8("Allow"),
     QString::fromUtf8("Vary"),
     QString::fromUtf8("X-Frame-Options"),
+    QString::fromUtf8("MIME-Version"),
 };
 
 QString normalizeHeaderName(const QString &headerName) {
@@ -321,8 +324,12 @@ void HttpRequest::setFormData(FormData &formData, const QString &method)
 {
     this->method = method;
     QString contentType = QString::fromLatin1("multipart/form-data; boundary=%1").arg(QString::fromLatin1(formData.boundary));
-    this->headers.insert(QString::fromUtf8("Content-Type"), contentType.toLatin1());
-    this->body = formData.toByteArray();
+    headers.insert(QString::fromUtf8("Content-Type"), contentType.toLatin1());
+    QString mimeHeader("MIME-Version");
+    if(!headers.contains(mimeHeader)) {
+        headers.insert(mimeHeader, QByteArray("1.0"));
+    }
+    body = formData.toByteArray();
 }
 
 HttpRequest HttpRequest::fromFormData(const FormData &formData)
@@ -404,10 +411,10 @@ void HttpSessionPrivate::setDefaultUserAgent(const QString &userAgent)
 
 struct HeaderSplitter
 {
-    QSocketNg *connection;
+    QSharedPointer<SocketLike> connection;
     QByteArray buf;
 
-    HeaderSplitter(QSocketNg *connection)
+    HeaderSplitter(QSharedPointer<SocketLike> connection)
         :connection(connection) {}
 
     QByteArray nextLine()
@@ -471,7 +478,7 @@ QList<QByteArray> splitBytes(const QByteArray &bs, char sep, int maxSplit = -1)
 HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 {
     QUrl &url = request.url;
-    if(url.scheme() != QString::fromUtf8("http")) {
+    if(url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https")) {
         qDebug() << "invalid scheme";
         throw ConnectionError();
     }
@@ -493,10 +500,19 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     ScopedLock<Semaphore> lock(*connectionSemaphores[url.host()]);Q_UNUSED(lock);
 
 
-    QSocketNg connection;
-    connection.setDnsCache(dnsCache);
-    if(!connection.connect(url.host(), url.port(80))) {
-        qDebug() << "can not connect to host: " << url.host() << connection.errorString();
+    QSharedPointer<QSocket> rawSocket(new QSocket);
+    rawSocket->setDnsCache(dnsCache);
+
+    QSharedPointer<SocketLike> connection;
+    int defaultPort = 80;
+    if(url.scheme() == QStringLiteral("http")) {
+        connection = SocketLike::rawSocket(rawSocket);
+    } else {
+        connection = SocketLike::sslSocket(QSharedPointer<SslSocket>::create(rawSocket));
+        defaultPort = 443;
+    }
+    if(!connection->connect(url.host(), url.port(defaultPort))) {
+        qDebug() << "can not connect to host: " << url.host() << connection->errorString();
         throw ConnectionError();
     }
 
@@ -510,20 +526,20 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     if(debugLevel > 0) {
         qDebug() << "sending headers:" << lines.join();
     }
-    connection.sendall(lines.join());
+    connection->sendall(lines.join());
 
     if(!request.body.isEmpty()) {
         if(debugLevel > 1) {
             qDebug() << "sending body:" << request.body;
         }
-        connection.sendall(request.body);
+        connection->sendall(request.body);
     }
 
     HttpResponse response;
     response.request = request;
     response.url = request.url;  // redirect?
 
-    HeaderSplitter splitter(&connection);
+    HeaderSplitter splitter(connection);
 
     QByteArray firstLine = splitter.nextLine();
 
@@ -580,7 +596,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         } else {
             while(response.body.size() < contentLength) {
                 qint64 leftBytes = qMin((qint64) 1024 * 8, contentLength - response.body.size());
-                QByteArray t = connection.recv(leftBytes);
+                QByteArray t = connection->recv(leftBytes);
                 if(t.isEmpty()) {
                     qDebug() << "no content!";
                     throw ConnectionError();
@@ -590,7 +606,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         }
     } else if(response.getContentLength() < 0){
         while(response.body.size() < request.maxBodySize) {
-            QByteArray t = connection.recv(1024 * 8);
+            QByteArray t = connection->recv(1024 * 8);
             if(t.isEmpty()) {
                 break;
             }

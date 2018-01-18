@@ -1,16 +1,10 @@
 #ifndef QTNG_COROUTINE_H
 #define QTNG_COROUTINE_H
 
-#include <QtCore/QObject>
-#include <QtCore/QString>
-#include <QtCore/QDebug>
-
-#ifndef QTNETWORKNG_NAMESPACE
-#define QTNETWORKNG_NAMESPACE qtng
-#endif
-
-#define QTNETWORKNG_NAMESPACE_BEGIN namespace QTNETWORKNG_NAMESPACE {
-#define QTNETWORKNG_NAMESPACE_END }
+#include <QtCore/qobject.h>
+#include <QtCore/qstring.h>
+#include <QtCore/qdebug.h>
+#include "config.h"
 
 
 QTNETWORKNG_NAMESPACE_BEGIN

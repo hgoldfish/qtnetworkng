@@ -84,7 +84,7 @@ bool QBaseCoroutinePrivate::initContext()
     if(context)
         return true;
 
-    context = CreateFiberEx(1024*4, stackSize, FIBER_FLAG_FLOAT_SWITCH, (PFIBER_START_ROUTINE)QBaseCoroutinePrivate::run_stub, this);
+    context = CreateFiberEx(1024*4, stackSize, 0, (PFIBER_START_ROUTINE)QBaseCoroutinePrivate::run_stub, this);
     if(context == NULL) {
         DWORD error = GetLastError();
         qDebug() << QString::fromUtf8("can not create fiber: error is %1").arg(error);
@@ -163,7 +163,7 @@ QBaseCoroutine* createMainCoroutine()
     if(!main)
         return 0;
     QBaseCoroutinePrivate *mainPrivate = main->d_ptr;
-    mainPrivate->context = ConvertThreadToFiberEx(NULL, FIBER_FLAG_FLOAT_SWITCH);
+    mainPrivate->context = ConvertThreadToFiberEx(NULL, 0);
     if(mainPrivate->context == NULL)
     {
         DWORD error = GetLastError();

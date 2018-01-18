@@ -2,10 +2,10 @@
 #define QTNG_EVENTLOOP_NG_H
 
 #include <functional>
-#include <QtCore/QThreadStorage>
-#include <QtCore/QVariantList>
-#include <QtCore/QDebug>
-#include <QtCore/QPointer>
+#include <QtCore/qthreadstorage.h>
+#include <QtCore/qvariant.h>
+#include <QtCore/qdebug.h>
+#include <QtCore/qpointer.h>
 #include "coroutine.h"
 
 

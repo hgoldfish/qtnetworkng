@@ -1,5 +1,5 @@
-#ifndef QTNG_HTTP_NG_H
-#define QTNG_HTTP_NG_H
+#ifndef QTNG_HTTP_H
+#define QTNG_HTTP_H
 
 #include <QtCore/QString>
 #include <QtCore/QMap>
@@ -326,4 +326,4 @@ public:
 
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_HTTP_NG_H
+#endif // QTNG_HTTP_H

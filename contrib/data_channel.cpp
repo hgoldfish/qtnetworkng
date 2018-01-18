@@ -172,7 +172,7 @@ struct WritingPacket
 
 struct SocketChannelPrivate: public DataChannelPrivate
 {
-    SocketChannelPrivate(const QSharedPointer<QSocketNg> connection, DataChannelPole pole, SocketChannel *parent);
+    SocketChannelPrivate(const QSharedPointer<QSocket> connection, DataChannelPole pole, SocketChannel *parent);
     virtual ~SocketChannelPrivate() override;
     virtual bool isBroken() const override;
     virtual void close() override;
@@ -184,7 +184,7 @@ struct SocketChannelPrivate: public DataChannelPrivate
     void doReceive();
     QHostAddress getPeerAddress();
 
-    const QSharedPointer<QSocketNg> connection;
+    const QSharedPointer<QSocket> connection;
     Queue<WritingPacket> sendingQueue;
     CoroutineGroup *operations;
 
@@ -370,10 +370,10 @@ void DataChannelPrivate::notifyChannelClose(quint32 channelNumber)
     sendPacketRawAsync(CommandChannelNumber, packDestoryChannelRequest(channelNumber));
 }
 
-SocketChannelPrivate::SocketChannelPrivate(const QSharedPointer<QSocketNg> connection, DataChannelPole pole, SocketChannel *parent)
+SocketChannelPrivate::SocketChannelPrivate(const QSharedPointer<QSocket> connection, DataChannelPole pole, SocketChannel *parent)
     :DataChannelPrivate(pole, parent), connection(connection), sendingQueue(1024), operations(new CoroutineGroup())
 {
-    connection->setOption(QSocketNg::LowDelayOption, true);
+    connection->setOption(QSocket::LowDelayOption, true);
     operations->spawnWithName(QString::fromLatin1("receivingCoroutine"), [this]{
         this->doReceive();
     });
@@ -749,7 +749,7 @@ bool VirtualChannelPrivate::sendPacketRawAsync(quint32 channelNumber, const QByt
 }
 
 
-SocketChannel::SocketChannel(const QSharedPointer<QSocketNg> connection, DataChannelPole pole)
+SocketChannel::SocketChannel(const QSharedPointer<QSocket> connection, DataChannelPole pole)
     :DataChannel(new SocketChannelPrivate(connection, pole, this))
 {
 
