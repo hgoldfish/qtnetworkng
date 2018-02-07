@@ -28,6 +28,7 @@ private slots:
     void testGenDSA();
     void testSignDSA();
     void testCryptoDSA();
+    void testCertificate();
 };
 
 void TestCrypto::testMd4()
@@ -178,10 +179,10 @@ void TestCrypto::testSaveLoadRsa()
     QByteArray pem2 = key1.savePublic();
     qDebug() << pem2;
     QVERIFY(!pem2.isEmpty());
-    PrivateKey key2 = PrivateKeyReader().setFormat(PrivateKey::Pem).setPassword("123456").read(pem);
+    PrivateKey key2 = PrivateKeyReader().setFormat(Ssl::Pem).setPassword("123456").read(pem);
 
     PrivateKey key3 = PrivateKey::generate(PrivateKey::Rsa, 2048);
-    PublicKey key4 = PrivateKeyReader().setFormat(PrivateKey::Pem).readPublic(pem2);
+    PublicKey key4 = PrivateKeyReader().setFormat(Ssl::Pem).readPublic(pem2);
     qDebug() << key4.save();
     QCOMPARE(key1, key2);
     QVERIFY(key1 != key3);
@@ -215,5 +216,40 @@ void TestCrypto::testCryptoDSA()
     QByteArray entext = key.encrypt(text);
 //    QCOMPARE(key.decrypt(entext), text);
 }
+
+QString first(const QStringList &l) {
+    if(l.size() > 0) {
+        return l.at(0);
+    } else {
+        return QString();
+    }
+}
+
+void TestCrypto::testCertificate()
+{
+    PrivateKey pkey = PrivateKey::generate(PrivateKey::Rsa, 2048);
+    const QDateTime &now = QDateTime::currentDateTime();
+    QMultiMap<Certificate::SubjectInfo, QString> subjectInfoes = {
+        { Certificate::Organization, QString::fromUtf8("Besteam") },
+        { Certificate::CommonName, QString::fromUtf8("Goldfish") },
+        { Certificate::CountryName, QString::fromUtf8("CN") },
+    };
+    Certificate cert = Certificate::generate(pkey, MessageDigest::Sha256, 29472, now, now.addYears(10), subjectInfoes);
+    QVERIFY(!cert.isNull());
+    QVERIFY(qAbs(cert.effectiveDate().msecsTo(now)) < 1000);
+    QVERIFY(qAbs(cert.expiryDate().msecsTo(now.addYears(10))) < 1000);
+    QCOMPARE(first(cert.issuerInfo(Certificate::Organization)), QString::fromUtf8("Besteam"));
+    QCOMPARE(first(cert.issuerInfo(Certificate::CommonName)), QString::fromUtf8("Goldfish"));
+    QCOMPARE(first(cert.issuerInfo(Certificate::CountryName)), QString::fromUtf8("CN"));
+    QVERIFY(cert.isSelfSigned());
+    QVERIFY(cert.publicKey().isValid());
+    QByteArray pem = cert.save();
+    const Certificate &cert2 = Certificate::load(pem);
+//    qDebug() << cert << cert2 << cert.save() << cert2.save();
+//    QVERIFY(cert.save() == cert2.save());
+    QVERIFY(cert == cert2);
+}
+
+//QTEST_MAIN(TestCrypto)
 
 #include "test_crypto.moc"

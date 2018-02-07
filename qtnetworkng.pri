@@ -21,9 +21,10 @@ unix {
         $$PWD/src/coroutine_unix.cpp
 }
 
-windows{
+windows {
     SOURCES += $$PWD/src/socket_win.cpp \
-        $$PWD/src/coroutine_win.cpp
+        $$PWD/src/coroutine_win.cpp \
+        $$PWD/src/qsystemlibrary.cpp
     LIBS += -lws2_32
 }
 
@@ -41,7 +42,8 @@ HEADERS += \
     $$PWD/include/http_p.h \
     $$PWD/contrib/data_pack.h \
     $$PWD/contrib/data_channel.h \
-    $$PWD/include/socket_utils.h
+    $$PWD/include/socket_utils.h \
+    $$PWD/include/qsystemlibrary_p.h
 
 
 networkng_ev {

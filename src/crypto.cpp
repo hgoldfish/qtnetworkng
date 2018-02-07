@@ -7,19 +7,20 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-static struct OpenSSLLib {
-    bool inited;
+struct OpenSSLLib {
+    OpenSSLLib() :version(0) {}
+    QAtomicInt inited;
     int version;
-} lib;
+};
+
+Q_GLOBAL_STATIC(struct OpenSSLLib, lib)
 
 
 void initOpenSSL()
 {
-    static QAtomicInt inited;
-    if(inited.fetchAndAddAcquire(1) > 0) {
+    if(lib()->inited.fetchAndAddAcquire(1) > 0) {
         return;
     }
-    lib.inited = true;
     openssl::q_resolveOpenSslSymbols(false);
     // TODO support openssl 1.1
     // TODO get openssl version.
@@ -27,6 +28,12 @@ void initOpenSSL()
     openssl::q_SSL_library_init();
     openssl::q_SSL_load_error_strings();
 }
+
+void cleanupOpenSSL()
+{
+
+}
+
 
 QTNETWORKNG_NAMESPACE_END
 

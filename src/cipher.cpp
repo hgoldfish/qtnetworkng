@@ -232,6 +232,7 @@ const openssl::EVP_CIPHER *getOpenSSL_CIPHER(Cipher::Algorithm algo, Cipher::Mod
         break;
     case Cipher::Chacha20:
         cipher = openssl::q_EVP_chacha20();
+        break;
     default:
         Q_UNREACHABLE();
     }

@@ -21,8 +21,15 @@ void TestSsl::testSimple()
     s.sendall("GET / HTTP/1.0\r\nHost: www.baidu.com\r\n\r\n");
     const QByteArray &data = s.recvall(1024 * 1024);
     QVERIFY(!data.isEmpty());
+    Certificate cert = s.peerCertificate();
+    QVERIFY(!cert.isNull());
+    QStringList cn;
+    cn.append(QString::fromUtf8("baidu.com"));
+    QCOMPARE(cert.subjectInfo(Certificate::CommonName), cn);
+    QList<Certificate> certs = s.peerCertificateChain();
+    QCOMPARE(certs.size(), 3);
+    qDebug() << s.cipher().name();
 }
-
 
 void TestSsl::testGetBaidu()
 {

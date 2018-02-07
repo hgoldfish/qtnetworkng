@@ -234,14 +234,97 @@ typedef int i2d_of_void (void *,unsigned char **);
 #define SSL_ERROR_WANT_CONNECT 7
 #define SSL_ERROR_WANT_ACCEPT 8
 
+#define MBSTRING_FLAG 0x1000
+#define MBSTRING_UTF8 (MBSTRING_FLAG)
+#define MBSTRING_ASC (MBSTRING_FLAG|1)
+#define MBSTRING_BMP (MBSTRING_FLAG|2)
+#define MBSTRING_UNIV (MBSTRING_FLAG|4)
+
+#define X509_V_OK                                       0
+#define X509_V_ERR_UNSPECIFIED                          1
+#define X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT            2
+#define X509_V_ERR_UNABLE_TO_GET_CRL                    3
+#define X509_V_ERR_UNABLE_TO_DECRYPT_CERT_SIGNATURE     4
+#define X509_V_ERR_UNABLE_TO_DECRYPT_CRL_SIGNATURE      5
+#define X509_V_ERR_UNABLE_TO_DECODE_ISSUER_PUBLIC_KEY   6
+#define X509_V_ERR_CERT_SIGNATURE_FAILURE               7
+#define X509_V_ERR_CRL_SIGNATURE_FAILURE                8
+#define X509_V_ERR_CERT_NOT_YET_VALID                   9
+#define X509_V_ERR_CERT_HAS_EXPIRED                     10
+#define X509_V_ERR_CRL_NOT_YET_VALID                    11
+#define X509_V_ERR_CRL_HAS_EXPIRED                      12
+#define X509_V_ERR_ERROR_IN_CERT_NOT_BEFORE_FIELD       13
+#define X509_V_ERR_ERROR_IN_CERT_NOT_AFTER_FIELD        14
+#define X509_V_ERR_ERROR_IN_CRL_LAST_UPDATE_FIELD       15
+#define X509_V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD       16
+#define X509_V_ERR_OUT_OF_MEM                           17
+#define X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT          18
+#define X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN            19
+#define X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY    20
+#define X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE      21
+#define X509_V_ERR_CERT_CHAIN_TOO_LONG                  22
+#define X509_V_ERR_CERT_REVOKED                         23
+#define X509_V_ERR_INVALID_CA                           24
+#define X509_V_ERR_PATH_LENGTH_EXCEEDED                 25
+#define X509_V_ERR_INVALID_PURPOSE                      26
+#define X509_V_ERR_CERT_UNTRUSTED                       27
+#define X509_V_ERR_CERT_REJECTED                        28
+/* These are 'informational' when looking for issuer cert */
+#define X509_V_ERR_SUBJECT_ISSUER_MISMATCH              29
+#define X509_V_ERR_AKID_SKID_MISMATCH                   30
+#define X509_V_ERR_AKID_ISSUER_SERIAL_MISMATCH          31
+#define X509_V_ERR_KEYUSAGE_NO_CERTSIGN                 32
+#define X509_V_ERR_UNABLE_TO_GET_CRL_ISSUER             33
+#define X509_V_ERR_UNHANDLED_CRITICAL_EXTENSION         34
+#define X509_V_ERR_KEYUSAGE_NO_CRL_SIGN                 35
+#define X509_V_ERR_UNHANDLED_CRITICAL_CRL_EXTENSION     36
+#define X509_V_ERR_INVALID_NON_CA                       37
+#define X509_V_ERR_PROXY_PATH_LENGTH_EXCEEDED           38
+#define X509_V_ERR_KEYUSAGE_NO_DIGITAL_SIGNATURE        39
+#define X509_V_ERR_PROXY_CERTIFICATES_NOT_ALLOWED       40
+#define X509_V_ERR_INVALID_EXTENSION                    41
+#define X509_V_ERR_INVALID_POLICY_EXTENSION             42
+#define X509_V_ERR_NO_EXPLICIT_POLICY                   43
+#define X509_V_ERR_DIFFERENT_CRL_SCOPE                  44
+#define X509_V_ERR_UNSUPPORTED_EXTENSION_FEATURE        45
+#define X509_V_ERR_UNNESTED_RESOURCE                    46
+#define X509_V_ERR_PERMITTED_VIOLATION                  47
+#define X509_V_ERR_EXCLUDED_VIOLATION                   48
+#define X509_V_ERR_SUBTREE_MINMAX                       49
+#define X509_V_ERR_APPLICATION_VERIFICATION             50
+#define X509_V_ERR_UNSUPPORTED_CONSTRAINT_TYPE          51
+#define X509_V_ERR_UNSUPPORTED_CONSTRAINT_SYNTAX        52
+#define X509_V_ERR_UNSUPPORTED_NAME_SYNTAX              53
+#define X509_V_ERR_CRL_PATH_VALIDATION_ERROR            54
+/* Suite B mode algorithm violation */
+#define X509_V_ERR_SUITE_B_INVALID_VERSION              56
+#define X509_V_ERR_SUITE_B_INVALID_ALGORITHM            57
+#define X509_V_ERR_SUITE_B_INVALID_CURVE                58
+#define X509_V_ERR_SUITE_B_INVALID_SIGNATURE_ALGORITHM  59
+#define X509_V_ERR_SUITE_B_LOS_NOT_ALLOWED              60
+#define X509_V_ERR_SUITE_B_CANNOT_SIGN_P_384_WITH_P_256 61
+/* Host, email and IP check errors */
+#define X509_V_ERR_HOSTNAME_MISMATCH                    62
+#define X509_V_ERR_EMAIL_MISMATCH                       63
+#define X509_V_ERR_IP_ADDRESS_MISMATCH                  64
+/* Caller error */
+#define X509_V_ERR_INVALID_CALL                         65
+#define X509_V_ERR_STORE_LOOKUP                         66
+#define X509_V_ERR_PROXY_SUBJECT_NAME_VIOLATION         67
+
+#define SSL_VERIFY_NONE 0x00
+#define SSL_VERIFY_PEER 0x01
+#define SSL_VERIFY_FAIL_IF_NO_PEER_CERT 0x02
+#define SSL_VERIFY_CLIENT_ONCE 0x04
+
 // section end.
 
 
 #define DUMMYARG
 #ifndef QTNETWORKNG_LINKED_OPENSSL
 // **************** Shared declarations ******************
-// ret func(arg)
 
+// ret func(arg)
 #  define DEFINEFUNC(ret, func, arg, a, err, funcret) \
     typedef ret (*_q_PTR_##func)(arg); \
     static _q_PTR_##func _q_##func = 0; \
@@ -398,7 +481,6 @@ typedef int i2d_of_void (void *,unsigned char **);
 // our functions
 bool q_resolveOpenSslSymbols(bool force = false);
 QDateTime q_getTimeFromASN1(const ASN1_TIME *aTime);
-
 
 // here we defined!
 //unsigned char *q_MD4(const unsigned char *d, unsigned long n, unsigned char *md);
@@ -643,9 +725,74 @@ int q_DSA_generate_parameters_ex(DSA *dsa, int bits,const unsigned char *seed, i
                                int *counter_ret, unsigned long *h_ret, BN_GENCB *cb);
 int q_DSA_generate_key(DSA *a);
 
+X509 *q_X509_new(void);
+long q_X509_get_version(const X509 *x);
+int q_X509_set_version(X509 *x, long version);
+ASN1_INTEGER *q_X509_get_serialNumber(X509 *x);
+int q_X509_cmp(X509 *a, X509 *b);
+#ifdef SSLEAY_MACROS
+void *q_ASN1_dup(i2d_of_void *i2d, d2i_of_void *d2i, char *x);
+#define q_X509_dup(x509) (X509 *)q_ASN1_dup((i2d_of_void *)q_i2d_X509, \
+                (d2i_of_void *)q_d2i_X509,(char *)x509)
+#else
+X509 *q_X509_dup(X509 *a);
+#endif
+void q_X509_print(BIO *a, X509*b);
+ASN1_OBJECT *q_X509_EXTENSION_get_object(X509_EXTENSION *a);
+void q_X509_free(X509 *a);
+X509_EXTENSION *q_X509_get_ext(X509 *a, int b);
+int q_X509_get_ext_count(X509 *a);
+void *q_X509_get_ext_d2i(X509 *a, int b, int *c, int *d);
+const X509V3_EXT_METHOD *q_X509V3_EXT_get(X509_EXTENSION *a);
+void *q_X509V3_EXT_d2i(X509_EXTENSION *a);
+int q_X509_EXTENSION_get_critical(X509_EXTENSION *a);
+ASN1_OCTET_STRING *q_X509_EXTENSION_get_data(X509_EXTENSION *a);
+void q_BASIC_CONSTRAINTS_free(BASIC_CONSTRAINTS *a);
+void q_AUTHORITY_KEYID_free(AUTHORITY_KEYID *a);
+#if OPENSSL_VERSION_NUMBER >= 0x10000000L
+int q_ASN1_STRING_print(BIO *a, const ASN1_STRING *b);
+#else
+int q_ASN1_STRING_print(BIO *a, ASN1_STRING *b);
+#endif
+int q_X509_sign(X509 *x, EVP_PKEY *pkey, const EVP_MD *md);
+int q_X509_verify(X509 *a, EVP_PKEY *r);
+int q_X509_REQ_sign(X509_REQ *x, EVP_PKEY *pkey, const EVP_MD *md);
+int q_X509_REQ_verify(X509_REQ *a, EVP_PKEY *r);
+int q_X509_check_issued(X509 *a, X509 *b);
+X509_NAME *q_X509_get_issuer_name(X509 *a);
+int q_X509_set_issuer_name(X509 *x, X509_NAME *name);
+X509_NAME *q_X509_get_subject_name(X509 *a);
+int q_X509_set_subject_name(X509 *x, X509_NAME *name);
+int q_X509_verify_cert(X509_STORE_CTX *ctx);
+int q_X509_NAME_entry_count(X509_NAME *a);
+int q_X509_NAME_add_entry_by_txt(X509_NAME *name, const char *field, int type, const unsigned char *bytes, int len, int loc, int set);
+X509_NAME_ENTRY *q_X509_NAME_get_entry(X509_NAME *a,int b);
+ASN1_STRING *q_X509_NAME_ENTRY_get_data(X509_NAME_ENTRY *a);
+ASN1_OBJECT *q_X509_NAME_ENTRY_get_object(X509_NAME_ENTRY *a);
+EVP_PKEY *q_X509_PUBKEY_get(X509_PUBKEY *a);
+EVP_PKEY *q_X509_get_pubkey(X509 *a);
+int q_X509_set_pubkey(X509 *x, EVP_PKEY *pkey);
+void q_X509_STORE_free(X509_STORE *store);
+X509_STORE *q_X509_STORE_new();
+int q_X509_STORE_add_cert(X509_STORE *ctx, X509 *x);
+void q_X509_STORE_CTX_free(X509_STORE_CTX *storeCtx);
+int q_X509_STORE_CTX_init(X509_STORE_CTX *ctx, X509_STORE *store,
+                          X509 *x509, STACK_OF(X509) *chain);
+X509_STORE_CTX *q_X509_STORE_CTX_new();
+int q_X509_STORE_CTX_set_purpose(X509_STORE_CTX *ctx, int purpose);
+int q_X509_STORE_CTX_get_error(X509_STORE_CTX *ctx);
+int q_X509_STORE_CTX_get_error_depth(X509_STORE_CTX *ctx);
+X509 *q_X509_STORE_CTX_get_current_cert(X509_STORE_CTX *ctx);
+STACK_OF(X509) *q_X509_STORE_CTX_get_chain(X509_STORE_CTX *ctx);
+int q_X509_set_notBefore(X509 *x, const ASN1_TIME *tm);
+int q_X509_set_notAfter(X509 *x, const ASN1_TIME *tm);
+ASN1_TIME *q_X509_getm_notBefore(const X509 *x);
+ASN1_TIME *q_X509_getm_notAfter(const X509 *x);
+int q_X509_digest(const X509 *data, const EVP_MD *type, unsigned char *md, unsigned int *len);
 
 EVP_PKEY *q_PEM_read_bio_PrivateKey(BIO *a, EVP_PKEY **b, pem_password_cb *c, void *d);
 EVP_PKEY *q_PEM_read_bio_PUBKEY(BIO *a, EVP_PKEY **b, pem_password_cb *c, void *d);
+X509 *q_PEM_read_bio_X509(BIO *bp, X509 **x, pem_password_cb *cb, void *u);
 int q_PEM_write_bio_PrivateKey(BIO *a, EVP_PKEY *b, const EVP_CIPHER *c, unsigned char *d, int e, pem_password_cb *f, void *g);
 int q_PEM_write_bio_PKCS8PrivateKey(BIO *a, EVP_PKEY *b, const EVP_CIPHER *c, unsigned char *d, int e, pem_password_cb *f, void *g);
 int q_PEM_write_bio_RSAPrivateKey(BIO *a, RSA *b, const EVP_CIPHER *c, unsigned char *d, int e, pem_password_cb *f, void *g);
@@ -686,9 +833,14 @@ BN_ULONG q_BN_mod_word(const BIGNUM *a, BN_ULONG w);
 
 // here follow openssl functions
 long q_ASN1_INTEGER_get(ASN1_INTEGER *a);
+int q_ASN1_INTEGER_set(ASN1_INTEGER *a, long v);
 unsigned char * q_ASN1_STRING_data(ASN1_STRING *a);
 int q_ASN1_STRING_length(ASN1_STRING *a);
 int q_ASN1_STRING_to_UTF8(unsigned char **a, ASN1_STRING *b);
+void q_ASN1_STRING_free(ASN1_STRING *a);
+ASN1_TIME *q_ASN1_TIME_new(void);
+int q_ASN1_TIME_set_string(ASN1_TIME *s, const char *str);
+
 
 long q_BIO_ctrl(BIO *a, int b, long c, void *d);
 inline long q_BIO_get_mem_data(BIO *b, char **pp) { return  q_BIO_ctrl(b, BIO_CTRL_INFO, 0, (void *) pp); }
@@ -722,32 +874,25 @@ int q_OBJ_obj2nid(const ASN1_OBJECT *a);
 int q_RAND_bytes(unsigned char *buf, int num);
 void q_RAND_seed(const void *a, int b);
 int q_RAND_status();
+
 int q_sk_num(STACK *a);
 void q_sk_pop_free(STACK *a, void (*b)(void *));
-#if OPENSSL_VERSION_NUMBER >= 0x10000000L
-_STACK *q_sk_new_null();
-void q_sk_push(_STACK *st, void *data);
-void q_sk_free(_STACK *a);
-void * q_sk_value(STACK *a, int b);
-#else
 STACK *q_sk_new_null();
 void q_sk_push(STACK *st, char *data);
 void q_sk_free(STACK *a);
-char * q_sk_value(STACK *a, int b);
-#endif
+void * q_sk_value(const STACK *a, int b);
+
 int q_SSL_accept(SSL *a);
 int q_SSL_clear(SSL *a);
-char *q_SSL_CIPHER_description(SSL_CIPHER *a, char *b, int c);
-int q_SSL_CIPHER_get_bits(SSL_CIPHER *a, int *b);
+char *q_SSL_CIPHER_description(const SSL_CIPHER *a, char *b, int c);
+int q_SSL_CIPHER_get_bits(const SSL_CIPHER *a, int *b);
+const char *q_SSL_CIPHER_get_name(const SSL_CIPHER *a);
 int q_SSL_connect(SSL *a);
 int q_SSL_CTX_check_private_key(const SSL_CTX *a);
 long q_SSL_CTX_ctrl(SSL_CTX *a, int b, long c, void *d);
 void q_SSL_CTX_free(SSL_CTX *a);
-#if OPENSSL_VERSION_NUMBER >= 0x10000000L
 SSL_CTX *q_SSL_CTX_new(const SSL_METHOD *a);
-#else
-SSL_CTX *q_SSL_CTX_new(SSL_METHOD *a);
-#endif
+
 int q_SSL_CTX_set_cipher_list(SSL_CTX *a, const char *b);
 int q_SSL_CTX_set_default_verify_paths(SSL_CTX *a);
 void q_SSL_CTX_set_verify(SSL_CTX *a, int b, int (*c)(int, X509_STORE_CTX *));
@@ -769,7 +914,10 @@ int q_SSL_version(const SSL *a);
 int q_SSL_get_error(SSL *a, int b);
 STACK_OF(X509) *q_SSL_get_peer_cert_chain(SSL *a);
 X509 *q_SSL_get_peer_certificate(SSL *a);
+X509 *q_SSL_get_certificate(const SSL *ssl);
 long q_SSL_get_verify_result(const SSL *a);
+int q_SSL_get_verify_mode(const SSL *s);
+
 int q_SSL_library_init();
 void q_SSL_load_error_strings();
 SSL *q_SSL_new(SSL_CTX *a);
@@ -812,52 +960,8 @@ const SSL_METHOD *q_TLSv1_server_method();
 const SSL_METHOD *q_TLSv1_1_server_method();
 const SSL_METHOD *q_TLSv1_2_server_method();
 int q_SSL_write(SSL *a, const void *b, int c);
-int q_X509_cmp(X509 *a, X509 *b);
-#ifdef SSLEAY_MACROS
-void *q_ASN1_dup(i2d_of_void *i2d, d2i_of_void *d2i, char *x);
-#define q_X509_dup(x509) (X509 *)q_ASN1_dup((i2d_of_void *)q_i2d_X509, \
-                (d2i_of_void *)q_d2i_X509,(char *)x509)
-#else
-X509 *q_X509_dup(X509 *a);
-#endif
-void q_X509_print(BIO *a, X509*b);
-ASN1_OBJECT *q_X509_EXTENSION_get_object(X509_EXTENSION *a);
-void q_X509_free(X509 *a);
-X509_EXTENSION *q_X509_get_ext(X509 *a, int b);
-int q_X509_get_ext_count(X509 *a);
-void *q_X509_get_ext_d2i(X509 *a, int b, int *c, int *d);
-const X509V3_EXT_METHOD *q_X509V3_EXT_get(X509_EXTENSION *a);
-void *q_X509V3_EXT_d2i(X509_EXTENSION *a);
-int q_X509_EXTENSION_get_critical(X509_EXTENSION *a);
-ASN1_OCTET_STRING *q_X509_EXTENSION_get_data(X509_EXTENSION *a);
-void q_BASIC_CONSTRAINTS_free(BASIC_CONSTRAINTS *a);
-void q_AUTHORITY_KEYID_free(AUTHORITY_KEYID *a);
-#if OPENSSL_VERSION_NUMBER >= 0x10000000L
-int q_ASN1_STRING_print(BIO *a, const ASN1_STRING *b);
-#else
-int q_ASN1_STRING_print(BIO *a, ASN1_STRING *b);
-#endif
-int q_X509_check_issued(X509 *a, X509 *b);
-X509_NAME *q_X509_get_issuer_name(X509 *a);
-X509_NAME *q_X509_get_subject_name(X509 *a);
-int q_X509_verify_cert(X509_STORE_CTX *ctx);
-int q_X509_NAME_entry_count(X509_NAME *a);
-X509_NAME_ENTRY *q_X509_NAME_get_entry(X509_NAME *a,int b);
-ASN1_STRING *q_X509_NAME_ENTRY_get_data(X509_NAME_ENTRY *a);
-ASN1_OBJECT *q_X509_NAME_ENTRY_get_object(X509_NAME_ENTRY *a);
-EVP_PKEY *q_X509_PUBKEY_get(X509_PUBKEY *a);
-void q_X509_STORE_free(X509_STORE *store);
-X509_STORE *q_X509_STORE_new();
-int q_X509_STORE_add_cert(X509_STORE *ctx, X509 *x);
-void q_X509_STORE_CTX_free(X509_STORE_CTX *storeCtx);
-int q_X509_STORE_CTX_init(X509_STORE_CTX *ctx, X509_STORE *store,
-                          X509 *x509, STACK_OF(X509) *chain);
-X509_STORE_CTX *q_X509_STORE_CTX_new();
-int q_X509_STORE_CTX_set_purpose(X509_STORE_CTX *ctx, int purpose);
-int q_X509_STORE_CTX_get_error(X509_STORE_CTX *ctx);
-int q_X509_STORE_CTX_get_error_depth(X509_STORE_CTX *ctx);
-X509 *q_X509_STORE_CTX_get_current_cert(X509_STORE_CTX *ctx);
-STACK_OF(X509) *q_X509_STORE_CTX_get_chain(X509_STORE_CTX *ctx);
+
+
 
 // Diffie-Hellman support
 DH *q_DH_new();

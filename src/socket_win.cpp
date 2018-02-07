@@ -796,7 +796,7 @@ bool QSocketPrivate::fetchConnectionParameters()
 }
 
 
-qint64 QSocketPrivate::recv(char *data, qint64 size)
+qint64 QSocketPrivate::recv(char *data, qint64 size, bool all)
 {
     if(!isValid()) {
         return -1;
@@ -855,6 +855,9 @@ qint64 QSocketPrivate::recv(char *data, qint64 size)
         } else {
             if (WSAGetLastError() != WSAEWOULDBLOCK) {
                 total += qint64(bytesRead);
+                if(!all) {
+                    return total;
+                }
             }
         }
         watcher.start();

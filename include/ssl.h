@@ -6,81 +6,135 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+class SslCipherPrivate;
+class SslCipher
+{
+public:
+    SslCipher();
+    explicit SslCipher(const QString &name);
+    SslCipher(const QString &name, Ssl::SslProtocol protocol);
+    SslCipher(const SslCipher &other);
+    ~SslCipher();
+public:
+    QString authenticationMethod() const;
+    QString encryptionMethod() const;
+    bool isNull() const;
+    QString keyExchangeMethod() const;
+    QString name() const;
+    Ssl::SslProtocol protocol() const;
+    QString protocolString() const;
+    int supportedBits() const;
+    int usedBits() const;
+public:
+    inline bool operator!=(const SslCipher &other) const { return !operator==(other); }
+    SslCipher &operator=(SslCipher &&other) { swap(other); return *this; }
+    SslCipher &operator=(const SslCipher &other);
+    void swap(SslCipher &other) { qSwap(d, other.d); }
+    bool operator==(const SslCipher &other) const;
+private:
+    friend class SslCipherPrivate;
+    QScopedPointer<SslCipherPrivate> d;
+};
+
 
 class SslConfigurationPrivate;
 class SslConfiguration
 {
 public:
-    enum SslOption
-    {
-        SslOptionDisableEmptyFragments = 0x01,
-        SslOptionDisableSessionTickets = 0x02,
-        SslOptionDisableCompression = 0x04,
-        SslOptionDisableServerNameIndication = 0x08,
-        SslOptionDisableLegacyRenegotiation = 0x10,
-        SslOptionDisableSessionSharing = 0x20,
-        SslOptionDisableSessionPersistence = 0x40,
-        SslOptionDisableServerCipherPreference = 0x80,
-    };
-    Q_DECLARE_FLAGS(SslOptions, SslOption)
-
-    enum SslProtocol
-    {
-        UnknownProtocol = -1,
-        SslV3 = 0,
-        SslV2 = 1,
-        TlsV1_0 = 2,
-        TlsV1_0OrLater,
-        TlsV1 = TlsV1_0,
-        TlsV1_1,
-        TlsV1_1OrLater,
-        TlsV1_2,
-        TlsV1_2OrLater,
-        AnyProtocol,
-        TlsV1SslV3,
-        SecureProtocols,
-    };
-
-    enum PeerVerifyMode
-    {
-        VerifyNone = 0,
-        QueryPeer = 1,
-        VerifyPeer = 2,
-        AutoVerifyPeer = 3,
-    };
-public:
     SslConfiguration();
+    SslConfiguration(const SslConfiguration &other);
+    SslConfiguration(SslConfiguration &&other);
     ~SslConfiguration();
 public:
     QList<QByteArray> allowedNextProtocols() const;
     QList<Certificate> caCertificates() const;
-    QList<Cipher> ciphers() const;
+    QList<SslCipher> ciphers() const;
     bool isNull() const;
     Certificate localCertificate() const;
-    QList<Certificate> localCertificateChain() const;
+    Ssl::PeerVerifyMode peerVerifyMode() const;
+    QString peerVerifyName() const;
+    int peerVerifyDepth() const;
+    PrivateKey privateKey() const;
+
     void addCaCertificate(const Certificate &certificate);
     void addCaCertificates(const QList<Certificate> &certificates);
-    PeerVerifyMode peerVerifyMode() const;
     void setLocalCertificate(const Certificate &certificate);
-    void setLocalCertificate(const QString &path, PrivateKey::EncodingFormat format = PrivateKey::Pem);
-    void setLocalCertificateChain(const QList<Certificate> &localChain);
+    bool setLocalCertificate(const QString &path, Ssl::EncodingFormat format = Ssl::Pem);
     void setPeerVerifyDepth(int depth);
-    void setPeerVerifyMode(PeerVerifyMode mode);
+    void setPeerVerifyMode(Ssl::PeerVerifyMode mode);
     void setPeerVerifyName(const QString &hostName);
     void setPrivateKey(const PrivateKey &key);
     void setPrivateKey(const QString &fileName, PrivateKey::Algorithm algorithm = PrivateKey::Rsa,
-                       PrivateKey::EncodingFormat format = PrivateKey::Pem, const QByteArray &passPhrase = QByteArray());
-    void setProtocol(SslProtocol protocol);
+                       Ssl::EncodingFormat format = Ssl::Pem, const QByteArray &passPhrase = QByteArray());
+    void setSslProtocol(Ssl::SslProtocol protocol);
+    void setAllowedNextProtocols(const QList<QByteArray> &protocols);
+public:
+    static QList<SslCipher> supportedCiphers();
+public:
+    inline bool operator!=(const SslConfiguration &other) const { return !operator==(other); }
+    SslConfiguration &operator=(SslConfiguration &&other) { swap(other); return *this; }
+    SslConfiguration &operator=(const SslConfiguration &other);
+    void swap(SslConfiguration &other) { qSwap(d, other.d); }
+    bool operator==(const SslConfiguration &other) const;
 private:
-    SslConfigurationPrivate * const d_ptr;
-    Q_DECLARE_PRIVATE(SslConfiguration)
+    QSharedDataPointer<SslConfigurationPrivate> d;
+    friend class SslConfigurationPrivate;
 };
 
 class SslErrorPrivate;
 class SslError
 {
+public:
+    enum Error {
+        NoError,
+        UnableToGetIssuerCertificate,
+        UnableToDecryptCertificateSignature,
+        UnableToDecodeIssuerPublicKey,
+        CertificateSignatureFailed,
+        CertificateNotYetValid,
+        CertificateExpired,
+        InvalidNotBeforeField,
+        InvalidNotAfterField,
+        SelfSignedCertificate,
+        SelfSignedCertificateInChain,
+        UnableToGetLocalIssuerCertificate,
+        UnableToVerifyFirstCertificate,
+        CertificateRevoked,
+        InvalidCaCertificate,
+        PathLengthExceeded,
+        InvalidPurpose,
+        CertificateUntrusted,
+        CertificateRejected,
+        SubjectIssuerMismatch, // hostname mismatch?
+        AuthorityIssuerSerialNumberMismatch,
+        NoPeerCertificate,
+        HostNameMismatch,
+        NoSslSupport,
+        CertificateBlacklisted,
+        UnspecifiedError = -1
+    };
 
+    SslError();
+    SslError(Error error);
+    SslError(Error error, const Certificate &certificate);
+    SslError(const SslError &other);
+    ~SslError();
+public:
+    Error error() const;
+    QString errorString() const;
+    Certificate certificate() const;
+public:
+    void swap(SslError &other) { qSwap(d, other.d); }
+    SslError &operator=(SslError &&other) { swap(other); return *this; }
+    SslError &operator=(const SslError &other);
+    bool operator==(const SslError &other) const;
+    inline bool operator!=(const SslError &other) const { return !(*this == other); }
+private:
+    QScopedPointer<SslErrorPrivate> d;
 };
+uint qHash(const SslError &key, uint seed = 0);
+QDebug &operator<<(QDebug &debug, const SslError &error);
+QDebug &operator<<(QDebug &debug, const SslError::Error &error);
 
 
 class QSocket;
@@ -103,9 +157,9 @@ public:
     };
 
 public:
-    SslSocket(QSocket::NetworkLayerProtocol protocol = QSocket::AnyIPProtocol);
-    SslSocket(qintptr socketDescriptor);
-    SslSocket(QSharedPointer<QSocket> rawSocket);
+    SslSocket(QSocket::NetworkLayerProtocol protocol = QSocket::AnyIPProtocol, const SslConfiguration &config = SslConfiguration());
+    SslSocket(qintptr socketDescriptor, const SslConfiguration &config = SslConfiguration());
+    SslSocket(QSharedPointer<QSocket> rawSocket, const SslConfiguration &config = SslConfiguration());
     virtual ~SslSocket();
 public:
     Certificate localCertificate() const;
@@ -116,12 +170,11 @@ public:
     Certificate peerCertificate() const;
     QList<Certificate> peerCertificateChain() const;
     int peerVerifyDepth() const;
-    SslConfiguration::PeerVerifyMode peerVerifyMode() const;
+    Ssl::PeerVerifyMode peerVerifyMode() const;
     QString peerVerifyName() const;
     PrivateKey privateKey() const;
-    SslConfiguration::SslProtocol sslProtocol() const;
-    Cipher sessionCipher() const;
-    SslConfiguration::SslProtocol sessionProtocol() const;
+    SslCipher cipher() const;
+    Ssl::SslProtocol sslProtocol() const;
     SslConfiguration sslConfiguration() const;
     QList<SslError> sslErrors() const;
     void setSslConfiguration(const SslConfiguration &configuration);
@@ -167,5 +220,6 @@ private:
 
 QTNETWORKNG_NAMESPACE_END
 
+Q_DECLARE_METATYPE(QList<QTNETWORKNG_NAMESPACE::SslError>)
 
 #endif //QTNG_SSL_H

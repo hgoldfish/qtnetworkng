@@ -13,7 +13,8 @@ HEADERS += $$PWD/include/config.h \
     $$PWD/include/cipher.h \
     $$PWD/include/pkey.h \
     $$PWD/include/crypto_p.h \
-    $$PWD/include/certificate.h
+    $$PWD/include/certificate.h \
+    $$PWD/include/qasn1element.h
 
 SOURCES += $$PWD/src/ssl.cpp \
     $$PWD/src/crypto.cpp \
@@ -21,5 +22,7 @@ SOURCES += $$PWD/src/ssl.cpp \
     $$PWD/src/random.cpp \
     $$PWD/src/md.cpp \
     $$PWD/src/pkey.cpp \
-    $$PWD/src/cipher.cpp
+    $$PWD/src/cipher.cpp \
+    $$PWD/src/certificate.cpp \
+    $$PWD/src/qasn1element.cpp
 

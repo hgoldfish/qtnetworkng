@@ -13,7 +13,7 @@
 // #include <qplatformdefs.h>
 #ifdef Q_OS_WIN
     #define QT_SOCKLEN_T int
-    //#define QT_SOCKOPTLEN_T int
+    #define QT_SOCKOPTLEN_T int
 #endif
 
 #ifdef Q_OS_UNIX

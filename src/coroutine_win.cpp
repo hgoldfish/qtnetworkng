@@ -73,7 +73,11 @@ QBaseCoroutinePrivate::~QBaseCoroutinePrivate()
         qWarning("do not delete one self.");
     }
     if(context) {
-        DeleteFiber(context);
+        if(Q_UNLIKELY(stackSize == 0)) {
+            ConvertFiberToThread();
+        } else {
+            DeleteFiber(context);
+        }
     }
     if(exception)
         delete exception;
@@ -163,7 +167,24 @@ QBaseCoroutine* createMainCoroutine()
     if(!main)
         return 0;
     QBaseCoroutinePrivate *mainPrivate = main->d_ptr;
-    mainPrivate->context = ConvertThreadToFiberEx(NULL, 0);
+#if ( _WIN32_WINNT > 0x0600)
+        if ( IsThreadAFiber() ) {
+            mainPrivate->context = GetCurrentFiber();
+        } else {
+            mainPrivate->context = ConvertThreadToFiberEx(NULL, 0);
+        }
+#else
+        mainPrivate->context = ConvertThreadToFiberEx(NULL, 0);
+        if(Q_UNLIKELY( NULL == mainPrivate->context) ) {
+            DWORD err = GetLastError();
+            if(err == ERROR_ALREADY_FIBER) {
+                mainPrivate->context = GetCurrentFiber();
+            }
+            if(reinterpret_cast<LPVOID>(0x1E00) == mainPrivate->context) {
+                mainPrivate->context = 0;
+            }
+        }
+#endif
     if(mainPrivate->context == NULL)
     {
         DWORD error = GetLastError();

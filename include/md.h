@@ -2,7 +2,7 @@
 #define QTNG_MD_H
 
 #include <QtCore/qbytearray.h>
-#include "config.h"
+#include "crypto.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

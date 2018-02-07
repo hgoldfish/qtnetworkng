@@ -37,6 +37,7 @@ const openssl::EVP_MD *getOpenSSL_MD(MessageDigest::Algorithm algo)
         break;
     case MessageDigest::Blake2b512:
         md = openssl::q_EVP_blake2b512();
+        break;
     default:
         Q_UNREACHABLE();
     }

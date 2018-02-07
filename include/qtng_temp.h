@@ -21,5 +21,5 @@
 #include <openssl/rsa.h>
 #include <openssl/crypto.h>
 #include <openssl/tls1.h>
-SSL_ERROR_WANT_CLIENT_HELLO_CB
+X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT
 #endif // QTNG_TEMP_H
