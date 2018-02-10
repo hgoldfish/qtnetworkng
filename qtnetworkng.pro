@@ -14,7 +14,6 @@ SOURCES += tests/simple_test.cpp \
 #DEFINES += QSOCKETNG_DEBUG
 
 include(qtnetworkng.pri)
-include(qtsslng.pri)
 
 
 

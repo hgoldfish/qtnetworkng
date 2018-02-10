@@ -1,5 +1,4 @@
 #include <QtTest>
-#include "qtsslng.h"
 #include "qtnetworkng.h"
 
 using namespace qtng;

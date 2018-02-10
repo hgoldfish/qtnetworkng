@@ -21,10 +21,17 @@
     #if defined(__GLIBC__) && (__GLIBC__ < 2)
         #define QT_SOCKLEN_T            int
     #else
-        #define QT_SOCKLEN_T            socklen_t
+        #ifdef Q_OS_ANDROID
+            #define QT_SOCKLEN_T int
+        #else
+            #define QT_SOCKLEN_T            socklen_t
+        #endif
     #endif
 #endif
 
+#ifdef fileno // android define fileno() function as macro
+#undef fileno
+#endif
 QTNETWORKNG_NAMESPACE_BEGIN
 
 class QSocketPrivate;
@@ -125,7 +132,7 @@ public:
     QHostAddress peerAddress() const;
     QString peerName() const;
     quint16 peerPort() const;
-    virtual qintptr	fileno() const;
+    qintptr	fileno() const;
     SocketType type() const;
     SocketState state() const;
     NetworkLayerProtocol protocol() const;

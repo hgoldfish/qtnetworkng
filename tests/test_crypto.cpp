@@ -1,5 +1,5 @@
 #include <QtTest>
-#include "qtsslng.h"
+#include "qtcryptng.h"
 
 using namespace qtng;
 

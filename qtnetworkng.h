@@ -9,4 +9,12 @@
 #include "include/http.h"
 #include "contrib/data_channel.h"
 
+#ifdef QTNETWOKRNG_USE_SSL
+#include "include/ssl.h"
+#include "include/random.h"
+#include "include/md.h"
+#include "include/cipher.h"
+#include "include/pkey.h"
+#include "include/certificate.h"
+#endif
 #endif // QTNG_QTNETWORKNG_H

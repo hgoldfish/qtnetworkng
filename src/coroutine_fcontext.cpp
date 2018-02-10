@@ -1,15 +1,32 @@
 #include <stdlib.h>
-#include <errno.h>
-#include <ucontext.h>
-#include <sys/mman.h>
+#include <setjmp.h>
 #include <QtCore/QDebug>
 #include <QtCore/QList>
 #include "../include/coroutine_p.h"
 
+#ifdef Q_OS_UNIX
+# include <sys/mman.h>
+#endif
+
 QTNETWORKNG_NAMESPACE_BEGIN
 
-// 开始定义 QCoroutinePrivate
+#if (defined(i386) || defined(__i386__) || defined(__i386) \
+     || defined(__i486__) || defined(__i586__) || defined(__i686__) \
+     || defined(__X86__) || defined(_X86_) || defined(__THW_INTEL__) \
+     || defined(__I86__) || defined(__INTEL__) || defined(__IA32__) \
+     || defined(_M_IX86) || defined(_I86_)) && defined(Q_OS_WIN)
+# define BOOST_CONTEXT_CALLDECL __cdecl
+#else
+# define BOOST_CONTEXT_CALLDECL
+#endif
 
+typedef void* fcontext_t;
+extern "C" intptr_t BOOST_CONTEXT_CALLDECL jump_fcontext(fcontext_t *ofc, fcontext_t nfc, intptr_t vp, bool preserve_fpu);
+extern "C" fcontext_t BOOST_CONTEXT_CALLDECL make_fcontext(void *sp, std::size_t size, void (* fn)(intptr_t));
+
+
+// 开始定义 QCoroutinePrivate
+extern "C" void run_stub(intptr_t tr);
 class QBaseCoroutinePrivate
 {
 public:
@@ -26,17 +43,23 @@ private:
     enum QBaseCoroutine::State state;
     bool bad;
     QCoroutineException *exception;
-    ucontext_t *context;
+    fcontext_t context;
     Q_DECLARE_PUBLIC(QBaseCoroutine)
 private:
-    static void run_stub(QBaseCoroutinePrivate *coroutine);
+    static QBaseCoroutinePrivate *getPrivateHelper(QBaseCoroutine *coroutine) { return coroutine->d_ptr; }
+    friend void run_stub(intptr_t tr);
     friend QBaseCoroutine* createMainCoroutine();
 };
 
 
 // 开始实现 QCoroutinePrivate
-void QBaseCoroutinePrivate::run_stub(QBaseCoroutinePrivate *coroutine)
+extern "C" void run_stub(intptr_t data)
 {
+    QBaseCoroutinePrivate *coroutine = reinterpret_cast<QBaseCoroutinePrivate*>(data);
+    if(!coroutine) {
+        qDebug() << "run_stub got invalid coroutine.";
+        return;
+    }
     coroutine->state = QBaseCoroutine::Started;
     emit coroutine->q_ptr->started();
     try
@@ -63,7 +86,11 @@ void QBaseCoroutinePrivate::run_stub(QBaseCoroutinePrivate *coroutine)
         emit coroutine->q_ptr->finished();
 //        throw; // cause undefined behaviors
     }
-    swapcontext(coroutine->context, coroutine->previous->d_ptr->context);
+    if(coroutine->previous) {
+        fcontext_t to = QBaseCoroutinePrivate::getPrivateHelper(coroutine->previous)->context;
+        fcontext_t from;
+        jump_fcontext(&from, to, 0, false);
+    }
 }
 
 
@@ -72,15 +99,16 @@ QBaseCoroutinePrivate::QBaseCoroutinePrivate(QBaseCoroutine *q, QBaseCoroutine *
       bad(false), exception(0), context(0)
 {
     if(stackSize) {
-//        stack = operator new(stackSize);
+#ifdef Q_OS_UNIX
         stack = mmap(NULL, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
+#else
+        stack = operator new(stackSize);
+#endif
         if(!stack) {
             qFatal("QCoroutine can not malloc new memroy.");
             bad = true;
             return;
         }
-    } else {
-        stack = 0;
     }
 }
 
@@ -92,21 +120,21 @@ QBaseCoroutinePrivate::~QBaseCoroutinePrivate()
         qWarning() << "do not delete running QBaseCoroutine: %1";
     }
     if(stack) {
-//        operator delete(stack);
+#ifdef Q_OS_UNIX
         munmap(stack, stackSize);
+#else
+        operator delete(stack);
+#endif
+
     }
 
-    if(currentCoroutine().get() == q)
-    {
+    if(currentCoroutine().get() == q) {
         //TODO 在当前 coroutine 里面把自己给干掉了怎么办？
         qWarning("do not delete one self.");
     }
-    if(context)
-        delete context;
     if(exception)
         delete exception;
 }
-
 
 bool QBaseCoroutinePrivate::yield()
 {
@@ -124,11 +152,12 @@ bool QBaseCoroutinePrivate::yield()
 
     currentCoroutine().set(q);
 
-    if(swapcontext(old->d_func()->context, this->context) < 0) {
-        qDebug() << "swapcontext() return error: " << errno;
+    intptr_t result = jump_fcontext(&old->d_ptr->context, context, reinterpret_cast<intptr_t>(this), false);
+    if(!result && state != QBaseCoroutine::Stopped) {  // last coroutine private.
+        qDebug() << "jump_fcontext() return error.";
         return false;
     }
-    if(currentCoroutine().get() != old) { // when coroutine finished, swapcontext auto yield to the previous.
+    if(currentCoroutine().get() != old) {  // when coroutine finished, jump_fcontext auto yield to the previous.
         currentCoroutine().set(old);
     }
     QCoroutineException *e = old->d_ptr->exception;
@@ -152,26 +181,18 @@ bool QBaseCoroutinePrivate::initContext()
 {
     if(context)
         return true;
+    if(!stackSize) {
+        qDebug() << "is the main fiber forgot to create context?";
+        return true;
+    }
 
-    context = new ucontext_t;
+    void * stackTop = static_cast<char*>(stack) + stackSize;
+    context = make_fcontext(stackTop, stackSize, run_stub);
     if(!context) {
-        qFatal("QCoroutine can not malloc new memroy.");
+        qFatal("QCoroutine can not malloc new context.");
         bad = true;
         return false;
     }
-    if(getcontext(context) < 0) {
-        qDebug() <<"getcontext() return error." << errno;
-        bad = true;
-        return false;
-    }
-    context->uc_stack.ss_sp = stack;
-    context->uc_stack.ss_size = stackSize;
-    if(previous) {
-        context->uc_link = previous->d_ptr->context;
-    } else {
-        context->uc_link = 0;
-    }
-    makecontext(context, (void(*)(void))run_stub, 1, this);
     return true;
 }
 
@@ -207,17 +228,10 @@ QBaseCoroutine* createMainCoroutine()
     if(!main)
         return 0;
     QBaseCoroutinePrivate *mainPrivate = main->d_ptr;
-    mainPrivate->context = new ucontext_t;
-    if(!mainPrivate->context) {
-        qFatal("QCoroutine can not malloc new memroy.");
-        delete main;
-        return 0;
-    }
-    if(getcontext(mainPrivate->context) < 0) {
-        qDebug() << "getcontext() returns error." << errno;
-        delete main;
-        return 0;
-    }
+    mainPrivate->stack = new char[1024];
+    mainPrivate->stackSize = 1024;
+    void *stackTop = static_cast<char*>(mainPrivate->stack) + mainPrivate->stackSize;
+    mainPrivate->context = make_fcontext(stackTop, mainPrivate->stackSize, 0);
     mainPrivate->state = QBaseCoroutine::Started;
     return main;
 }

@@ -3,7 +3,6 @@
 #include <QList>
 #include <QTime>
 #include "qtnetworkng.h"
-#include "qtsslng.h"
 
 class GetNeteaseCoroutine: public qtng::QCoroutine
 {

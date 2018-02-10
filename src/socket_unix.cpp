@@ -9,6 +9,10 @@
 #include <netinet/tcp.h>
 #include "../include/socket_p.h"
 
+#ifndef SOCK_NONBLOCK
+# define SOCK_NONBLOCK O_NONBLOCK
+#endif
+
 QTNETWORKNG_NAMESPACE_BEGIN
 
 union qt_sockaddr {

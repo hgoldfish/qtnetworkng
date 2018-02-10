@@ -1,7 +1,7 @@
-#include <QtCore/QThread>
-#include <QtCore/QCoreApplication>
-#include <QtCore/QMap>
-#include <QtCore/QCache>
+#include <QtCore/qthread.h>
+#include <QtCore/qcoreapplication.h>
+#include <QtCore/qmap.h>
+#include <QtCore/qcache.h>
 #include "../include/socket_p.h"
 #include "../include/coroutine_utils.h"
 

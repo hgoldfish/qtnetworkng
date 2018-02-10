@@ -1,10 +1,9 @@
-QT += core network
+QT += core
 
 CONFIG += c++11
 
 HEADERS += $$PWD/include/config.h \
     $$PWD/include/crypto.h \
-    $$PWD/include/ssl.h \
     $$PWD/include/openssl_symbols.h \
     $$PWD/include/qtng_temp.h \
     $$PWD/qtsslng.h \
@@ -16,8 +15,7 @@ HEADERS += $$PWD/include/config.h \
     $$PWD/include/certificate.h \
     $$PWD/include/qasn1element.h
 
-SOURCES += $$PWD/src/ssl.cpp \
-    $$PWD/src/crypto.cpp \
+SOURCES += $$PWD/src/crypto.cpp \
     $$PWD/src/openssl_symbols.cpp \
     $$PWD/src/random.cpp \
     $$PWD/src/md.cpp \
