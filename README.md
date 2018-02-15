@@ -1,4 +1,9 @@
-QtNetworkgNg is a self-contained coroutine-based network toolkit, like boost::asio but uses concepts of QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg require Qt5 framework. Here comes a simple example to get web pages.
+QtNetworkNg
+===========
+
+[Introduction to QtNetworkNg](docs/intro.rst)
+
+QtNetworkgNg is a self-contained coroutine-based network toolkit, like boost::asio but uses concepts of QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg requires Qt5 framework. Here comes a simple example to get web pages.
 
     #include <QtCore/QCoreApplication>
     #include "qtnetworkng/qtnetworkng.h"
@@ -11,7 +16,6 @@
         qDebug() << r.html();
         return 0;
     }
-    
     
 And another exmaple to make tcp connection.
 
@@ -28,8 +32,4 @@ And another exmaple to make tcp connection.
         return 0;
     }
     
-As you can see, networking programming is done with very straightforward API.
-
-An overview for install and using QtNetworkNg is here.
-
-[Introduction to QtNetworkNg](docs/intro.rst)
+As you can see, networking programming is done with very simple API.
