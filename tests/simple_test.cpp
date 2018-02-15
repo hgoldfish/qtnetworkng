@@ -22,7 +22,7 @@ void GetNeteaseCoroutine::run()
 {
     qtng::QTimeout out(5000);Q_UNUSED(out);
     try{
-        qtng::HttpResponse response = session->get(QString::fromUtf8("https://www.baidu.com/"));
+        qtng::HttpResponse response = session->get(QStringLiteral("https://www.baidu.com/"));
         qDebug() << response.html();
     } catch(qtng::RequestException &e) {
         qDebug() << "got exception: " << e.what();

@@ -57,7 +57,8 @@ public:
     virtual void run()
     {
         QSharedPointer<qtng::QSocket> client = QSharedPointer<qtng::QSocket>::create();
-        bool success = client->connect(QHostAddress::LocalHost, 7923);
+//        bool success = client->connect(QHostAddress::LocalHost, 7923);
+        bool success = client->connect("127.0.0.1", 7923);
         if(!success) {
             return;
         }

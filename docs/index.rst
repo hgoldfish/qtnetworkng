@@ -15,7 +15,7 @@ QtNetworkgNg is a self-contained coroutine-based network toolkit, like boost::as
     {
         QCoreApplication app(argc, argv);
         qtng::HttpSession session;
-        qtng::HttpResponse r = session.get("https://news.163.com");
+        qtng::HttpResponse r = session.get(QStringLiteral("https://news.163.com"));
         qDebug() << r.html();
         return 0;
     }
@@ -31,7 +31,7 @@ And another exmaple to make tcp connection::
         QCoreApplication app(argc, argv);
         qtng::Socket conn;
         conn.connect("news.163.com", 80);
-        conn.sendall("GET / HTTP 1.0");
+        conn.sendall("GET / HTTP/1.0\r\n\r\n");
         qDebug() << conn.recv(1024 * 8);
         return 0;
     }
