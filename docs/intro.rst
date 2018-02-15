@@ -36,15 +36,35 @@ Now your project's directory structure::
         qtnetworkng.pro
         other files...
         
-Edit your foo.pro to include `qtnetworkng.pri`, but not `qtnetworkng.pro`, because the `.pro` file is exists for dynamic library build.::
+Edit your `foo.pro` to include `qtnetworkng.pri`, but not `qtnetworkng.pro`, because the `.pro` file is exists for dynamic library build.::
 
     # foo.pro
-    QT += core gui widgets
+    QT += core network
     TARGET = foo
     SOURCES += main.cpp
     include(qtnetworkng/qtnetworkng.pri)
     
-Now you can use QtNetworkNg as usual cpp library.
+Edit `main.cpp` to run simple test. ::
+
+    // main.cpp
+    #include "qtnetworkng/qtnetworkng.h"
+    #include <QtCore/QCoreApplication>
+    
+    using namespace qtng;
+    int main(int argc, char **argv)
+    {
+        QCoreApplication app(argc, argv);
+        HttpSession session;
+        HttpResponse resp = session.get(QString("http://news.163.com/"));
+        qDebug() << resp.html();
+        return 0;\
+    }
+
+Now you can build QtNetworkNg as usual C++/Qt library. ::
+
+    qmake foo.pro
+    make
+    ./foo
 
 .. Use QtNetworkNg in ordinary cpp projects
 .. ----------------------------------------
