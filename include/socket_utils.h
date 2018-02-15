@@ -11,6 +11,7 @@ class SslSocket;
 class SocketLike
 {
 public:
+    virtual ~SocketLike();
     virtual QSocket::SocketError error() const = 0;
     virtual QString errorString() const = 0;
     virtual bool isValid() const = 0;

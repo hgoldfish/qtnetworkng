@@ -66,8 +66,9 @@ void EVP_MD_CTX_free(openssl::EVP_MD_CTX *context)
     }
 }
 
-struct MessageDigestPrivate
+class MessageDigestPrivate
 {
+public:
     MessageDigestPrivate(MessageDigest::Algorithm algo);
     ~MessageDigestPrivate();
     void addData(const QByteArray &data);

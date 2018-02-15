@@ -100,7 +100,11 @@ QBaseCoroutinePrivate::QBaseCoroutinePrivate(QBaseCoroutine *q, QBaseCoroutine *
 {
     if(stackSize) {
 #ifdef Q_OS_UNIX
+#ifdef MAP_GROWSDOWN
         stack = mmap(NULL, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
+#else
+        stack = mmap(NULL, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#endif
 #else
         stack = operator new(stackSize);
 #endif

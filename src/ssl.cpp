@@ -186,8 +186,9 @@ QDebug operator<<(QDebug debug, const SslCipher &cipher)
     return debug;
 }
 
-struct SslConfigurationPrivate: public QSharedData
+class SslConfigurationPrivate: public QSharedData
 {
+public:
     SslConfigurationPrivate();
     SslConfigurationPrivate(const SslConfigurationPrivate &) = default;
     bool isNull() const;
@@ -409,8 +410,9 @@ QList<SslCipher> SslConfiguration::supportedCiphers()
 }
 
 
-struct SslErrorPrivate
+class SslErrorPrivate
 {
+public:
     SslError::Error error;
     Certificate certificate;
 };
@@ -625,8 +627,9 @@ static SslError _q_OpenSSL_to_SslError(int errorCode, const Certificate &cert)
 }
 
 template<typename Socket>
-struct SslConnection
+class SslConnection
 {
+public:
     SslConnection(const SslConfiguration &config);
     SslConnection();
     ~SslConnection();
@@ -997,8 +1000,9 @@ Ssl::SslProtocol SslConnection<Socket>::sslProtocol() const
     return Ssl::UnknownProtocol;
 }
 
-struct SslSocketPrivate: public SslConnection<QSocket>
+class SslSocketPrivate: public SslConnection<QSocket>
 {
+public:
     SslSocketPrivate(const SslConfiguration &config);
     bool isValid() const;
 

@@ -6,8 +6,9 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 
-struct PublicKeyPrivate
+class PublicKeyPrivate
 {
+public:
     PublicKeyPrivate();
     PublicKeyPrivate(PublicKeyPrivate *other);
     ~PublicKeyPrivate();
@@ -470,8 +471,9 @@ static int pem_password_cb(char *buf, int size, int rwflag, void *userdata)
     return move;
 }
 
-struct PrivateKeyWriterPrivate
+class PrivateKeyWriterPrivate
 {
+public:
     PrivateKeyWriterPrivate(const PublicKey &key)
         :key(key), algo(Cipher::Null), mode(Cipher::CBC), publicOnly(true) {}
     PrivateKeyWriterPrivate(const PrivateKey &key)
@@ -554,8 +556,9 @@ QByteArray PrivateKeyWriterPrivate::save(Ssl::EncodingFormat format)
 }
 
 
-struct PrivateKeyReaderPrivate
+class PrivateKeyReaderPrivate
 {
+public:
     PrivateKey read(const QByteArray &data);
     PrivateKey read(const QString &filePath);
     PublicKey readPublic(const QByteArray &data);

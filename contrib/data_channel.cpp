@@ -111,8 +111,9 @@ bool unpackCommand(QByteArray data, quint8 *command, quint32 *channelNumber)
     }
 }
 
-struct DataChannelPrivate
+class DataChannelPrivate
 {
+public:
     DataChannelPrivate(DataChannelPole pole, DataChannel *parent);
     virtual ~DataChannelPrivate();
 
@@ -155,8 +156,9 @@ struct DataChannelPrivate
     inline DataChannelPrivate *getPrivateHelper(QPointer<DataChannel> channel) { return channel.data()->d_ptr; }
 };
 
-struct WritingPacket
+class WritingPacket
 {
+public:
     WritingPacket()
         :channelNumber(0) {}
     WritingPacket(quint32 channelNumber, const QByteArray &packet, const QSharedPointer<ValueEvent<bool>> &done)
@@ -170,8 +172,9 @@ struct WritingPacket
     }
 };
 
-struct SocketChannelPrivate: public DataChannelPrivate
+class SocketChannelPrivate: public DataChannelPrivate
 {
+public:
     SocketChannelPrivate(const QSharedPointer<QSocket> connection, DataChannelPole pole, SocketChannel *parent);
     virtual ~SocketChannelPrivate() override;
     virtual bool isBroken() const override;
@@ -191,8 +194,9 @@ struct SocketChannelPrivate: public DataChannelPrivate
     Q_DECLARE_PUBLIC(SocketChannel)
 };
 
-struct VirtualChannelPrivate: public DataChannelPrivate
+class VirtualChannelPrivate: public DataChannelPrivate
 {
+public:
     VirtualChannelPrivate(DataChannel* parentChannel, DataChannelPole pole, quint32 channelNumber, VirtualChannel *parent);
     virtual ~VirtualChannelPrivate() override;
     virtual bool isBroken() const override;

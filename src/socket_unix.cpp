@@ -543,6 +543,11 @@ qint64 QSocketPrivate::recv(char *data, qint64 size, bool all)
 //    }
 //}
 
+// openbsd do not support MSG_MORE?
+#ifndef MSG_MORE
+#define MSG_MORE 0
+#endif
+
 qint64 QSocketPrivate::send(const char *data, qint64 size, bool all)
 {
     if(!isValid()) {
@@ -888,7 +893,7 @@ bool QSocketPrivate::setOption(QSocket::SocketOption option, const QVariant &val
         // on OS X, SO_REUSEADDR isn't sufficient to allow multiple binds to the
         // same port (which is useful for multicast UDP). SO_REUSEPORT is, but
         // we most definitely do not want to use this for TCP. See QTBUG-6305.
-        if (type == QAbstractSocket::UdpSocket)
+        if (type == QSocket::UdpSocket)
             n = SO_REUSEPORT;
     }
 #endif

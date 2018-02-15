@@ -2,11 +2,16 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+SocketLike::~SocketLike()
+{
+}
+
 namespace {
 class SocketLikeImpl: public SocketLike
 {
 public:
     SocketLikeImpl(QSharedPointer<QSocket> s);
+    virtual ~SocketLikeImpl();
 public:
     virtual QSocket::SocketError error() const override;
     virtual QString errorString() const override;
@@ -45,6 +50,11 @@ private:
 
 SocketLikeImpl::SocketLikeImpl(QSharedPointer<QSocket> s)
     :s(s) {}
+
+
+SocketLikeImpl::~SocketLikeImpl()
+{
+}
 
 QSocket::SocketError SocketLikeImpl::error() const
 {

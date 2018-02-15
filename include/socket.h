@@ -23,8 +23,10 @@
     #else
         #ifdef Q_OS_ANDROID
             #define QT_SOCKLEN_T int
+        #elif defined(Q_OS_OPENBSD)
+            #define QT_SOCKLEN_T __socklen_t
         #else
-            #define QT_SOCKLEN_T            socklen_t
+            #define QT_SOCKLEN_T socklen_t
         #endif
     #endif
 #endif
