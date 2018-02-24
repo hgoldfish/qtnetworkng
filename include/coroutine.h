@@ -9,29 +9,29 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-class QCoroutineException
+class CoroutineException
 {
 public:
-    explicit QCoroutineException() throw();
-    virtual ~QCoroutineException() throw();
+    explicit CoroutineException() throw();
+    virtual ~CoroutineException() throw();
     virtual void raise();
     virtual QString what() const throw();
 };
 
-class QCoroutineExitException: public QCoroutineException
+class CoroutineExitException: public CoroutineException
 {
 public:
-    explicit QCoroutineExitException();
+    explicit CoroutineExitException();
     virtual void raise();
     virtual QString what() const throw();
 };
 
 
-class QBaseCoroutinePrivate;
-class QBaseCoroutine: public QObject
+class BaseCoroutinePrivate;
+class BaseCoroutine: public QObject
 {
     Q_OBJECT
-    Q_DISABLE_COPY(QBaseCoroutine)
+    Q_DISABLE_COPY(BaseCoroutine)
 public:
     enum State
     {
@@ -40,28 +40,28 @@ public:
         Stopped,
         Joined,
     };
-    explicit QBaseCoroutine(QBaseCoroutine * previous, size_t stackSize = 1024 * 1024 * 8);
-    virtual ~QBaseCoroutine();
+    explicit BaseCoroutine(BaseCoroutine * previous, size_t stackSize = 1024 * 1024 * 8);
+    virtual ~BaseCoroutine();
 
     virtual void run();
 
     State state() const;
-    bool raise(QCoroutineException *exception = 0);
+    bool raise(CoroutineException *exception = 0);
     bool yield();
     quintptr id() const;
-    static QBaseCoroutine *current();
+    static BaseCoroutine *current();
 signals:
     void started();
     void finished();
 protected:
-    void setState(QBaseCoroutine::State state);
+    void setState(BaseCoroutine::State state);
 private:
-    QBaseCoroutinePrivate * const d_ptr;
-    friend QBaseCoroutine* createMainCoroutine();
-    Q_DECLARE_PRIVATE(QBaseCoroutine)
+    BaseCoroutinePrivate * const d_ptr;
+    friend BaseCoroutine* createMainCoroutine();
+    Q_DECLARE_PRIVATE(BaseCoroutine)
 };
 
-inline QDebug &operator <<(QDebug &out, const QBaseCoroutine& coroutine)
+inline QDebug &operator <<(QDebug &out, const BaseCoroutine& coroutine)
 {
     if(coroutine.objectName().isEmpty())
         return out << QString::fromLatin1("BaseCourtine(id=%1)").arg(coroutine.id());

@@ -45,7 +45,7 @@ struct YieldCurrentFunctor: public Functor
 {
     explicit YieldCurrentFunctor();
     virtual void operator()();
-    QPointer<QBaseCoroutine> coroutine;
+    QPointer<BaseCoroutine> coroutine;
 };
 
 template<typename T>
@@ -65,7 +65,7 @@ typedef qptrdiff qintptr;
 #endif
 
 class EventLoopCoroutinePrivate;
-class EventLoopCoroutine: public QBaseCoroutine
+class EventLoopCoroutine: public BaseCoroutine
 {
     Q_OBJECT
 
@@ -114,48 +114,48 @@ private:
     int watcherId;
 };
 
-class QCoroutinePrivate;
-class QCoroutine: public QBaseCoroutine
+class CoroutinePrivate;
+class Coroutine: public BaseCoroutine
 {
     Q_OBJECT
-    Q_DISABLE_COPY(QCoroutine)
+    Q_DISABLE_COPY(Coroutine)
 public:
-    explicit QCoroutine(size_t stackSize = 1024 * 1024 * 8);
-    QCoroutine(QObject *obj, const char *slot, size_t stackSize = 1024 * 1024 * 8);
-    virtual ~QCoroutine();
+    explicit Coroutine(size_t stackSize = 1024 * 1024 * 8);
+    Coroutine(QObject *obj, const char *slot, size_t stackSize = 1024 * 1024 * 8);
+    virtual ~Coroutine();
 public:
     bool isActive() const;
-    QCoroutine *start(int msecs = 0);
-    void kill(QCoroutineException *e = 0, int msecs = 0);
+    Coroutine *start(int msecs = 0);
+    void kill(CoroutineException *e = 0, int msecs = 0);
     void cancelStart();
     bool join();
     virtual void run();
-    static QCoroutine *current();
+    static Coroutine *current();
     static void sleep(int msecs);
-    inline static QCoroutine *spawn(std::function<void()> f);
+    inline static Coroutine *spawn(std::function<void()> f);
 private:
-    QCoroutinePrivate * const d_ptr;
-    Q_DECLARE_PRIVATE(QCoroutine)
+    CoroutinePrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(Coroutine)
 };
 
-inline QDebug &operator <<(QDebug &out, const QCoroutine& el)
+inline QDebug &operator <<(QDebug &out, const Coroutine& el)
 {
-    return out << QString::fromLatin1("QCoroutine(id=%1)").arg(el.id());
+    return out << QString::fromLatin1("Coroutine(id=%1)").arg(el.id());
 }
 
-class QCoroutineSpawnHelper: public QCoroutine
+class CoroutineSpawnHelper: public Coroutine
 {
 public:
-    QCoroutineSpawnHelper(std::function<void()> f)
+    CoroutineSpawnHelper(std::function<void()> f)
         :f(f){}
     virtual void run(){f(); }
 private:
     std::function<void()> f;
 };
 
-QCoroutine *QCoroutine::spawn(std::function<void()> f)
+Coroutine *Coroutine::spawn(std::function<void()> f)
 {
-    QCoroutine *c =  new QCoroutineSpawnHelper(f);
+    Coroutine *c =  new CoroutineSpawnHelper(f);
     c->start();
     return c;
 }
@@ -181,19 +181,19 @@ protected:
     EventLoopCoroutine * const q_ptr;
 };
 
-class QTimeoutException: public QCoroutineException
+class TimeoutException: public CoroutineException
 {
 public:
-    explicit QTimeoutException();
+    explicit TimeoutException();
     virtual QString what() const throw();
     virtual void raise();
 };
 
-class QTimeout: public QObject
+class Timeout: public QObject
 {
 public:
-    QTimeout(int msecs);
-    ~QTimeout();
+    Timeout(int msecs);
+    ~Timeout();
 public:
     void restart();
 private:

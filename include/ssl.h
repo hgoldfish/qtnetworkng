@@ -137,7 +137,7 @@ QDebug &operator<<(QDebug &debug, const SslError &error);
 QDebug &operator<<(QDebug &debug, const SslError::Error &error);
 
 
-class QSocket;
+class Socket;
 class SslSocketPrivate;
 class SslSocket
 {
@@ -157,9 +157,9 @@ public:
     };
 
 public:
-    SslSocket(QSocket::NetworkLayerProtocol protocol = QSocket::AnyIPProtocol, const SslConfiguration &config = SslConfiguration());
+    SslSocket(Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol, const SslConfiguration &config = SslConfiguration());
     SslSocket(qintptr socketDescriptor, const SslConfiguration &config = SslConfiguration());
-    SslSocket(QSharedPointer<QSocket> rawSocket, const SslConfiguration &config = SslConfiguration());
+    SslSocket(QSharedPointer<Socket> rawSocket, const SslConfiguration &config = SslConfiguration());
     virtual ~SslSocket();
 public:
     Certificate localCertificate() const;
@@ -179,7 +179,7 @@ public:
     QList<SslError> sslErrors() const;
     void setSslConfiguration(const SslConfiguration &configuration);
 public:
-    QSocket::SocketError error() const;
+    Socket::SocketError error() const;
     QString errorString() const;
     bool isValid() const;
     QHostAddress localAddress() const;
@@ -188,20 +188,20 @@ public:
     QString peerName() const;
     quint16 peerPort() const;
     virtual qintptr	fileno() const;
-    QSocket::SocketType type() const;
-    QSocket::SocketState state() const;
-    QSocket::NetworkLayerProtocol protocol() const;
+    Socket::SocketType type() const;
+    Socket::SocketState state() const;
+    Socket::NetworkLayerProtocol protocol() const;
 
     QSharedPointer<SslSocket> accept();
-    QSocket *acceptRaw();
-    bool bind(QHostAddress &address, quint16 port = 0, QSocket::BindMode mode = QSocket::DefaultForPlatform);
-    bool bind(quint16 port = 0, QSocket::BindMode mode = QSocket::DefaultForPlatform);
+    Socket *acceptRaw();
+    bool bind(QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
+    bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
     bool connect(const QHostAddress &addr, quint16 port);
-    bool connect(const QString &hostName, quint16 port, QSocket::NetworkLayerProtocol protocol = QSocket::AnyIPProtocol);
+    bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol);
     bool close();
     bool listen(int backlog);
-    bool setOption(QSocket::SocketOption option, const QVariant &value);
-    QVariant option(QSocket::SocketOption option) const;
+    bool setOption(Socket::SocketOption option, const QVariant &value);
+    QVariant option(Socket::SocketOption option) const;
 
     qint64 recv(char *data, qint64 size);
     qint64 recvall(char *data, qint64 size);

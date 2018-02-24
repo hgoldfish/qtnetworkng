@@ -36,12 +36,12 @@
 #endif
 QTNETWORKNG_NAMESPACE_BEGIN
 
-class QSocketPrivate;
-class QTcpSocketPrivate;
-class QTcpServerPrivate;
-class QSocketDnsCache;
+class SocketPrivate;
+class TcpSocketPrivate;
+class TcpServerPrivate;
+class SocketDnsCache;
 
-class QSocket: public QObject
+class Socket: public QObject
 {
 public:
     enum SocketType {
@@ -122,9 +122,9 @@ public:
     };
     Q_DECLARE_FLAGS(BindMode, BindFlag)
 public:
-    QSocket(NetworkLayerProtocol protocol = AnyIPProtocol, SocketType type = TcpSocket);
-    QSocket(qintptr socketDescriptor);
-    virtual ~QSocket();
+    Socket(NetworkLayerProtocol protocol = AnyIPProtocol, SocketType type = TcpSocket);
+    Socket(qintptr socketDescriptor);
+    virtual ~Socket();
 public:
     SocketError error() const;
     QString errorString() const;
@@ -139,7 +139,7 @@ public:
     SocketState state() const;
     NetworkLayerProtocol protocol() const;
 
-    QSocket *accept();
+    Socket *accept();
     bool bind(QHostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool bind(quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool connect(const QHostAddress &host, quint16 port);
@@ -164,15 +164,15 @@ public:
     qint64 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port);
 
     static QList<QHostAddress> resolve(const QString &hostName);
-    void setDnsCache(QSharedPointer<QSocketDnsCache> dnsCache);
+    void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache);
 protected:
-    QSocketPrivate * const d_ptr;
+    SocketPrivate * const d_ptr;
 private:
-    Q_DECLARE_PRIVATE(QSocket)
-    Q_DISABLE_COPY(QSocket)
+    Q_DECLARE_PRIVATE(Socket)
+    Q_DISABLE_COPY(Socket)
 };
 
-Q_DECLARE_OPERATORS_FOR_FLAGS(QSocket::BindMode)
+Q_DECLARE_OPERATORS_FOR_FLAGS(Socket::BindMode)
 
 class PollPrivate;
 class Poll
@@ -181,32 +181,32 @@ public:
     Poll();
     virtual ~Poll();
 public:
-    void add(QSocket *socket, EventLoopCoroutine::EventType event);
-    void remove(QSocket *socket);
-    QSocket *wait(qint64 msecs = 0);
+    void add(Socket *socket, EventLoopCoroutine::EventType event);
+    void remove(Socket *socket);
+    Socket *wait(qint64 msecs = 0);
 private:
     PollPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Poll)
 };
 
-class QSocketDnsCachePrivate;
-class QSocketDnsCache
+class SocketDnsCachePrivate;
+class SocketDnsCache
 {
 public:
-    QSocketDnsCache();
-    virtual ~QSocketDnsCache();
+    SocketDnsCache();
+    virtual ~SocketDnsCache();
 public:
     QList<QHostAddress> resolve(const QString &hostName);
 private:
-    QSocketDnsCachePrivate * const d_ptr;
-    Q_DECLARE_PRIVATE(QSocketDnsCache)
+    SocketDnsCachePrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(SocketDnsCache)
 };
 
 
 QTNETWORKNG_NAMESPACE_END
 
-Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::QSocket::SocketState)
-Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::QSocket::SocketError)
+Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::Socket::SocketState)
+Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::Socket::SocketError)
 
 
 #endif // QTNG_SOCKET_H

@@ -220,45 +220,45 @@ static inline void qt_socket_getPortAndAddress(SOCKET socketDescriptor, const qt
     }
 }
 
-static void convertToLevelAndOption(QSocket::SocketOption opt,
-                                    QSocket::NetworkLayerProtocol socketProtocol, int &level, int &n)
+static void convertToLevelAndOption(Socket::SocketOption opt,
+                                    Socket::NetworkLayerProtocol socketProtocol, int &level, int &n)
 {
     n = 0;
     level = SOL_SOCKET; // default
 
     switch (opt) {
-    case QSocket::NonBlockingSocketOption:      // WSAIoctl
-    case QSocket::TypeOfServiceOption:          // not supported
-    case QSocket::MaxStreamsSocketOption:
+    case Socket::NonBlockingSocketOption:      // WSAIoctl
+    case Socket::TypeOfServiceOption:          // not supported
+    case Socket::MaxStreamsSocketOption:
         Q_UNREACHABLE();
 
-    case QSocket::ReceiveBufferSizeSocketOption:
+    case Socket::ReceiveBufferSizeSocketOption:
         n = SO_RCVBUF;
         break;
-    case QSocket::SendBufferSizeSocketOption:
+    case Socket::SendBufferSizeSocketOption:
         n = SO_SNDBUF;
         break;
-    case QSocket::BroadcastSocketOption:
+    case Socket::BroadcastSocketOption:
         n = SO_BROADCAST;
         break;
-    case QSocket::AddressReusable:
+    case Socket::AddressReusable:
         n = SO_REUSEADDR;
         break;
-    case QSocket::BindExclusively:
+    case Socket::BindExclusively:
         n = SO_EXCLUSIVEADDRUSE;
         break;
-    case QSocket::ReceiveOutOfBandData:
+    case Socket::ReceiveOutOfBandData:
         n = SO_OOBINLINE;
         break;
-    case QSocket::LowDelayOption:
+    case Socket::LowDelayOption:
         level = IPPROTO_TCP;
         n = TCP_NODELAY;
         break;
-    case QSocket::KeepAliveOption:
+    case Socket::KeepAliveOption:
         n = SO_KEEPALIVE;
         break;
-    case QSocket::MulticastTtlOption:
-        if (socketProtocol == QSocket::IPv6Protocol || socketProtocol == QSocket::AnyIPProtocol) {
+    case Socket::MulticastTtlOption:
+        if (socketProtocol == Socket::IPv6Protocol || socketProtocol == Socket::AnyIPProtocol) {
             level = IPPROTO_IPV6;
             n = IPV6_MULTICAST_HOPS;
         } else
@@ -267,8 +267,8 @@ static void convertToLevelAndOption(QSocket::SocketOption opt,
             n = IP_MULTICAST_TTL;
         }
         break;
-    case QSocket::MulticastLoopbackOption:
-        if (socketProtocol == QSocket::IPv6Protocol || socketProtocol == QSocket::AnyIPProtocol) {
+    case Socket::MulticastLoopbackOption:
+        if (socketProtocol == Socket::IPv6Protocol || socketProtocol == Socket::AnyIPProtocol) {
             level = IPPROTO_IPV6;
             n = IPV6_MULTICAST_LOOP;
         } else
@@ -277,20 +277,20 @@ static void convertToLevelAndOption(QSocket::SocketOption opt,
             n = IP_MULTICAST_LOOP;
         }
         break;
-    case QSocket::ReceivePacketInformation:
-        if (socketProtocol == QSocket::IPv6Protocol || socketProtocol == QSocket::AnyIPProtocol) {
+    case Socket::ReceivePacketInformation:
+        if (socketProtocol == Socket::IPv6Protocol || socketProtocol == Socket::AnyIPProtocol) {
             level = IPPROTO_IPV6;
             n = IPV6_PKTINFO;
-        } else if (socketProtocol == QSocket::IPv4Protocol) {
+        } else if (socketProtocol == Socket::IPv4Protocol) {
             level = IPPROTO_IP;
             n = IP_PKTINFO;
         }
         break;
-    case QSocket::ReceiveHopLimit:
-        if (socketProtocol == QSocket::IPv6Protocol || socketProtocol == QSocket::AnyIPProtocol) {
+    case Socket::ReceiveHopLimit:
+        if (socketProtocol == Socket::IPv6Protocol || socketProtocol == Socket::AnyIPProtocol) {
             level = IPPROTO_IPV6;
             n = IPV6_HOPLIMIT;
-        } else if (socketProtocol == QSocket::IPv4Protocol) {
+        } else if (socketProtocol == Socket::IPv4Protocol) {
             level = IPPROTO_IP;
             n = IP_HOPLIMIT;
         }
@@ -298,7 +298,7 @@ static void convertToLevelAndOption(QSocket::SocketOption opt,
     }
 }
 
-static inline QSocket::SocketType qt_socket_getType(qintptr socketDescriptor)
+static inline Socket::SocketType qt_socket_getType(qintptr socketDescriptor)
 {
     int value = 0;
     QT_SOCKLEN_T valueSize = sizeof(value);
@@ -306,11 +306,11 @@ static inline QSocket::SocketType qt_socket_getType(qintptr socketDescriptor)
         WS_ERROR_DEBUG(WSAGetLastError());
     } else {
         if (value == SOCK_STREAM)
-            return QSocket::TcpSocket;
+            return Socket::TcpSocket;
         else if (value == SOCK_DGRAM)
-            return QSocket::UdpSocket;
+            return Socket::UdpSocket;
     }
-    return QSocket::UnknownSocketType;
+    return Socket::UnknownSocketType;
 }
 
 
@@ -330,12 +330,12 @@ namespace SetSALen {
 }
 }
 
-void QSocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, QT_SOCKLEN_T *sockAddrSize)
+void SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, QT_SOCKLEN_T *sockAddrSize)
 {
     if (address.protocol() == QAbstractSocket::IPv6Protocol
         || address.protocol() == QAbstractSocket::AnyIPProtocol
-        || protocol == QSocket::IPv6Protocol
-        || protocol == QSocket::AnyIPProtocol) {
+        || protocol == Socket::IPv6Protocol
+        || protocol == Socket::AnyIPProtocol) {
         memset(&aa->a6, 0, sizeof(sockaddr_in6));
         aa->a6.sin6_family = AF_INET6;
         aa->a6.sin6_scope_id = scopeIdFromString(address.scopeId());
@@ -354,12 +354,12 @@ void QSocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address
     }
 }
 
-bool QSocketPrivate::createSocket()
+bool SocketPrivate::createSocket()
 {
     //Windows XP and 2003 support IPv6 but not dual stack sockets
-    int protocol = (this->protocol == QSocket::IPv6Protocol
-        || (this->protocol == QSocket::AnyIPProtocol)) ? AF_INET6 : AF_INET;
-    int type = (this->type == QSocket::UdpSocket) ? SOCK_DGRAM : SOCK_STREAM;
+    int protocol = (this->protocol == Socket::IPv6Protocol
+        || (this->protocol == Socket::AnyIPProtocol)) ? AF_INET6 : AF_INET;
+    int type = (this->type == Socket::UdpSocket) ? SOCK_DGRAM : SOCK_STREAM;
 
     // MSDN KB179942 states that on winnt 4 WSA_FLAG_OVERLAPPED is needed if socket is to be non blocking
     // and recomends alwasy doing it for cross windows version comapablity.
@@ -395,11 +395,11 @@ bool QSocketPrivate::createSocket()
         case WSAESOCKTNOSUPPORT:
         case WSAEPROTOTYPE:
         case WSAEINVAL:
-            setError(QSocket::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
+            setError(Socket::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
             break;
         case WSAEMFILE:
         case WSAENOBUFS:
-            setError(QSocket::SocketResourceError, ResourceErrorString);
+            setError(Socket::SocketResourceError, ResourceErrorString);
             break;
         default:
             break;
@@ -407,7 +407,7 @@ bool QSocketPrivate::createSocket()
         return false;
     }
 
-    if (this->type == QSocket::UdpSocket) {
+    if (this->type == Socket::UdpSocket) {
         // enable new behavior using
         // SIO_UDP_CONNRESET
         DWORD dwBytesReturned = 0;
@@ -447,7 +447,7 @@ bool QSocketPrivate::createSocket()
 }
 
 
-bool QSocketPrivate::bind(const QHostAddress &a, quint16 port, QSocket::BindMode mode)
+bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode mode)
 {
     Q_UNUSED(mode);
     QHostAddress address = a;
@@ -486,20 +486,20 @@ bool QSocketPrivate::bind(const QHostAddress &a, quint16 port, QSocket::BindMode
         WS_ERROR_DEBUG(err);
         switch (err) {
         case WSANOTINITIALISED:
-            setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
+            setError(Socket::UnknownSocketError, UnknownSocketErrorString);
             break;
         case WSAEADDRINUSE:
         case WSAEINVAL:
-            setError(QSocket::AddressInUseError, AddressInuseErrorString);
+            setError(Socket::AddressInUseError, AddressInuseErrorString);
             break;
         case WSAEACCES:
-            setError(QSocket::SocketAccessError, AddressProtectedErrorString);
+            setError(Socket::SocketAccessError, AddressProtectedErrorString);
             break;
         case WSAEADDRNOTAVAIL:
-            setError(QSocket::SocketAddressNotAvailableError, AddressNotAvailableErrorString);
+            setError(Socket::SocketAddressNotAvailableError, AddressNotAvailableErrorString);
             break;
         default:
-            setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
+            setError(Socket::UnknownSocketError, UnknownSocketErrorString);
             break;
         }
 
@@ -514,23 +514,23 @@ bool QSocketPrivate::bind(const QHostAddress &a, quint16 port, QSocket::BindMode
     qDebug("QSocketPrivate::bind(%s, %i) == true",
            address.toString().toLatin1().constData(), port);
 #endif
-    state = QSocket::BoundState;
+    state = Socket::BoundState;
     return true;
 }
 
 
-bool QSocketPrivate::connect(const QHostAddress &address, quint16 port)
+bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 {
     if(!isValid())
         return false;
-    if(state != QSocket::UnconnectedState && state != QSocket::BoundState && state != QSocket::ConnectingState)
+    if(state != Socket::UnconnectedState && state != Socket::BoundState && state != Socket::ConnectingState)
         return false;
 
     qt_sockaddr aa;
     QT_SOCKLEN_T sockAddrSize = 0;
     setPortAndAddress(port, address, &aa, &sockAddrSize);
 
-    if ((protocol == QSocket::IPv6Protocol || protocol == QSocket::AnyIPProtocol) && address.toIPv4Address()) {
+    if ((protocol == Socket::IPv6Protocol || protocol == Socket::AnyIPProtocol) && address.toIPv4Address()) {
         //IPV6_V6ONLY option must be cleared to connect to a V4 mapped address
         if (QSysInfo::windowsVersion() >= QSysInfo::WV_6_0) {
             DWORD ipv6only = 0;
@@ -538,12 +538,12 @@ bool QSocketPrivate::connect(const QHostAddress &address, quint16 port)
         }
     }
 
-    state = QSocket::ConnectingState;
+    state = Socket::ConnectingState;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     while(true) {
         if(!isValid())
             return false;
-        if(state != QSocket::ConnectingState)
+        if(state != Socket::ConnectingState)
             return false;
 
         int connectResult = ::WSAConnect(fd, &aa.a, sockAddrSize, 0,0,0,0);
@@ -553,10 +553,10 @@ bool QSocketPrivate::connect(const QHostAddress &address, quint16 port)
 
             switch (err) {
             case WSANOTINITIALISED:
-                setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
+                setError(Socket::UnknownSocketError, UnknownSocketErrorString);
                 return false;
             case WSAEISCONN:
-                state = QSocket::ConnectedState;
+                state = Socket::ConnectedState;
                 fetchConnectionParameters();
                 return true;
             case WSAEWOULDBLOCK: {
@@ -579,23 +579,23 @@ bool QSocketPrivate::connect(const QHostAddress &address, quint16 port)
                         }
 
                         if (value == WSAECONNREFUSED) {
-                            setError(QSocket::ConnectionRefusedError, ConnectionRefusedErrorString);
-                            state = QSocket::UnconnectedState;
+                            setError(Socket::ConnectionRefusedError, ConnectionRefusedErrorString);
+                            state = Socket::UnconnectedState;
                             return false;
                         }
                         if (value == WSAETIMEDOUT) {
-                            setError(QSocket::NetworkError, ConnectionTimeOutErrorString);
-                            state = QSocket::UnconnectedState;
+                            setError(Socket::NetworkError, ConnectionTimeOutErrorString);
+                            state = Socket::UnconnectedState;
                             return false;
                         }
                         if (value == WSAEHOSTUNREACH) {
-                            setError(QSocket::NetworkError, HostUnreachableErrorString);
-                            state = QSocket::UnconnectedState;
+                            setError(Socket::NetworkError, HostUnreachableErrorString);
+                            state = Socket::UnconnectedState;
                             return false;
                         }
                         if (value == WSAEADDRNOTAVAIL) {
-                            setError(QSocket::NetworkError, AddressNotAvailableErrorString);
-                            state = QSocket::UnconnectedState;
+                            setError(Socket::NetworkError, AddressNotAvailableErrorString);
+                            state = Socket::UnconnectedState;
                             return false;
                         }
                         if (value == NOERROR) {
@@ -613,36 +613,36 @@ bool QSocketPrivate::connect(const QHostAddress &address, quint16 port)
             case WSAEINPROGRESS:
                 break;
             case WSAEADDRINUSE:
-                setError(QSocket::NetworkError, AddressInuseErrorString);
-                state = QSocket::UnconnectedState;
+                setError(Socket::NetworkError, AddressInuseErrorString);
+                state = Socket::UnconnectedState;
                 return false;
             case WSAECONNREFUSED:
-                setError(QSocket::ConnectionRefusedError, ConnectionRefusedErrorString);
-                state = QSocket::UnconnectedState;
+                setError(Socket::ConnectionRefusedError, ConnectionRefusedErrorString);
+                state = Socket::UnconnectedState;
                 return false;
             case WSAETIMEDOUT:
-                setError(QSocket::NetworkError, ConnectionTimeOutErrorString);
-                state = QSocket::UnconnectedState;
+                setError(Socket::NetworkError, ConnectionTimeOutErrorString);
+                state = Socket::UnconnectedState;
                 return false;
             case WSAEACCES:
-                setError(QSocket::SocketAccessError, AccessErrorString);
-                state = QSocket::UnconnectedState;
+                setError(Socket::SocketAccessError, AccessErrorString);
+                state = Socket::UnconnectedState;
                 return false;
             case WSAEHOSTUNREACH:
-                setError(QSocket::NetworkError, HostUnreachableErrorString);
-                state = QSocket::UnconnectedState;
+                setError(Socket::NetworkError, HostUnreachableErrorString);
+                state = Socket::UnconnectedState;
                 return false;
             case WSAENETUNREACH:
-                setError(QSocket::NetworkError, NetworkUnreachableErrorString);
-                state = QSocket::UnconnectedState;
+                setError(Socket::NetworkError, NetworkUnreachableErrorString);
+                state = Socket::UnconnectedState;
                 return false;
             case WSAEINVAL:
             case WSAEALREADY:
-                setError(QSocket::UnfinishedSocketOperationError, InvalidSocketErrorString);
-                state = QSocket::UnconnectedState;
+                setError(Socket::UnfinishedSocketOperationError, InvalidSocketErrorString);
+                state = Socket::UnconnectedState;
                 return false;
             default:
-                setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
+                setError(Socket::UnknownSocketError, UnknownSocketErrorString);
                 return false;
             }
             watcher.start();
@@ -651,7 +651,7 @@ bool QSocketPrivate::connect(const QHostAddress &address, quint16 port)
 }
 
 
-bool QSocketPrivate::close()
+bool SocketPrivate::close()
 {
     if(fd > 0)
     {
@@ -659,7 +659,7 @@ bool QSocketPrivate::close()
         EventLoopCoroutine::get()->triggerIoWatchers(fd);
         fd = -1;
     }
-    state = QSocket::UnconnectedState;
+    state = Socket::UnconnectedState;
     localAddress.clear();
     localPort = 0;
     peerAddress.clear();
@@ -667,12 +667,12 @@ bool QSocketPrivate::close()
     return true;
 }
 
-bool QSocketPrivate::listen(int backlog)
+bool SocketPrivate::listen(int backlog)
 {
     if(!isValid()) {
         return false;
     }
-    if(state != QSocket::BoundState) {
+    if(state != Socket::BoundState) {
         return false;
     }
     if (::listen(fd, backlog) == SOCKET_ERROR) {
@@ -680,10 +680,10 @@ bool QSocketPrivate::listen(int backlog)
         WS_ERROR_DEBUG(err);
         switch (err) {
         case WSANOTINITIALISED:
-            setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
+            setError(Socket::UnknownSocketError, UnknownSocketErrorString);
             break;
         case WSAEADDRINUSE:
-            setError(QSocket::AddressInUseError,
+            setError(Socket::AddressInUseError,
                      PortInuseErrorString);
             break;
         default:
@@ -701,12 +701,12 @@ bool QSocketPrivate::listen(int backlog)
         qDebug("QSocketPrivate::listen(%i) == true", backlog);
     #endif
 
-    state = QSocket::ListeningState;
+    state = Socket::ListeningState;
     return true;
 }
 
 
-bool QSocketPrivate::fetchConnectionParameters()
+bool SocketPrivate::fetchConnectionParameters()
 {
     localPort = 0;
     localAddress.clear();
@@ -727,20 +727,20 @@ bool QSocketPrivate::fetchConnectionParameters()
         // Determine protocol family
         switch (sa.a.sa_family) {
         case AF_INET:
-            this->protocol = QSocket::IPv4Protocol;
+            this->protocol = Socket::IPv4Protocol;
             break;
         case AF_INET6:
-            this->protocol = QSocket::IPv6Protocol;
+            this->protocol = Socket::IPv6Protocol;
             break;
         default:
-            this->protocol = QSocket::UnknownNetworkLayerProtocol;
+            this->protocol = Socket::UnknownNetworkLayerProtocol;
             break;
         }
     } else {
         int err = WSAGetLastError();
         WS_ERROR_DEBUG(err);
         if (err == WSAENOTSOCK) {
-            setError(QSocket::UnsupportedSocketOperationError,
+            setError(Socket::UnsupportedSocketOperationError,
                 InvalidSocketErrorString);
             return false;
         }
@@ -753,7 +753,7 @@ bool QSocketPrivate::fetchConnectionParameters()
         && QSysInfo::windowsVersion() >= QSysInfo::WV_6_0
         && !getsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, &optlen )) {
             if (!ipv6only) {
-                protocol = QSocket::AnyIPProtocol;
+                protocol = Socket::AnyIPProtocol;
                 localAddress = QHostAddress::Any;
             }
     }
@@ -762,11 +762,11 @@ bool QSocketPrivate::fetchConnectionParameters()
     // local address of the socket which bound on both IPv4 and IPv6 interfaces.
     // This address does not match to any special address and should not be used
     // to send the data. So, replace it with QHostAddress::Any.
-    if (this->protocol == QSocket::IPv6Protocol) {
+    if (this->protocol == Socket::IPv6Protocol) {
         bool ok = false;
         const quint32 localIPv4 = localAddress.toIPv4Address(&ok);
         if (ok && localIPv4 == INADDR_ANY) {
-            protocol = QSocket::AnyIPProtocol;
+            protocol = Socket::AnyIPProtocol;
             localAddress = QHostAddress::Any;
         }
     }
@@ -796,7 +796,7 @@ bool QSocketPrivate::fetchConnectionParameters()
 }
 
 
-qint64 QSocketPrivate::recv(char *data, qint64 size, bool all)
+qint64 SocketPrivate::recv(char *data, qint64 size, bool all)
 {
     if(!isValid()) {
         return -1;
@@ -806,21 +806,21 @@ qint64 QSocketPrivate::recv(char *data, qint64 size, bool all)
     while(total < size)
     {
         if(!isValid()) {
-            setError(QSocket::SocketAccessError, AccessErrorString);
+            setError(Socket::SocketAccessError, AccessErrorString);
             return total == 0 ? -1: total;
         }
-        if(type == QSocket::TcpSocket) {
-            if(state != QSocket::ConnectedState) {
-                setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+        if(type == Socket::TcpSocket) {
+            if(state != Socket::ConnectedState) {
+                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
                 return total == 0 ? -1 : total;
             }
-        } else if(type == QSocket::UdpSocket) {
-            if(state != QSocket::UnconnectedState || state != QSocket::BoundState) {
-                setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+        } else if(type == Socket::UdpSocket) {
+            if(state != Socket::UnconnectedState || state != Socket::BoundState) {
+                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
                 return total == 0 ? -1 : total;
             }
         } else {
-            setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+            setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
             return total == 0 ? -1 : total;
         }
         WSABUF buf;
@@ -836,20 +836,20 @@ qint64 QSocketPrivate::recv(char *data, qint64 size, bool all)
                 break;
             case WSAECONNRESET:
             case WSAECONNABORTED:
-                if(type == QSocket::TcpSocket) {
-                    setError(QSocket::RemoteHostClosedError, RemoteHostClosedErrorString);
+                if(type == Socket::TcpSocket) {
+                    setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                     close();
                 }
                 return total;
             case WSAEBADF:
             case WSAEINVAL:
             default:
-                setError(QSocket::NetworkError, ConnectionResetErrorString);
+                setError(Socket::NetworkError, ConnectionResetErrorString);
                 close();
                 return total == 0 ? -1 : total;
             }
-        } else if(bytesRead == 0 && type == QSocket::TcpSocket) {
-            setError(QSocket::RemoteHostClosedError, RemoteHostClosedErrorString);
+        } else if(bytesRead == 0 && type == Socket::TcpSocket) {
+            setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
             close();
             return total;
         } else {
@@ -865,7 +865,7 @@ qint64 QSocketPrivate::recv(char *data, qint64 size, bool all)
     return total;
 }
 
-qint64 QSocketPrivate::send(const char *data, qint64 size, bool all)
+qint64 SocketPrivate::send(const char *data, qint64 size, bool all)
 {
     if(!isValid()) {
         return -1;
@@ -876,21 +876,21 @@ qint64 QSocketPrivate::send(const char *data, qint64 size, bool all)
     while(bytesToSend > 0)
     {
         if(!isValid()) {
-            setError(QSocket::SocketAccessError, AccessErrorString);
+            setError(Socket::SocketAccessError, AccessErrorString);
             return ret == 0 ? -1: ret;
         }
-        if(type == QSocket::TcpSocket) {
-            if(state != QSocket::ConnectedState) {
-                setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+        if(type == Socket::TcpSocket) {
+            if(state != Socket::ConnectedState) {
+                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
                 return ret == 0 ? -1 : ret;
             }
-        } else if(type == QSocket::UdpSocket) {
-            if(state != QSocket::ConnectedState) {
-                setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+        } else if(type == Socket::UdpSocket) {
+            if(state != Socket::ConnectedState) {
+                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
                 return ret == 0 ? -1 : ret;
             }
         } else {
-            setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+            setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
             return -1;
         }
 
@@ -922,15 +922,15 @@ qint64 QSocketPrivate::send(const char *data, qint64 size, bool all)
             case WSAEADDRNOTAVAIL:
             case WSAEAFNOSUPPORT:
             case WSAENOTSOCK:
-                setError(QSocket::SocketAccessError, AccessErrorString);
+                setError(Socket::SocketAccessError, AccessErrorString);
                 return -1;
             case WSAEDESTADDRREQ: // only happen in sendto()
             case WSAESHUTDOWN:
-                setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
                 close();
                 return -1;
             case WSAEMSGSIZE: // must be udp socket, need not close()
-                setError(QSocket::DatagramTooLargeError, DatagramTooLargeErrorString);
+                setError(Socket::DatagramTooLargeError, DatagramTooLargeErrorString);
                 return ret == 0 ? -1 : ret;
             case WSAENOBUFS:
                 // this function used to not send more than 49152 per call to WSASendTo
@@ -942,30 +942,30 @@ qint64 QSocketPrivate::send(const char *data, qint64 size, bool all)
             case WSAECONNRESET:
             case WSAECONNABORTED:
             case WSAENOTCONN:
-                setError(QSocket::NetworkError, WriteErrorString);
+                setError(Socket::NetworkError, WriteErrorString);
                 close();
                 return ret == 0 ? -1 : ret;
             case WSAEHOSTUNREACH:
-                setError(QSocket::NetworkError, HostUnreachableErrorString);
+                setError(Socket::NetworkError, HostUnreachableErrorString);
                 close();
                 return -1;
             case WSAENETDOWN:
-                setError(QSocket::NetworkError, NetworkDroppedConnectionErrorString);
+                setError(Socket::NetworkError, NetworkDroppedConnectionErrorString);
                 close();
                 return -1;
             case WSAENETRESET:
-                setError(QSocket::NetworkError, ConnectionResetErrorString);
+                setError(Socket::NetworkError, ConnectionResetErrorString);
                 close();
                 return -1;
             case WSAENETUNREACH:
-                setError(QSocket::NetworkError, NetworkUnreachableErrorString);
+                setError(Socket::NetworkError, NetworkUnreachableErrorString);
                 close();
                 return -1;
             case WSAEFAULT:
             case WSAEINTR:
             case WSAEINVAL:
             default:
-                setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
+                setError(Socket::UnknownSocketError, UnknownSocketErrorString);
                 close();
                 return -1;
             }
@@ -977,7 +977,7 @@ qint64 QSocketPrivate::send(const char *data, qint64 size, bool all)
 }
 
 
-qint64 QSocketPrivate::recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port)
+qint64 SocketPrivate::recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port)
 {
     if(!isValid()) {
         return -1;
@@ -1006,17 +1006,17 @@ qint64 QSocketPrivate::recvfrom(char *data, qint64 size, QHostAddress *addr, qui
 
     while(true) {
         if(!isValid()){
-            setError(QSocket::SocketAccessError, AccessErrorString);
+            setError(Socket::SocketAccessError, AccessErrorString);
             return -1;
         }
-        if(type == QSocket::TcpSocket) {
-            if(state != QSocket::ConnectedState) {
-                setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+        if(type == Socket::TcpSocket) {
+            if(state != Socket::ConnectedState) {
+                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
                 return -1;
             }
-        } else if(type == QSocket::UdpSocket) {
-            if(state != QSocket::ConnectedState || state != QSocket::BoundState) {
-                setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+        } else if(type == Socket::UdpSocket) {
+            if(state != Socket::ConnectedState || state != Socket::BoundState) {
+                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
                 return -1;
             }
         } else {
@@ -1042,31 +1042,31 @@ qint64 QSocketPrivate::recvfrom(char *data, qint64 size, QHostAddress *addr, qui
                 case WSAEINTR:
                     break;
                 case WSAECONNRESET:
-                    setError(QSocket::ConnectionRefusedError, ConnectionResetErrorString);
+                    setError(Socket::ConnectionRefusedError, ConnectionResetErrorString);
                     close();
                     return -1;
                 case WSAENOTCONN: // not connected for tcp
                 case WSAEINVAL: // not bound for udp
-                    setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+                    setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
                     // need not close()
                     return -1;
                 case WSAENETRESET:
-                    if(type == QSocket::TcpSocket) {
-                        setError(QSocket::NetworkError, NetworkDroppedConnectionErrorString);
+                    if(type == Socket::TcpSocket) {
+                        setError(Socket::NetworkError, NetworkDroppedConnectionErrorString);
                         close();
                     } else {
-                        setError(QSocket::NetworkError, QString::fromLatin1("the time to live has expired."));
+                        setError(Socket::NetworkError, QString::fromLatin1("the time to live has expired."));
                         // need not close()
                     }
                     return -1;
                 case WSANOTINITIALISED:
                 case WSAENETDOWN:
                 case WSAEFAULT:
-                    setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
+                    setError(Socket::UnknownSocketError, UnknownSocketErrorString);
                     close();
                     return -1;
                 default:
-                    setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
+                    setError(Socket::UnknownSocketError, UnknownSocketErrorString);
                     return -1;
                 }
             }
@@ -1089,17 +1089,17 @@ qint64 QSocketPrivate::recvfrom(char *data, qint64 size, QHostAddress *addr, qui
     }
 }
 
-qint64 QSocketPrivate::sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port)
+qint64 SocketPrivate::sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port)
 {
     if(!isValid()) {
         return -1;
     }
-    if(type == QSocket::TcpSocket) {
-        setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+    if(type == Socket::TcpSocket) {
+        setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
         return -1;
-    } else if(type == QSocket::UdpSocket) {
-        if(state == QSocket::ConnectedState) {
-            setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+    } else if(type == Socket::UdpSocket) {
+        if(state == Socket::ConnectedState) {
+            setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
             return -1;
         }
     } else {
@@ -1126,8 +1126,8 @@ qint64 QSocketPrivate::sendto(const char *data, qint64 size, const QHostAddress 
         if(!isValid()) {
             return ret == 0 ? -1 : ret;
         }
-        if(state == QSocket::ConnectedState) {
-            setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+        if(state == Socket::ConnectedState) {
+            setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
             return ret == 0 ? -1 : ret;
         }
 
@@ -1156,16 +1156,16 @@ qint64 QSocketPrivate::sendto(const char *data, qint64 size, const QHostAddress 
             case WSAEAFNOSUPPORT:
             case WSAENOBUFS:
             case WSAENOTSOCK:
-                setError(QSocket::SocketAccessError, AccessErrorString);
+                setError(Socket::SocketAccessError, AccessErrorString);
                 return -1;
             case WSAECONNRESET:
             case WSAENOTCONN:
             case WSAEDESTADDRREQ:
             case WSAESHUTDOWN:
-                setError(QSocket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
+                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
                 return -1;
             case WSAEMSGSIZE:
-                setError(QSocket::DatagramTooLargeError, DatagramTooLargeErrorString);
+                setError(Socket::DatagramTooLargeError, DatagramTooLargeErrorString);
                 return -1;
             case WSAEINPROGRESS:
             case WSAEWOULDBLOCK:
@@ -1178,7 +1178,7 @@ qint64 QSocketPrivate::sendto(const char *data, qint64 size, const QHostAddress 
             case WSAENETRESET:
             case WSAENETUNREACH:
             default:
-                setError(QSocket::NetworkError, SendDatagramErrorString);
+                setError(Socket::NetworkError, SendDatagramErrorString);
                 return -1;
             }
         } else {
@@ -1200,17 +1200,17 @@ qint64 QSocketPrivate::sendto(const char *data, qint64 size, const QHostAddress 
     return ret;
 }
 
-QVariant QSocketPrivate::option(QSocket::SocketOption option) const
+QVariant SocketPrivate::option(Socket::SocketOption option) const
 {
     if (!isValid())
         return -1;
 
     // handle non-getsockopt
     switch (option) {
-    case QSocket::NonBlockingSocketOption:
+    case Socket::NonBlockingSocketOption:
         return QVariant(-1); // TODO return true if nonblocking is implemented.
-    case QSocket::TypeOfServiceOption:
-    case QSocket::MaxStreamsSocketOption:
+    case Socket::TypeOfServiceOption:
+    case Socket::MaxStreamsSocketOption:
         return -1;
     default:
         break;
@@ -1231,22 +1231,22 @@ QVariant QSocketPrivate::option(QSocket::SocketOption option) const
 }
 
 
-bool QSocketPrivate::setOption(QSocket::SocketOption option, const QVariant &value)
+bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value)
 {
     if(!isValid())
         return false;
 
     // handle non-setsockopt options
     switch (option) {
-    case QSocket::SendBufferSizeSocketOption:
+    case Socket::SendBufferSizeSocketOption:
         // see QTBUG-30478 SO_SNDBUF should not be used on Vista or later
         if (QSysInfo::windowsVersion() >= QSysInfo::WV_VISTA)
             return false;
         break;
-    case QSocket::NonBlockingSocketOption:
+    case Socket::NonBlockingSocketOption:
         return false;
-    case QSocket::TypeOfServiceOption:
-    case QSocket::MaxStreamsSocketOption:
+    case Socket::TypeOfServiceOption:
+    case Socket::MaxStreamsSocketOption:
         return false;
 
     default:
@@ -1262,7 +1262,7 @@ bool QSocketPrivate::setOption(QSocket::SocketOption option, const QVariant &val
     return true;
 }
 
-bool QSocketPrivate::setNonblocking()
+bool SocketPrivate::setNonblocking()
 {
     unsigned long buf = 1;
     unsigned long outBuf;
@@ -1275,12 +1275,12 @@ bool QSocketPrivate::setNonblocking()
 }
 
 
-QSocket *QSocketPrivate::accept()
+Socket *SocketPrivate::accept()
 {
     if(!isValid()) {
         return 0;
     }
-    if(state != QSocket::ListeningState || type != QSocket::TcpSocket)
+    if(state != Socket::ListeningState || type != Socket::TcpSocket)
         return 0;
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
@@ -1290,38 +1290,38 @@ QSocket *QSocketPrivate::accept()
             int err = WSAGetLastError();
             switch (err) {
             case WSAEACCES:
-                setError(QSocket::SocketAccessError, AccessErrorString);
+                setError(Socket::SocketAccessError, AccessErrorString);
                 return 0;
             case WSAECONNREFUSED:
-                setError(QSocket::ConnectionRefusedError, ConnectionRefusedErrorString);
+                setError(Socket::ConnectionRefusedError, ConnectionRefusedErrorString);
                 return 0;
             case WSAECONNRESET:
-                setError(QSocket::NetworkError, RemoteHostClosedErrorString);
+                setError(Socket::NetworkError, RemoteHostClosedErrorString);
                 return 0;
             case WSAENETDOWN:
-                setError(QSocket::NetworkError, NetworkUnreachableErrorString);
+                setError(Socket::NetworkError, NetworkUnreachableErrorString);
                 return 0;
             case WSAENOTSOCK:
-                setError(QSocket::SocketResourceError, NotSocketErrorString);
+                setError(Socket::SocketResourceError, NotSocketErrorString);
                 return 0;
             case WSAEINVAL:
             case WSAEOPNOTSUPP:
-                setError(QSocket::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
+                setError(Socket::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
                 return 0;
             case WSAEFAULT:
             case WSAEMFILE:
             case WSAENOBUFS:
-                setError(QSocket::SocketResourceError, ResourceErrorString);
+                setError(Socket::SocketResourceError, ResourceErrorString);
                 return 0;
             case WSAEINPROGRESS:
             case WSAEWOULDBLOCK:
                 break;
             default:
-                setError(QSocket::UnknownSocketError, UnknownSocketErrorString);
+                setError(Socket::UnknownSocketError, UnknownSocketErrorString);
                 return 0;
             }
         } else {
-            QSocket *conn = new QSocket(acceptedDescriptor);
+            Socket *conn = new Socket(acceptedDescriptor);
             return conn;
         }
         watcher.start();

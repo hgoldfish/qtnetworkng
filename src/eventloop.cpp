@@ -38,7 +38,7 @@ void CallbackFunctor::operator ()()
 
 YieldCurrentFunctor::YieldCurrentFunctor()
 {
-    coroutine = QBaseCoroutine::current();
+    coroutine = BaseCoroutine::current();
 }
 
 void YieldCurrentFunctor::operator ()()
@@ -49,7 +49,7 @@ void YieldCurrentFunctor::operator ()()
     }
     try {
         coroutine->yield();
-    } catch(QCoroutineException &e) {
+    } catch(CoroutineException &e) {
         qDebug() << "do not send exception to event loop, just delete event loop:" << e.what();
     }
 }
@@ -214,16 +214,16 @@ ScopedIoWatcher::~ScopedIoWatcher()
     eventLoop->removeWatcher(watcherId);
 }
 
-// 开始写 QCoroutinePrivate 的定义
+// 开始写 CoroutinePrivate 的定义
 
-class QCoroutinePrivate: public QObject
+class CoroutinePrivate: public QObject
 {
     Q_OBJECT
 public:
-    QCoroutinePrivate(QCoroutine *q, QObject *obj, const char *slot);
-    virtual ~QCoroutinePrivate();
+    CoroutinePrivate(Coroutine *q, QObject *obj, const char *slot);
+    virtual ~CoroutinePrivate();
     void start(int msecs);
-    void kill(QCoroutineException *e, int msecs);
+    void kill(CoroutineException *e, int msecs);
     void cancelStart();
     bool join();
 private slots:
@@ -232,28 +232,28 @@ private:
     QObject * const obj;
     const char * const slot;
     int callbackId;
-    QCoroutine * const q_ptr;
+    Coroutine * const q_ptr;
     Event finishedEvent;
-    Q_DECLARE_PUBLIC(QCoroutine)
+    Q_DECLARE_PUBLIC(Coroutine)
     friend void startCoroutine(const Arguments *args);
     friend void killCoroutine(const Arguments *args);
 };
 
-// 开始写 QCoroutinePrivate的实现
+// 开始写 CoroutinePrivate的实现
 
-QCoroutinePrivate::QCoroutinePrivate(QCoroutine *q, QObject *obj, const char *slot)
+CoroutinePrivate::CoroutinePrivate(Coroutine *q, QObject *obj, const char *slot)
     :obj(obj), slot(slot), callbackId(0), q_ptr(q)
 {
     connect(q_ptr, SIGNAL(finished()), SLOT(setFinishedEvent()), Qt::DirectConnection);
 }
 
-QCoroutinePrivate::~QCoroutinePrivate()
+CoroutinePrivate::~CoroutinePrivate()
 {
 }
 
 struct StartCoroutineArguments: public Arguments
 {
-    QPointer<QCoroutinePrivate> cp;
+    QPointer<CoroutinePrivate> cp;
 };
 
 void startCoroutine(const Arguments *args)
@@ -263,7 +263,7 @@ void startCoroutine(const Arguments *args)
         qWarning("startCouroutine is called without coroutine.");
         return;
     }
-    if(cargs->cp->q_func()->state() != QBaseCoroutine::Initialized) {
+    if(cargs->cp->q_func()->state() != BaseCoroutine::Initialized) {
         qDebug("coroutine has been started or stopped.");
         return;
     }
@@ -273,8 +273,8 @@ void startCoroutine(const Arguments *args)
 
 struct KillCoroutineArguments: public Arguments
 {
-    QPointer<QCoroutinePrivate> cp;
-    QCoroutineException *e;
+    QPointer<CoroutinePrivate> cp;
+    CoroutineException *e;
 };
 
 void killCoroutine(const Arguments *args)
@@ -284,14 +284,14 @@ void killCoroutine(const Arguments *args)
         qWarning("killCoroutine is called without coroutine");
         return;
     }
-    if(cargs->cp->q_func()->state() != QBaseCoroutine::Started) {
+    if(cargs->cp->q_func()->state() != BaseCoroutine::Started) {
 //        qDebug("killCoroutine try to kill a non-running coroutine.");
         return;
     }
     cargs->cp->q_func()->raise(cargs->e);
 }
 
-void QCoroutinePrivate::start(int msecs)
+void CoroutinePrivate::start(int msecs)
 {
     if(callbackId > 0)
         return;
@@ -301,16 +301,16 @@ void QCoroutinePrivate::start(int msecs)
 }
 
 
-void QCoroutinePrivate::kill(QCoroutineException *e, int msecs)
+void CoroutinePrivate::kill(CoroutineException *e, int msecs)
 {
-    Q_Q(QCoroutine);
+    Q_Q(Coroutine);
     EventLoopCoroutine *c = EventLoopCoroutine::get();
-    if(q->state() == QCoroutine::Initialized) {
+    if(q->state() == Coroutine::Initialized) {
         qDebug("coroutine is not started yet, will be starting now. would you check isAlive()?");
-    } else if(q->state() == QCoroutine::Stopped || q->state() == QCoroutine::Joined) {
+    } else if(q->state() == Coroutine::Stopped || q->state() == Coroutine::Joined) {
         qWarning("coroutine was dead. do you check isAlive()?");
         return;
-    } else if(q->state() == QCoroutine::Started){
+    } else if(q->state() == Coroutine::Started){
         KillCoroutineArguments *cargs = new KillCoroutineArguments();
         cargs->cp = this;
         cargs->e = e;
@@ -320,102 +320,102 @@ void QCoroutinePrivate::kill(QCoroutineException *e, int msecs)
     }
 }
 
-void QCoroutinePrivate::cancelStart()
+void CoroutinePrivate::cancelStart()
 {
-    Q_Q(QCoroutine);
+    Q_Q(Coroutine);
     EventLoopCoroutine *c = EventLoopCoroutine::get();
     if(callbackId > 0)
         c->cancelCall(callbackId);
-    if(q->state() == QCoroutine::Initialized) {
-        q->setState(QCoroutine::Stopped);
+    if(q->state() == Coroutine::Initialized) {
+        q->setState(Coroutine::Stopped);
         setFinishedEvent();
     }
-    else if(q->state() == QCoroutine::Started) {
+    else if(q->state() == Coroutine::Started) {
         KillCoroutineArguments *cargs = new KillCoroutineArguments();
         cargs->cp = this;
-        cargs->e = new QCoroutineExitException();
+        cargs->e = new CoroutineExitException();
         c->callLater(0, new CallbackFunctor(killCoroutine, cargs));
     }
     callbackId = 0;
 }
 
-void QCoroutinePrivate::setFinishedEvent()
+void CoroutinePrivate::setFinishedEvent()
 {
     finishedEvent.set();
 }
 
-bool QCoroutinePrivate::join()
+bool CoroutinePrivate::join()
 {
-    Q_Q(const QCoroutine);
+    Q_Q(const Coroutine);
 
-    if(q->state() == QBaseCoroutine::Initialized || q->state() == QBaseCoroutine::Started) {
+    if(q->state() == BaseCoroutine::Initialized || q->state() == BaseCoroutine::Started) {
         return finishedEvent.wait();
     } else {
         return true;
     }
 }
 
-// 开始写 QCoroutine 的实现
+// 开始写 Coroutine 的实现
 
-QCoroutine::QCoroutine(size_t stackSize)
-    :QBaseCoroutine(EventLoopCoroutine::get(), stackSize), d_ptr(new QCoroutinePrivate(this, 0, 0))
+Coroutine::Coroutine(size_t stackSize)
+    :BaseCoroutine(EventLoopCoroutine::get(), stackSize), d_ptr(new CoroutinePrivate(this, 0, 0))
 {
 }
 
-QCoroutine::QCoroutine(QObject *obj, const char *slot, size_t stackSize)
-    :QBaseCoroutine(EventLoopCoroutine::get(), stackSize), d_ptr(new QCoroutinePrivate(this, obj, slot))
+Coroutine::Coroutine(QObject *obj, const char *slot, size_t stackSize)
+    :BaseCoroutine(EventLoopCoroutine::get(), stackSize), d_ptr(new CoroutinePrivate(this, obj, slot))
 {
 
 }
 
-QCoroutine::~QCoroutine()
+Coroutine::~Coroutine()
 {
     delete d_ptr;
 }
 
-bool QCoroutine::isActive() const
+bool Coroutine::isActive() const
 {
-    return state() == QBaseCoroutine::Started;
+    return state() == BaseCoroutine::Started;
 }
 
-QCoroutine *QCoroutine::start(int msecs)
+Coroutine *Coroutine::start(int msecs)
 {
-    Q_D(QCoroutine);
+    Q_D(Coroutine);
     d->start(msecs);
     return this;
 }
 
-void QCoroutine::kill(QCoroutineException *e, int msecs)
+void Coroutine::kill(CoroutineException *e, int msecs)
 {
-    Q_D(QCoroutine);
+    Q_D(Coroutine);
     d->kill(e, msecs);
 }
 
-void QCoroutine::cancelStart()
+void Coroutine::cancelStart()
 {
-    Q_D(QCoroutine);
+    Q_D(Coroutine);
     d->cancelStart();
 }
 
-void QCoroutine::run()
+void Coroutine::run()
 {
-    Q_D(QCoroutine);
+    Q_D(Coroutine);
     d->callbackId = 0;
     if(d->obj && d->slot) {
         QMetaObject::invokeMethod(d->obj, d->slot);
     }
 }
 
-bool QCoroutine::join()
+bool Coroutine::join()
 {
-    Q_D(QCoroutine);
+    Q_D(Coroutine);
     return d->join();
 }
 
-QCoroutine *QCoroutine::current()
+Coroutine *Coroutine::current()
 {
-    QBaseCoroutine *c = QBaseCoroutine::current();
-    return dynamic_cast<QCoroutine*>(c);
+    BaseCoroutine *c = BaseCoroutine::current();
+    return dynamic_cast<Coroutine*>(c);
 }
 
 struct QScopedCallLater
@@ -425,7 +425,7 @@ struct QScopedCallLater
     int callbackId;
 };
 
-void QCoroutine::sleep(int msecs)
+void Coroutine::sleep(int msecs)
 {
     int callbackId = EventLoopCoroutine::get()->callLater(msecs, new YieldCurrentFunctor());
     QScopedCallLater scl(callbackId);
@@ -435,8 +435,8 @@ void QCoroutine::sleep(int msecs)
 
 struct TimeoutArguments:public Arguments
 {
-    QPointer<QTimeout> out;
-    QPointer<QBaseCoroutine> coroutine;
+    QPointer<Timeout> out;
+    QPointer<BaseCoroutine> coroutine;
 };
 
 void triggerTimeout(const Arguments *args)
@@ -450,41 +450,41 @@ void triggerTimeout(const Arguments *args)
         qDebug("triggerTimeout is called while timeout or coroutine is deleted.");
         return;
     }
-    targs->coroutine->raise(new QTimeoutException());
+    targs->coroutine->raise(new TimeoutException());
 }
 
-QTimeoutException::QTimeoutException()
+TimeoutException::TimeoutException()
 {
 }
 
-QString QTimeoutException::what() const throw()
+QString TimeoutException::what() const throw()
 {
     return QString::fromLatin1("coroutine had set timeout.");
 }
 
-void QTimeoutException::raise()
+void TimeoutException::raise()
 {
     throw *this;
 }
 
-QTimeout::QTimeout(int msecs)
+Timeout::Timeout(int msecs)
     :msecs(msecs), timeoutId(0)
 {
     restart();
 }
 
-QTimeout::~QTimeout()
+Timeout::~Timeout()
 {
     if(timeoutId)
         EventLoopCoroutine::get()->cancelCall(timeoutId);
 }
 
-void QTimeout::restart()
+void Timeout::restart()
 {
     if(timeoutId)
         EventLoopCoroutine::get()->cancelCall(timeoutId);
     TimeoutArguments *targs = new TimeoutArguments;
-    targs->coroutine = QBaseCoroutine::current();
+    targs->coroutine = BaseCoroutine::current();
     targs->out = this;
     timeoutId = EventLoopCoroutine::get()->callLater(msecs, new CallbackFunctor(triggerTimeout, targs));
 }
@@ -492,7 +492,7 @@ void QTimeout::restart()
 #ifdef Q_OS_UNIX
 
 QPointer<EventLoopCoroutine> mainLoop;
-QPointer<QBaseCoroutine> mainCoroutine;
+QPointer<BaseCoroutine> mainCoroutine;
 
 struct ExitLoopFunctor: public Functor
 {
@@ -520,7 +520,7 @@ int start_application()
 {
 #ifdef Q_OS_UNIX
     mainLoop = QPointer<EventLoopCoroutine>(currentLoop().get());
-    mainCoroutine = QBaseCoroutine::current();
+    mainCoroutine = BaseCoroutine::current();
     auto old_handler = signal(SIGINT, handle_sigint);
     currentLoop().get()->yield();
     signal(SIGINT, old_handler);

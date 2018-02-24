@@ -25,7 +25,7 @@ private:
     int maxConnectionsPerServer;
     int debugLevel;
     QMap<QString, QSharedPointer<Semaphore>> connectionSemaphores;
-    QSharedPointer<QSocketDnsCache> dnsCache;
+    QSharedPointer<SocketDnsCache> dnsCache;
     Q_DECLARE_PUBLIC(HttpSession)
 };
 

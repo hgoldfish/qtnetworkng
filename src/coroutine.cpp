@@ -2,44 +2,44 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-QCoroutineException::QCoroutineException() throw ()
+CoroutineException::CoroutineException() throw ()
 {
 }
 
-QCoroutineException::~QCoroutineException() throw()
+CoroutineException::~CoroutineException() throw()
 {}
 
-void QCoroutineException::raise()
+void CoroutineException::raise()
 {
     throw *this;
 }
 
-QString QCoroutineException::what() const throw()
+QString CoroutineException::what() const throw()
 {
     return QString::fromLatin1("coroutine base exception.");
 }
 
-QCoroutineExitException::QCoroutineExitException()
+CoroutineExitException::CoroutineExitException()
 {
 }
 
-void QCoroutineExitException::raise()
+void CoroutineExitException::raise()
 {
     throw *this;
 }
 
-QString QCoroutineExitException::what() const throw()
+QString CoroutineExitException::what() const throw()
 {
     return QString::fromLatin1("coroutine was asked to quit.");
 }
 
-quintptr QBaseCoroutine::id() const
+quintptr BaseCoroutine::id() const
 {
-    const QBaseCoroutine *p = this;
+    const BaseCoroutine *p = this;
     return reinterpret_cast<quintptr>(p);
 }
 
-void QBaseCoroutine::run()
+void BaseCoroutine::run()
 {
 
 }
@@ -51,19 +51,19 @@ CurrentCoroutineStorage &currentCoroutine()
 }
 
 // 开始实现 QBaseCoroutine::current()
-QBaseCoroutine *CurrentCoroutineStorage::get()
+BaseCoroutine *CurrentCoroutineStorage::get()
 {
     if(storage.hasLocalData())
     {
         return storage.localData().value;
     }
-    QBaseCoroutine *main = createMainCoroutine();
+    BaseCoroutine *main = createMainCoroutine();
     main->setObjectName("main_coroutine");
     storage.localData().value = main;
     return main;
 }
 
-void CurrentCoroutineStorage::set(QBaseCoroutine *coroutine)
+void CurrentCoroutineStorage::set(BaseCoroutine *coroutine)
 {
     storage.localData().value = coroutine;
 }
@@ -76,7 +76,7 @@ void CurrentCoroutineStorage::clean()
     }
 }
 
-QBaseCoroutine *QBaseCoroutine::current()
+BaseCoroutine *BaseCoroutine::current()
 {
     return currentCoroutine().get();
 }

@@ -1,7 +1,7 @@
 #include <QCoreApplication>
 #include "qtnetworkng.h"
 
-class SleepCoroutine: public qtng::QCoroutine
+class SleepCoroutine: public qtng::Coroutine
 {
 public:
     virtual void run();

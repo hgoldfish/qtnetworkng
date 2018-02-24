@@ -8,40 +8,40 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-class QBaseCoroutinePrivate;
-class QBaseCoroutinePrivatePlatformCommon
+class BaseCoroutinePrivate;
+class BaseCoroutinePrivatePlatformCommon
 {
 public:
-    QBaseCoroutinePrivatePlatformCommon(QBaseCoroutine *q, QBaseCoroutine *previous, size_t stackSize);
-    virtual ~QBaseCoroutinePrivatePlatformCommon();
-    bool raise(QCoroutineException *exception = 0);
+    BaseCoroutinePrivatePlatformCommon(BaseCoroutine *q, BaseCoroutine *previous, size_t stackSize);
+    virtual ~BaseCoroutinePrivatePlatformCommon();
+    bool raise(CoroutineException *exception = 0);
     bool yield();
 protected:
-    QBaseCoroutine * const q_ptr;
-    QBaseCoroutine * const previous;
+    BaseCoroutine * const q_ptr;
+    BaseCoroutine * const previous;
     size_t stackSize;
     void *stack;
-    enum QBaseCoroutine::State state;
+    enum BaseCoroutine::State state;
     bool bad;
-    QCoroutineException *exception;
-    Q_DECLARE_PUBLIC(QBaseCoroutine)
+    CoroutineException *exception;
+    Q_DECLARE_PUBLIC(BaseCoroutine)
 };
 
 
-QBaseCoroutine* createMainCoroutine();
+BaseCoroutine* createMainCoroutine();
 
 // 开始声明 CurrentCoroutineStorage
 
 class CurrentCoroutineStorage
 {
 public:
-    QBaseCoroutine *get();
-    void set(QBaseCoroutine *coroutine);
+    BaseCoroutine *get();
+    void set(BaseCoroutine *coroutine);
     void clean();
 private:
     struct CurrentCoroutine
     {
-        QBaseCoroutine *value;
+        BaseCoroutine *value;
     };
     QThreadStorage<CurrentCoroutine> storage;
 };

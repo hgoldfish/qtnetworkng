@@ -58,7 +58,7 @@ class SocketChannel: public DataChannel
     Q_OBJECT
     Q_DISABLE_COPY(SocketChannel)
 public:
-    SocketChannel(const QSharedPointer<QSocket> socket, DataChannelPole pole);
+    SocketChannel(const QSharedPointer<Socket> socket, DataChannelPole pole);
 private:
     Q_DECLARE_PRIVATE(SocketChannel)
 };

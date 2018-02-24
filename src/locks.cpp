@@ -19,7 +19,7 @@ private:
     const int init_value;
     volatile int counter;
     int notified;
-    QList<QPointer<QBaseCoroutine> > waiters;
+    QList<QPointer<BaseCoroutine> > waiters;
     Semaphore * const q_ptr;
     Q_DECLARE_PUBLIC(Semaphore)
 };
@@ -56,16 +56,16 @@ bool SemaphorePrivate::acquire(bool blocking)
     if(!blocking)
         return false;
 
-    waiters.append(QBaseCoroutine::current());
+    waiters.append(BaseCoroutine::current());
     try {
         EventLoopCoroutine::get()->yield();
         // if there is no exception, the release() has remove the waiter.
-        bool found = waiters.contains(QBaseCoroutine::current());
+        bool found = waiters.contains(BaseCoroutine::current());
         Q_ASSERT(!found);
     } catch(...) {
         // if we caught an exception, the release() must not touch me.
         // the waiter should be remove.
-        bool found = waiters.removeOne(QBaseCoroutine::current());
+        bool found = waiters.removeOne(BaseCoroutine::current());
         Q_ASSERT(found);
         throw;
     }
@@ -116,7 +116,7 @@ void SemaphorePrivate::notifyWaiters(bool force)
         return;
     }
     while(!waiters.isEmpty() && counter > 0) {
-        const QPointer<QBaseCoroutine> &waiter = waiters.takeFirst();
+        const QPointer<BaseCoroutine> &waiter = waiters.takeFirst();
         if(waiter.isNull()) {
             qDebug() << "waiter was deleted.";
             continue;
@@ -205,13 +205,13 @@ RLockPrivate::~RLockPrivate()
 
 bool RLockPrivate::acquire(bool blocking)
 {
-    if(holder == QBaseCoroutine::current()->id()) {
+    if(holder == BaseCoroutine::current()->id()) {
         counter += 1;
         return true;
     }
     if(lock.acquire(blocking)) {
         counter = 1;
-        holder = QBaseCoroutine::current()->id();
+        holder = BaseCoroutine::current()->id();
         return true;
     }
     return false; // XXX lock is deleted.
@@ -219,7 +219,7 @@ bool RLockPrivate::acquire(bool blocking)
 
 void RLockPrivate::release()
 {
-    if(holder != QBaseCoroutine::current()->id()) {
+    if(holder != BaseCoroutine::current()->id()) {
         qWarning("do not release other coroutine's rlock.");
         return;
     }
@@ -282,7 +282,7 @@ bool RLock::isLocked() const
 bool RLock::isOwned() const
 {
     Q_D(const RLock);
-    return d->holder == QBaseCoroutine::current()->id();
+    return d->holder == BaseCoroutine::current()->id();
 }
 
 

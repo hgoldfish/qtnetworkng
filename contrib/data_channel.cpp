@@ -175,7 +175,7 @@ public:
 class SocketChannelPrivate: public DataChannelPrivate
 {
 public:
-    SocketChannelPrivate(const QSharedPointer<QSocket> connection, DataChannelPole pole, SocketChannel *parent);
+    SocketChannelPrivate(const QSharedPointer<Socket> connection, DataChannelPole pole, SocketChannel *parent);
     virtual ~SocketChannelPrivate() override;
     virtual bool isBroken() const override;
     virtual void close() override;
@@ -187,7 +187,7 @@ public:
     void doReceive();
     QHostAddress getPeerAddress();
 
-    const QSharedPointer<QSocket> connection;
+    const QSharedPointer<Socket> connection;
     Queue<WritingPacket> sendingQueue;
     CoroutineGroup *operations;
 
@@ -374,10 +374,10 @@ void DataChannelPrivate::notifyChannelClose(quint32 channelNumber)
     sendPacketRawAsync(CommandChannelNumber, packDestoryChannelRequest(channelNumber));
 }
 
-SocketChannelPrivate::SocketChannelPrivate(const QSharedPointer<QSocket> connection, DataChannelPole pole, SocketChannel *parent)
+SocketChannelPrivate::SocketChannelPrivate(const QSharedPointer<Socket> connection, DataChannelPole pole, SocketChannel *parent)
     :DataChannelPrivate(pole, parent), connection(connection), sendingQueue(1024), operations(new CoroutineGroup())
 {
-    connection->setOption(QSocket::LowDelayOption, true);
+    connection->setOption(Socket::LowDelayOption, true);
     operations->spawnWithName(QString::fromLatin1("receivingCoroutine"), [this]{
         this->doReceive();
     });
@@ -419,7 +419,7 @@ void SocketChannelPrivate::doSend()
         WritingPacket writingPacket;
         try {
             writingPacket = sendingQueue.get();
-        } catch (QCoroutineExitException) {
+        } catch (CoroutineExitException) {
             return close();
         } catch (...) {
             return close();
@@ -450,7 +450,7 @@ void SocketChannelPrivate::doSend()
         int sentBytes;
         try {
             sentBytes = connection->sendall(data);
-        } catch(QCoroutineExitException) {
+        } catch(CoroutineExitException) {
             if(!writingPacket.done.isNull()) {
                 writingPacket.done->send(false);
             }
@@ -510,7 +510,7 @@ void SocketChannelPrivate::doReceive()
                 qDebug() << "invalid packet does not fit packet size = " << packetSize;
                 return close();
             }
-        } catch (QCoroutineExitException) {
+        } catch (CoroutineExitException) {
             return close();
         } catch (...) {
             return close();
@@ -753,7 +753,7 @@ bool VirtualChannelPrivate::sendPacketRawAsync(quint32 channelNumber, const QByt
 }
 
 
-SocketChannel::SocketChannel(const QSharedPointer<QSocket> connection, DataChannelPole pole)
+SocketChannel::SocketChannel(const QSharedPointer<Socket> connection, DataChannelPole pole)
     :DataChannel(new SocketChannelPrivate(connection, pole, this))
 {
 

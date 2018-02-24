@@ -23,7 +23,7 @@ struct LambdaFunctor: public Functor
 template<typename T>
 T callInEventLoop(std::function<T ()> func)
 {
-    Q_ASSERT(static_cast<QBaseCoroutine*>(EventLoopCoroutine::get()) != QBaseCoroutine::current());
+    Q_ASSERT(static_cast<BaseCoroutine*>(EventLoopCoroutine::get()) != BaseCoroutine::current());
 
     QSharedPointer<T> result(new T());
     QSharedPointer<Event> done(new Event());
@@ -48,7 +48,7 @@ T callInEventLoop(std::function<T ()> func)
 
 inline void callInEventLoop(std::function<void ()> func)
 {
-    Q_ASSERT(static_cast<QBaseCoroutine*>(EventLoopCoroutine::get()) != QBaseCoroutine::current());
+    Q_ASSERT(static_cast<BaseCoroutine*>(EventLoopCoroutine::get()) != BaseCoroutine::current());
 
     QSharedPointer<Event> done(new Event());
 
@@ -127,7 +127,7 @@ inline void callInThread(const std::function<void ()> &func)
 }
 
 
-struct NewThreadCoroutine:public QCoroutine
+struct NewThreadCoroutine:public Coroutine
 {
     NewThreadCoroutine(const std::function<void ()> &func)
         :func(func) {}
@@ -139,15 +139,15 @@ struct NewThreadCoroutine:public QCoroutine
 };
 
 
-inline QCoroutine *spawnInThread(const std::function<void ()> &func)
+inline Coroutine *spawnInThread(const std::function<void ()> &func)
 {
-    QCoroutine *coroutine = new NewThreadCoroutine(func);
+    Coroutine *coroutine = new NewThreadCoroutine(func);
     coroutine->start();
     return coroutine;
 }
 
 
-class QCoroutine;
+class Coroutine;
 
 class CoroutineGroup: public QObject
 {
@@ -156,29 +156,29 @@ public:
     CoroutineGroup();
     virtual ~CoroutineGroup();
 public:
-    bool add(QSharedPointer<QCoroutine> coroutine, const QString &name = QString());
-    bool add(QCoroutine *coroutine, const QString &name = QString()) {return add(QSharedPointer<QCoroutine>(coroutine), name);}
-    bool start(QCoroutine *coroutine, const QString &name = QString()) { return add(coroutine->start(), name); }
-    QSharedPointer<QCoroutine> get(const QString &name);
+    bool add(QSharedPointer<Coroutine> coroutine, const QString &name = QString());
+    bool add(Coroutine *coroutine, const QString &name = QString()) {return add(QSharedPointer<Coroutine>(coroutine), name);}
+    bool start(Coroutine *coroutine, const QString &name = QString()) { return add(coroutine->start(), name); }
+    QSharedPointer<Coroutine> get(const QString &name);
     bool kill(const QString &name);
     bool killall(bool join = true, bool skipMyself = false);
     bool joinall();
     int size() { return coroutines.size(); }
 
-    inline QSharedPointer<QCoroutine> spawnWithName(const QString &name, const std::function<void()> &func, bool one = true);
-    inline QSharedPointer<QCoroutine> spawn(const std::function<void()> &func);
-    inline QSharedPointer<QCoroutine> spawnInThread(const std::function<void()> &func);
-    inline QSharedPointer<QCoroutine> spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool one = true);
+    inline QSharedPointer<Coroutine> spawnWithName(const QString &name, const std::function<void()> &func, bool one = true);
+    inline QSharedPointer<Coroutine> spawn(const std::function<void()> &func);
+    inline QSharedPointer<Coroutine> spawnInThread(const std::function<void()> &func);
+    inline QSharedPointer<Coroutine> spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool one = true);
 
     template <typename T, typename S>
     QList<T> map(std::function<T(S)> func, const QList<S> &l)
     {
-        QList<QSharedPointer<QCoroutine>> coroutines;
+        QList<QSharedPointer<Coroutine>> coroutines;
         QSharedPointer<QList<T>> result(new QList<T>());
         for(int i = 0; i < l.size(); ++i) {
             result->append(T());
             S s = l[i];
-            coroutines.append(QCoroutine::spawn([func, s, result, i]{
+            coroutines.append(Coroutine::spawn([func, s, result, i]{
                 (*result)[i] = func(s);
             }));
         }
@@ -190,10 +190,10 @@ public:
 
     template <typename S>
     void each(std::function<void(S)> func, const QList<S> &l) {
-        QList<QSharedPointer<QCoroutine>> coroutines;
+        QList<QSharedPointer<Coroutine>> coroutines;
         for(int i = 0; i < l.size(); ++i) {
             S s = l[i];
-            coroutines.append(QCoroutine::spawn([func, s] {
+            coroutines.append(Coroutine::spawn([func, s] {
                 func(s);
             }));
         }
@@ -205,49 +205,49 @@ public:
 private slots:
     void deleteCoroutine();
 private:
-    QList<QSharedPointer<QCoroutine>> coroutines;
+    QList<QSharedPointer<Coroutine>> coroutines;
 };
 
 
-QSharedPointer<QCoroutine> CoroutineGroup::spawnWithName(const QString &name, const std::function<void ()> &func, bool one)
+QSharedPointer<Coroutine> CoroutineGroup::spawnWithName(const QString &name, const std::function<void ()> &func, bool one)
 {
-    QSharedPointer<QCoroutine> old = get(name);
+    QSharedPointer<Coroutine> old = get(name);
     if(one && !old.isNull()) {
         if(old->isActive())
             return old;
         kill(name);
     }
-    QSharedPointer<QCoroutine> coroutine(QCoroutine::spawn(func));
+    QSharedPointer<Coroutine> coroutine(Coroutine::spawn(func));
     add(coroutine, name);
     return coroutine;
 }
 
 
-QSharedPointer<QCoroutine> CoroutineGroup::spawn(const std::function<void ()> &func)
+QSharedPointer<Coroutine> CoroutineGroup::spawn(const std::function<void ()> &func)
 {
-    QSharedPointer<QCoroutine> coroutine(QCoroutine::spawn(func));
+    QSharedPointer<Coroutine> coroutine(Coroutine::spawn(func));
     add(coroutine);
     return coroutine;
 }
 
 
-QSharedPointer<QCoroutine> CoroutineGroup::spawnInThread(const std::function<void ()> &func)
+QSharedPointer<Coroutine> CoroutineGroup::spawnInThread(const std::function<void ()> &func)
 {
-    QSharedPointer<QCoroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));
+    QSharedPointer<Coroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));
     add(coroutine);
     return coroutine;
 }
 
 
-QSharedPointer<QCoroutine> CoroutineGroup::spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool one)
+QSharedPointer<Coroutine> CoroutineGroup::spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool one)
 {
-    QSharedPointer<QCoroutine> old = get(name);
+    QSharedPointer<Coroutine> old = get(name);
     if(one && !old.isNull()) {
         if(old->isActive())
             return old;
         kill(name);
     }
-    QSharedPointer<QCoroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));
+    QSharedPointer<Coroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));
     add(coroutine, name);
     return coroutine;
 }

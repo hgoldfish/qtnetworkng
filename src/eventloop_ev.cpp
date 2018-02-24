@@ -293,7 +293,7 @@ int EventLoopCoroutinePrivateEv::exitCode()
 }
 
 EventLoopCoroutine::EventLoopCoroutine()
-    :QBaseCoroutine(QBaseCoroutine::current()), d_ptr(new EventLoopCoroutinePrivateEv(this))
+    :BaseCoroutine(BaseCoroutine::current()), d_ptr(new EventLoopCoroutinePrivateEv(this))
 {
 
 }

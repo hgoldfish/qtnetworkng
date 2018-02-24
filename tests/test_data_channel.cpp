@@ -3,7 +3,7 @@
 #include "qtnetworkng.h"
 
 
-class ServerCoroutine: public qtng::QCoroutine
+class ServerCoroutine: public qtng::Coroutine
 {
 public:
     ServerCoroutine()
@@ -13,19 +13,19 @@ public:
 
     virtual void run()
     {
-        qtng::QSocket server;
-        bool success = server.bind((quint16)7923, qtng::QSocket::ReuseAddressHint);
+        qtng::Socket server;
+        bool success = server.bind((quint16)7923, qtng::Socket::ReuseAddressHint);
         if(!success) {
             qDebug() << "port is used.";
             return;
         }
         server.listen(5);
-        qtng::QSocket *request = server.accept();
+        qtng::Socket *request = server.accept();
         if(!request) {
             qDebug() << "bad request.";
             return;
         }
-        qtng::SocketChannel channel(QSharedPointer<qtng::QSocket>(request), qtng::NegativePole);
+        qtng::SocketChannel channel(QSharedPointer<qtng::Socket>(request), qtng::NegativePole);
         channel.setName("server_channel");
         QByteArray t = channel.recvPacket();
         quint32 channelNumber = t.toUInt();
@@ -46,7 +46,7 @@ public:
 };
 
 
-class ClientCoroutine: public qtng::QCoroutine
+class ClientCoroutine: public qtng::Coroutine
 {
 public:
     ClientCoroutine()
@@ -56,7 +56,7 @@ public:
 
     virtual void run()
     {
-        QSharedPointer<qtng::QSocket> client = QSharedPointer<qtng::QSocket>::create();
+        QSharedPointer<qtng::Socket> client = QSharedPointer<qtng::Socket>::create();
 //        bool success = client->connect(QHostAddress::LocalHost, 7923);
         bool success = client->connect("127.0.0.1", 7923);
         if(!success) {

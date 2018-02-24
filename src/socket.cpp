@@ -7,31 +7,31 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-QSocketPrivate::QSocketPrivate(QSocket::NetworkLayerProtocol protocol,
-        QSocket::SocketType type, QSocket *parent)
-    :q_ptr(parent), protocol(protocol), type(type), error(QSocket::NoError),
-      state(QSocket::UnconnectedState)
+SocketPrivate::SocketPrivate(Socket::NetworkLayerProtocol protocol,
+        Socket::SocketType type, Socket *parent)
+    :q_ptr(parent), protocol(protocol), type(type), error(Socket::NoError),
+      state(Socket::UnconnectedState)
 {
 #ifdef Q_OS_WIN
     initWinSock();
 #endif
     if(!createSocket())
         return;
-    if(type == QSocket::UdpSocket)
+    if(type == Socket::UdpSocket)
     {
-        if(!setOption(QSocket::BroadcastSocketOption, 1))
+        if(!setOption(Socket::BroadcastSocketOption, 1))
         {
 //            setError(QSocket::UnsupportedSocketOperationError);
 //            close();
 //            return;
         }
-        setOption(QSocket::ReceivePacketInformation, 1);
-        setOption(QSocket::ReceiveHopLimit, 1);
+        setOption(Socket::ReceivePacketInformation, 1);
+        setOption(Socket::ReceiveHopLimit, 1);
     }
 }
 
-QSocketPrivate::QSocketPrivate(qintptr socketDescriptor, QSocket *parent)
-    :q_ptr(parent), error(QSocket::NoError)
+SocketPrivate::SocketPrivate(qintptr socketDescriptor, Socket *parent)
+    :q_ptr(parent), error(Socket::NoError)
 {
 #ifdef Q_OS_WIN
     initWinSock();
@@ -41,13 +41,13 @@ QSocketPrivate::QSocketPrivate(qintptr socketDescriptor, QSocket *parent)
     if(!isValid())
         return;
     // FIXME determine the type and state of socket
-    protocol = QSocket::AnyIPProtocol;
-    type = QSocket::TcpSocket;
-    state = QSocket::ConnectedState;
+    protocol = Socket::AnyIPProtocol;
+    type = Socket::TcpSocket;
+    state = Socket::ConnectedState;
     fetchConnectionParameters();
 }
 
-QSocketPrivate::~QSocketPrivate()
+SocketPrivate::~SocketPrivate()
 {
     close();
 #ifdef Q_OS_WIN
@@ -55,58 +55,58 @@ QSocketPrivate::~QSocketPrivate()
 #endif
 }
 
-bool QSocketPrivate::bind(quint16 port, QSocket::BindMode mode)
+bool SocketPrivate::bind(quint16 port, Socket::BindMode mode)
 {
     return bind(QHostAddress(QHostAddress::Any), port, mode);
 }
 
-bool QSocketPrivate::connect(const QString &hostName, quint16 port, QSocket::NetworkLayerProtocol protocol)
+bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
 {
-    state = QSocket::HostLookupState;
+    state = Socket::HostLookupState;
     QList<QHostAddress> addresses;
     QHostAddress t;
     if(t.setAddress(hostName)) {
         addresses.append(t);
     } else {
         if(dnsCache.isNull()) {
-            addresses = QSocket::resolve(hostName);
+            addresses = Socket::resolve(hostName);
         } else {
             addresses = dnsCache->resolve(hostName);
         }
     }
 
     if(addresses.isEmpty()) {
-        state = QSocket::UnconnectedState;
-        setError(QSocket::HostNotFoundError, QString::fromUtf8("Host not found."));
+        state = Socket::UnconnectedState;
+        setError(Socket::HostNotFoundError, QString::fromUtf8("Host not found."));
         return false;
     }
     bool done = true;
-    state = QSocket::UnconnectedState;
+    state = Socket::UnconnectedState;
     for(int i = 0; i < addresses.size(); ++i) {
         QHostAddress addr = addresses.at(i);
-        if(protocol == QSocket::IPv4Protocol && addr.protocol() != QAbstractSocket::IPv4Protocol) {
+        if(protocol == Socket::IPv4Protocol && addr.protocol() != QAbstractSocket::IPv4Protocol) {
             continue;
         }
-        if(protocol == QSocket::IPv6Protocol && addr.protocol() != QAbstractSocket::IPv6Protocol) {
+        if(protocol == Socket::IPv6Protocol && addr.protocol() != QAbstractSocket::IPv6Protocol) {
             continue;
         }
         done = connect(addr, port);
         if(done)
             return true;
     }
-    if(error == QSocket::NoError) {
-        setError(QSocket::HostNotFoundError, QString::fromUtf8("Host not found."));
+    if(error == Socket::NoError) {
+        setError(Socket::HostNotFoundError, QString::fromUtf8("Host not found."));
     }
     return false;
 }
 
-void QSocketPrivate::setError(QSocket::SocketError error, const QString &errorString)
+void SocketPrivate::setError(Socket::SocketError error, const QString &errorString)
 {
     this->error = error;
     this->errorString = errorString;
 }
 
-void QSocketPrivate::setError(QSocket::SocketError error, ErrorString errorString)
+void SocketPrivate::setError(Socket::SocketError error, ErrorString errorString)
 {
     this->error = error;
     QString socketErrorString;
@@ -206,168 +206,168 @@ void QSocketPrivate::setError(QSocket::SocketError error, ErrorString errorStrin
     this->errorString = socketErrorString;
 }
 
-QString QSocketPrivate::getErrorString() const
+QString SocketPrivate::getErrorString() const
 {
     return errorString;
 }
 
-QSocket::QSocket(NetworkLayerProtocol protocol, SocketType type)
-    :d_ptr(new QSocketPrivate(protocol, type, this))
+Socket::Socket(NetworkLayerProtocol protocol, SocketType type)
+    :d_ptr(new SocketPrivate(protocol, type, this))
 {
 
 }
 
-QSocket::QSocket(qintptr socketDescriptor)
-    :d_ptr(new QSocketPrivate(socketDescriptor, this))
+Socket::Socket(qintptr socketDescriptor)
+    :d_ptr(new SocketPrivate(socketDescriptor, this))
 {
 }
 
-QSocket::~QSocket()
+Socket::~Socket()
 {
     delete d_ptr;
 }
 
-QSocket::SocketError QSocket::error() const
+Socket::SocketError Socket::error() const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->error;
 }
 
-QString QSocket::errorString() const
+QString Socket::errorString() const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->getErrorString();
 }
 
-bool QSocket::isValid() const
+bool Socket::isValid() const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->isValid();
 }
 
-QHostAddress QSocket::localAddress() const
+QHostAddress Socket::localAddress() const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->localAddress;
 }
 
-quint16 QSocket::localPort() const
+quint16 Socket::localPort() const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->localPort;
 }
 
-QHostAddress QSocket::peerAddress() const
+QHostAddress Socket::peerAddress() const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->peerAddress;
 }
 
-QString QSocket::peerName() const
+QString Socket::peerName() const
 {
     return QString();
 }
 
-quint16 QSocket::peerPort() const
+quint16 Socket::peerPort() const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->peerPort;
 }
 
-qintptr	QSocket::fileno() const
+qintptr	Socket::fileno() const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->fd;
 }
 
-QSocket::SocketType QSocket::type() const
+Socket::SocketType Socket::type() const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->type;
 }
 
-QSocket::SocketState QSocket::state() const
+Socket::SocketState Socket::state() const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->state;
 }
 
-QSocket::NetworkLayerProtocol QSocket::protocol() const
+Socket::NetworkLayerProtocol Socket::protocol() const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->protocol;
 }
 
 
-QSocket *QSocket::accept()
+Socket *Socket::accept()
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->accept();
 }
 
-bool QSocket::bind(QHostAddress &address, quint16 port, QSocket::BindMode mode)
+bool Socket::bind(QHostAddress &address, quint16 port, Socket::BindMode mode)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->bind(address, port, mode);
 }
 
-bool QSocket::bind(quint16 port, QSocket::BindMode mode)
+bool Socket::bind(quint16 port, Socket::BindMode mode)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->bind(port, mode);
 }
 
-bool QSocket::connect(const QHostAddress &host, quint16 port)
+bool Socket::connect(const QHostAddress &host, quint16 port)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->connect(host, port);
 }
 
-bool QSocket::connect(const QString &hostName, quint16 port, QSocket::NetworkLayerProtocol protocol)
+bool Socket::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->connect(hostName, port, protocol);
 }
 
-bool QSocket::close()
+bool Socket::close()
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->close();
 }
 
-bool QSocket::listen(int backlog)
+bool Socket::listen(int backlog)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->listen(backlog);
 }
 
-bool QSocket::setOption(QSocket::SocketOption option, const QVariant &value)
+bool Socket::setOption(Socket::SocketOption option, const QVariant &value)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->setOption(option, value);
 }
 
-QVariant QSocket::option(QSocket::SocketOption option) const
+QVariant Socket::option(Socket::SocketOption option) const
 {
-    Q_D(const QSocket);
+    Q_D(const Socket);
     return d->option(option);
 }
 
-qint64 QSocket::recv(char *data, qint64 size)
+qint64 Socket::recv(char *data, qint64 size)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->recv(data, size, false);
 }
 
-qint64 QSocket::recvall(char *data, qint64 size)
+qint64 Socket::recvall(char *data, qint64 size)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->recv(data, size, true);
 }
 
-qint64 QSocket::send(const char *data, qint64 size)
+qint64 Socket::send(const char *data, qint64 size)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     qint64 bytesSent = d->send(data, size, false);
     if(bytesSent == 0 && !d->isValid()) {
         return -1;
@@ -376,27 +376,27 @@ qint64 QSocket::send(const char *data, qint64 size)
     }
 }
 
-qint64 QSocket::sendall(const char *data, qint64 size)
+qint64 Socket::sendall(const char *data, qint64 size)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->send(data, size, true);
 }
 
-qint64 QSocket::recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port)
+qint64 Socket::recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->recvfrom(data, size, addr, port);
 }
 
-qint64 QSocket::sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port)
+qint64 Socket::sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->sendto(data, size, addr, port);
 }
 
-QByteArray QSocket::recv(qint64 size)
+QByteArray Socket::recv(qint64 size)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     QByteArray bs;
     bs.resize(size);
 
@@ -408,9 +408,9 @@ QByteArray QSocket::recv(qint64 size)
     return QByteArray();
 }
 
-QByteArray QSocket::recvall(qint64 size)
+QByteArray Socket::recvall(qint64 size)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     QByteArray bs;
     bs.resize(size);
 
@@ -422,9 +422,9 @@ QByteArray QSocket::recvall(qint64 size)
     return QByteArray();
 }
 
-qint64 QSocket::send(const QByteArray &data)
+qint64 Socket::send(const QByteArray &data)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     qint64 bytesSent = d->send(data.data(), data.size(), false);
     if(bytesSent == 0 && !d->isValid()) {
         return -1;
@@ -433,16 +433,16 @@ qint64 QSocket::send(const QByteArray &data)
     }
 }
 
-qint64 QSocket::sendall(const QByteArray &data)
+qint64 Socket::sendall(const QByteArray &data)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->send(data.data(), data.size(), true);
 }
 
 
-QByteArray QSocket::recvfrom(qint64 size, QHostAddress *addr, quint16 *port)
+QByteArray Socket::recvfrom(qint64 size, QHostAddress *addr, quint16 *port)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     QByteArray bs;
     bs.resize(size);
     qint64 bytes = d->recvfrom(bs.data(), size, addr, port);
@@ -454,13 +454,13 @@ QByteArray QSocket::recvfrom(qint64 size, QHostAddress *addr, quint16 *port)
     return QByteArray();
 }
 
-qint64 QSocket::sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
+qint64 Socket::sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     return d->sendto(data.data(), data.size(), addr, port);
 }
 
-QList<QHostAddress> QSocket::resolve(const QString &hostName)
+QList<QHostAddress> Socket::resolve(const QString &hostName)
 {
 //    static QMap<QString, QList<QHostAddress>> cache;
 //    if(cache.contains(hostName)) {
@@ -487,9 +487,9 @@ QList<QHostAddress> QSocket::resolve(const QString &hostName)
     return result;
 }
 
-void QSocket::setDnsCache(QSharedPointer<QSocketDnsCache> dnsCache)
+void Socket::setDnsCache(QSharedPointer<SocketDnsCache> dnsCache)
 {
-    Q_D(QSocket);
+    Q_D(Socket);
     d->dnsCache = dnsCache;
 }
 
@@ -499,27 +499,27 @@ public:
     PollPrivate(Poll * parent);
     ~PollPrivate();
 public:
-    void add(QSocket *socket, EventLoopCoroutine::EventType event);
-    void remove(QSocket *socket);
-    QSocket *wait(qint64 msecs);
+    void add(Socket *socket, EventLoopCoroutine::EventType event);
+    void remove(Socket *socket);
+    Socket *wait(qint64 msecs);
 private:
     Poll * const q_ptr;
-    QMap<QSocket*, int> watchers;
-    QSet<QSocket*> events;
+    QMap<Socket*, int> watchers;
+    QSet<Socket*> events;
     Event done;
     Q_DECLARE_PUBLIC(Poll)
 };
 
 struct PollFunctor: public Functor
 {
-    PollFunctor(Event &done, QSet<QSocket*> &events);
+    PollFunctor(Event &done, QSet<Socket*> &events);
     virtual void operator()();
     Event &done;
-    QSet<QSocket*> &events;
-    QSocket *socket;
+    QSet<Socket*> &events;
+    Socket *socket;
 };
 
-PollFunctor::PollFunctor(Event &done, QSet<QSocket*> &events)
+PollFunctor::PollFunctor(Event &done, QSet<Socket*> &events)
     :done(done), events(events), socket(0)
 {}
 
@@ -536,14 +536,14 @@ PollPrivate::PollPrivate(Poll *parent)
 
 PollPrivate::~PollPrivate()
 {
-    QMapIterator<QSocket*, int> itor(watchers);
+    QMapIterator<Socket*, int> itor(watchers);
     while(itor.hasNext())
     {
         EventLoopCoroutine::get()->removeWatcher(itor.value());
     }
 }
 
-void PollPrivate::add(QSocket *socket, EventLoopCoroutine::EventType event)
+void PollPrivate::add(Socket *socket, EventLoopCoroutine::EventType event)
 {
     if(watchers.contains(socket))
     {
@@ -555,7 +555,7 @@ void PollPrivate::add(QSocket *socket, EventLoopCoroutine::EventType event)
     watchers.insert(socket, watcherId);
 }
 
-void PollPrivate::remove(QSocket *socket)
+void PollPrivate::remove(Socket *socket)
 {
     int watcherId = watchers.value(socket, 0);
     if(!watcherId)
@@ -564,30 +564,30 @@ void PollPrivate::remove(QSocket *socket)
     watchers.remove(socket);
 }
 
-QSocket *PollPrivate::wait(qint64 msecs)
+Socket *PollPrivate::wait(qint64 msecs)
 {
     if(!events.isEmpty())
     {
-        QMutableSetIterator<QSocket*> itor(events);
-        QSocket *socket = itor.next();
+        QMutableSetIterator<Socket*> itor(events);
+        Socket *socket = itor.next();
         itor.remove();
         return socket;
     }
-    QTimeout timeout(msecs);
+    Timeout timeout(msecs);
     Q_UNUSED(timeout);
     try
     {
         done.wait();
     }
-    catch(QTimeoutException &)
+    catch(TimeoutException &)
     {
         return 0;
     }
     if(!events.isEmpty())
     {
         // is there some one hungry?
-        QMutableSetIterator<QSocket*> itor(events);
-        QSocket *socket = itor.next();
+        QMutableSetIterator<Socket*> itor(events);
+        Socket *socket = itor.next();
         itor.remove();
         return socket;
     }
@@ -606,28 +606,28 @@ Poll::~Poll()
     delete d_ptr;
 }
 
-void Poll::add(QSocket *socket, EventLoopCoroutine::EventType event)
+void Poll::add(Socket *socket, EventLoopCoroutine::EventType event)
 {
     Q_D(Poll);
     d->add(socket, event);
 }
 
-void Poll::remove(QSocket *socket)
+void Poll::remove(Socket *socket)
 {
     Q_D(Poll);
     d->remove(socket);
 }
 
-QSocket *Poll::wait(qint64 msecs)
+Socket *Poll::wait(qint64 msecs)
 {
     Q_D(Poll);
     return d->wait(msecs);
 }
 
-class QSocketDnsCachePrivate
+class SocketDnsCachePrivate
 {
 public:
-    QSocketDnsCachePrivate()
+    SocketDnsCachePrivate()
         :cache(1024)
     {
 
@@ -636,24 +636,24 @@ public:
     QCache<QString, QList<QHostAddress>> cache;
 };
 
-QSocketDnsCache::QSocketDnsCache()
-    :d_ptr(new QSocketDnsCachePrivate())
+SocketDnsCache::SocketDnsCache()
+    :d_ptr(new SocketDnsCachePrivate())
 {
 }
 
-QSocketDnsCache::~QSocketDnsCache()
+SocketDnsCache::~SocketDnsCache()
 {
     delete d_ptr;
 }
 
-QList<QHostAddress> QSocketDnsCache::resolve(const QString &hostName)
+QList<QHostAddress> SocketDnsCache::resolve(const QString &hostName)
 {
-    Q_D(QSocketDnsCache);
+    Q_D(SocketDnsCache);
     if(d->cache.contains(hostName)) {
         return *(d->cache.object(hostName));
     }
     QList<QHostAddress> *addresses = new QList<QHostAddress>();
-    *addresses = QSocket::resolve(hostName);
+    *addresses = Socket::resolve(hostName);
     if(addresses->isEmpty()) {
         delete addresses;
         return QList<QHostAddress>();

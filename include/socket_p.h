@@ -13,7 +13,7 @@ union qt_sockaddr;
 
 class EventLoopCoroutine;
 
-class QSocketPrivate
+class SocketPrivate
 {
     enum ErrorString {
         NonBlockingInitFailedErrorString,
@@ -48,25 +48,25 @@ class QSocketPrivate
         UnknownSocketErrorString = -1
     };
 public:
-    QSocketPrivate(QSocket::NetworkLayerProtocol protocol, QSocket::SocketType type, QSocket *parent);
-    QSocketPrivate(qintptr socketDescriptor, QSocket *parent);
-    virtual ~QSocketPrivate();
+    SocketPrivate(Socket::NetworkLayerProtocol protocol, Socket::SocketType type, Socket *parent);
+    SocketPrivate(qintptr socketDescriptor, Socket *parent);
+    virtual ~SocketPrivate();
 public:
     QString getErrorString() const;
-    void setError(QSocket::SocketError error, const QString &errorString);
-    void setError(QSocket::SocketError error, ErrorString errorString);
-    bool isValid() const {return fd > 0 && error == QSocket::NoError;}
+    void setError(Socket::SocketError error, const QString &errorString);
+    void setError(Socket::SocketError error, ErrorString errorString);
+    bool isValid() const {return fd > 0 && error == Socket::NoError;}
 
-    QSocket *accept();
-    bool bind(const QHostAddress &address, quint16 port = 0, QSocket::BindMode mode = QSocket::DefaultForPlatform);
-    bool bind(quint16 port = 0, QSocket::BindMode mode = QSocket::DefaultForPlatform);
+    Socket *accept();
+    bool bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
+    bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
     bool connect(const QHostAddress &host, quint16 port);
-    bool connect(const QString &hostName, quint16 port, QSocket::NetworkLayerProtocol protocol = QSocket::AnyIPProtocol);
+    bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol);
     bool close();
     bool listen(int backlog);
-    bool setOption(QSocket::SocketOption option, const QVariant &value);
+    bool setOption(Socket::SocketOption option, const QVariant &value);
     bool setNonblocking();
-    QVariant option(QSocket::SocketOption option) const;
+    QVariant option(Socket::SocketOption option) const;
     qint64 recv(char *data, qint64 size, bool all);
     qint64 send(const char *data, qint64 size, bool all = true);
     qint64 recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port);
@@ -76,21 +76,21 @@ private:
     void setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, QT_SOCKLEN_T *sockAddrSize);
     bool createSocket();
 protected:
-    QSocket *q_ptr;
+    Socket *q_ptr;
 private:
-    QSocket::NetworkLayerProtocol protocol;
-    QSocket::SocketType type;
-    QSocket::SocketError error;
+    Socket::NetworkLayerProtocol protocol;
+    Socket::SocketType type;
+    Socket::SocketError error;
     QString errorString;
-    QSocket::SocketState state;
+    Socket::SocketState state;
     QHostAddress localAddress;
     quint16 localPort;
     QHostAddress peerAddress;
     quint16 peerPort;
     qintptr fd;
-    QSharedPointer<QSocketDnsCache> dnsCache;
+    QSharedPointer<SocketDnsCache> dnsCache;
 
-    Q_DECLARE_PUBLIC(QSocket)
+    Q_DECLARE_PUBLIC(Socket)
 };
 
 #ifdef Q_OS_WIN

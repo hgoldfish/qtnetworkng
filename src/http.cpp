@@ -500,7 +500,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     ScopedLock<Semaphore> lock(*connectionSemaphores[url.host()]);Q_UNUSED(lock);
 
 
-    QSharedPointer<QSocket> rawSocket(new QSocket);
+    QSharedPointer<Socket> rawSocket(new Socket);
     rawSocket->setDnsCache(dnsCache);
 
     QSharedPointer<SocketLike> connection;

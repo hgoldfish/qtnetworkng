@@ -314,7 +314,7 @@ int EventLoopCoroutinePrivateQt::exitCode()
 }
 
 EventLoopCoroutine::EventLoopCoroutine()
-    :QBaseCoroutine(QBaseCoroutine::current()), d_ptr(new EventLoopCoroutinePrivateQt(this))
+    :BaseCoroutine(BaseCoroutine::current()), d_ptr(new EventLoopCoroutinePrivateQt(this))
 {
 
 }

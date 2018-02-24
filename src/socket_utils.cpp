@@ -10,10 +10,10 @@ namespace {
 class SocketLikeImpl: public SocketLike
 {
 public:
-    SocketLikeImpl(QSharedPointer<QSocket> s);
+    SocketLikeImpl(QSharedPointer<Socket> s);
     virtual ~SocketLikeImpl();
 public:
-    virtual QSocket::SocketError error() const override;
+    virtual Socket::SocketError error() const override;
     virtual QString errorString() const override;
     virtual bool isValid() const override;
     virtual QHostAddress localAddress() const override;
@@ -22,19 +22,19 @@ public:
     virtual QString peerName() const override;
     virtual quint16 peerPort() const override;
     virtual qintptr	fileno() const override;
-    virtual QSocket::SocketType type() const override;
-    virtual QSocket::SocketState state() const override;
-    virtual QSocket::NetworkLayerProtocol protocol() const override;
+    virtual Socket::SocketType type() const override;
+    virtual Socket::SocketState state() const override;
+    virtual Socket::NetworkLayerProtocol protocol() const override;
 
-    virtual QSocket *accept() override;
-    virtual bool bind(QHostAddress &address, quint16 port, QSocket::BindMode mode) override;
-    virtual bool bind(quint16 port, QSocket::BindMode mode) override;
+    virtual Socket *accept() override;
+    virtual bool bind(QHostAddress &address, quint16 port, Socket::BindMode mode) override;
+    virtual bool bind(quint16 port, Socket::BindMode mode) override;
     virtual bool connect(const QHostAddress &addr, quint16 port) override;
-    virtual bool connect(const QString &hostName, quint16 port, QSocket::NetworkLayerProtocol protocol) override;
+    virtual bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol) override;
     virtual bool close() override;
     virtual bool listen(int backlog) override;
-    virtual bool setOption(QSocket::SocketOption option, const QVariant &value) override;
-    virtual QVariant option(QSocket::SocketOption option) const override;
+    virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
+    virtual QVariant option(Socket::SocketOption option) const override;
 
     virtual qint64 recv(char *data, qint64 size) override;
     virtual qint64 recvall(char *data, qint64 size) override;
@@ -45,10 +45,10 @@ public:
     virtual qint64 send(const QByteArray &data) override;
     virtual qint64 sendall(const QByteArray &data) override;
 private:
-    QSharedPointer<QSocket> s;
+    QSharedPointer<Socket> s;
 };
 
-SocketLikeImpl::SocketLikeImpl(QSharedPointer<QSocket> s)
+SocketLikeImpl::SocketLikeImpl(QSharedPointer<Socket> s)
     :s(s) {}
 
 
@@ -56,7 +56,7 @@ SocketLikeImpl::~SocketLikeImpl()
 {
 }
 
-QSocket::SocketError SocketLikeImpl::error() const
+Socket::SocketError SocketLikeImpl::error() const
 {
     return s->error();
 }
@@ -101,32 +101,32 @@ qintptr	SocketLikeImpl::fileno() const
     return s->fileno();
 }
 
-QSocket::SocketType SocketLikeImpl::type() const
+Socket::SocketType SocketLikeImpl::type() const
 {
     return s->type();
 }
 
-QSocket::SocketState SocketLikeImpl::state() const
+Socket::SocketState SocketLikeImpl::state() const
 {
     return s->state();
 }
 
-QSocket::NetworkLayerProtocol SocketLikeImpl::protocol() const
+Socket::NetworkLayerProtocol SocketLikeImpl::protocol() const
 {
     return s->protocol();
 }
 
-QSocket *SocketLikeImpl::accept()
+Socket *SocketLikeImpl::accept()
 {
     return s->accept();
 }
 
-bool SocketLikeImpl::bind(QHostAddress &address, quint16 port, QSocket::BindMode mode)
+bool SocketLikeImpl::bind(QHostAddress &address, quint16 port, Socket::BindMode mode)
 {
     return s->bind(address, port, mode);
 }
 
-bool SocketLikeImpl::bind(quint16 port, QSocket::BindMode mode)
+bool SocketLikeImpl::bind(quint16 port, Socket::BindMode mode)
 {
     return s->bind(port, mode);
 }
@@ -136,7 +136,7 @@ bool SocketLikeImpl::connect(const QHostAddress &addr, quint16 port)
     return s->connect(addr, port);
 }
 
-bool SocketLikeImpl::connect(const QString &hostName, quint16 port, QSocket::NetworkLayerProtocol protocol)
+bool SocketLikeImpl::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
 {
     return s->connect(hostName, port, protocol);
 }
@@ -151,12 +151,12 @@ bool SocketLikeImpl::listen(int backlog)
     return s->listen(backlog);
 }
 
-bool SocketLikeImpl::setOption(QSocket::SocketOption option, const QVariant &value)
+bool SocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &value)
 {
     return s->setOption(option, value);
 }
 
-QVariant SocketLikeImpl::option(QSocket::SocketOption option) const
+QVariant SocketLikeImpl::option(Socket::SocketOption option) const
 {
     return s->option(option);
 }
@@ -203,7 +203,7 @@ qint64 SocketLikeImpl::sendall(const QByteArray &data)
 
 } //anonymous namespace
 
-QSharedPointer<SocketLike> SocketLike::rawSocket(QSharedPointer<QSocket> s)
+QSharedPointer<SocketLike> SocketLike::rawSocket(QSharedPointer<Socket> s)
 {
     return QSharedPointer<SocketLikeImpl>::create(s).dynamicCast<SocketLike>();
 }
