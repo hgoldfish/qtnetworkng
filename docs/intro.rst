@@ -218,7 +218,7 @@ Or send json data. ::
     obj.insert("name", "fish");
     HttpResponse resp = session.post(url, obj);
     
-Retieve data from `HttpResponse`
+Get data from `HttpResponse`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 `HttpResponse` contains all the data from HTTP server, such as headers, content, and status code. ::
