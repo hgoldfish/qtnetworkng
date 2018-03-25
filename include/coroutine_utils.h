@@ -1,10 +1,10 @@
 #ifndef QTNG_COROUTINE_UTILS_H
 #define QTNG_COROUTINE_UTILS_H
 #include <functional>
-#include <QtCore/QObject>
-#include <QtCore/QVariant>
-#include <QtCore/QThread>
-#include <QtCore/QSharedPointer>
+#include <QtCore/qobject.h>
+#include <QtCore/qvariant.h>
+#include <QtCore/qthread.h>
+#include <QtCore/qsharedpointer.h>
 #include "locks.h"
 #include "eventloop.h"
 
@@ -160,7 +160,7 @@ public:
     bool add(Coroutine *coroutine, const QString &name = QString()) {return add(QSharedPointer<Coroutine>(coroutine), name);}
     bool start(Coroutine *coroutine, const QString &name = QString()) { return add(coroutine->start(), name); }
     QSharedPointer<Coroutine> get(const QString &name);
-    bool kill(const QString &name);
+    bool kill(const QString &name, bool join = true);
     bool killall(bool join = true, bool skipMyself = false);
     bool joinall();
     int size() { return coroutines.size(); }

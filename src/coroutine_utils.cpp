@@ -61,7 +61,7 @@ QSharedPointer<Coroutine> CoroutineGroup::get(const QString &name)
     return QSharedPointer<Coroutine>();
 }
 
-bool CoroutineGroup::kill(const QString &name)
+bool CoroutineGroup::kill(const QString &name, bool join)
 {
     QSharedPointer<Coroutine> found = get(name);
     if(!found.isNull()) {
@@ -71,7 +71,10 @@ bool CoroutineGroup::kill(const QString &name)
             if(found->isActive()) {
                 found->kill();
             }
-            coroutines.removeOne(found);
+            if(join) {
+                found->join();
+                coroutines.removeAll(found);
+            }
             return true;
         }
     }

@@ -239,17 +239,17 @@ DataChannelPrivate::~DataChannelPrivate()
 
 QString DataChannelPrivate::toString()
 {
-    QString pattern = QString::fromUtf8("<%1 (name = %2, state = %3)>");
+    QString pattern = QStringLiteral("<%1 (name = %2, state = %3)>");
     QString clazz, state;
     if(dynamic_cast<VirtualChannel*>(this)) {
-        clazz = QString::fromUtf8("VirtualChannel");
+        clazz = QStringLiteral("VirtualChannel");
     } else {
-        clazz = QString::fromUtf8("SocketChannel");
+        clazz = QStringLiteral("SocketChannel");
     }
     if(broken) {
-        state = QString::fromUtf8("closed");
+        state = QStringLiteral("closed");
     } else {
-        state = QString::fromUtf8("ok");
+        state = QStringLiteral("ok");
     }
     return pattern.arg(clazz, name, state);
 }
@@ -501,7 +501,7 @@ void SocketChannelPrivate::doReceive()
     #endif
             if(static_cast<int>(packetSize) > maxPacketSize) {
     #ifdef DEBUG_PROTOCOL
-                qDebug() << QString::fromUtf8("packetSize %1 is larger than %2").arg(packetSize).arg(maxPacketSize);
+                qDebug() << QStringLiteral("packetSize %1 is larger than %2").arg(packetSize).arg(maxPacketSize);
     #endif
                 return close();
             }
@@ -654,14 +654,14 @@ bool VirtualChannelPrivate::handleIncomingPacket(const QByteArray &packet)
     } else if(subChannels.contains(channelNumber)) {
         QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
         if(channel.isNull()) {
-            qDebug() << QString::fromUtf8("found invalid channel number %1 while handle incoming packet.").arg(channelNumber);
+            qDebug() << QStringLiteral("found invalid channel number %1 while handle incoming packet.").arg(channelNumber);
             subChannels.remove(channelNumber);
             return false;
         }
         channel.data()->d_func()->handleIncomingPacket(payload);
         return true;
     } else {
-        qDebug() << QString::fromUtf8("found unknown channel number %1 while handle incoming packet.").arg(channelNumber);
+        qDebug() << QStringLiteral("found unknown channel number %1 while handle incoming packet.").arg(channelNumber);
         return false;
     }
 

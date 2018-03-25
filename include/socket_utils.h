@@ -6,8 +6,9 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
+#ifdef QTNETWOKRNG_USE_SSL
 class SslSocket;
+#endif
 class SocketLike
 {
 public:

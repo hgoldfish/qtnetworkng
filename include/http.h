@@ -1,54 +1,18 @@
 #ifndef QTNG_HTTP_H
 #define QTNG_HTTP_H
 
-#include <QtCore/QString>
-#include <QtCore/QMap>
-#include <QtCore/QJsonDocument>
-#include <QtCore/QMimeDatabase>
-#include <QtNetwork/QNetworkCookie>
-#include <QtNetwork/QNetworkCookieJar>
+#include <QtCore/qstring.h>
+#include <QtCore/qmap.h>
+#include <QtCore/qjsondocument.h>
+#include <QtCore/qmimedatabase.h>
+#include <QtNetwork/qnetworkcookie.h>
+#include <QtNetwork/qnetworkcookiejar.h>
 
 #include "coroutine.h"
+#include "http_utils.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-class HeaderOperationMixin
-{
-public:
-    enum KnownHeaders {
-        ContentTypeHeader,
-        ContentLengthHeader,
-        LocationHeader,
-        LastModifiedHeader,
-        CookieHeader,
-        SetCookieHeader,
-        ContentDispositionHeader,  // added for QMultipartMessage
-        UserAgentHeader,
-        ServerHeader
-    };
-
-    void setContentType(const QString &contentType);
-    QString getContentType() const;
-    void setContentLength(qint64 contentLength);
-    qint64 getContentLength() const;
-    void setLocation(const QUrl &url);
-    QUrl getLocation() const;
-    void setLastModified(const QDateTime &lastModified);
-    QDateTime getLastModified() const;
-    void setModifiedSince(const QDateTime &modifiedSince);
-    QDateTime getModifedSince() const;
-
-    void setHeader(const QString &name, const QByteArray &value);
-    void addHeader(const QString &name, const QByteArray &value);
-    QByteArray getHeader(const QString &name) const;
-    QByteArrayList getMultiHeader(const QString &name) const;
-
-    static QDateTime fromHttpDate(const QByteArray &value);
-    static QByteArray toHttpDate(const QDateTime &dt);
-
-public:
-    QMap<QString, QByteArray> headers;
-};
 
 struct FormDataFile
 {
@@ -88,6 +52,14 @@ public:
     QByteArray boundary;
 };
 
+enum HttpVersion
+{
+    Unknown,
+    Http1_0,
+    Http1_1,
+    Http2_0,
+};
+
 class HttpRequest: public HeaderOperationMixin
 {
 public:
@@ -113,9 +85,10 @@ public:
     QByteArray body;
     int maxBodySize;
     int maxRedirects;
-    Priority priority = NormalPriority;
+    Priority priority;
+    HttpVersion version;
 public:
-    void setFormData(FormData &formData, const QString &method = QString::fromUtf8("post"));
+    void setFormData(FormData &formData, const QString &method = QStringLiteral("post"));
     static HttpRequest fromFormData(const FormData &formData);
     static HttpRequest fromForm(const QUrlQuery &data);
     static HttpRequest fromForm(const QMap<QString, QString> &query);
@@ -140,6 +113,7 @@ public:
     QByteArray body;
     qint64 elapsed;
     QList<HttpResponse> history;
+    HttpVersion version;
     bool isOk() { return statusCode >= 200 && statusCode < 300; }
 };
 
@@ -148,8 +122,11 @@ public:
     const QMap<QString, QString> &query = QMap<QString, QString>(), \
     const QMap<QString, QByteArray> &headers = QMap<QString, QByteArray>(), \
     bool allowRedirects = true, \
-    bool verify = false \
+    bool verify = false
+#define COMMON_PARAMETERS_FORWARD query, headers, allowRedirects, verify
 
+class Socks5Proxy;
+class HttpProxy;
 class HttpSessionPrivate;
 class HttpSession
 {
@@ -169,22 +146,50 @@ public:
     HttpResponse patch(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
 
     HttpResponse post(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
-        {return post(url, QJsonDocument(json), query, headers, allowRedirects, verify);}
+        {return post(url, QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
     HttpResponse put(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
-        {return put(url, QJsonDocument(json), query, headers, allowRedirects, verify);}
+        {return put(url, QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
     HttpResponse patch(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
-        {return patch(url, QJsonDocument(json), query, headers, allowRedirects, verify);}
+        {return patch(url, QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
+
+    HttpResponse get(const QString &url, COMMON_PARAMETERS) { return get(QUrl(url), COMMON_PARAMETERS_FORWARD); }
+    HttpResponse head(const QString &url, COMMON_PARAMETERS) { return head(QUrl(url), COMMON_PARAMETERS_FORWARD); }
+    HttpResponse options(const QString &url, COMMON_PARAMETERS) { return options(QUrl(url), COMMON_PARAMETERS_FORWARD); }
+    HttpResponse delete_(const QString &url, COMMON_PARAMETERS) { return delete_(QUrl(url), COMMON_PARAMETERS_FORWARD); }
+    HttpResponse post(const QString &url, const QByteArray &body, COMMON_PARAMETERS) { return post(QUrl(url), body, COMMON_PARAMETERS_FORWARD); }
+    HttpResponse put(const QString &url, const QByteArray &body, COMMON_PARAMETERS) { return put(QUrl(url),  body, COMMON_PARAMETERS_FORWARD); }
+    HttpResponse patch(const QString &url, const QByteArray &body, COMMON_PARAMETERS) { return patch(QUrl(url),  body, COMMON_PARAMETERS_FORWARD); }
+    HttpResponse post(const QString &url, const QJsonDocument &json, COMMON_PARAMETERS) { return post(QUrl(url),  json, COMMON_PARAMETERS_FORWARD); }
+    HttpResponse put(const QString &url, const QJsonDocument &json, COMMON_PARAMETERS) { return put(QUrl(url),  json, COMMON_PARAMETERS_FORWARD); }
+    HttpResponse patch(const QString &url, const QJsonDocument &json, COMMON_PARAMETERS) { return patch(QUrl(url),  json, COMMON_PARAMETERS_FORWARD); }
+
+    HttpResponse post(const QString &url, const QJsonObject &json, COMMON_PARAMETERS)
+        {return post(QUrl(url), QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
+    HttpResponse put(const QString &url, const QJsonObject &json, COMMON_PARAMETERS)
+        {return put(QUrl(url), QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
+    HttpResponse patch(const QString &url, const QJsonObject &json, COMMON_PARAMETERS)
+        {return patch(QUrl(url), QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
+
 
     HttpResponse send(HttpRequest &request);
-    QNetworkCookieJar &getCookieJar();
-    QNetworkCookie getCookie(const QUrl &url, const QString &name);
+    QNetworkCookieJar &cookieJar();
+    QNetworkCookie cookie(const QUrl &url, const QString &name);
 
     void setMaxConnectionsPerServer(int maxConnectionsPerServer);
-    int getMaxConnectionsPerServer();
+    int maxConnectionsPerServer();
 
     void setDebugLevel(int level);
     void disableDebug();
 
+    QString defaultUserAgent() const;
+    void setDefaultUserAgent(const QString &userAgent);
+    HttpVersion defaultVersion() const;
+    void setDefaultVersion(HttpVersion defaultVersion);
+
+    QSharedPointer<Socks5Proxy> socks5Proxy() const;
+    void setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy);
+    QSharedPointer<HttpProxy> httpProxy() const;
+    void setHttpProxy(QSharedPointer<HttpProxy> proxy);
 private:
     HttpSessionPrivate *d_ptr;
     Q_DECLARE_PRIVATE(HttpSession)

@@ -91,7 +91,7 @@ bool BaseCoroutinePrivate::initContext()
     context = CreateFiberEx(1024*4, stackSize, 0, (PFIBER_START_ROUTINE)BaseCoroutinePrivate::run_stub, this);
     if(context == NULL) {
         DWORD error = GetLastError();
-        qDebug() << QString::fromUtf8("can not create fiber: error is %1").arg(error);
+        qDebug() << QStringLiteral("can not create fiber: error is %1").arg(error);
         bad = true;
         return false;
     } else {
@@ -188,7 +188,7 @@ BaseCoroutine* createMainCoroutine()
     if(mainPrivate->context == NULL)
     {
         DWORD error = GetLastError();
-        qDebug() << QString::fromUtf8("Coroutine can not malloc new memroy: error is %1").arg(error);
+        qDebug() << QStringLiteral("Coroutine can not malloc new memroy: error is %1").arg(error);
         delete main;
         return 0;
     }

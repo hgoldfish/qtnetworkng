@@ -25,7 +25,7 @@ int many_httpget(int argc, char *argv[])
         total += 1;
         operations.spawn([&session, &semp, &timer, total] {
             try {
-                const qtng::HttpResponse &response = session.get(QString::fromUtf8("http://127.0.0.1:8000/"));
+                const qtng::HttpResponse &response = session.get(QStringLiteral("http://127.0.0.1:8000/"));
                 float rps = total * 1.0 / timer.elapsed() * 1000;
                 qDebug() << total << ":" << rps << response.statusCode;
             } catch (qtng::RequestException &e) {

@@ -230,17 +230,17 @@ void TestCrypto::testCertificate()
     PrivateKey pkey = PrivateKey::generate(PrivateKey::Rsa, 2048);
     const QDateTime &now = QDateTime::currentDateTime();
     QMultiMap<Certificate::SubjectInfo, QString> subjectInfoes = {
-        { Certificate::Organization, QString::fromUtf8("Besteam") },
-        { Certificate::CommonName, QString::fromUtf8("Goldfish") },
-        { Certificate::CountryName, QString::fromUtf8("CN") },
+        { Certificate::Organization, QStringLiteral("Besteam") },
+        { Certificate::CommonName, QStringLiteral("Goldfish") },
+        { Certificate::CountryName, QStringLiteral("CN") },
     };
     Certificate cert = Certificate::generate(pkey, MessageDigest::Sha256, 29472, now, now.addYears(10), subjectInfoes);
     QVERIFY(!cert.isNull());
     QVERIFY(qAbs(cert.effectiveDate().msecsTo(now)) < 1000);
     QVERIFY(qAbs(cert.expiryDate().msecsTo(now.addYears(10))) < 1000);
-    QCOMPARE(first(cert.issuerInfo(Certificate::Organization)), QString::fromUtf8("Besteam"));
-    QCOMPARE(first(cert.issuerInfo(Certificate::CommonName)), QString::fromUtf8("Goldfish"));
-    QCOMPARE(first(cert.issuerInfo(Certificate::CountryName)), QString::fromUtf8("CN"));
+    QCOMPARE(first(cert.issuerInfo(Certificate::Organization)), QStringLiteral("Besteam"));
+    QCOMPARE(first(cert.issuerInfo(Certificate::CommonName)), QStringLiteral("Goldfish"));
+    QCOMPARE(first(cert.issuerInfo(Certificate::CountryName)), QStringLiteral("CN"));
     QVERIFY(cert.isSelfSigned());
     QVERIFY(cert.publicKey().isValid());
     QByteArray pem = cert.save();

@@ -1,10 +1,10 @@
 #ifndef QTNG_SOCKET_P_H
 #define QTNG_SOCKET_P_H
 
-#include <QtCore/QSharedPointer>
-#include <QtCore/QString>
-#include <QtCore/QByteArray>
-#include <QtNetwork/QHostAddress>
+#include <QtCore/qsharedpointer.h>
+#include <QtCore/qstring.h>
+#include <QtCore/qbytearray.h>
+#include <QtNetwork/qhostaddress.h>
 #include "socket.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN

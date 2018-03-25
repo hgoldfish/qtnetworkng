@@ -633,8 +633,8 @@ public:
     SslConnection(const SslConfiguration &config);
     SslConnection();
     ~SslConnection();
-    bool wrap(bool asServer, const QString &verificationPeerName);
-    bool handshake();
+    bool handshake(bool asServer, const QString &verificationPeerName);
+    bool _handshake();
     qint64 recv(char *data, qint64 size, bool all);
     qint64 send(const char *data, qint64 size, bool all);
     bool pumpOutgoing();
@@ -679,7 +679,7 @@ SslConnection<Socket>::~SslConnection()
 }
 
 template<typename Socket>
-bool SslConnection<Socket>::wrap(bool asServer, const QString &verificationPeerName)
+bool SslConnection<Socket>::handshake(bool asServer, const QString &verificationPeerName)
 {
     this->asServer = asServer;
     this->verificationPeerName = verificationPeerName;
@@ -700,7 +700,7 @@ bool SslConnection<Socket>::wrap(bool asServer, const QString &verificationPeerN
         if(!ssl.isNull()) {
             // do not free incoming & outgoing
             openssl::q_SSL_set_bio(ssl.data(), incoming, outgoing);
-            return handshake();
+            return _handshake();
         }
     }
 
@@ -711,7 +711,7 @@ bool SslConnection<Socket>::wrap(bool asServer, const QString &verificationPeerN
 
 
 template<typename Socket>
-bool SslConnection<Socket>::handshake()
+bool SslConnection<Socket>::_handshake()
 {
     while(true) {
         int result = asServer ? openssl::q_SSL_accept(ssl.data()) : openssl::q_SSL_connect(ssl.data());
@@ -1050,9 +1050,19 @@ SslSocket::SslSocket(QSharedPointer<Socket> rawSocket, const SslConfiguration &c
     d->rawSocket = rawSocket;
 }
 
+
 SslSocket::~SslSocket()
 {
     delete d_ptr;
+}
+
+bool SslSocket::handshake(bool asServer, const QString &verificationPeerName)
+{
+    Q_D(SslSocket);
+    if(!d->ssl.isNull()) {
+        return false;
+    }
+    return d->handshake(asServer, verificationPeerName);
 }
 
 Certificate SslSocket::localCertificate() const
@@ -1141,7 +1151,7 @@ QSharedPointer<SslSocket> SslSocket::accept()
     Socket *rawSocket = d->rawSocket->accept();
     if(rawSocket) {
         QSharedPointer<SslSocket> s(new SslSocket(QSharedPointer<Socket>(rawSocket)));
-        if(s->d_func()->wrap(true, QString())) {
+        if(s->d_func()->handshake(true, QString())) {
             return s;
         }
     }
@@ -1172,7 +1182,7 @@ bool SslSocket::connect(const QHostAddress &addr, quint16 port)
     if(!d->rawSocket->connect(addr, port)) {
         return false;
     }
-    return d->wrap(false, QString());
+    return d->handshake(false, QString());
 }
 
 bool SslSocket::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
@@ -1181,7 +1191,7 @@ bool SslSocket::connect(const QString &hostName, quint16 port, Socket::NetworkLa
     if(!d->rawSocket->connect(hostName, port, protocol)) {
         return false;
     }
-    return d->wrap(false, hostName);
+    return d->handshake(false, hostName);
 }
 
 bool SslSocket::close()

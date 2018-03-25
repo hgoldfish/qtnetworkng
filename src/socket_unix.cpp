@@ -492,57 +492,6 @@ qint64 SocketPrivate::recv(char *data, qint64 size, bool all)
     return total;
 }
 
-//qint64 QSocketPrivate::send(const char *data, qint64 size)
-//{
-//    if(!isValid()) {
-//        return -1;
-//    }
-//    ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
-//    while(true)
-//    {
-//        ssize_t w;
-//        do {
-//            w = ::send(fd, data, size, 0);
-//        } while(w < 0 && errno == EINTR);
-
-//        if(w > 0)
-//        {
-//            return w;
-//        }
-//        else if(w < 0)
-//        {
-//            switch(errno)
-//            {
-//            case EAGAIN:
-//                break;
-//            case EACCES:
-//                setError(QSocket::SocketAccessError);
-//                return -1;
-//            case EBADF:
-//            case EFAULT:
-//            case EINVAL:
-//            case ENOTCONN:
-//            case ENOTSOCK:
-//                setError(QSocket::UnsupportedSocketOperationError);
-//                close();
-//                return -1;
-//            case EMSGSIZE:
-//            case ENOBUFS:
-//            case ENOMEM:
-//                setError(QSocket::DatagramTooLargeError);
-//                return -1;
-//            case EPIPE:
-//            case ECONNRESET:
-//            default:
-//                setError(QSocket::RemoteHostClosedError);
-//                close();
-//                return -1;
-//            }
-//        }
-//        watcher.start();
-//    }
-//}
-
 // openbsd do not support MSG_MORE?
 #ifndef MSG_MORE
 #define MSG_MORE 0

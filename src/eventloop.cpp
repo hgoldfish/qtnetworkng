@@ -161,6 +161,12 @@ int EventLoopCoroutine::exitCode()
     return d->exitCode();
 }
 
+void EventLoopCoroutine::runUntil(BaseCoroutine *coroutine)
+{
+    Q_D(EventLoopCoroutine);
+    return d->runUntil(coroutine);
+}
+
 // 开始写 CurrentLoopStorage 的实现
 
 EventLoopCoroutine* CurrentLoopStorage::get()
@@ -346,9 +352,12 @@ void CoroutinePrivate::setFinishedEvent()
 
 bool CoroutinePrivate::join()
 {
-    Q_Q(const Coroutine);
+    Q_Q(Coroutine);
 
     if(q->state() == BaseCoroutine::Initialized || q->state() == BaseCoroutine::Started) {
+        if(EventLoopCoroutine::get() == BaseCoroutine::current()) {
+            EventLoopCoroutine::get()->runUntil(q);
+        }
         return finishedEvent.wait();
     } else {
         return true;

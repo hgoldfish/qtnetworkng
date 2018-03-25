@@ -4,28 +4,60 @@
 #include "http.h"
 #include "locks.h"
 #include "socket.h"
+#include "socket_utils.h"
+#include "coroutine_utils.h"
+#include "http_proxy.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-class HttpSessionPrivate
+class HttpProxy;
+class Socks5Proxy;
+struct ConnectionPoolItem
+{
+    QDateTime lastUsed;
+    QSharedPointer<Semaphore> semaphore;
+    QSet<QSharedPointer<SocketLike>> connections;
+};
+
+
+class ConnectionPool
+{
+public:
+    ConnectionPool();
+    virtual ~ConnectionPool();
+    void recycle(const QUrl &url, QSharedPointer<SocketLike> connection);
+    QSharedPointer<SocketLike> connectionForUrl(const QUrl &url);
+    void removeUnusedConnections();
+    QSharedPointer<Socks5Proxy> socks5Proxy() const;
+    QSharedPointer<HttpProxy> httpProxy() const;
+    void setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy);
+    void setHttpProxy(QSharedPointer<HttpProxy> proxy);
+public:
+    QMap<QUrl, ConnectionPoolItem> items;
+    int maxConnectionsPerServer;
+    int timeToLive;
+    QSharedPointer<SocketDnsCache> dnsCache;
+    CoroutineGroup *operations;
+    QSharedPointer<BaseProxySwitcher> proxySwitcher;
+};
+
+
+class HttpSessionPrivate: public ConnectionPool
 {
 public:
     HttpSessionPrivate(HttpSession *q_ptr);
     virtual ~HttpSessionPrivate();
-
-    void setDefaultUserAgent(const QString &userAgent);
-    QMap<QString, QByteArray> makeHeaders(HttpRequest &request, const QUrl &url);
+    QList<HttpHeader> makeHeaders(HttpRequest &request, const QUrl &url);
     void mergeCookies(HttpRequest &request, const QUrl &url);
     HttpResponse send(HttpRequest &req);
-    QNetworkCookieJar &getCookieJar() { return cookieJar; }
-private:
+public:
     QNetworkCookieJar cookieJar;
     QString defaultUserAgent;
+    HttpVersion defaultVersion;
     HttpSession *q_ptr;
-    int maxConnectionsPerServer;
     int debugLevel;
-    QMap<QString, QSharedPointer<Semaphore>> connectionSemaphores;
-    QSharedPointer<SocketDnsCache> dnsCache;
+    friend void setProxySwitcher(HttpSession *session, QSharedPointer<BaseProxySwitcher> switcher);
+    static inline HttpSessionPrivate *getPrivateHelper(HttpSession *session) {return session->d_ptr; }
     Q_DECLARE_PUBLIC(HttpSession)
 };
 

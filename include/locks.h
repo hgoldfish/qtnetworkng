@@ -1,8 +1,8 @@
 #ifndef QTNG_LOCKS_H
 #define QTNG_LOCKS_H
 
-#include <QtCore/QQueue>
-#include <QtCore/QDebug>
+#include <QtCore/qqueue.h>
+#include <QtCore/qdebug.h>
 #include "coroutine.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN

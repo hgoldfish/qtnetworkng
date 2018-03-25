@@ -77,7 +77,7 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::Netwo
 
     if(addresses.isEmpty()) {
         state = Socket::UnconnectedState;
-        setError(Socket::HostNotFoundError, QString::fromUtf8("Host not found."));
+        setError(Socket::HostNotFoundError, QStringLiteral("Host not found."));
         return false;
     }
     bool done = true;
@@ -95,7 +95,7 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::Netwo
             return true;
     }
     if(error == Socket::NoError) {
-        setError(Socket::HostNotFoundError, QString::fromUtf8("Host not found."));
+        setError(Socket::HostNotFoundError, QStringLiteral("Host not found."));
     }
     return false;
 }

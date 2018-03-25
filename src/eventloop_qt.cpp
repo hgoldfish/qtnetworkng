@@ -71,17 +71,18 @@ public:
     EventLoopCoroutinePrivateQt(EventLoopCoroutine* q);
     virtual ~EventLoopCoroutinePrivateQt();
 public:
-    virtual void run();
-    virtual int createWatcher(EventLoopCoroutine::EventType event, qintptr fd, Functor *callback);
-    virtual void startWatcher(int watcherId);
-    virtual void stopWatcher(int watcherId);
-    virtual void removeWatcher(int watcherId);
-    virtual void triggerIoWatchers(qintptr fd);
-    virtual int callLater(int msecs, Functor *callback);
-    virtual void callLaterThreadSafe(int msecs, Functor *callback);
-    virtual int callRepeat(int msecs, Functor *callback);
-    virtual void cancelCall(int callbackId);
-    virtual int exitCode();
+    virtual void run() override;
+    virtual int createWatcher(EventLoopCoroutine::EventType event, qintptr fd, Functor *callback) override;
+    virtual void startWatcher(int watcherId) override;
+    virtual void stopWatcher(int watcherId) override;
+    virtual void removeWatcher(int watcherId) override;
+    virtual void triggerIoWatchers(qintptr fd) override;
+    virtual int callLater(int msecs, Functor *callback) override;
+    virtual void callLaterThreadSafe(int msecs, Functor *callback) override;
+    virtual int callRepeat(int msecs, Functor *callback) override;
+    virtual void cancelCall(int callbackId) override;
+    virtual int exitCode() override;
+    virtual void runUntil(BaseCoroutine *coroutine) override;
 private slots:
     void callLaterThreadSafeStub(int msecs, void* callback)
     {
@@ -311,6 +312,25 @@ void EventLoopCoroutinePrivateQt::cancelCall(int callbackId)
 int EventLoopCoroutinePrivateQt::exitCode()
 {
     return qtExitCode;
+}
+
+
+struct StartCoroutineFunctor: public Functor
+{
+    StartCoroutineFunctor(BaseCoroutine *coroutine)
+        :coroutine(coroutine) {}
+    virtual void operator ()() override { coroutine->yield(); }
+    BaseCoroutine *coroutine;
+};
+
+
+void EventLoopCoroutinePrivateQt::runUntil(BaseCoroutine *coroutine)
+{
+    QSharedPointer<QEventLoop> sub(new QEventLoop());
+    std::function<void()> shutdown = [sub] { sub->exit(); };
+    callLater(0, new StartCoroutineFunctor(coroutine));
+    connect(coroutine, &BaseCoroutine::finished, shutdown);
+    sub->exec();
 }
 
 EventLoopCoroutine::EventLoopCoroutine()

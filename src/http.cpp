@@ -5,251 +5,13 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QTextCodec>
 #include "../include/http_p.h"
-#include "../include/socket.h"
-#include "../include/socket_utils.h"
+#include "../include/socks5_proxy.h"
+#ifdef QTNETWOKRNG_USE_SSL
 #include "../include/ssl.h"
+#endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-HttpRequest::HttpRequest()
-    :maxBodySize(1024 * 1024 * 8), maxRedirects(8)
-{
-
-}
-
-HttpRequest::~HttpRequest()
-{
-
-}
-
-void HeaderOperationMixin::setContentLength(qint64 contentLength)
-{
-    headers.insert(QString::fromUtf8("Content-Length"), QString::number(contentLength).toLatin1());
-}
-
-qint64 HeaderOperationMixin::getContentLength() const
-{
-    bool ok;
-    QByteArray s = headers.value(QString::fromUtf8("Content-Length"));
-    qint64 l = s.toULongLong(&ok);
-    if(ok) {
-        return l;
-    } else {
-        return -1;
-    }
-}
-
-void HeaderOperationMixin::setContentType(const QString &contentType)
-{
-    headers.insert(QString::fromUtf8("Content-Type"), contentType.toUtf8());
-}
-
-QString HeaderOperationMixin::getContentType() const
-{
-    return QString::fromUtf8(headers.value(QString::fromUtf8("Content-Type"), "text/plain"));
-}
-
-QUrl HeaderOperationMixin::getLocation() const
-{
-    if(!headers.contains(QString::fromUtf8("Location"))) {
-        return QUrl();
-    }
-    const QByteArray &value = headers.value(QString::fromUtf8("Location"));
-    QUrl result = QUrl::fromEncoded(value, QUrl::StrictMode);
-    if (result.isValid()) {
-        return result;
-    } else {
-        return QUrl();
-    }
-}
-
-void HeaderOperationMixin::setLocation(const QUrl &url)
-{
-    headers.insert(QString::fromUtf8("Location"), url.toEncoded(QUrl::FullyEncoded));
-}
-
-// Fast month string to int conversion. This code
-// assumes that the Month name is correct and that
-// the string is at least three chars long.
-static int name_to_month(const char* month_str)
-{
-    switch (month_str[0]) {
-    case 'J':
-        switch (month_str[1]) {
-        case 'a':
-            return 1;
-        case 'u':
-            switch (month_str[2] ) {
-            case 'n':
-                return 6;
-            case 'l':
-                return 7;
-            }
-        }
-        break;
-    case 'F':
-        return 2;
-    case 'M':
-        switch (month_str[2] ) {
-        case 'r':
-            return 3;
-        case 'y':
-            return 5;
-        }
-        break;
-    case 'A':
-        switch (month_str[1]) {
-        case 'p':
-            return 4;
-        case 'u':
-            return 8;
-        }
-        break;
-    case 'O':
-        return 10;
-    case 'S':
-        return 9;
-    case 'N':
-        return 11;
-    case 'D':
-        return 12;
-    }
-
-    return 0;
-}
-
-QDateTime HeaderOperationMixin::fromHttpDate(const QByteArray &value)
-{
-    // HTTP dates have three possible formats:
-    //  RFC 1123/822      -   ddd, dd MMM yyyy hh:mm:ss "GMT"
-    //  RFC 850           -   dddd, dd-MMM-yy hh:mm:ss "GMT"
-    //  ANSI C's asctime  -   ddd MMM d hh:mm:ss yyyy
-    // We only handle them exactly. If they deviate, we bail out.
-
-    int pos = value.indexOf(',');
-    QDateTime dt;
-#ifndef QT_NO_DATESTRING
-    if (pos == -1) {
-        // no comma -> asctime(3) format
-        dt = QDateTime::fromString(QString::fromLatin1(value), Qt::TextDate);
-    } else {
-        // Use sscanf over QLocal/QDateTimeParser for speed reasons. See the
-        // Qt WebKit performance benchmarks to get an idea.
-        if (pos == 3) {
-            char month_name[4];
-            int day, year, hour, minute, second;
-#ifdef Q_CC_MSVC
-            // Use secure version to avoid compiler warning
-            if (sscanf_s(value.constData(), "%*3s, %d %3s %d %d:%d:%d 'GMT'", &day, month_name, 4, &year, &hour, &minute, &second) == 6)
-#else
-            // The POSIX secure mode is %ms (which allocates memory), too bleeding edge for now
-            // In any case this is already safe as field width is specified.
-            if (sscanf(value.constData(), "%*3s, %d %3s %d %d:%d:%d 'GMT'", &day, month_name, &year, &hour, &minute, &second) == 6)
-#endif
-                dt = QDateTime(QDate(year, name_to_month(month_name), day), QTime(hour, minute, second));
-        } else {
-            QLocale c = QLocale::c();
-            // eat the weekday, the comma and the space following it
-            QString sansWeekday = QString::fromLatin1(value.constData() + pos + 2);
-            // must be RFC 850 date
-            dt = c.toDateTime(sansWeekday, QLatin1String("dd-MMM-yy hh:mm:ss 'GMT'"));
-        }
-    }
-#endif // QT_NO_DATESTRING
-
-    if (dt.isValid())
-        dt.setTimeSpec(Qt::UTC);
-    return dt;
-}
-
-QByteArray HeaderOperationMixin::toHttpDate(const QDateTime &dt)
-{
-    return QLocale::c().toString(dt, QLatin1String("ddd, dd MMM yyyy hh:mm:ss 'GMT'"))
-        .toLatin1();
-}
-
-QDateTime HeaderOperationMixin::getLastModified() const
-{
-    if(!headers.contains(QString::fromUtf8("Last-Modified"))) {
-        return QDateTime();
-    }
-    const QByteArray &value = headers.value(QString::fromUtf8("Last-Modified"));
-    return fromHttpDate(value);
-}
-
-void HeaderOperationMixin::setLastModified(const QDateTime &lastModified)
-{
-    headers.insert(QString::fromUtf8("Last-Modified"), toHttpDate(lastModified));
-}
-
-
-void HeaderOperationMixin::setModifiedSince(const QDateTime &modifiedSince)
-{
-    headers.insert(QString::fromUtf8("Modified-Since"), toHttpDate(modifiedSince));
-}
-
-QDateTime HeaderOperationMixin::getModifedSince() const
-{
-    if(!headers.contains(QString::fromUtf8("Modified-Since"))) {
-        return QDateTime();
-    }
-    const QByteArray &value = headers.value(QString::fromUtf8("Modified-Since"));
-    return fromHttpDate(value);
-}
-
-
-static QStringList knownHeaders = {
-    QString::fromUtf8("Content-Type"),
-    QString::fromUtf8("Content-Length"),
-    QString::fromUtf8("Location"),
-    QString::fromUtf8("Last-Modified"),
-    QString::fromUtf8("Cookie"),
-    QString::fromUtf8("Set-Cookie"),
-    QString::fromUtf8("Content-Disposition"),
-    QString::fromUtf8("Server"),
-    QString::fromUtf8("User-Agent"),
-    QString::fromUtf8("Accept"),
-    QString::fromUtf8("Accept-Language"),
-    QString::fromUtf8("Accept-Encoding"),
-    QString::fromUtf8("DNT"),
-    QString::fromUtf8("Connection"),
-    QString::fromUtf8("Pragma"),
-    QString::fromUtf8("Cache-Control"),
-    QString::fromUtf8("Date"),
-    QString::fromUtf8("Allow"),
-    QString::fromUtf8("Vary"),
-    QString::fromUtf8("X-Frame-Options"),
-    QString::fromUtf8("MIME-Version"),
-};
-
-QString normalizeHeaderName(const QString &headerName) {
-    foreach(const QString &goodName, knownHeaders) {
-        if(headerName.compare(goodName, Qt::CaseInsensitive) == 0) {
-            return goodName;
-        }
-    }
-    return headerName;
-}
-
-void HeaderOperationMixin::setHeader(const QString &name, const QByteArray &value)
-{
-    headers.insert(normalizeHeaderName(name), value);
-}
-
-void HeaderOperationMixin::addHeader(const QString &name, const QByteArray &value)
-{
-    headers.insertMulti(normalizeHeaderName(name), value);
-}
-
-QByteArray HeaderOperationMixin::getHeader(const QString &name) const
-{
-    return headers.value(normalizeHeaderName(name));
-}
-
-QByteArrayList HeaderOperationMixin::getMultiHeader(const QString &name) const
-{
-    return headers.values(normalizeHeaderName(name));
-}
 
 FormData::FormData()
 {
@@ -295,7 +57,7 @@ QByteArray FormData::toByteArray() const
         body.append(boundary);
         body.append("\r\n");
         body.append("Content-Disposition: form-data;");
-        body.append(formatHeaderParam(QString::fromUtf8("name"), itor.key()));
+        body.append(formatHeaderParam(QStringLiteral("name"), itor.key()));
         body.append("\r\n\r\n");
         body.append(itor.value().toUtf8());
         body.append("\r\n");
@@ -305,9 +67,9 @@ QByteArray FormData::toByteArray() const
         body.append(boundary);
         body.append("\r\n");
         body.append("Content-Disposition: form-data;");
-        body.append(formatHeaderParam(QString::fromUtf8("name"), itor.key()));
+        body.append(formatHeaderParam(QStringLiteral("name"), itor.key()));
         body.append("; ");
-        body.append(formatHeaderParam(QString::fromUtf8("filename"), itor.value().filename));
+        body.append(formatHeaderParam(QStringLiteral("filename"), itor.value().filename));
         body.append("\r\n");
         body.append("Content-Type: ");
         body.append(itor.value().contentType);
@@ -320,14 +82,23 @@ QByteArray FormData::toByteArray() const
     return body;
 }
 
+HttpRequest::HttpRequest()
+    :method("GET"), maxBodySize(1024 * 1024 * 8), maxRedirects(8), priority(NormalPriority), version(Unknown)
+{
+}
+
+HttpRequest::~HttpRequest()
+{
+}
+
 void HttpRequest::setFormData(FormData &formData, const QString &method)
 {
     this->method = method;
     QString contentType = QString::fromLatin1("multipart/form-data; boundary=%1").arg(QString::fromLatin1(formData.boundary));
-    headers.insert(QString::fromUtf8("Content-Type"), contentType.toLatin1());
+    setHeader(QStringLiteral("Content-Type"), contentType.toLatin1());
     QString mimeHeader("MIME-Version");
-    if(!headers.contains(mimeHeader)) {
-        headers.insert(mimeHeader, QByteArray("1.0"));
+    if(!hasHeader(mimeHeader)) {
+        setHeader(mimeHeader, QByteArray("1.0"));
     }
     body = formData.toByteArray();
 }
@@ -345,7 +116,7 @@ HttpRequest HttpRequest::fromFormData(const FormData &formData)
 HttpRequest HttpRequest::fromForm(const QUrlQuery &data)
 {
     HttpRequest request;
-    request.setContentType(QString::fromUtf8("application/x-www-form-urlencoded"));
+    request.setContentType(QStringLiteral("application/x-www-form-urlencoded"));
     request.body = data.toString(QUrl::FullyEncoded).toUtf8();
     request.method = "POST";
     return request;
@@ -393,21 +164,15 @@ QString HttpResponse::html()
 
 
 HttpSessionPrivate::HttpSessionPrivate(HttpSession *q_ptr)
-    :q_ptr(q_ptr), maxConnectionsPerServer(10), debugLevel(0)
+    :defaultVersion(HttpVersion::Http1_1), q_ptr(q_ptr), debugLevel(0)
 {
-    defaultUserAgent = QString::fromUtf8("Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0");
+    defaultUserAgent = QStringLiteral("Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0");
 }
 
 HttpSessionPrivate::~HttpSessionPrivate()
 {
 
 }
-
-void HttpSessionPrivate::setDefaultUserAgent(const QString &userAgent)
-{
-    defaultUserAgent = userAgent;
-}
-
 
 struct HeaderSplitter
 {
@@ -474,13 +239,232 @@ QList<QByteArray> splitBytes(const QByteArray &bs, char sep, int maxSplit = -1)
     return tokens;
 }
 
+static QUrl hostOnly(const QUrl &url)
+{
+    QUrl h;
+    h.setScheme(url.scheme());
+    h.setHost(url.host());
+    h.setPort(url.port());
+    return h;
+}
+
+ConnectionPool::ConnectionPool()
+    :maxConnectionsPerServer(10), timeToLive(60 * 5), operations(new CoroutineGroup), proxySwitcher(new SimpleProxySwitcher)
+{
+    operations->spawn([this] {removeUnusedConnections();});
+}
+
+ConnectionPool::~ConnectionPool()
+{
+    delete operations;
+}
+
+void ConnectionPool::recycle(const QUrl &url, QSharedPointer<SocketLike> connection)
+{
+    const QUrl &h = hostOnly(url);
+    ConnectionPoolItem &item = items[h];
+    item.lastUsed = QDateTime::currentDateTimeUtc();
+    if(item.semaphore.isNull()) {
+        item.semaphore.reset(new Semaphore(maxConnectionsPerServer));
+    }
+    if(item.connections.size() < maxConnectionsPerServer) {
+        item.connections.insert(connection);
+    }
+}
+
+QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url)
+{
+    const QUrl &h = hostOnly(url);
+    ConnectionPoolItem &item = items[h];
+
+    item.lastUsed = QDateTime::currentDateTimeUtc();
+    if(item.semaphore.isNull()) {
+        item.semaphore.reset(new Semaphore(maxConnectionsPerServer));
+    }
+
+    ScopedLock<Semaphore> lock(*item.semaphore);Q_UNUSED(lock);
+
+    QSharedPointer<Socket> rawSocket;
+    int defaultPort = 80;
+    if(url.scheme() == QStringLiteral("http")) {
+    } else{
+#ifdef QTNETWOKRNG_USE_SSL
+        defaultPort = 443;
+#else
+        qDebug() << "invalid scheme";
+        throw ConnectionError();
+#endif
+    }
+
+    QSharedPointer<SocketLike> connection;
+
+    QSharedPointer<Socks5Proxy> socks5Proxy = proxySwitcher->selectSocks5Proxy(url);
+    if(socks5Proxy) {
+        rawSocket = socks5Proxy->connect(url.host(), url.port(defaultPort));
+        if(url.scheme() == QStringLiteral("http")) {
+            connection = SocketLike::rawSocket(rawSocket);
+        } else{
+    #ifdef QTNETWOKRNG_USE_SSL
+            QSharedPointer<SslSocket> ssl(new SslSocket(rawSocket));
+            ssl->handshake(false);
+            connection = SocketLike::sslSocket(ssl);
+    #else
+            qDebug() << "invalid scheme";
+            throw ConnectionError();
+    #endif
+        }
+    } else {
+        rawSocket.reset(new Socket);
+        rawSocket->setDnsCache(dnsCache);
+
+        if(url.scheme() == QStringLiteral("http")) {
+            connection = SocketLike::rawSocket(rawSocket);
+        } else{
+    #ifdef QTNETWOKRNG_USE_SSL
+            connection = SocketLike::sslSocket(QSharedPointer<SslSocket>::create(rawSocket));
+    #else
+            qDebug() << "invalid scheme";
+            throw ConnectionError();
+    #endif
+        }
+        if(!connection->connect(url.host(), url.port(defaultPort))) {
+            qDebug() << "can not connect to host: " << url.host() << connection->errorString();
+            throw ConnectionError();
+        }
+    }
+
+    return connection;
+}
+
+
+void ConnectionPool::removeUnusedConnections()
+{
+    while(true) {
+        const QDateTime &now = QDateTime::currentDateTimeUtc();
+        Coroutine::sleep(1000);
+        QMap<QUrl, ConnectionPoolItem> newItems;
+        for(QMap<QUrl, ConnectionPoolItem>::const_iterator itor = items.constBegin(); itor != items.constEnd(); ++itor) {
+            if(itor.value().lastUsed.secsTo(now) < timeToLive) {
+                newItems.insert(itor.key(), itor.value());
+            }
+        }
+        items = newItems;
+    }
+}
+
+
+QSharedPointer<Socks5Proxy> ConnectionPool::socks5Proxy() const
+{
+    if(proxySwitcher->socks5Proxies.size() > 0) {
+        return proxySwitcher->socks5Proxies.at(0);
+    }
+    return QSharedPointer<Socks5Proxy>();
+}
+
+
+QSharedPointer<HttpProxy> ConnectionPool::httpProxy() const
+{
+    if(proxySwitcher->httpProxies.size() > 0) {
+        return proxySwitcher->httpProxies.at(0);
+    }
+    return QSharedPointer<HttpProxy>();
+}
+
+
+void ConnectionPool::setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy)
+{
+    proxySwitcher->socks5Proxies.clear();
+    proxySwitcher->socks5Proxies.append(proxy);
+}
+
+void ConnectionPool::setHttpProxy(QSharedPointer<HttpProxy> proxy)
+{
+    proxySwitcher->httpProxies.clear();
+    proxySwitcher->httpProxies.append(proxy);
+}
+
+
+struct ChunkedBlockReader
+{
+    QSharedPointer<SocketLike> connection;
+    QByteArray buf;
+    int debugLevel;
+
+    ChunkedBlockReader(QSharedPointer<SocketLike> connection)
+        :connection(connection), debugLevel(0) {}
+
+    QByteArray nextBlock(qint64 leftBytes)
+    {
+        const int MaxLineLength = 6; // ffff\r\n
+        QByteArray numBytes;
+        bool expectingLineBreak = false;
+        if(buf.size() < MaxLineLength) {
+            buf.append(connection->recv(1024 * 8));
+            if(buf.size() < 3) { // 0\r\n
+                throw ChunkedEncodingError();
+            }
+        }
+
+        bool ok = false;
+        for(int i = 0; i < buf.size() && i < MaxLineLength; ++i) {
+            char c = buf.at(i);
+            if(c == '\n') {
+                if(!expectingLineBreak) {
+                    throw ChunkedEncodingError();
+                }
+                buf.remove(0, i + 1);
+                ok = true;
+                break;
+            } else if(c == '\r') {
+                if(expectingLineBreak) {
+                    throw ChunkedEncodingError();
+                }
+                expectingLineBreak = true;
+            } else {
+                numBytes.append(c);
+            }
+        }
+        if(!ok) {
+            throw ChunkedEncodingError();
+        }
+
+        qint64 bytesToRead = numBytes.toUInt(&ok, 16);
+        if(!ok) {
+            if(debugLevel > 0) {
+                qDebug() << "got invalid chunked bytes:" << numBytes;
+            }
+            throw ChunkedEncodingError();
+        }
+
+        if(bytesToRead > leftBytes) {
+            throw UnrewindableBodyError();
+        }
+
+        while(buf.size() < bytesToRead + 2) {
+            const QByteArray t = connection->recv(1024 * 8);
+            if(t.isEmpty()) {
+                throw ConnectionError();
+            }
+            buf.append(t);
+        }
+
+        const QByteArray &result = buf.mid(0, bytesToRead);
+        buf.remove(0, bytesToRead + 2);
+
+        if(bytesToRead == 0 && !buf.isEmpty() && debugLevel > 0) {
+            qDebug() << "bytesToRead == 0 but some bytes left.";
+        }
+
+        return result;
+    }
+
+};
 
 HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 {
     QUrl &url = request.url;
     if(url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https")) {
-        qDebug() << "invalid scheme";
-        throw ConnectionError();
+        throw InvalidSchema();
     }
     if(!request.query.isEmpty()) {
         QUrlQuery query(url);
@@ -492,35 +476,32 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     }
 
     mergeCookies(request, url);
-    QMap<QString, QByteArray> allHeaders = makeHeaders(request, url);
+    QList<HttpHeader> allHeaders = makeHeaders(request, url);
 
-    if(!connectionSemaphores.contains(url.host())) {
-        connectionSemaphores.insert(url.host(), QSharedPointer<Semaphore>(new Semaphore(maxConnectionsPerServer)));
+    QSharedPointer<SocketLike> connection = connectionForUrl(url);
+
+    if(request.version == HttpVersion::Unknown) {
+        request.version = defaultVersion;
     }
-    ScopedLock<Semaphore> lock(*connectionSemaphores[url.host()]);Q_UNUSED(lock);
-
-
-    QSharedPointer<Socket> rawSocket(new Socket);
-    rawSocket->setDnsCache(dnsCache);
-
-    QSharedPointer<SocketLike> connection;
-    int defaultPort = 80;
-    if(url.scheme() == QStringLiteral("http")) {
-        connection = SocketLike::rawSocket(rawSocket);
+    QByteArray versionBytes;
+    if(request.version == HttpVersion::Http1_0) {
+        versionBytes = "HTTP/1.0";
+    } else if(request.version == HttpVersion::Http1_1) {
+        versionBytes = "HTTP/1.1";
+    } else if(request.version == HttpVersion::Http2_0) {
+        versionBytes = "HTTP/2.0";
     } else {
-        connection = SocketLike::sslSocket(QSharedPointer<SslSocket>::create(rawSocket));
-        defaultPort = 443;
-    }
-    if(!connection->connect(url.host(), url.port(defaultPort))) {
-        qDebug() << "can not connect to host: " << url.host() << connection->errorString();
-        throw ConnectionError();
+        throw InvalidSchema();
     }
 
     QByteArrayList lines;
     QByteArray resourcePath = url.toEncoded(QUrl::RemoveAuthority | QUrl::RemoveFragment | QUrl::RemoveScheme);
-    lines.append(request.method.toUpper().toUtf8() + QByteArray(" ") + resourcePath + QByteArray(" HTTP/1.0\r\n"));
-    for(QMap<QString, QByteArray>::const_iterator itor = allHeaders.constBegin(); itor != allHeaders.constEnd(); ++itor) {
-        lines.append(itor.key().toUtf8() + QByteArray(": ") + itor.value() + QByteArray("\r\n"));
+    const QByteArray &commandLine = request.method.toUpper().toUtf8() + QByteArray(" ") +
+            resourcePath + QByteArray(" ") + versionBytes + QByteArray("\r\n");
+    lines.append(commandLine);
+    for(int i = 0;i < allHeaders.size(); ++i) {
+        const HttpHeader &header = allHeaders.at(i);
+        lines.append(header.name.toUtf8() + QByteArray(": ") + header.value + QByteArray("\r\n"));
     }
     lines.append(QByteArray("\r\n"));
     if(debugLevel > 0) {
@@ -537,7 +518,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 
     HttpResponse response;
     response.request = request;
-    response.url = request.url;  // redirect?
+    response.url = request.url;
 
     HeaderSplitter splitter(connection);
 
@@ -547,7 +528,11 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     if(commands.size() != 3) {
         throw InvalidHeader();
     }
-    if(commands.at(0) != QByteArray("HTTP/1.0") && commands.at(0) != QByteArray("HTTP/1.1")) {
+    if(commands.at(0) == QByteArray("HTTP/1.0")) {
+        response.version = Http1_0;
+    } else if(commands.at(0) == QByteArray("HTTP/1.1")) {
+        response.version = Http1_1;
+    } else {
         throw InvalidHeader();
     }
     bool ok;
@@ -569,13 +554,13 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         }
         QString headerName = QString::fromUtf8(headerParts[0]).trimmed();
         QByteArray headerValue = headerParts[1].trimmed();
-        response.headers.insertMulti(normalizeHeaderName(headerName), headerValue);
+        response.addHeader(headerName, headerValue);
         if(debugLevel > 0)  {
             qDebug() << "receiving header: " << headerName << headerValue;
         }
     }
-    if(response.headers.contains(QString::fromUtf8("Set-Cookie"))) {
-        foreach(const QByteArray &value, response.headers.values("Set-Cookie")) {
+    if(response.hasHeader(QStringLiteral("Set-Cookie"))) {
+        foreach(const QByteArray &value, response.multiHeader("Set-Cookie")) {
             const QList<QNetworkCookie> &cookies = QNetworkCookie::parseCookies(value);
             if(debugLevel > 0 && !cookies.isEmpty()) {
                 qDebug() << "receiving cookie:" << cookies[0].toRawForm();
@@ -596,7 +581,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         } else {
             while(response.body.size() < contentLength) {
                 qint64 leftBytes = qMin((qint64) 1024 * 8, contentLength - response.body.size());
-                QByteArray t = connection->recv(leftBytes);
+                const QByteArray &t = connection->recvall(leftBytes);
                 if(t.isEmpty()) {
                     qDebug() << "no content!";
                     throw ConnectionError();
@@ -604,52 +589,82 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
                 response.body.append(t);
             }
         }
-    } else if(response.getContentLength() < 0){
-        while(response.body.size() < request.maxBodySize) {
-            QByteArray t = connection->recv(1024 * 8);
-            if(t.isEmpty()) {
-                break;
+    } else if(contentLength < 0) { // without `Content-Length` header.
+        const QByteArray &transferEncodingHeader = response.header(QStringLiteral("Transfer-Encoding"));
+        bool readTrunked = (transferEncodingHeader.toLower() == QByteArray("chunked"));
+        if(readTrunked) {
+            ChunkedBlockReader reader(connection);
+            reader.buf = response.body;
+            reader.debugLevel = debugLevel;
+            response.body.clear();
+            while(true) {
+                qint64 leftBytes = request.maxBodySize - response.body.size();
+                const QByteArray &block = reader.nextBlock(leftBytes);
+                if(block.isEmpty()) {
+                    break;
+                }
+                response.body.append(block);
             }
-            response.body.append(t);
+        } else {
+            while(response.body.size() < request.maxBodySize) {
+                const QByteArray &t = connection->recvall(1024 * 8);
+                if(t.isEmpty()) {
+                    break;
+                }
+                response.body.append(t);
+            }
         }
-    } else {
+    } else { // nothing to read. empty document.
         if(!response.body.isEmpty()) {
             // warning!
+        }
+    }
+    const QByteArray &contentEncodingHeader = response.header("Content-Encoding");
+    qDebug() << contentEncodingHeader;
+    if(contentEncodingHeader.toLower() == QByteArray("deflate") && response.body.isEmpty()) {
+        response.body = qUncompress(response.body);
+        if(response.body.isEmpty()) {
+            throw ContentDecodingError();
         }
     }
     if(debugLevel > 1 && !response.body.isEmpty()) {
         qDebug() << "receiving body:" << response.body;
     }
+    recycle(response.url, connection);
     return response;
 }
 
 
-QMap<QString, QByteArray> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QUrl &url)
+QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QUrl &url)
 {
-    QMap<QString, QByteArray> allHeaders = request.headers;
-    if(!allHeaders.contains(QString::fromUtf8("Host"))) {
+    QList<HttpHeader> allHeaders = request.allHeaders();
+
+    if(!request.hasHeader(QStringLiteral("Connection"))) {
+        allHeaders.prepend(HttpHeader(QStringLiteral("Connection"), QByteArray("keep-alive")));
+    }
+    if(!request.hasHeader(QStringLiteral("Content-Length")) && !request.body.isEmpty()) {
+        allHeaders.prepend(HttpHeader(QStringLiteral("Content-Length"), QByteArray::number(request.body.size())));
+    }
+    if(!request.hasHeader(QStringLiteral("User-Agent"))) {
+        allHeaders.prepend(HttpHeader(QStringLiteral("User-Agent"), defaultUserAgent.toUtf8()));
+    }
+    if(!request.hasHeader(QStringLiteral("Host"))) {
         QString httpHost = url.host();
         if(url.port() != -1) {
-            httpHost += QString::fromUtf8(":") + QString::number(url.port());
+            httpHost += QStringLiteral(":") + QString::number(url.port());
         }
-        allHeaders.insert(QString::fromUtf8("Host"), httpHost.toUtf8());
+        allHeaders.prepend(HttpHeader(QStringLiteral("Host"), httpHost.toUtf8()));
     }
-
-    if(!allHeaders.contains(QString::fromUtf8("User-Agent"))) {
-        allHeaders.insert(QString::fromUtf8("User-Agent"), defaultUserAgent.toUtf8());
+    if(!request.hasHeader(QStringLiteral("Accept"))) {
+        allHeaders.append(HttpHeader(QStringLiteral("Accept"), QByteArray("*/*")));
     }
-
-    if(!allHeaders.contains(QString::fromUtf8("Accept"))) {
-        allHeaders.insert(QString::fromUtf8("Accept"), QByteArray("*/*"));
+    if(!request.hasHeader(QStringLiteral("Accept-Language"))) {
+        allHeaders.append(HttpHeader(QStringLiteral("Accept-Language"), QByteArray("en-US,en;q=0.5")));
     }
-
-    if(!allHeaders.contains(QString::fromUtf8("Content-Length")) && !request.body.isEmpty()) {
-        allHeaders.insert(QString::fromUtf8("Content-Length"), QString::number(request.body.size()).toUtf8());
+    if(!request.hasHeader(QStringLiteral("Accept-Encoding"))) {
+        allHeaders.append(HttpHeader(QStringLiteral("Accept-Encoding"), QByteArray("deflate")));
     }
-    if(!allHeaders.contains(QString::fromUtf8("Accept-Language"))) {
-        allHeaders.insert(QString::fromUtf8("Accept-Language"), QByteArray("en-US,en;q=0.5"));
-    }
-    if(!request.cookies.isEmpty() && !allHeaders.contains(QString::fromUtf8("Cookies"))) {
+    if(!request.cookies.isEmpty() && !request.hasHeader(QStringLiteral("Cookies"))) {
         QByteArray result;
         bool first = true;
         foreach (const QNetworkCookie &cookie, request.cookies) {
@@ -658,7 +673,7 @@ QMap<QString, QByteArray> HttpSessionPrivate::makeHeaders(HttpRequest &request, 
             first = false;
             result += cookie.toRawForm(QNetworkCookie::NameAndValueOnly);
         }
-        allHeaders.insert(QString::fromUtf8("Cookie"), result);
+        allHeaders.append(HttpHeader(QStringLiteral("Cookie"), result));
     }
     return allHeaders;
 }
@@ -673,6 +688,14 @@ void HttpSessionPrivate::mergeCookies(HttpRequest &request, const QUrl &url)
     request.cookies = cookies;
 }
 
+void setProxySwitcher(HttpSession *session, QSharedPointer<BaseProxySwitcher> switcher)
+{
+    if(!switcher.isNull()) {
+        HttpSessionPrivate::getPrivateHelper(session)->proxySwitcher = switcher;
+    } else {
+        HttpSessionPrivate::getPrivateHelper(session)->proxySwitcher.reset(new SimpleProxySwitcher());
+    }
+}
 
 HttpSession::HttpSession()
     :d_ptr(new HttpSessionPrivate(this)) {}
@@ -696,7 +719,7 @@ HttpResponse HttpSession::get(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT
     HttpRequest request;
     request.method = QString::fromLatin1("GET");
     request.url = url;
-    request.headers = headers;
+    request.setHeaders(headers);
     request.query = query;
     return send(request);
 }
@@ -708,7 +731,7 @@ HttpResponse HttpSession::head(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAUL
     HttpRequest request;
     request.method = QString::fromLatin1("HEAD");
     request.url = url;
-    request.headers = headers;
+    request.setHeaders(headers);
     request.query = query;
     return send(request);
 }
@@ -720,7 +743,7 @@ HttpResponse HttpSession::options(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEF
     HttpRequest request;
     request.method = QString::fromLatin1("OPTIONS");
     request.url = url;
-    request.headers = headers;
+    request.setHeaders(headers);
     request.query = query;
     return send(request);
 }
@@ -732,7 +755,7 @@ HttpResponse HttpSession::delete_(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEF
     HttpRequest request;
     request.method = QString::fromLatin1("DELETE");
     request.url = url;
-    request.headers = headers;
+    request.setHeaders(headers);
     request.query = query;
     return send(request);
 }
@@ -744,7 +767,7 @@ HttpResponse HttpSession::post(const QUrl &url, const QByteArray &body, COMMON_P
     HttpRequest request;
     request.method = QString::fromLatin1("POST");
     request.url = url;
-    request.headers = headers;
+    request.setHeaders(headers);
     request.query = query;
     request.body = body;
     return send(request);
@@ -757,7 +780,7 @@ HttpResponse HttpSession::put(const QUrl &url, const QByteArray &body, COMMON_PA
     HttpRequest request;
     request.method = QString::fromLatin1("PUT");
     request.url = url;
-    request.headers = headers;
+    request.setHeaders(headers);
     request.query = query;
     request.body = body;
     return send(request);
@@ -770,7 +793,7 @@ HttpResponse HttpSession::patch(const QUrl &url, const QByteArray &body, COMMON_
     HttpRequest request;
     request.method = QString::fromLatin1("PATCH");
     request.url = url;
-    request.headers = headers;
+    request.setHeaders(headers);
     request.query = query;
     request.body = body;
     return send(request);
@@ -836,17 +859,17 @@ HttpResponse HttpSession::send(HttpRequest &request)
     return response;
 }
 
-QNetworkCookieJar &HttpSession::getCookieJar()
+QNetworkCookieJar &HttpSession::cookieJar()
 {
     Q_D(HttpSession);
-    return d->getCookieJar();
+    return d->cookieJar;
 }
 
 
-QNetworkCookie HttpSession::getCookie(const QUrl &url, const QString &name)
+QNetworkCookie HttpSession::cookie(const QUrl &url, const QString &name)
 {
     Q_D(HttpSession);
-    const QNetworkCookieJar &jar = d->getCookieJar();
+    const QNetworkCookieJar &jar = d->cookieJar;
     QList<QNetworkCookie> cookies = jar.cookiesForUrl(url);
     for(int i = 0; i < cookies.size(); ++i) {
         const QNetworkCookie &cookie = cookies.at(i);
@@ -868,7 +891,7 @@ void HttpSession::setMaxConnectionsPerServer(int maxConnectionsPerServer)
     //TODO update semphores
 }
 
-int HttpSession::getMaxConnectionsPerServer()
+int HttpSession::maxConnectionsPerServer()
 {
     Q_D(HttpSession);
     return d->maxConnectionsPerServer;
@@ -887,120 +910,168 @@ void HttpSession::disableDebug()
     d->debugLevel = 0;
 }
 
+QString HttpSession::defaultUserAgent() const
+{
+    Q_D(const HttpSession);
+    return d->defaultUserAgent;
+}
+
+void HttpSession::setDefaultUserAgent(const QString &userAgent)
+{
+    Q_D(HttpSession);
+    d->defaultUserAgent = userAgent;
+}
+
+HttpVersion HttpSession::defaultVersion() const
+{
+    Q_D(const HttpSession);
+    return d->defaultVersion;
+}
+
+void HttpSession::setDefaultVersion(HttpVersion defaultVersion)
+{
+    Q_D(HttpSession);
+    d->defaultVersion = defaultVersion;
+}
+
+QSharedPointer<Socks5Proxy> HttpSession::socks5Proxy() const
+{
+    Q_D(const HttpSession);
+    return d->socks5Proxy();
+}
+
+void HttpSession::setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy)
+{
+    Q_D(HttpSession);
+    d->setSocks5Proxy(proxy);
+}
+
+QSharedPointer<HttpProxy> HttpSession::httpProxy() const
+{
+    Q_D(const HttpSession);
+    return d->httpProxy();
+}
+
+void HttpSession::setHttpProxy(QSharedPointer<HttpProxy> proxy)
+{
+    Q_D(HttpSession);
+    d->setHttpProxy(proxy);
+}
+
 RequestException::~RequestException()
 {}
 
 
 QString RequestException::what() const throw()
 {
-    return QString::fromUtf8("An HTTP error occurred.");
+    return QStringLiteral("An HTTP error occurred.");
 }
 
 
 QString HTTPError::what() const throw()
 {
-    return QString::fromUtf8("server respond error.");
+    return QStringLiteral("server respond error.");
 }
 
 
 QString ConnectionError::what() const throw()
 {
-    return QString::fromUtf8("A Connection error occurred.");
+    return QStringLiteral("A Connection error occurred.");
 }
 
 
 QString ProxyError::what() const throw()
 {
-    return QString::fromUtf8("A proxy error occurred.");
+    return QStringLiteral("A proxy error occurred.");
 }
 
 
 QString SSLError::what() const throw()
 {
-    return QString::fromUtf8("A SSL error occurred.");
+    return QStringLiteral("A SSL error occurred.");
 }
 
 
 QString RequestTimeout::what() const throw()
 {
-    return QString::fromUtf8("The request timed out.");
+    return QStringLiteral("The request timed out.");
 }
 
 
 QString ConnectTimeout::what() const throw()
 {
-    return QString::fromUtf8("The request timed out while trying to connect to the remote server.");
+    return QStringLiteral("The request timed out while trying to connect to the remote server.");
 }
 
 
 QString ReadTimeout::what() const throw()
 {
-    return QString::fromUtf8("The server did not send any data in the allotted amount of time.");
+    return QStringLiteral("The server did not send any data in the allotted amount of time.");
 }
 
 
 QString URLRequired::what() const throw()
 {
-    return QString::fromUtf8("A valid URL is required to make a request.");
+    return QStringLiteral("A valid URL is required to make a request.");
 }
 
 
 QString TooManyRedirects::what() const throw()
 {
-    return QString::fromUtf8("Too many redirects.");
+    return QStringLiteral("Too many redirects.");
 }
 
 
 QString MissingSchema::what() const throw()
 {
-    return QString::fromUtf8("The URL schema (e.g. http or https) is missing.");
+    return QStringLiteral("The URL schema (e.g. http or https) is missing.");
 }
 
 
 QString InvalidSchema::what() const throw()
 {
-    return QString::fromUtf8("The URL schema can not be handled.");
+    return QStringLiteral("The URL schema can not be handled.");
 }
 
 
 QString InvalidURL::what() const throw()
 {
-    return QString::fromUtf8("The URL provided was somehow invalid.");
+    return QStringLiteral("The URL provided was somehow invalid.");
 }
 
 
 QString InvalidHeader::what() const throw()
 {
-    return QString::fromUtf8("Can not parse the http header.");
+    return QStringLiteral("Can not parse the http header.");
 }
 
 QString ChunkedEncodingError::what() const throw()
 {
-    return QString::fromUtf8("The server declared chunked encoding but sent an invalid chunk.");
+    return QStringLiteral("The server declared chunked encoding but sent an invalid chunk.");
 }
 
 
 QString ContentDecodingError::what() const throw()
 {
-    return QString::fromUtf8("Failed to decode response content");
+    return QStringLiteral("Failed to decode response content");
 }
 
 
 QString StreamConsumedError::what() const throw()
 {
-    return QString::fromUtf8("The content for this response was already consumed");
+    return QStringLiteral("The content for this response was already consumed");
 }
 
 
 QString RetryError::what() const throw()
 {
-    return QString::fromUtf8("Custom retries logic failed");
+    return QStringLiteral("Custom retries logic failed");
 }
 
 
 QString UnrewindableBodyError::what() const throw()
 {
-    return QString::fromUtf8("Requests encountered an error when trying to rewind a body");
+    return QStringLiteral("Requests encountered an error when trying to rewind a body");
 }
 
 QTNETWORKNG_NAMESPACE_END

@@ -7,8 +7,10 @@ class TestSsl: public QObject
 {
     Q_OBJECT
 private slots:
-    void testSimple();
     void testGetBaidu();
+    void testSimple();
+    void testSocks5Proxy();
+    void testVersion10();
 };
 
 
@@ -23,7 +25,7 @@ void TestSsl::testSimple()
     Certificate cert = s.peerCertificate();
     QVERIFY(!cert.isNull());
     QStringList cn;
-    cn.append(QString::fromUtf8("baidu.com"));
+    cn.append(QStringLiteral("baidu.com"));
     QCOMPARE(cert.subjectInfo(Certificate::CommonName), cn);
     QList<Certificate> certs = s.peerCertificateChain();
     QCOMPARE(certs.size(), 3);
@@ -33,9 +35,34 @@ void TestSsl::testSimple()
 void TestSsl::testGetBaidu()
 {
     HttpSession session;
-    HttpResponse response = session.get(QString::fromUtf8("https://www.baidu.com/"));
+    HttpRequest request;
+    request.url = QUrl("https://www.baidu.com/");
+    request.addHeader("Connection", "close");
+    try {
+        HttpResponse response = session.send(request);
+        QVERIFY(response.isOk());
+        QVERIFY(!response.html().isEmpty());
+    } catch (const RequestException &e) {
+        qDebug() << e.what();
+    }
+}
+
+void TestSsl::testSocks5Proxy()
+{
+    QSharedPointer<Socks5Proxy> proxy(new Socks5Proxy("127.0.0.1", 8086));
+    HttpSession session;
+    session.setSocks5Proxy(proxy);
+    HttpResponse response = session.get("https://www.baidu.com/");
     QVERIFY(response.isOk());
-    QVERIFY(!response.html().isEmpty());
+}
+
+void TestSsl::testVersion10()
+{
+    HttpSession session;
+    session.setDefaultVersion(Http1_0);
+    HttpResponse response = session.get("https://www.baidu.com/");
+    QVERIFY(response.isOk());
+    QVERIFY(response.version == Http1_0);
 }
 
 QTEST_MAIN(TestSsl)

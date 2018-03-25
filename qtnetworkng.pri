@@ -14,7 +14,10 @@ SOURCES += \
     $$PWD/src/coroutine_utils.cpp \
     $$PWD/src/http.cpp \
     $$PWD/contrib/data_channel.cpp \
-    $$PWD/src/socket_utils.cpp
+    $$PWD/src/socket_utils.cpp \
+    $$PWD/src/http_utils.cpp \
+    $$PWD/src/http_proxy.cpp \
+    $$PWD/src/socks5_proxy.cpp
 
 HEADERS += \
     $$PWD/qtnetworkng.h \
@@ -31,7 +34,10 @@ HEADERS += \
     $$PWD/contrib/data_pack.h \
     $$PWD/contrib/data_channel.h \
     $$PWD/include/socket_utils.h \
-    $$PWD/include/qsystemlibrary_p.h
+    $$PWD/include/qsystemlibrary_p.h \
+    $$PWD/include/http_utils.h \
+    $$PWD/include/http_proxy.h \
+    $$PWD/include/socks5_proxy.h
 
 windows {
     SOURCES += $$PWD/src/socket_win.cpp \
@@ -50,7 +56,7 @@ networkng_ev {
     SOURCES += $$PWD/src/eventloop_qt.cpp
 }
 
-!no_qtssl {
+!no_sslng {
     HEADERS += $$PWD/include/config.h \
         $$PWD/include/crypto.h \
         $$PWD/include/ssl.h \

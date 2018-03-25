@@ -99,17 +99,18 @@ public:
     EventLoopCoroutinePrivateEv(EventLoopCoroutine* parent);
     virtual ~EventLoopCoroutinePrivateEv();
 public:
-    virtual void run();
-    virtual int createWatcher(EventLoopCoroutine::EventType event, qintptr fd, Functor *callback);
-    virtual void startWatcher(int watcherId);
-    virtual void stopWatcher(int watcherId);
-    virtual void removeWatcher(int watcherId);
-    virtual void triggerIoWatchers(qintptr fd);
-    virtual int callLater(int msecs, Functor *callback);
-    virtual int callRepeat(int msecs, Functor *callback);
-    virtual void cancelCall(int callbackId);
-    virtual void callLaterThreadSafe(int msecs, Functor *callback);
-    virtual int exitCode();
+    virtual void run() override;
+    virtual int createWatcher(EventLoopCoroutine::EventType event, qintptr fd, Functor *callback) override;
+    virtual void startWatcher(int watcherId) override;
+    virtual void stopWatcher(int watcherId) override;
+    virtual void removeWatcher(int watcherId) override;
+    virtual void triggerIoWatchers(qintptr fd) override;
+    virtual int callLater(int msecs, Functor *callback) override;
+    virtual int callRepeat(int msecs, Functor *callback) override;
+    virtual void cancelCall(int callbackId) override;
+    virtual void callLaterThreadSafe(int msecs, Functor *callback) override;
+    virtual int exitCode() override;
+    virtual void runUntil(BaseCoroutine *coroutine) override;
     void doCallLater();
 private:
     static void ev_async_callback(struct ev_loop *loop, ev_async *w, int revents);
@@ -290,6 +291,28 @@ void EventLoopCoroutinePrivateEv::cancelCall(int callbackId)
 int EventLoopCoroutinePrivateEv::exitCode()
 {
     return 0;
+}
+
+
+struct StartCoroutineFunctor: Functor
+{
+    StartCoroutineFunctor(BaseCoroutine *coroutine)
+        :coroutine(coroutine) {}
+    virtual void operator ()() override
+    {
+        coroutine->yield();
+    }
+    BaseCoroutine *coroutine;
+};
+
+
+void EventLoopCoroutinePrivateEv::runUntil(BaseCoroutine *coroutine)
+{
+    StartCoroutineFunctor *f = new StartCoroutineFunctor(coroutine);
+    std::function<void()> exitOneDepth = [this] { ev_break(loop, EVBREAK_ONE); };
+    callLater(0, f);
+    connect(coroutine, &BaseCoroutine::finished, exitOneDepth);
+    ev_run(loop);
 }
 
 EventLoopCoroutine::EventLoopCoroutine()

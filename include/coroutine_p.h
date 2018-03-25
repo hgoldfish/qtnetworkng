@@ -1,7 +1,7 @@
 #ifndef QTNG_COROUTINE_P_H
 #define QTNG_COROUTINE_P_H
 
-#include <QtCore/QThreadStorage>
+#include <QtCore/qthreadstorage.h>
 #include "coroutine.h"
 
 // this file is not used by other code, but just a stub figure out how to write a new coroutine implementation.

@@ -5,8 +5,12 @@
 #include "include/locks.h"
 #include "include/eventloop.h"
 #include "include/socket.h"
+#include "include/socket_utils.h"
 #include "include/coroutine_utils.h"
 #include "include/http.h"
+#include "include/http_proxy.h"
+#include "include/http_utils.h"
+#include "include/socks5_proxy.h"
 #include "contrib/data_channel.h"
 
 #ifdef QTNETWOKRNG_USE_SSL

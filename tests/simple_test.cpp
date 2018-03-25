@@ -42,7 +42,7 @@ int get_baidu(int argc, char *argv[])
     for(int i = 0; i < 500; ++i)
     {
         qtng::Coroutine *coroutine = new GetNeteaseCoroutine(&session);
-        coroutine->setObjectName(QString::fromUtf8("get_baidu%1").arg(i + 1));
+        coroutine->setObjectName(QStringLiteral("get_baidu%1").arg(i + 1));
         operations.add(coroutine);
         coroutine->start();
     }
