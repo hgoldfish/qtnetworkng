@@ -17,27 +17,10 @@ struct Functor
     virtual void operator()() = 0;
 };
 
-struct Arguments
-{
-    virtual ~Arguments();
-};
-
-typedef void (*Callback)(const Arguments *args);
-
 
 struct DoNothingFunctor: public Functor
 {
     virtual void operator()();
-};
-
-
-struct CallbackFunctor:public Functor
-{
-    explicit CallbackFunctor(Callback callback, Arguments *args);
-    ~CallbackFunctor();
-    virtual void operator()();
-    const Callback callback;
-    Arguments * const args;
 };
 
 
@@ -51,13 +34,13 @@ struct YieldCurrentFunctor: public Functor
 template<typename T>
 struct DeleteLaterFunctor: public Functor
 {
-    explicit DeleteLaterFunctor(const T* p)
+    explicit DeleteLaterFunctor(T* p)
         :p(p) {}
     virtual void operator()()
     {
         delete p;
     }
-    const T* p;
+    T* const p;
 };
 
 #if QT_VERSION < 0x050000
@@ -67,8 +50,7 @@ typedef qptrdiff qintptr;
 class EventLoopCoroutinePrivate;
 class EventLoopCoroutine: public BaseCoroutine
 {
-    Q_OBJECT
-
+    Q_DISABLE_COPY(EventLoopCoroutine)
 public:
     enum EventType
     {
@@ -118,7 +100,6 @@ private:
 class CoroutinePrivate;
 class Coroutine: public BaseCoroutine
 {
-    Q_OBJECT
     Q_DISABLE_COPY(Coroutine)
 public:
     explicit Coroutine(size_t stackSize = 1024 * 1024 * 8);
@@ -139,10 +120,6 @@ private:
     Q_DECLARE_PRIVATE(Coroutine)
 };
 
-inline QDebug &operator <<(QDebug &out, const Coroutine& el)
-{
-    return out << QString::fromLatin1("Coroutine(id=%1)").arg(el.id());
-}
 
 class CoroutineSpawnHelper: public Coroutine
 {
@@ -203,7 +180,8 @@ private:
     int timeoutId;
 };
 
-int start_application();
+// useful for qt application.
+int start_application(std::function<void()> coroutine_entry);
 
 
 QTNETWORKNG_NAMESPACE_END

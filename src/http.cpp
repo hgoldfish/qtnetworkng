@@ -251,7 +251,7 @@ static QUrl hostOnly(const QUrl &url)
 ConnectionPool::ConnectionPool()
     :maxConnectionsPerServer(10), timeToLive(60 * 5), operations(new CoroutineGroup), proxySwitcher(new SimpleProxySwitcher)
 {
-    operations->spawn([this] {removeUnusedConnections();});
+    operations->spawnWithName("removeUnusedConnections", [this] {removeUnusedConnections();});
 }
 
 ConnectionPool::~ConnectionPool()

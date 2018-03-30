@@ -123,7 +123,7 @@ private:
     ev_async asyncContext;
     QAtomicInteger<bool> exitingFlag;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
-    friend void triggerIoWatchers(const Arguments *args);
+    friend struct TriggerIoWatchersFunctor;
 };
 
 EventLoopCoroutinePrivateEv::EventLoopCoroutinePrivateEv(EventLoopCoroutine *parent)
@@ -195,24 +195,21 @@ void EventLoopCoroutinePrivateEv::removeWatcher(int watcherId)
     }
 }
 
-struct TriggerIoWatchersArguments: public Arguments
+struct TriggerIoWatchersFunctor: public Functor
 {
+    TriggerIoWatchersFunctor(int watcherId, EventLoopCoroutinePrivateEv *eventloop)
+        :watcherId(watcherId), eventloop(eventloop) {}
     int watcherId;
     EventLoopCoroutinePrivateEv *eventloop;
+    virtual void operator()() override
+    {
+        IoWatcher *w = dynamic_cast<IoWatcher*>(eventloop->watchers.value(watcherId));
+        if(w) {
+            (*w->callback)();
+        }
+    }
 };
 
-void triggerIoWatchers(const Arguments *args)
-{
-    const TriggerIoWatchersArguments *t = dynamic_cast<const TriggerIoWatchersArguments*>(args);
-    if(!t) {
-        qWarning("triggerIoWatchers() is called without TriggerIoWatchersArguments.");
-        return;
-    }
-    IoWatcher *w = dynamic_cast<IoWatcher*>(t->eventloop->watchers.value(t->watcherId));
-    if(w) {
-        (*w->callback)();
-    }
-}
 
 void EventLoopCoroutinePrivateEv::triggerIoWatchers(qintptr fd)
 {
@@ -220,10 +217,7 @@ void EventLoopCoroutinePrivateEv::triggerIoWatchers(qintptr fd)
         IoWatcher *w = dynamic_cast<IoWatcher*>(itor.value());
         if(w && w->e.fd == fd) {
             ev_io_stop(loop, &w->e);
-            TriggerIoWatchersArguments *args = new TriggerIoWatchersArguments();
-            args->eventloop = this;
-            args->watcherId = itor.key();
-            callLater(0, new CallbackFunctor(QTNETWORKNG_NAMESPACE::triggerIoWatchers, args));
+            callLater(0, new TriggerIoWatchersFunctor(itor.key(), this));
         }
     }
 }
@@ -294,24 +288,17 @@ int EventLoopCoroutinePrivateEv::exitCode()
 }
 
 
-struct StartCoroutineFunctor: Functor
-{
-    StartCoroutineFunctor(BaseCoroutine *coroutine)
-        :coroutine(coroutine) {}
-    virtual void operator ()() override
-    {
-        coroutine->yield();
-    }
-    BaseCoroutine *coroutine;
-};
-
-
 void EventLoopCoroutinePrivateEv::runUntil(BaseCoroutine *coroutine)
 {
-    StartCoroutineFunctor *f = new StartCoroutineFunctor(coroutine);
-    std::function<void()> exitOneDepth = [this] { ev_break(loop, EVBREAK_ONE); };
-    callLater(0, f);
-    connect(coroutine, &BaseCoroutine::finished, exitOneDepth);
+    QPointer<BaseCoroutine> loopCoroutine = BaseCoroutine::current();
+    std::function<BaseCoroutine*(BaseCoroutine*)> exitOneDepth = [this, loopCoroutine] (BaseCoroutine *arg) -> BaseCoroutine * {
+        ev_break(loop, EVBREAK_ONE);
+        if(!loopCoroutine.isNull()) {
+            loopCoroutine->yield();
+        }
+        return arg;
+    };
+    coroutine->finished.addCallback(exitOneDepth);
     ev_run(loop);
 }
 

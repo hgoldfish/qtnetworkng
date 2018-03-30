@@ -84,11 +84,21 @@ void runLocalLoop(EventLoop *loop)
 }
 
 
+template<typename Func1>
+void waitSignal(const QObject *obj, Func1 signal, Qt::ConnectionType type)
+{
+    QSharedPointer<Event> event(new Event);
+    QObject::connect(obj, signal, [event]() {
+        event->set();
+    }, type);
+    event->wait();
+}
+
+
 class DeferCallThread: public QThread
 {
-    Q_OBJECT
 public:
-    DeferCallThread(const std::function<void()> &func, YieldCurrentFunctor *yieldCoroutine, QPointer<EventLoopCoroutine> eventloop);
+    DeferCallThread(const std::function<void()> &func, YieldCurrentFunctor *yieldCoroutine, EventLoopCoroutine *eventloop);
     virtual void run();
 private:
     std::function<void()> func;
@@ -151,7 +161,6 @@ class Coroutine;
 
 class CoroutineGroup: public QObject
 {
-    Q_OBJECT
 public:
     CoroutineGroup();
     virtual ~CoroutineGroup();
@@ -163,7 +172,8 @@ public:
     bool kill(const QString &name, bool join = true);
     bool killall(bool join = true, bool skipMyself = false);
     bool joinall();
-    int size() { return coroutines.size(); }
+    int size() const { return coroutines.size(); }
+    bool isEmpty() const { return coroutines.isEmpty(); }
 
     inline QSharedPointer<Coroutine> spawnWithName(const QString &name, const std::function<void()> &func, bool one = true);
     inline QSharedPointer<Coroutine> spawn(const std::function<void()> &func);
@@ -202,8 +212,8 @@ public:
         }
     }
 
-private slots:
-    void deleteCoroutine();
+private:
+    void deleteCoroutine(BaseCoroutine *coroutine);
 private:
     QList<QSharedPointer<Coroutine>> coroutines;
 };

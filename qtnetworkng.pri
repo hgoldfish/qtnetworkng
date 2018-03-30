@@ -37,7 +37,8 @@ HEADERS += \
     $$PWD/include/qsystemlibrary_p.h \
     $$PWD/include/http_utils.h \
     $$PWD/include/http_proxy.h \
-    $$PWD/include/socks5_proxy.h
+    $$PWD/include/socks5_proxy.h \
+    $$PWD/include/deferred.h
 
 windows {
     SOURCES += $$PWD/src/socket_win.cpp \

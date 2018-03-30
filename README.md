@@ -22,7 +22,7 @@ Here comes a simple example to get web pages.
     {
         QCoreApplication app(argc, argv);
         qtng::HttpSession session;
-        qtng::HttpResponse r = session.get(QStringLiteral("https://news.163.com"));
+        qtng::HttpResponse r = session.get("https://news.163.com");
         qDebug() << r.html();
         return 0;
     }

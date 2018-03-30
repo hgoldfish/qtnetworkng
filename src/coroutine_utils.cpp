@@ -9,7 +9,7 @@ void LambdaFunctor::operator ()()
 }
 
 
-DeferCallThread::DeferCallThread(const std::function<void()> &func, YieldCurrentFunctor *yieldCoroutine, QPointer<EventLoopCoroutine> eventloop)
+DeferCallThread::DeferCallThread(const std::function<void()> &func, YieldCurrentFunctor *yieldCoroutine, EventLoopCoroutine *eventloop)
 :func(func), yieldCoroutine(yieldCoroutine), eventloop(eventloop)
 {
 }
@@ -45,7 +45,10 @@ bool CoroutineGroup::add(QSharedPointer<Coroutine> coroutine, const QString &nam
         }
         coroutine->setObjectName(name);
     }
-    connect(coroutine.data(), SIGNAL(finished()), SLOT(deleteCoroutine()), Qt::DirectConnection);
+    coroutine->finished.addCallback([this] (BaseCoroutine *coroutine) -> BaseCoroutine * {
+        deleteCoroutine(coroutine);
+        return coroutine;
+    });
     coroutines.append(coroutine);
     return true;
 }
@@ -72,8 +75,8 @@ bool CoroutineGroup::kill(const QString &name, bool join)
                 found->kill();
             }
             if(join) {
-                found->join();
                 coroutines.removeAll(found);
+                found->join();
             }
             return true;
         }
@@ -85,7 +88,7 @@ bool CoroutineGroup::killall(bool join, bool skipMyself)
 {
     bool done = false;
     QList<QSharedPointer<Coroutine>> copy = coroutines;
-    foreach(const QSharedPointer<Coroutine> &coroutine, copy) {
+    foreach(QSharedPointer<Coroutine> coroutine, copy) {
         if(coroutine.data() == Coroutine::current()) {
             if(!skipMyself) {
                 qWarning() << "will not kill current coroutine while killall() is called:" << BaseCoroutine::current();
@@ -100,7 +103,8 @@ bool CoroutineGroup::killall(bool join, bool skipMyself)
 
     if(join) {
         copy = coroutines;
-        foreach(const QSharedPointer<Coroutine> &coroutine, copy) {
+        coroutines.clear();
+        foreach(QSharedPointer<Coroutine> coroutine, copy) {
             if(coroutine.data() == Coroutine::current()) {
                 if(!skipMyself) {
                     qWarning("will not join current coroutine while killall() is called.");
@@ -110,7 +114,6 @@ bool CoroutineGroup::killall(bool join, bool skipMyself)
             if(coroutine->isActive()) {
                 coroutine->join();
             }
-            coroutines.removeOne(coroutine);
         }
     }
     return done;
@@ -120,14 +123,14 @@ bool CoroutineGroup::joinall()
 {
     bool hasCoroutines = !coroutines.isEmpty();
     QList<QSharedPointer<Coroutine>> copy = coroutines;
-    foreach(const QSharedPointer<Coroutine> &coroutine, copy) {
+    coroutines.clear();
+    foreach(QSharedPointer<Coroutine> coroutine, copy) {
         if(coroutine == Coroutine::current()) {
             qDebug("will not kill current coroutine while joinall() is called.");
             continue;
         }
         coroutine->join();
     }
-    coroutines.clear();
     return hasCoroutines;
 }
 
@@ -137,9 +140,9 @@ struct DeleteCoroutineFunctor: public Functor
     QSharedPointer<BaseCoroutine> coroutine;
 };
 
-void CoroutineGroup::deleteCoroutine()
+void CoroutineGroup::deleteCoroutine(BaseCoroutine *baseCoroutine)
 {
-    Coroutine *coroutine = dynamic_cast<Coroutine*>(sender());
+    Coroutine *coroutine = dynamic_cast<Coroutine*>(baseCoroutine);
     Q_ASSERT(coroutine != 0);
     for(QList<QSharedPointer<Coroutine>>::iterator itor = coroutines.begin(); itor != coroutines.end(); ++itor) {
         if(itor->data() == coroutine) {

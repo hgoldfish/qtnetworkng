@@ -27,7 +27,7 @@ private:
     bool bad;
     CoroutineException *exception;
     ucontext_t *context;
-    Q_DECLARE_PUBLIC(QBaseCoroutine)
+    Q_DECLARE_PUBLIC(BaseCoroutine)
 private:
     static void run_stub(BaseCoroutinePrivate *coroutine);
     friend BaseCoroutine* createMainCoroutine();
@@ -137,13 +137,7 @@ bool BaseCoroutinePrivate::yield()
         if(!dynamic_cast<CoroutineExitException*>(e)) {
             qDebug() << "got exception:" << e->what() << old;
         }
-        try {
-            e->raise();
-        } catch(...) {
-            delete e;
-            e = 0;
-            throw;
-        }
+        e->raise();
     }
     return true;
 }
@@ -198,7 +192,14 @@ bool BaseCoroutinePrivate::raise(CoroutineException *exception)
     } else {
         this->exception = new CoroutineExitException();
     }
-    return yield();
+    try {
+        bool result = yield();
+        delete exception;
+        return result;
+    } catch (...) {
+        delete exception;
+        throw;
+    }
 }
 
 BaseCoroutine* createMainCoroutine()

@@ -65,32 +65,28 @@ bool SemaphorePrivate::acquire(bool blocking)
     } catch(...) {
         // if we caught an exception, the release() must not touch me.
         // the waiter should be remove.
-        bool found = waiters.removeOne(BaseCoroutine::current());
+        bool found = waiters.removeAll(BaseCoroutine::current());
         Q_ASSERT(found);
         throw;
     }
     return notified != 0;
 }
 
-struct SemaphoreNotifyWaitersArguments: public Arguments
+
+struct SemaphoreNotifyWaitersFunctor: public Functor
 {
+    SemaphoreNotifyWaitersFunctor(SemaphorePrivate *sp)
+        :sp(sp) {}
     QPointer<SemaphorePrivate> sp;
+    virtual void operator() () override
+    {
+        if(sp.isNull()) {
+            qWarning("SemaphorePrivate is deleted while calling notifyWaitersCallback.");
+            return;
+        }
+        sp->notifyWaiters(false);
+    }
 };
-
-
-void notifyWaitersCallback(const Arguments *args)
-{
-    const SemaphoreNotifyWaitersArguments *snwargs = dynamic_cast<const SemaphoreNotifyWaitersArguments*>(args);
-    if(!snwargs) {
-        qWarning("call notifyWaitersCallback without arguments.");
-        return;
-    }
-    if(!snwargs->sp) {
-        qWarning("SemaphorePrivate is deleted while calling notifyWaitersCallback.");
-        return;
-    }
-    snwargs->sp->notifyWaiters(false);
-}
 
 void SemaphorePrivate::release(int value)
 {
@@ -104,9 +100,7 @@ void SemaphorePrivate::release(int value)
     }
     counter = qMin(static_cast<int>(counter), init_value);
     if(!notified && !waiters.isEmpty()) {
-        SemaphoreNotifyWaitersArguments *snwargs = new SemaphoreNotifyWaitersArguments;
-        snwargs->sp = this;
-        notified = EventLoopCoroutine::get()->callLater(0, new CallbackFunctor(notifyWaitersCallback, snwargs));
+        notified = EventLoopCoroutine::get()->callLater(0, new SemaphoreNotifyWaitersFunctor(this));
     }
 }
 
@@ -116,7 +110,7 @@ void SemaphorePrivate::notifyWaiters(bool force)
         return;
     }
     while(!waiters.isEmpty() && counter > 0) {
-        const QPointer<BaseCoroutine> &waiter = waiters.takeFirst();
+        QPointer<BaseCoroutine> waiter = waiters.takeFirst();
         if(waiter.isNull()) {
             qDebug() << "waiter was deleted.";
             continue;

@@ -126,7 +126,14 @@ bool BaseCoroutinePrivate::raise(CoroutineException *exception)
     else
         this->exception = new CoroutineExitException();
 
-    return yield();
+    try {
+        bool result = yield();
+        delete exception;
+        return result;
+    } catch (...) {
+        delete exception;
+        throw;
+    }
 }
 
 bool BaseCoroutinePrivate::yield()

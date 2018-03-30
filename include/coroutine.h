@@ -5,6 +5,7 @@
 #include <QtCore/qstring.h>
 #include <QtCore/qdebug.h>
 #include "config.h"
+#include "deferred.h"
 
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -27,10 +28,11 @@ public:
 };
 
 
+
+
 class BaseCoroutinePrivate;
 class BaseCoroutine: public QObject
 {
-    Q_OBJECT
     Q_DISABLE_COPY(BaseCoroutine)
 public:
     enum State
@@ -50,9 +52,9 @@ public:
     bool yield();
     quintptr id() const;
     static BaseCoroutine *current();
-signals:
-    void started();
-    void finished();
+public:
+    Deferred<BaseCoroutine*> started;
+    Deferred<BaseCoroutine*> finished;
 protected:
     void setState(BaseCoroutine::State state);
 private:
@@ -63,10 +65,11 @@ private:
 
 inline QDebug &operator <<(QDebug &out, const BaseCoroutine& coroutine)
 {
-    if(coroutine.objectName().isEmpty())
+    if(coroutine.objectName().isEmpty()) {
         return out << QString::fromLatin1("BaseCourtine(id=%1)").arg(coroutine.id());
-    else
-        return out << QString::fromLatin1("%1(id=%2)").arg(coroutine.objectName(), coroutine.id());
+    } else {
+        return out << QString::fromLatin1("%1(id=%2)").arg(coroutine.objectName()).arg(coroutine.id());
+    }
 }
 
 QTNETWORKNG_NAMESPACE_END

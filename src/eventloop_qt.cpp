@@ -99,18 +99,12 @@ private:
     int nextWatcherId;
     int qtExitCode;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
-    friend void triggerIoWatchers(const Arguments *args);
+    friend struct TriggerIoWatchersArgumentsFunctor;
 };
 
 EventLoopCoroutinePrivateQt::EventLoopCoroutinePrivateQt(EventLoopCoroutine *q)
-    :EventLoopCoroutinePrivate(q), nextWatcherId(1)
+    :loop(new QEventLoop()), EventLoopCoroutinePrivate(q), nextWatcherId(1)
 {
-    QCoreApplication *app = QCoreApplication::instance();
-    if(QThread::currentThread() == app->thread()) {
-        loop = 0;
-    } else {
-        loop = new QEventLoop();
-    }
 }
 
 EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
@@ -118,10 +112,14 @@ EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
     foreach(QtWatcher *watcher, watchers) {
         delete watcher;
     }
-
-    if(loop) {
-        loop->quit(); // XXX ::run() may be in other coroutine;
+    if(loop->isRunning()) {
+        qWarning("deleting running qt eventloop.");
+        loop->quit();
     }
+    delete loop;
+//    if(loop) {
+//        loop->quit(); // XXX ::run() may be in other coroutine;
+//    }
 }
 
 void EventLoopCoroutinePrivateQt::run()
@@ -129,16 +127,12 @@ void EventLoopCoroutinePrivateQt::run()
     QPointer<EventLoopCoroutinePrivateQt> self(this);
     int result;
 
-    QCoreApplication *app = QCoreApplication::instance();
-    if(QThread::currentThread() == app->thread()) {
-        result  = app->exec();
-    } else {
-        // XXX loop is deleted in other coroutine, `this` pointer is invalid.
-        // very bad taste! I don't like this.
-        volatile QEventLoop *localLoop = loop;
-        result = ((QEventLoop*)localLoop)->exec();
-        delete localLoop;
-    }
+    // XXX loop is deleted in other coroutine, `this` pointer is invalid.
+    // very bad taste! I don't like this.
+    volatile QEventLoop *localLoop = loop;
+    result = ((QEventLoop*)localLoop)->exec();
+//    delete localLoop;
+
     if(!self.isNull()) {
         self->qtExitCode = result;
     }
@@ -209,28 +203,25 @@ void EventLoopCoroutinePrivateQt::removeWatcher(int watcherId)
     }
 }
 
-struct TriggerIoWatchersArguments: public Arguments
+struct TriggerIoWatchersArgumentsFunctor: public Functor
 {
+    TriggerIoWatchersArgumentsFunctor(int watcherId, EventLoopCoroutinePrivateQt *eventloop)
+        :watcherId(watcherId), eventloop(eventloop) {}
     int watcherId;
     QPointer<EventLoopCoroutinePrivateQt> eventloop;
+    virtual void operator() () override
+    {
+        if(eventloop.isNull()) {
+            qWarning("triggerIoWatchers() is called without eventloop.");
+            return;
+        }
+        IoWatcher *w = dynamic_cast<IoWatcher*>(eventloop->watchers.value(watcherId));
+        if(w) {
+            (*w->callback)();
+        }
+    }
 };
 
-void triggerIoWatchers(const Arguments *args)
-{
-    const TriggerIoWatchersArguments *t = dynamic_cast<const TriggerIoWatchersArguments*>(args);
-    if(!t) {
-        qWarning("triggerIoWatchers() is called without TriggerIoWatchersArguments.");
-        return;
-    }
-    if(t->eventloop.isNull()) {
-        qWarning("triggerIoWatchers() is called without eventloop.");
-        return;
-    }
-    IoWatcher *w = dynamic_cast<IoWatcher*>(t->eventloop->watchers.value(t->watcherId));
-    if(w) {
-        (*w->callback)();
-    }
-}
 
 void EventLoopCoroutinePrivateQt::triggerIoWatchers(qintptr fd)
 {
@@ -239,10 +230,7 @@ void EventLoopCoroutinePrivateQt::triggerIoWatchers(qintptr fd)
         if(w && w->fd == fd) {
             w->read.setEnabled(false);
             w->write.setEnabled(false);
-            TriggerIoWatchersArguments *args = new TriggerIoWatchersArguments();
-            args->eventloop = this;
-            args->watcherId = itor.key();
-            callLater(0, new CallbackFunctor(QTNETWORKNG_NAMESPACE::triggerIoWatchers, args));
+            callLater(0, new TriggerIoWatchersArgumentsFunctor(itor.key(), this));
         }
     }
 }
@@ -315,20 +303,16 @@ int EventLoopCoroutinePrivateQt::exitCode()
 }
 
 
-struct StartCoroutineFunctor: public Functor
-{
-    StartCoroutineFunctor(BaseCoroutine *coroutine)
-        :coroutine(coroutine) {}
-    virtual void operator ()() override { coroutine->yield(); }
-    BaseCoroutine *coroutine;
-};
-
-
 void EventLoopCoroutinePrivateQt::runUntil(BaseCoroutine *coroutine)
 {
     QSharedPointer<QEventLoop> sub(new QEventLoop());
-    std::function<void()> shutdown = [sub] { sub->exit(); };
-    callLater(0, new StartCoroutineFunctor(coroutine));
+    QPointer<BaseCoroutine> loopCoroutine = BaseCoroutine::current();
+    std::function<void()> shutdown = [sub, loopCoroutine] {
+        sub->exit();
+        if(!loopCoroutine.isNull()) {
+            loopCoroutine->yield();
+        }
+    };
     connect(coroutine, &BaseCoroutine::finished, shutdown);
     sub->exec();
 }

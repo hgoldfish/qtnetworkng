@@ -61,29 +61,23 @@ extern "C" void run_stub(intptr_t data)
         return;
     }
     coroutine->state = BaseCoroutine::Started;
-    emit coroutine->q_ptr->started();
-    try
-    {
+//    emit coroutine->q_ptr->started();
+    coroutine->q_ptr->started.callback(coroutine->q_ptr);
+    try {
         coroutine->q_ptr->run();
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
-    }
-    catch(const CoroutineExitException &e)
-    {
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
+    } catch(const CoroutineExitException &e) {
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
-    }
-    catch(const CoroutineException &e)
-    {
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
+    } catch(const CoroutineException &e) {
         qDebug() << "got coroutine exception:" << e.what();
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
-    }
-    catch(...)
-    {
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
+    } catch(...) {
         qWarning() << "coroutine throw a unhandled exception.";
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
 //        throw; // cause undefined behaviors
     }
     if(coroutine->previous) {
@@ -111,7 +105,6 @@ BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *prev
         if(!stack) {
             qFatal("Coroutine can not malloc new memroy.");
             bad = true;
-            return;
         }
     }
 }
@@ -121,23 +114,23 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
 {
     Q_Q(BaseCoroutine);
     if(state == BaseCoroutine::Started) {
-        qWarning() << "do not delete running QBaseCoroutine: %1";
+        qWarning() << "do not delete running BaseCoroutine:" << q;
     }
+    if(exception)
+        delete exception;
+
+    if(currentCoroutine().get() == q) {
+        //TODO 在当前 coroutine 里面把自己给干掉了怎么办？
+        qWarning("do not delete one self.");
+    }
+
     if(stack) {
 #ifdef Q_OS_UNIX
         munmap(stack, stackSize);
 #else
         operator delete(stack);
 #endif
-
     }
-
-    if(currentCoroutine().get() == q) {
-        //TODO 在当前 coroutine 里面把自己给干掉了怎么办？
-        qWarning("do not delete one self.");
-    }
-    if(exception)
-        delete exception;
 }
 
 bool BaseCoroutinePrivate::yield()
@@ -166,17 +159,11 @@ bool BaseCoroutinePrivate::yield()
     }
     CoroutineException *e = old->d_ptr->exception;
     if(e) {
-        old->d_func()->exception = 0;
+        old->d_ptr->exception = 0;
         if(!dynamic_cast<CoroutineExitException*>(e)) {
             qDebug() << "got exception:" << e->what() << old;
         }
-        try {
-            e->raise();
-        } catch(...) {
-            delete e;
-            e = 0;
-            throw;
-        }
+        e->raise();
     }
     return true;
 }
@@ -223,7 +210,14 @@ bool BaseCoroutinePrivate::raise(CoroutineException *exception)
     } else {
         this->exception = new CoroutineExitException();
     }
-    return yield();
+    try {
+        bool result = yield();
+        delete exception;
+        return result;
+    } catch (...) {
+        delete exception;
+        throw;
+    }
 }
 
 BaseCoroutine* createMainCoroutine()

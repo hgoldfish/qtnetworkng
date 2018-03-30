@@ -24,9 +24,7 @@ class DataChannelPrivate;
 
 class DataChannel: public QObject
 {
-    Q_OBJECT
     Q_DISABLE_COPY(DataChannel)
-
 public:
     DataChannel(DataChannelPrivate *d);
     virtual ~DataChannel();
@@ -55,7 +53,6 @@ protected:
 class SocketChannelPrivate;
 class SocketChannel: public DataChannel
 {
-    Q_OBJECT
     Q_DISABLE_COPY(SocketChannel)
 public:
     SocketChannel(const QSharedPointer<Socket> socket, DataChannelPole pole);
@@ -66,7 +63,6 @@ private:
 class VirtualChannelPrivate;
 class VirtualChannel: public DataChannel
 {
-    Q_OBJECT
     Q_DISABLE_COPY(VirtualChannel)
 public:
     quint32 channelNumber() const;
