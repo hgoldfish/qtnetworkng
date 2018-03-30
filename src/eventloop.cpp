@@ -517,5 +517,3 @@ int start_application(std::function<void()> coroutine_entry)
 }
 
 QTNETWORKNG_NAMESPACE_END
-
-#include "eventloop.moc"
