@@ -106,14 +106,16 @@ public:
     Coroutine(QObject *obj, const char *slot, size_t stackSize = 1024 * 1024 * 8);
     virtual ~Coroutine();
 public:
-    bool isActive() const;
+    bool isRunning() const;
+    bool isFinished() const;
     Coroutine *start(int msecs = 0);
     void kill(CoroutineException *e = 0, int msecs = 0);
     void cancelStart();
     bool join();
     virtual void run();
     static Coroutine *current();
-    static void sleep(int msecs);
+    static void msleep(int msecs);
+    static void sleep(float secs) { msleep(secs * 1000); }
     inline static Coroutine *spawn(std::function<void()> f);
 private:
     CoroutinePrivate * const d_ptr;

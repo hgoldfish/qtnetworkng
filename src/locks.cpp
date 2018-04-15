@@ -1,5 +1,5 @@
-#include <QtCore/QPointer>
-#include <QtCore/QSharedPointer>
+#include <QtCore/qpointer.h>
+#include <QtCore/qsharedpointer.h>
 #include "../include/eventloop.h"
 #include "../include/locks.h"
 

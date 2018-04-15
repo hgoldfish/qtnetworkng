@@ -170,7 +170,7 @@ public:
     bool start(Coroutine *coroutine, const QString &name = QString()) { return add(coroutine->start(), name); }
     QSharedPointer<Coroutine> get(const QString &name);
     bool kill(const QString &name, bool join = true);
-    bool killall(bool join = true, bool skipMyself = false);
+    bool killall(bool join = true);
     bool joinall();
     int size() const { return coroutines.size(); }
     bool isEmpty() const { return coroutines.isEmpty(); }
@@ -181,35 +181,32 @@ public:
     inline QSharedPointer<Coroutine> spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool one = true);
 
     template <typename T, typename S>
-    QList<T> map(std::function<T(S)> func, const QList<S> &l)
+    static QList<T> map(std::function<T(S)> func, const QList<S> &l)
     {
-        QList<QSharedPointer<Coroutine>> coroutines;
+        CoroutineGroup operations;
         QSharedPointer<QList<T>> result(new QList<T>());
         for(int i = 0; i < l.size(); ++i) {
             result->append(T());
             S s = l[i];
-            coroutines.append(Coroutine::spawn([func, s, result, i]{
+            operations.add(Coroutine::spawn([func, s, result, i]{
+                qDebug() << result->size() << (*result)[i] << i << s;
                 (*result)[i] = func(s);
             }));
         }
-        for(int i = 0; i < coroutines.size(); ++i) {
-            coroutines[i]->join();
-        }
+        operations.joinall();
         return *result;
     }
 
     template <typename S>
-    void each(std::function<void(S)> func, const QList<S> &l) {
-        QList<QSharedPointer<Coroutine>> coroutines;
+    static void each(std::function<void(S)> func, const QList<S> &l) {
+        CoroutineGroup operations;
         for(int i = 0; i < l.size(); ++i) {
             S s = l[i];
-            coroutines.append(Coroutine::spawn([func, s] {
+            operations.add(Coroutine::spawn([func, s] {
                 func(s);
             }));
         }
-        for(int i = 0; i < coroutines.size(); ++i) {
-            coroutines[i]->join();
-        }
+        operations.joinall();
     }
 
 private:
@@ -223,9 +220,8 @@ QSharedPointer<Coroutine> CoroutineGroup::spawnWithName(const QString &name, con
 {
     QSharedPointer<Coroutine> old = get(name);
     if(one && !old.isNull()) {
-        if(old->isActive())
+        if(old->isRunning())
             return old;
-        kill(name);
     }
     QSharedPointer<Coroutine> coroutine(Coroutine::spawn(func));
     add(coroutine, name);
@@ -253,9 +249,8 @@ QSharedPointer<Coroutine> CoroutineGroup::spawnInThreadWithName(const QString &n
 {
     QSharedPointer<Coroutine> old = get(name);
     if(one && !old.isNull()) {
-        if(old->isActive())
+        if(old->isRunning())
             return old;
-        kill(name);
     }
     QSharedPointer<Coroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));
     add(coroutine, name);

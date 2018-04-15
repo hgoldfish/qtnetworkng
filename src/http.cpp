@@ -1,9 +1,8 @@
-#include <QtCore/QUrl>
-#include <QtCore/QUrlQuery>
-#include <QtCore/QJsonDocument>
-#include <QtCore/QJsonParseError>
-#include <QtCore/QDateTime>
-#include <QtCore/QTextCodec>
+#include <QtCore/qurl.h>
+#include <QtCore/qurlquery.h>
+#include <QtCore/qjsondocument.h>
+#include <QtCore/qdatetime.h>
+#include <QtCore/qtextcodec.h>
 #include "../include/http_p.h"
 #include "../include/socks5_proxy.h"
 #ifdef QTNETWOKRNG_USE_SSL
@@ -341,7 +340,7 @@ void ConnectionPool::removeUnusedConnections()
 {
     while(true) {
         const QDateTime &now = QDateTime::currentDateTimeUtc();
-        Coroutine::sleep(1000);
+        Coroutine::sleep(1);
         QMap<QUrl, ConnectionPoolItem> newItems;
         for(QMap<QUrl, ConnectionPoolItem>::const_iterator itor = items.constBegin(); itor != items.constEnd(); ++itor) {
             if(itor.value().lastUsed.secsTo(now) < timeToLive) {

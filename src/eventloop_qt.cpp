@@ -1,11 +1,12 @@
-#include <QtCore/QMap>
-#include <QtCore/QEventLoop>
-#include <QtCore/QThread>
-#include <QtCore/QCoreApplication>
-#include <QtCore/QSocketNotifier>
-#include <QtCore/QDebug>
-#include <QtCore/QTimer>
-#include <QtCore/QPointer>
+#include <QtCore/qmap.h>
+#include <QtCore/qeventloop.h>
+#include <QtCore/qthread.h>
+#include <QtCore/qsocketnotifier.h>
+#include <QtCore/qdebug.h>
+#include <QtCore/qtimer.h>
+#include <QtCore/qpointer.h>
+#include <QtCore/qcoreevent.h>
+
 #include "../include/eventloop.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -103,7 +104,7 @@ private:
 };
 
 EventLoopCoroutinePrivateQt::EventLoopCoroutinePrivateQt(EventLoopCoroutine *q)
-    :loop(new QEventLoop()), EventLoopCoroutinePrivate(q), nextWatcherId(1)
+    :EventLoopCoroutinePrivate(q), loop(new QEventLoop()), nextWatcherId(1)
 {
 }
 
@@ -307,13 +308,14 @@ void EventLoopCoroutinePrivateQt::runUntil(BaseCoroutine *coroutine)
 {
     QSharedPointer<QEventLoop> sub(new QEventLoop());
     QPointer<BaseCoroutine> loopCoroutine = BaseCoroutine::current();
-    std::function<void()> shutdown = [sub, loopCoroutine] {
+    std::function<BaseCoroutine*(BaseCoroutine*)> shutdown = [this, sub, loopCoroutine] (BaseCoroutine *arg) -> BaseCoroutine * {
         sub->exit();
         if(!loopCoroutine.isNull()) {
             loopCoroutine->yield();
         }
+        return arg;
     };
-    connect(coroutine, &BaseCoroutine::finished, shutdown);
+    coroutine->finished.addCallback(shutdown);
     sub->exec();
 }
 

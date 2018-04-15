@@ -21,7 +21,7 @@ SocketPrivate::SocketPrivate(Socket::NetworkLayerProtocol protocol,
     {
         if(!setOption(Socket::BroadcastSocketOption, 1))
         {
-//            setError(QSocket::UnsupportedSocketOperationError);
+//            setError(Socket::UnsupportedSocketOperationError);
 //            close();
 //            return;
         }

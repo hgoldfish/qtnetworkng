@@ -1,10 +1,9 @@
 #include <ev.h>
-#include <QtCore/QMap>
-#include <QtCore/QMutex>
-#include <QtCore/QMutexLocker>
-#include <QtCore/QQueue>
-#include <QtCore/QPointer>
-#include <QtCore/QDebug>
+#include <QtCore/qmap.h>
+#include <QtCore/qmutex.h>
+#include <QtCore/qqueue.h>
+#include <QtCore/qpointer.h>
+#include <QtCore/qdebug.h>
 #include <stddef.h>
 #include "../include/eventloop.h"
 
@@ -139,6 +138,7 @@ EventLoopCoroutinePrivateEv::EventLoopCoroutinePrivateEv(EventLoopCoroutine *par
 EventLoopCoroutinePrivateEv::~EventLoopCoroutinePrivateEv()
 {
     ev_break(loop);
+    ev_loop_destroy(loop); // FIXME run() function may not exit, but this situation is rare.
     QMapIterator<int, EvWatcher*> itor(watchers);
     while(itor.hasNext())
     {
@@ -149,10 +149,8 @@ EventLoopCoroutinePrivateEv::~EventLoopCoroutinePrivateEv()
 
 void EventLoopCoroutinePrivateEv::run()
 {
-    volatile struct ev_loop *localLoop = loop;
     try{
-        ev_run((struct ev_loop *)localLoop, 0);
-        ev_loop_destroy((struct ev_loop *)localLoop);
+        ev_run(loop, 0);
     } catch(...) {
         qFatal("libev eventloop got exception.");
     }

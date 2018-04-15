@@ -551,7 +551,7 @@ void SocketChannelPrivate::close()
             writingPacket.done->send(false);
         }
     }
-    operations->killall(true, true);
+    operations->killall(true);
     DataChannelPrivate::close();
 }
 

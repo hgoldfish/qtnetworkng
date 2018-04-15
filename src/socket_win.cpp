@@ -2,8 +2,8 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
-#include <QtCore/QSysInfo>
-#include <QtNetwork/QNetworkInterface>
+#include <QtCore/qsysinfo.h>
+#include <QtNetwork/qnetworkinterface.h>
 #include "../include/socket_p.h"
 
 
@@ -46,7 +46,7 @@ typedef INT (WSAAPI *LPFN_WSASENDMSG)(SOCKET s, LPWSAMSG lpMsg, DWORD dwFlags,
 #define IP_HOPLIMIT               21 // Receive packet hop limit.
 #endif
 
-#if defined(QSOCKET_DEBUG)
+#if defined(SOCKET_DEBUG)
 
 static void verboseWSErrorDebug(int r)
 {
@@ -503,15 +503,15 @@ bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode m
             break;
         }
 
-#if defined (QSOCKET_DEBUG)
-        qDebug("QSocketPrivate::bind(%s, %i) == false (%s)",
+#if defined (SOCKET_DEBUG)
+        qDebug("SocketPrivate::bind(%s, %i) == false (%s)",
                address.toString().toLatin1().constData(), port, errorString.toLatin1().constData());
 #endif
         return false;
     }
 
-#if defined (QSOCKET_DEBUG)
-    qDebug("QSocketPrivate::bind(%s, %i) == true",
+#if defined (SOCKET_DEBUG)
+    qDebug("SocketPrivate::bind(%s, %i) == true",
            address.toString().toLatin1().constData(), port);
 #endif
     state = Socket::BoundState;
@@ -690,15 +690,15 @@ bool SocketPrivate::listen(int backlog)
             break;
         }
 
-    #if defined (QSOCKET_DEBUG)
-            qDebug("QSocketPrivate::listen(%i) == false (%s)",
+    #if defined (SOCKET_DEBUG)
+            qDebug("SocketPrivate::listen(%i) == false (%s)",
                    backlog, errorString.toLatin1().constData());
     #endif
         return false;
     }
 
     #if defined (QNATIVESOCKETENGINE_DEBUG)
-        qDebug("QSocketPrivate::listen(%i) == true", backlog);
+        qDebug("SocketPrivate::listen(%i) == true", backlog);
     #endif
 
     state = Socket::ListeningState;
@@ -780,16 +780,16 @@ bool SocketPrivate::fetchConnectionParameters()
 
     this->type = qt_socket_getType(fd);
 
-#if defined (QSOCKET_DEBUG)
+#if defined (SOCKET_DEBUG)
     QString socketProtocolStr = "UnknownProtocol";
-    if (protocol == QSocket::IPv4Protocol) socketProtocolStr = "IPv4Protocol";
-    else if (protocol == QSocket::IPv6Protocol) socketProtocolStr = "IPv6Protocol";
+    if (protocol == Socket::IPv4Protocol) socketProtocolStr = "IPv4Protocol";
+    else if (protocol == Socket::IPv6Protocol) socketProtocolStr = "IPv6Protocol";
 
     QString socketTypeStr = "UnknownSocketType";
-    if (type == QSocket::TcpSocket) socketTypeStr = "TcpSocket";
-    else if (type == QSocket::UdpSocket) socketTypeStr = "UdpSocket";
+    if (type == Socket::TcpSocket) socketTypeStr = "TcpSocket";
+    else if (type == Socket::UdpSocket) socketTypeStr = "UdpSocket";
 
-    qDebug("QSocketPrivate::fetchConnectionParameters() localAddress == %s, localPort = %i, peerAddress == %s, peerPort = %i, socketProtocol == %s, socketType == %s", localAddress.toString().toLatin1().constData(), localPort, peerAddress.toString().toLatin1().constData(), peerPort, socketProtocolStr.toLatin1().constData(), socketTypeStr.toLatin1().constData());
+    qDebug("SocketPrivate::fetchConnectionParameters() localAddress == %s, localPort = %i, peerAddress == %s, peerPort = %i, socketProtocol == %s, socketType == %s", localAddress.toString().toLatin1().constData(), localPort, peerAddress.toString().toLatin1().constData(), peerPort, socketProtocolStr.toLatin1().constData(), socketTypeStr.toLatin1().constData());
 #endif
 
     return true;
@@ -1076,9 +1076,9 @@ qint64 SocketPrivate::recvfrom(char *data, qint64 size, QHostAddress *addr, quin
         }
         if(ret > 0) {
             qt_socket_getPortAndAddress(fd, &aa, port, addr);
-#if defined (QSOCKET_DEBUG)
+#if defined (SOCKET_DEBUG)
             bool printSender = (ret != -1);
-            qDebug("QSocketPrivate::recvfrom(%p \"%s\", %lli, %s, %i) == %lli",
+            qDebug("SocketPrivate::recvfrom(%p \"%s\", %lli, %s, %i) == %lli",
                    data, qt_prettyDebug(data, qMin<qint64>(ret, 16), ret).data(), size,
                    printSender ? addr->toString().toLatin1().constData() : "(unknown)",
                    printSender ? port : 0, ret);
@@ -1190,8 +1190,8 @@ qint64 SocketPrivate::sendto(const char *data, qint64 size, const QHostAddress &
     } while(bytesToSend > 0);
 
 
-#if defined (QSOCKET_DEBUG)
-    qDebug("QSocketPrivate::sendto(%p \"%s\", %lli, \"%s\", %i) == %lli", data,
+#if defined (SOCKET_DEBUG)
+    qDebug("SocketPrivate::sendto(%p \"%s\", %lli, \"%s\", %i) == %lli", data,
            qt_prettyDebug(data, qMin<qint64>(size, 16), size).data(), size,
            addr.toString().toLatin1().constData(),
            port, ret);

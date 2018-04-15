@@ -37,8 +37,6 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 class SocketPrivate;
-class TcpSocketPrivate;
-class TcpServerPrivate;
 class SocketDnsCache;
 
 class Socket: public QObject
@@ -134,7 +132,7 @@ public:
     QHostAddress peerAddress() const;
     QString peerName() const;
     quint16 peerPort() const;
-    qintptr	fileno() const;
+    qintptr fileno() const;
     SocketType type() const;
     SocketState state() const;
     NetworkLayerProtocol protocol() const;

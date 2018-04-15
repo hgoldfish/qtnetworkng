@@ -838,11 +838,11 @@ bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value
     convertToLevelAndOption(option, protocol, &level, &n);
 
 #if defined(SO_REUSEPORT) && !defined(Q_OS_LINUX)
-    if (option == QSocket::AddressReusable) {
+    if (option == Socket::AddressReusable) {
         // on OS X, SO_REUSEADDR isn't sufficient to allow multiple binds to the
         // same port (which is useful for multicast UDP). SO_REUSEPORT is, but
         // we most definitely do not want to use this for TCP. See QTBUG-6305.
-        if (type == QSocket::UdpSocket)
+        if (type == Socket::UdpSocket)
             n = SO_REUSEPORT;
     }
 #endif

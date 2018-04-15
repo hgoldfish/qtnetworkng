@@ -2,8 +2,8 @@
 #include <errno.h>
 #include <ucontext.h>
 #include <sys/mman.h>
-#include <QtCore/QDebug>
-#include <QtCore/QList>
+#include <QtCore/qdebug.h>
+#include <QtCore/qlist.h>
 #include "../include/coroutine_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -89,7 +89,7 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
 {
     Q_Q(BaseCoroutine);
     if(state == BaseCoroutine::Started) {
-        qWarning() << "do not delete running QBaseCoroutine: %1";
+        qWarning() << "deleting running BaseCoroutine" << this;
     }
     if(stack) {
 //        operator delete(stack);

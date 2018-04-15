@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <setjmp.h>
-#include <QtCore/QDebug>
-#include <QtCore/QList>
+#include <QtCore/qdebug.h>
+#include <QtCore/qlist.h>
 #include "../include/coroutine_p.h"
 
 #ifdef Q_OS_UNIX

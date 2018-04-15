@@ -9,11 +9,11 @@ public:
 
 void SleepCoroutine::run()
 {
-    sleep(1000);
+    sleep(1);
     qDebug() << this << 1;
-    sleep(1000);
+    sleep(1);
     qDebug() << this << 2;
-    sleep(1000);
+    sleep(1);
     qDebug() << this << 3;
 }
 

@@ -6,8 +6,11 @@
 Welcome to QtNetworkNg's documentation!
 =======================================
 
-QtNetworkgNg is a self-contained coroutine-based network toolkit, like boost::asio but uses concepts of QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg require Qt5 framework. Here comes a simple example to get web pages::
+QtNetworkgNg is a self-contained coroutine-based network toolkit, like boost::asio but uses concepts of QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg requires Qt5 framework. Here comes a simple example to get web pages.
 
+.. code-block:: c++
+    :caption: get web page.
+    
     #include <QtCore/QCoreApplication>
     #include "qtnetworkng/qtnetworkng.h"
     
@@ -15,14 +18,16 @@ QtNetworkgNg is a self-contained coroutine-based network toolkit, like boost::as
     {
         QCoreApplication app(argc, argv);
         qtng::HttpSession session;
-        qtng::HttpResponse r = session.get(QStringLiteral("https://news.163.com"));
+        qtng::HttpResponse r = session.get("https://news.163.com");
         qDebug() << r.html();
         return 0;
     }
     
-    
-And another exmaple to make tcp connection::
+And another exmaple to make tcp connection.
 
+.. code-block:: c++
+    :caption: connect to remote host.
+    
     #include <QtCore/QCoreApplication>
     #include "qtnetworkng/qtnetworkng.h"
     
@@ -35,16 +40,35 @@ And another exmaple to make tcp connection::
         qDebug() << conn.recv(1024 * 8);
         return 0;
     }
+
+To create tcp server.
+
+.. code-block:: c++
+    :caption: tcp server
+    
+    Socket s;
+    CoroutineGroup workers;
+    s.bind(QHostAddress::Any, 8000);
+    s.listen(100);
+    while(true) {
+        QSharedPointer<Socket> request(s.accept());
+        if(request.isNull()) {
+            break;
+        }
+        workers.spawn([request] {
+            request->sendall("hello!");
+            request->close();
+        });
+    }
     
 As you can see, networking programming is done with very straightforward API.
     
 More details please refer to these documents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    intro
-   tutorial
    practices
    references
    

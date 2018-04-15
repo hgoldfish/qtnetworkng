@@ -1,6 +1,5 @@
-#include <QtCore/QDebug>
-#include <QtCore/QPointer>
-#include <QtCore/QObject>
+#include <QtCore/qdebug.h>
+#include <QtCore/qpointer.h>
 #include "../include/eventloop.h"
 #include "../include/locks.h"
 #ifdef Q_OS_UNIX
@@ -362,9 +361,15 @@ Coroutine::~Coroutine()
     delete d_ptr;
 }
 
-bool Coroutine::isActive() const
+bool Coroutine::isRunning() const
 {
     return state() == BaseCoroutine::Started;
+}
+
+bool Coroutine::isFinished() const
+{
+    const BaseCoroutine::State s = state();
+    return s == BaseCoroutine::Stopped || s == BaseCoroutine::Joined;
 }
 
 Coroutine *Coroutine::start(int msecs)
@@ -414,7 +419,7 @@ struct QScopedCallLater
     int callbackId;
 };
 
-void Coroutine::sleep(int msecs)
+void Coroutine::msleep(int msecs)
 {
     int callbackId = EventLoopCoroutine::get()->callLater(msecs, new YieldCurrentFunctor());
     QScopedCallLater scl(callbackId);

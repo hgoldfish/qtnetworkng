@@ -10,6 +10,8 @@ private slots:
     void testStart();
     void testKill();
     void testKillall();
+//    void testmap();
+    void testeach();
 };
 
 
@@ -27,10 +29,10 @@ void TestCoroutines::testKill()
 {
     QSharedPointer<Event> event(new Event);
     QSharedPointer<Coroutine> c(Coroutine::spawn([event]{
-        Coroutine::sleep(100);
+        Coroutine::sleep(0.1);
         event->set();
     }));
-    Coroutine::sleep(10);
+    Coroutine::sleep(0.01);
     c->kill();
     c->join();
     QVERIFY(!event->isSet());
@@ -40,13 +42,45 @@ void TestCoroutines::testKillall()
 {
     CoroutineGroup operations;
     operations.spawn([]{
-        Coroutine::sleep(100);
+        Coroutine::sleep(0.1);
     });
-    Coroutine::sleep(10);
+    Coroutine::sleep(0.01);
     operations.killall();
     QVERIFY(operations.isEmpty());
 }
 
-//QTEST_MAIN(TestCoroutines)
+
+//int pow2(int i)
+//{
+//    return i * i;
+//}
+
+
+//void TestCoroutines::testmap()
+//{
+//    QList<int> range10;
+//    for(int i = 0; i < 10; ++i)
+//        range10.append(i);
+
+//    QList<int> result = qtng::CoroutineGroup::map<int,int>(pow2, range10);
+//    for(int i =0; i < 10; ++i)
+//        qDebug() << result[i];
+//}
+
+
+void output(int i)
+{
+    qDebug() << i;
+}
+
+void TestCoroutines::testeach()
+{
+    QList<int> range10;
+    for(int i = 0; i < 10; ++i)
+        range10.append(i);
+    CoroutineGroup::each<int>(output, range10);
+}
+
+QTEST_MAIN(TestCoroutines)
 
 #include "test_coroutines.moc"
