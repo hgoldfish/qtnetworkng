@@ -29,6 +29,7 @@ def main():
     total += count_source("tests", ".cpp")
     total += count_source("contrib", ".cpp")
     total += count_source("contrib", ".h")
+    total += count_source("docs", ".rst")
     print("total:", total)
 
 

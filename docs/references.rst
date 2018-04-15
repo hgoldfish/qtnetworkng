@@ -740,13 +740,13 @@ There are three constructors to create ``SslSocket``.
 .. code-block:: c++
     :caption: the constructors of SslSocket
     
-    SslSocket(Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol, const SslConfiguration &config = SslConfiguration());
+    SslSocket(Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol, 
+            const SslConfiguration &config = SslConfiguration());
     
     SslSocket(qintptr socketDescriptor, const SslConfiguration &config = SslConfiguration());
     
     SslSocket(QSharedPointer<Socket> rawSocket, const SslConfiguration &config = SslConfiguration());
     
-
 In addition, there are many function provided for obtain information from SslSocket.
 
 .. function:: bool handshake(bool asServer, const QString &verificationPeerName = QString())
@@ -757,43 +757,199 @@ In addition, there are many function provided for obtain information from SslSoc
 
 .. function:: Certificate localCertificate() const
 
+    Returns the the topest certificate of local peer.
+    
+    Usually this function returns the same certificate as ``SslConfiguration::localCertificate()``.
+
 .. function:: QList<Certificate> localCertificateChain() const
+
+    Returns the certificate chain of local peer.
+    
+    Usually this function returns the same certificate as ``SslConfiguration::localCertificate()`` and ``localCertificateChain``, plus some CA certificates from ``SslConfiguration::caCertificates``.
 
 .. function:: QByteArray nextNegotiatedProtocol() const
 
+    Returns the next negotiated protocol used by the ssl connection.
+    
+    `The Application-Layer Protocol Negotiation` is needed by HTTP/2.
+    
+    .. _The Application-Layer Protocol Negotiation: https://en.wikipedia.org/wiki/Application-Layer_Protocol_Negotiation
+
 .. function:: NextProtocolNegotiationStatus nextProtocolNegotiationStatus() const
+
+    Returns the status of the next protocol negotiation.
 
 .. function:: SslMode mode() const
 
+    Returns the mode the ssl connection. (Server or client)
+
 .. function:: Certificate peerCertificate() const
+
+    Returns the topest certificate of remote peer.
 
 .. function:: QList<Certificate> peerCertificateChain() const
 
+    Returns the certificate chain of remote peer.
+    
 .. function:: int peerVerifyDepth() const
+
+    Returns the depth of verification. If the certificate chain of remote peer is longer than depth, the verification is failed.
 
 .. function:: Ssl::PeerVerifyMode peerVerifyMode() const
 
+    Returns the mode of verification.
+    
+    +----------------------+--------------------------------------------------------------------------------------+
+    | PeerVerifyMode       | Description                                                                          |
+    +======================+======================================================================================+
+    | ``VerifyNone``       | ``SslSocket`` will not request a certificate from the peer. You can set this mode    |
+    |                      | if you are not interested in the identity of the other side of the connection.       |
+    |                      | The connection will still be encrypted, and your socket will still send its          |
+    |                      | local certificate to the peer if it's requested.                                     |
+    +----------------------+--------------------------------------------------------------------------------------+
+    | ``QueryPeer``        | ``SslSocket`` will request a certificate from the peer, but does not require this    |
+    |                      | certificate to be valid. This is useful when you want to display peer certificate    |
+    |                      | details to the user without affecting the actual SSL handshake. This mode is         |
+    |                      | the default for servers.                                                             |
+    +----------------------+--------------------------------------------------------------------------------------+
+    | ``VerifyPeer``       | ``SslSocket`` will request a certificate from the peer during the SSL handshake      |
+    |                      | phase, and requires that this certificate is valid.                                  |
+    +----------------------+--------------------------------------------------------------------------------------+
+    | ``AutoVerifyPeer``   | ``SslSocket`` will automatically use QueryPeer for server sockets and                |
+    |                      | VerifyPeer for client sockets.                                                       |
+    +----------------------+--------------------------------------------------------------------------------------+
+
 .. function:: QString peerVerifyName() const
+
+    Returns the name of remote peer.
 
 .. function:: PrivateKey privateKey() const
 
+    Returns the private key used by this connection.
+    
+    This function returns the same private key to ``SslConfiguration::privateKey()``.
+
 .. function:: SslCipher cipher() const
+
+    Get the cipher used by this connection. If there is no cipher used, this function returns empty cipher. ``Cipher::isNull()`` returns true in that case.
+    
+    The cipher is available only after handshaking.
 
 .. function:: Ssl::SslProtocol sslProtocol() const
 
+    Returns the ssl protocol used by this connection.
+
 .. function:: SslConfiguration sslConfiguration() const
+
+    Returns the configuration used by this connection.
 
 .. function:: QList<SslError> sslErrors() const
 
+    Returns the errors occured while handshaking and communication.
+
 .. function:: void setSslConfiguration(const SslConfiguration &configuration)
 
-
+    Set the configuration to use. This function must called before ``handshake()`` is called.
+    
 2.3 Socks5 Proxy
 ^^^^^^^^^^^^^^^^
+
+``Socks5Proxy`` provides SOCKS5 client support. You can use it to make connection to remote host via SOCKS5 proxy.
+
+There are two constructors.
+
+.. code-block:: c++
+    :caption: the constructors of Socks5Proxy
+    
+    Socks5Proxy();
+    
+    Socks5Proxy(const QString &hostName, quint16 port,
+                 const QString &user = QString(), const QString &password = QString());
+
+The first construct an empty ``Socks5Proxy``. The address of proxy server is needed to connect to remote host.
+
+The second constructor use the ``hostName`` and ``port`` to create a valid Socks5 Proxy.
+
+.. function:: QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port);
+
+    Use this function to connect to ``remoteHost`` at ``port`` via this proxy.
+    
+    Returns new ``Socket`` connect to ``remoteHost`` if success, otherwise returns an zero pointer.
+    
+    This function block current coroutine until the connection is made, or failed.
+    
+    The DNS query of ``remoteHost`` is made at the proxy server.
+    
+.. function:: QSharedPointer<Socket> connect(const QHostAddress &remoteHost, quint16 port)
+
+    Connect to ``remoteHost`` at ``port`` via this proxy.
+    
+    Returns new ``Socket`` connect to ``remoteHost`` if success, otherwise returns an zero pointer.
+    
+    This function block current coroutine until the connection is made, or failed.
+    
+    This function is similar to ``connect(QString, quint16)`` except that there is no DNS query made.
+    
+.. function:: QSharedPointer<SocketLike> listen(quint16 port)
+
+    Tell the Socks5 proxy to Listen at ``port``.
+    
+    Returns a ``SocketLike`` object if success, otherwise returns zero pointer.
+    
+    You can call ``SocketLike::accept()`` to obtain new requests to that ``port``.
+    
+    This function block current coroutine until the server returns whether success or failed.
+    
+    The ``SocketLike::accept()`` is blocked until new request arrived.
+    
+.. function:: bool isNull() const
+    
+    Returns true if there is no ``hostName`` or ``port`` of proxy server is provided.
+    
+.. function:: Capabilities capabilities() const
+
+    Returns the capabilities of proxy server.
+    
+.. function:: QString hostName() const
+
+    Returns the ``hostName`` of proxy server.
+    
+.. function:: quint16 port() const;
+
+    Returns the ``port`` of proxy server.
+    
+.. function:: QString user() const
+
+    Returns the ``user`` used for autherication of proxy server.
+    
+.. function:: QString password() const
+
+    Returns the ``password`` used for autherication of proxy server.
+    
+.. function:: void setCapabilities(QFlags<Capability> capabilities)
+
+    Set the capabilities of proxy server.
+    
+.. function:: void setHostName(const QString &hostName)
+    
+    Set the ``hostName`` of proxy server.
+    
+.. function:: void setPort(quint16 port)
+
+    Set the ``port`` of proxy server.
+    
+.. function:: void setUser(const QString &user)
+
+    Set the ``user`` used for autherication of proxy server.
+    
+.. function:: void setPassword(const QString &password)
+
+    Set the ``password`` used for autherication of proxy server.
 
 2.4 SocketServer
 ^^^^^^^^^^^^^^^^
 
+Not implmented.
 
 3. Http Client
 --------------
@@ -807,15 +963,20 @@ In addition, there are many function provided for obtain information from SslSoc
 3.3 HttpRequest
 ^^^^^^^^^^^^^^^
 
-3.4 Socks5Proxy
-^^^^^^^^^^^^^^^
+4. Http Server
+--------------
 
+4.1 Basic Http Server
+^^^^^^^^^^^^^^^^^^^^^
 
-4. Configuration And Build
+4.2 Application Server
+^^^^^^^^^^^^^^^^^^^^^
+
+5. Configuration And Build
 --------------------------
 
-4.1 Use libev Instead Of Qt Eventloop
+5.1 Use libev Instead Of Qt Eventloop
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-4.2 Disable SSL Support
+5.2 Disable SSL Support
 ^^^^^^^^^^^^^^^^^^^^^^^
