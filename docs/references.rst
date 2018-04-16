@@ -183,15 +183,15 @@ There are many ways to start new coroutine.
 
 Most-used functions posist in ``Coroutine`` class.
 
-.. function:: Coroutine::bool isRunning() const
+.. method:: bool Coroutine::isRunning() const
 
     Check whether the coroutine is running now, return true or false.
 
-.. function:: bool Coroutine::isFinished() const
+.. method:: bool Coroutine::isFinished() const
 
     Check whether the coroutine is finished. If the coroutine is not started yet or running, this function returns false, otherwise returns `true`.
 
-.. function:: Coroutine *Coroutine::start(int msecs = 0);
+.. method:: Coroutine *Coroutine::start(int msecs = 0);
 
     Schedule the coroutine to start when current coroutine is blocked, and return immediately. The parameter ``msecs`` specifies how many microseconds to wait before the coroutine started, timing from ``start()`` is called. This function returns `this` coroutine object for chained call. For example:
 
@@ -201,7 +201,7 @@ Most-used functions posist in ``Coroutine`` class.
         QSharedPointer<Coroutine> coroutine(new MyCoroutine);
         coroutine->start()->join();
 
-.. function:: void Coroutine::kill(CoroutineException *e = 0, int msecs = 0)
+.. method:: void Coroutine::kill(CoroutineException *e = 0, int msecs = 0)
 
     Schedule the coroutine to raise exception ``e`` of type ``CoroutineException`` when current coroutine is blocked, and return immediately. The parameter ``msecs`` specifies how many microseconds to wait before the coroutine started, timing from ``kill()`` is called.
 
@@ -209,61 +209,61 @@ Most-used functions posist in ``Coroutine`` class.
 
     If the coroutine is not started yet, calling ``kill()`` may cause the coroutine start and throw an exception. If you don't want this behavior, use ``cancelStart()`` instead.
 
-.. function:: void Coroutine::cancelStart()
+.. method:: void Coroutine::cancelStart()
 
     If the coroutine was scheduled to start, ``cancelStart()`` can cancel it. If the coroutine is started, ``cancelStart()`` kill the coroutine. After all, coroutine is set to ``Stop`` state.
 
-.. function:: bool Coroutine::join()
+.. method:: bool Coroutine::join()
 
     Block current coroutine and wait for the coroutine to stop. This function switch current coroutine to eventloop coroutine which runs the scheduled tasks, such as start new coroutines, check whether the socket can read/write.
 
-.. function:: virtual void Coroutine::run()
+.. method:: virtual void Coroutine::run()
 
     Override ``run()`` function to create new coroutine. Refer to *1.2 Start Coroutines*
 
-.. function:: static Coroutine *Coroutine::current()
+.. method:: static Coroutine *Coroutine::current()
 
     This static function returns the current coroutine object. Do not save the returned pointer.
 
-.. function:: static void Coroutine::msleep(int msecs)
+.. method:: static void Coroutine::msleep(int msecs)
 
     This static function block current coroutine, wake up after ``msecs`` microseconds.
 
-.. function:: static void Coroutine::sleep(float secs)
+.. method:: static void Coroutine::sleep(float secs)
 
     This static function block current coroutine, wake up after ``secs`` seconds.
 
-.. function:: static Coroutine *Coroutine::spawn(std::function<void()> f)
+.. method:: static Coroutine *Coroutine::spawn(std::function<void()> f)
 
     This static function start new coroutine from functor ``f``. Refer to *1.2 Start Coroutines*
 
 The ``BaseCoroutine`` has some rarely used functions. Use them at your own risk.
 
-.. function:: State BaseCoroutine::state() const
+.. method:: State BaseCoroutine::state() const
 
     Return the current state of coroutine. Can be one of ``Initialized``, ``Started``, ``Stopped`` and ``Joined``. Use this function is not encouraged, you may use `Coroutine::isRunning()` or ``Coroutine::isFinished()`` instead.
     
-.. function:: bool BaseCoroutine::raise(CoroutineException *exception = 0)
+.. method:: bool BaseCoroutine::raise(CoroutineException *exception = 0)
 
     Switch to the coroutine immediately and throw an ``exception`` of type ``CoroutineException``. If the parameter ``exception`` is not specified, a ``CoroutineExitException`` is passed.
     
     Use the ``Coroutine::kill()`` is more roburst.
     
-.. function:: bool BaseCoroutine::yield()
+.. method:: bool BaseCoroutine::yield()
 
     Switch to the coroutine immediately.
     
     Use the ``Coroutine::start()`` is more roburst.
     
-.. function:: quintptr BaseCoroutine::id() const
+.. method:: quintptr BaseCoroutine::id() const
 
     Returns an unique imutable id for the coroutine. Basicly, the id is the pointer of coroutine.
     
-.. function:: Deferred<BaseCoroutine*> BaseCoroutine::started`
+.. method:: Deferred<BaseCoroutine*> BaseCoroutine::started`
 
     This is not a function but ``Deferred`` object. It acts like a Qt event. If you want to do something after the coroutine is started, add callback function to this ``started`` event.
     
-.. function:: Deferred<BaseCoroutine*> BaseCoroutine::finished
+.. method:: Deferred<BaseCoroutine*> BaseCoroutine::finished
 
     This is not a function but ``Deferred`` object. It acts like a Qt event. If you want to do something after the coroutine is finished, add callback function to this ``finished`` event.
     
@@ -326,59 +326,59 @@ Here comes an example.
     
 Functions in ``CorotuineGroup``.
 
-.. function:: bool add(QSharedPointer<Coroutine> coroutine, const QString &name = QString())
+.. method:: bool add(QSharedPointer<Coroutine> coroutine, const QString &name = QString())
 
     Add a coroutine which is specified by a smart pointer to group. If the parameter ``name`` is specified, we can use ``CoroutineGroup::get(name)`` to fetch the coroutine later.
     
-.. function:: bool add(Coroutine *coroutine, const QString &name = QString())
+.. method:: bool add(Coroutine *coroutine, const QString &name = QString())
 
     Add a coroutine which is specified by a raw pointer to group. If the parameter ``name`` is specified, we can use ``CoroutineGroup::get(name)`` to fetch the coroutine later.
     
-.. function:: bool start(Coroutine *coroutine, const QString &name = QString())
+.. method:: bool start(Coroutine *coroutine, const QString &name = QString())
 
     Start a coroutine, and add it to group. If the parameter ``name`` is specified, we can use ``CoroutineGroup::get(name)`` to fetch the coroutine later.
 
-.. function:: QSharedPointer<Coroutine> get(const QString &name)
+.. method:: QSharedPointer<Coroutine> get(const QString &name)
 
     Fetch a coroutine by name. If no coroutine match the names, an empty pointer is return.
     
-.. function:: bool kill(const QString &name, bool join = true)`
+.. method:: bool kill(const QString &name, bool join = true)`
 
     Kill a coroutine by name and return true if coroutine is found. If the parameter ``join`` is true, the coroutine is joined and removed, otherwise this function is return immediately.
 
-.. function:: bool killall(bool join = true)
+.. method:: bool killall(bool join = true)
 
     Kill all coroutines in group, and return true if any coroutine was killed. If the parameter `join` is true, the coroutine is joined and removed, otherwise this function is return immediately.
 
-.. function:: bool joinall()
+.. method:: bool joinall()
 
     Join all coroutines in group. and return true if any coroutine is joined.
 
-.. function:: int size() const
+.. method:: int size() const
 
     Return the number of corouitnes in group.
 
-.. function:: bool isEmpty() const
+.. method:: bool isEmpty() const
 
     Return whether there is any coroutine in the group.
 
-.. function:: QSharedPointer<Coroutine> spawnWithName(const QString &name, const std::function<void()> &func, bool one = true)`
+.. method:: QSharedPointer<Coroutine> spawnWithName(const QString &name, const std::function<void()> &func, bool one = true)`
 
     Start a new coroutine to run ``func``, and add it to group with ``name``. If the parameter ``one`` is true, and there is already a coroutine with the same name exists, no action is taken. This function return the new coroutine.
     
-.. function:: QSharedPointer<Coroutine> spawn(const std::function<void()> &func)
+.. method:: QSharedPointer<Coroutine> spawn(const std::function<void()> &func)
 
     Start a new coroutine to run ``func``, and add it to group. This function return the new coroutine.
 
-.. function:: QSharedPointer<Coroutine> spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool one = true)`
+.. method:: QSharedPointer<Coroutine> spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool one = true)`
 
     Start a new thread to run ``func``. Create a new coroutine which waits for the new thread finishing, and add it to group with ``name``. If the parameter `one` is true, and there is alreay a coroutine with the same name exists, no action is taken. This function returns the new coroutine.
 
-.. function:: QSharedPointer<Coroutine> spawnInThread(const std::function<void()> &func)
+.. method:: QSharedPointer<Coroutine> spawnInThread(const std::function<void()> &func)
 
     Start a new thread to run ``func``. Create a new coroutine which waits for the new thread finishing, and add it to group. This function returns the new coroutine.
 
-.. function:: static QList<T> map(std::function<T(S)> func, const QList<S> &l)
+.. method:: static QList<T> map(std::function<T(S)> func, const QList<S> &l)
 
     Create many coroutines to process the content of ``l`` of type ``QList<>``. Each element in ``l`` is passed to ``func`` which run in new coroutine, and the return value of `func` is collected as return value of ``map()``.
     
@@ -407,7 +407,7 @@ Functions in ``CorotuineGroup``.
             return 0;
         }
     
-.. function:: void each(std::function<void(S)> func, const QList<S> &l)
+.. method:: void each(std::function<void(S)> func, const QList<S> &l)
 
     Create many coroutines to process the content of ``l`` of type ``QList``. Each element in ``l`` is passed to ``func`` which run in new coroutine.
     
@@ -432,8 +432,331 @@ Functions in ``CorotuineGroup``.
             return 0;
         }
 
-1.5 The Internal: How Coroutines Switch
+        
+1.5 Communicate Between Two Coroutine
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The most significant advantage of QtNetworkNg with respect to `boost::coroutine` is that QtNetworkNg has a well-established coroutine communication mechanism.
+
+1.5.1 RLock
++++++++++++
+
+`Reentrant Lock` is a mutual exclusion (mutex) device that may be locked multiple times by the same coroutine, without causing a deadlock.
+
+.. _Reentrant Lock: https://en.wikipedia.org/wiki/Reentrant_mutex
+
+``Lock``, ``RLock``, ``Semaphore`` are usually acquired and released using ``ScopedLock<T>`` which releases locks before function returns.
+
+.. code-block:: c++
+    :caption: using RLock
+    
+    #include <QtCore/qcoreapplication.h>
+    #include "qtnetworkng/qtnetworkng.h"
+    
+    void output(QSharedPointer<RLock> lock, const QString &name)
+    {
+        ScopedLock l(*lock);    // acquire lock now, release before function returns. comment out this line and try again later.
+        qDebug() << name << 1;
+        Coroutine::sleep(1.0);
+        qDebug() << name << 2;
+        lock.release();
+    }
+    
+    int main(int argc, char **argv)
+    {
+        QCoreApplication app(argc, argv);
+        QSharedPointer<RLock> lock(new RLock);
+        QCoroutineGroup operations;
+        operations.spawn([lock]{
+            output(lock, "first");
+        });
+        operations.spawn([lock]{
+            output(lock, "second");
+        });
+        return 0;
+    }
+    
+The output is
+
+.. code-block:: text
+    :caption: output of using RLock
+    
+    "first" 1
+    "first" 2
+    "second" 1
+    "second" 2
+
+If you comment out the line ``ScopedLock l(*lock);``, the output is:
+
+.. code-block:: text
+    :caption: output without RLock
+    
+    "first" 1
+    "second" 1
+    "first" 2
+    "second" 2
+
+.. method:: bool acquire(bool blocking = true)
+
+    Acquire the lock. If the lock is acquired by other coroutine, and the paremter ``blocking`` is true, block current coroutine until the lock is released by other coroutine. Otherwise this function returns immediately.
+    
+    Returns whether the lock is acquired.
+    
+.. method:: void release()
+
+    Release the lock. The coroutine waiting at this lock will resume after current coroutine switching to eventloop coroutine later.
+    
+.. method:: bool isLocked() const
+
+    Check whether any coroutine hold this lock.
+    
+.. method:: bool isOwned() const
+
+    Check whether current coroutine hold this lock.
+
+1.5.2 Event
++++++++++++
+
+An `Event` (also called event semaphore) is a type of synchronization mechanism that is used to indicate to waiting coroutines when a particular condition has become true.
+
+.. _Event: https://en.wikipedia.org/wiki/Event_(synchronization_primitive)
+
+.. method:: bool wait(bool blocking = true)
+
+    Waiting event. If this ``Event`` is not set, and the parameter ``blocking`` is true, block current coroutine until this event is set. Otherwise returns immediately.
+    
+    Returns whether the event is set.
+    
+.. method:: void set()
+
+    Set event. The coroutine waiting at this event will resume after current coroutine switching to eventloop coroutine later.
+    
+.. method:: void clear()
+
+    Clear event.
+    
+.. method:: bool isSet() const
+
+    Check whether this event is set.
+    
+.. method:: int getting() const
+
+    Get the number of coroutines waiting at this event.
+    
+1.5.3 ValueEvent<>
+++++++++++++++++++
+
+``ValueEvent<>`` extends ``Event``. Two coroutines can use ``ValueEvent<>`` to send value.
+
+.. code-block:: c++
+    :caption: use ValueEvent<> to send value.
+    
+    #include <QtCore/qcoreapplication.h>
+    #include "qtnetworkng/qtnetworkng.h"
+
+    using namespace qtng;
+
+    int main(int argc, char **argv)
+    {
+        QCoreApplication app(argc, argv);
+        QSharedPointer<ValueEvent<int>> event(new ValueEvent<int>());
+        
+        CoroutineGroup operations;
+        operations.spawn([event]{
+            qDebug() << event->wait();
+        });
+        operations.spawn([event]{
+            event->send(3);
+        });
+        return 0;
+    }
+
+The output is:
+
+.. code-block:: text
+
+    3
+
+.. method:: void send(const Value &value)
+    
+    Send a value to other coroutine, and set this event.
+    
+    The coroutines waiting at this event will resume after current coroutine switching to eventloop coroutine.
+    
+.. method:: Value wait(bool blocking = true)
+    
+    Waiting event. If this ``Event`` is not set, and the parameter ``blocking`` is true, block current coroutine until this event is set. Otherwise returns immediately.
+    
+    Returns the value sent by other coroutine. If failed, construct a value usning default constructor.
+    
+.. method:: void set()
+
+    Set event. The coroutines waiting at this event will resume after current coroutine switching to eventloop coroutine.
+    
+.. method:: void clear()
+
+    Clear event.
+    
+.. method:: bool isSet() const
+
+    Check whether this event is set.
+    
+.. method:: int getting() const
+
+    Get the number of coroutines waiting at this event.
+    
+1.5.4 Gate
+++++++++++
+
+``Gate`` is a special interface to ``Event``. This type can be used to control data transmit rate.
+
+.. method:: bool goThrough(bool blocking = true)
+
+    It is the same as ``Event::wait()``.
+    
+.. method:: bool wait(bool blocking = true)
+
+    It is the same as ``Event::wait()``.
+    
+.. method:: void open();
+
+    It is the same as ``Event::set()``.
+    
+.. method:: void close();
+
+    It is the same as ``Event::clear()``.
+    
+.. method:: bool isOpen() const;
+
+    It is the same as ``Event::isSet()``.
+    
+1.5.5 Semaphore
++++++++++++++++
+
+A `semaphore` is a variable or abstract data type used to control access to a common resource by multiple coroutines.
+
+.. _semaphore: https://en.wikipedia.org/wiki/Semaphore_(programming)
+
+.. code-block:: c++
+    :caption: using Semaphore to control the concurrent number of request.
+    
+    #include <QtCore/qcoreapplication.h>
+    #include "qtnetworkng/qtnetworkng.h"
+
+    using namespace qtng;
+
+    void send_request(QSharedPointer<Semaphore> semaphore)
+    {
+        ScopedLock<Semaphore> l(*semaphore);
+        HttpSession session;
+        qDebug() << session.get("https://news.163.com").statusCode;
+    }
+
+    int main(int argc, char **argv)
+    {
+        QCoreApplication app(argc, argv);
+        QSharedPointer<Semaphore> semaphore(new Semaphore(5));
+        
+        CoroutineGroup operations;
+        for(int i = 0; i < 100; ++i) {
+            operations.spawn([semaphore]{
+                send_request(semaphore);
+            });
+        }
+        return 0;
+    }
+
+The last example spawns 100 corotuines, but only 5 coroutines is making request to http server.
+
+.. method:: Semaphore(int value = 1)
+
+    This constructor requires a ``value`` indicating the maximum number of resources.
+    
+.. method:: bool acquire(bool blocking = true)
+
+    Acquire the semaphore. If all resouces are used, and the parameter ``blocking`` is true, blocks current coroutine until any other coroutine release a resource. Otherwise this function returns immediately.
+    
+    Returns whether the semaphore is acquired.
+    
+.. method:: void release()
+
+    Release the semaphore. The coroutine waiting at this semaphore will resume after current coroutine switching to eventloop coroutine later.
+
+.. method:: bool isLocked() const
+    
+    Check whether this semaphore is hold by any coroutine.
+    
+1.5.6 Queue
++++++++++++
+    
+A queue between two coroutines.
+
+.. method:: Queue(int capacity)
+
+This constructor requires a ``capacity`` indicating the maximum number of elements can hold.
+
+.. method:: void setCapacity(int capacity)
+
+Set the the maximum number of elements this queue can hold.
+
+.. method:: bool put(const T &e)
+
+Put a element ``e`` to this queue. If the size of queue reaches the capacity, blocks current coroutine until any other coroutine take elements from this queue.
+
+.. method:: T get()
+
+Get (take) a element from this queue. If this queue is empty, blocks current coroutine until any other coroutine put elements to this queue.
+
+.. method:: bool isEmpty() const
+
+Check whether this queue is empty.
+
+.. method:: bool isFull() const
+
+Check whether this queue reaches the maximum size.
+
+.. method:: int getCapacity() const
+
+Get the capacity of this queue.
+
+.. method:: int size() const
+
+Returns how many elements in this queue.
+
+.. method:: int getting() const
+
+Returns the number of coroutines waiting for elements.
+
+1.5.7 Lock
+++++++++++
+
+The ``Lock`` is similar to ``RLock``, but cause dead lock if same corotine locks twice.
+
+1.5.8 Condition
++++++++++++++++
+
+Monitor variable value between coroutines.
+
+.. method:: bool wait()
+
+Block current coroutine until being waked up by ``notify()`` or ``notifyAll()`` by other corotuines.
+
+.. method:: void notify(int value = 1)
+
+Wake up coroutines. The number of coroutines is indicated by ``value``.
+
+.. method:: void notifyAll()
+
+Wake up all coroutines waiting at this condition.
+
+.. method:: int getting() const
+
+Returns the number of coroutines waiting at this condition.
+
+1.6 The Internal: How Coroutines Switch
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+to be written.
 
 2. Basic Network Programming
 ----------------------------
@@ -462,27 +785,27 @@ The second form of constructor is useful to convert socket which created by othe
 
 These are the member functions of ``Socket`` type.
 
-.. function:: Socket *accept()
+.. method:: Socket *accept()
 
     If the socket is currently listening, ``accept()`` block current coroutine, and return new ``Socket`` object after new client connected. The returned new ``Socket`` object has connected to the new client. This function returns ``0`` to indicate the socket is closed by other coroutine.
 
-.. function:: bool bind(QHostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform)
+.. method:: bool bind(QHostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform)
 
     Bind the socket to ``address`` and ``port``. If the parameter ``port`` is ommited, the Operating System choose an unused random port for you. The chosen port can obtained from ``port()`` function later. The parameter ``mode`` is not used now. 
     
     This function returns 
 
-.. function:: bool bind(quint16 port = 0, BindMode mode = DefaultForPlatform)
+.. method:: bool bind(quint16 port = 0, BindMode mode = DefaultForPlatform)
 
     Bind the socket to any address and ``port``. This function overloads ``bind(address, port)``.
 
-.. function:: bool connect(const QHostAddress &host, quint16 port)
+.. method:: bool connect(const QHostAddress &host, quint16 port)
 
     Connect to remote host specified by parameters ``host`` and ``port``. Block current coroutine until the connection is established or failed.
     
     This function returns true if the connection is established.
 
-.. function:: bool connect(const QString &hostName, quint16 port, NetworkLayerProtocol protocol = AnyIPProtocol)
+.. method:: bool connect(const QString &hostName, quint16 port, NetworkLayerProtocol protocol = AnyIPProtocol)
 
     Connect to remote host specified by parameters ``hostName`` and ``port``, using ``protocol``. If ``hostName`` is not an IP address, QtNetworkNg will make a DNS query before connecting. Block current coroutine until the connection is established or failed.
     
@@ -492,15 +815,15 @@ These are the member functions of ``Socket`` type.
     
     This function returns true if the connection is established.
 
-.. function:: bool close()
+.. method:: bool close()
 
     Close the socket.
 
-.. function:: bool listen(int backlog)
+.. method:: bool listen(int backlog)
 
     The socket is set to listening mode. You can use ``accept()`` to get new client request later. The meaning of parameter ``backlog`` is platform-specific, refer to ``man listen`` please.
 
-.. function:: bool setOption(SocketOption option, const QVariant &value)
+.. method:: bool setOption(SocketOption option, const QVariant &value)
 
     Set the given ``option`` to the value described by ``value``.
     
@@ -542,13 +865,13 @@ These are the member functions of ``Socket`` type.
     
     Note: On Windows Runtime, Socket::KeepAliveOption must be set before the socket is connected.
     
-.. function:: QVariant option(SocketOption option) const
+.. method:: QVariant option(SocketOption option) const
 
     Returns the value of the option option.
     
     See also ``setOption()`` for more information.
 
-.. function:: qint64 recv(char *data, qint64 size)
+.. method:: qint64 recv(char *data, qint64 size)
 
     Receives not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
     
@@ -556,7 +879,7 @@ These are the member functions of ``Socket`` type.
     
     If some error occured, function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. function:: qint64 recvall(char *data, qint64 size)
+.. method:: qint64 recvall(char *data, qint64 size)
 
     Receive not more than ``size`` of data from connection. Blocks current coroutine until the size of data equals ``size`` or connection is closed.
     
@@ -566,7 +889,7 @@ These are the member functions of ``Socket`` type.
     
     If some error occured, this function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. function:: qint64 send(const char *data, qint64 size)
+.. method:: qint64 send(const char *data, qint64 size)
 
     Send ``size`` of ``data`` to remote host. Block current coroutine until some data sent.
     
@@ -574,7 +897,7 @@ These are the member functions of ``Socket`` type.
     
     If some error occured, function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. function:: qint64 sendall(const char *data, qint64 size)
+.. method:: qint64 sendall(const char *data, qint64 size)
 
     Send ``size`` of ``data`` to remote host. Block current coroutine until all data sent or the connection closed.
     
@@ -582,7 +905,7 @@ These are the member functions of ``Socket`` type.
     
     If some error occured, this function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. function:: qint64 recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port)
+.. method:: qint64 recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port)
 
     Receives not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
     
@@ -592,7 +915,7 @@ These are the member functions of ``Socket`` type.
     
     If some error occured, function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. function:: qint64 sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port)
+.. method:: qint64 sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port)
 
     Send ``size`` of ``data`` to remote host specified by ``addr`` and ``port``. Block current coroutine until some data sent.
     
@@ -602,7 +925,7 @@ These are the member functions of ``Socket`` type.
     
     If some error occured, function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. function:: QByteArray recvall(qint64 size)
+.. method:: QByteArray recvall(qint64 size)
 
     Receive not more than ``size`` of data from connection. Blocks current coroutine until the size of data equals ``size`` or connection is closed.
     
@@ -614,7 +937,7 @@ These are the member functions of ``Socket`` type.
     
     This function overloads ``recvall(char*, qint64)``;
 
-.. function:: QByteArray recv(qint64 size)
+.. method:: QByteArray recv(qint64 size)
 
     Receives not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
     
@@ -624,7 +947,7 @@ These are the member functions of ``Socket`` type.
     
     This function overloads ``recv(char*, qint64)``.
 
-.. function:: qint64 send(const QByteArray &data)
+.. method:: qint64 send(const QByteArray &data)
 
     Send ``data`` to remote host. Block current coroutine until some data sent.
     
@@ -634,7 +957,7 @@ These are the member functions of ``Socket`` type.
     
     This function overloads ``send(char*, qint64)``.
 
-.. function:: qint64 sendall(const QByteArray &data)
+.. method:: qint64 sendall(const QByteArray &data)
 
     Send ``data`` to remote host. Block current coroutine until all data sent or the connection closed.
     
@@ -644,7 +967,7 @@ These are the member functions of ``Socket`` type.
     
     This function overloads ``sendall(char*, qint64)``.
 
-.. function:: QByteArray recvfrom(qint64 size, QHostAddress *addr, quint16 *port)
+.. method:: QByteArray recvfrom(qint64 size, QHostAddress *addr, quint16 *port)
 
     Receives not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
     
@@ -656,7 +979,7 @@ These are the member functions of ``Socket`` type.
     
     This function overloads ``recvfrom(char*, qint64, QHostAddress*, quint16*)``.
 
-.. function:: qint64 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
+.. method:: qint64 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
 
     Send ``data`` to remote host specified by ``addr`` and ``port``. Block current coroutine until some data sent.
     
@@ -666,67 +989,67 @@ These are the member functions of ``Socket`` type.
     
     If some error occured, function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. function:: SocketError error() const
+.. method:: SocketError error() const
 
     Returns the type of error that last occurred.
     
     TODO: A error table.
 
-.. function:: QString errorString() const
+.. method:: QString errorString() const
     
     Returns a human-readable description of the last device error that occurred.
     
-.. function:: bool isValid() const
+.. method:: bool isValid() const
 
     Returns true if the socket is not closed.
     
-.. function:: QHostAddress localAddress() const
+.. method:: QHostAddress localAddress() const
 
     Returns the host address of the local socket if available; otherwise returns ``QHostAddress::Null``.
     
     This is normally the main IP address of the host, but can be ``QHostAddress::LocalHost`` (127.0.0.1) for connections to the local host.
 
-.. function:: quint16 localPort() const
+.. method:: quint16 localPort() const
 
     Returns the host port number (in native byte order) of the local socket if available; otherwise returns `0`.
     
-.. function:: QHostAddress peerAddress() const
+.. method:: QHostAddress peerAddress() const
 
     Returns the address of the connected peer if the socket is in ``ConnectedState``; otherwise returns ``QHostAddress::Null``.
     
-.. function:: QString peerName() const
+.. method:: QString peerName() const
 
     Returns the name of the peer as specified by ``connect()``, or an empty ``QString`` if ``connect()`` has not been called.
     
-.. function:: quint16 peerPort() const
+.. method:: quint16 peerPort() const
 
     Returns the port of the connected peer if the socket is in ``ConnectedState``; otherwise returns `0`.
     
-.. function:: qintptr fileno() const
+.. method:: qintptr fileno() const
 
     Returns the native socket descriptor of the ``Socket`` object if this is available; otherwise returns `-1`.
     
     The socket descriptor is not available when ``Socket`` is in ``UnconnectedState``.
 
-.. function:: SocketType type() const
+.. method:: SocketType type() const
 
     Returns the socket type (TCP, UDP, or other).
 
-.. function:: SocketState state() const
+.. method:: SocketState state() const
 
     Returns the state of the socket.
     
     TODO: a state table.
 
-.. function:: NetworkLayerProtocol protocol() const
+.. method:: NetworkLayerProtocol protocol() const
 
     Returns the protocol of the socket.
 
-.. function:: static QList<QHostAddress> resolve(const QString &hostName)
+.. method:: static QList<QHostAddress> resolve(const QString &hostName)
 
     Make a DNS query to resolve the ``hostName``. If the ``hostName`` is an IP address, return the IP immediately.
     
-.. function:: void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache)
+.. method:: void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache)
 
     Set a ``SocketDnsCache`` to ``Socket`` object. Every call to ``connect(hostName, port)`` will check the cache first.
     
@@ -749,25 +1072,25 @@ There are three constructors to create ``SslSocket``.
     
 In addition, there are many function provided for obtain information from SslSocket.
 
-.. function:: bool handshake(bool asServer, const QString &verificationPeerName = QString())
+.. method:: bool handshake(bool asServer, const QString &verificationPeerName = QString())
 
     Do handshake to other peer. If the parameter ``asServer`` is true, this ``SslSocket`` acts as SSL server.
     
     Use this function only if the ``SslSocket`` is created from plain socket.
 
-.. function:: Certificate localCertificate() const
+.. method:: Certificate localCertificate() const
 
     Returns the the topest certificate of local peer.
     
     Usually this function returns the same certificate as ``SslConfiguration::localCertificate()``.
 
-.. function:: QList<Certificate> localCertificateChain() const
+.. method:: QList<Certificate> localCertificateChain() const
 
     Returns the certificate chain of local peer.
     
     Usually this function returns the same certificate as ``SslConfiguration::localCertificate()`` and ``localCertificateChain``, plus some CA certificates from ``SslConfiguration::caCertificates``.
 
-.. function:: QByteArray nextNegotiatedProtocol() const
+.. method:: QByteArray nextNegotiatedProtocol() const
 
     Returns the next negotiated protocol used by the ssl connection.
     
@@ -775,27 +1098,27 @@ In addition, there are many function provided for obtain information from SslSoc
     
     .. _The Application-Layer Protocol Negotiation: https://en.wikipedia.org/wiki/Application-Layer_Protocol_Negotiation
 
-.. function:: NextProtocolNegotiationStatus nextProtocolNegotiationStatus() const
+.. method:: NextProtocolNegotiationStatus nextProtocolNegotiationStatus() const
 
     Returns the status of the next protocol negotiation.
 
-.. function:: SslMode mode() const
+.. method:: SslMode mode() const
 
     Returns the mode the ssl connection. (Server or client)
 
-.. function:: Certificate peerCertificate() const
+.. method:: Certificate peerCertificate() const
 
     Returns the topest certificate of remote peer.
 
-.. function:: QList<Certificate> peerCertificateChain() const
+.. method:: QList<Certificate> peerCertificateChain() const
 
     Returns the certificate chain of remote peer.
     
-.. function:: int peerVerifyDepth() const
+.. method:: int peerVerifyDepth() const
 
     Returns the depth of verification. If the certificate chain of remote peer is longer than depth, the verification is failed.
 
-.. function:: Ssl::PeerVerifyMode peerVerifyMode() const
+.. method:: Ssl::PeerVerifyMode peerVerifyMode() const
 
     Returns the mode of verification.
     
@@ -819,35 +1142,35 @@ In addition, there are many function provided for obtain information from SslSoc
     |                      | VerifyPeer for client sockets.                                                       |
     +----------------------+--------------------------------------------------------------------------------------+
 
-.. function:: QString peerVerifyName() const
+.. method:: QString peerVerifyName() const
 
     Returns the name of remote peer.
 
-.. function:: PrivateKey privateKey() const
+.. method:: PrivateKey privateKey() const
 
     Returns the private key used by this connection.
     
     This function returns the same private key to ``SslConfiguration::privateKey()``.
 
-.. function:: SslCipher cipher() const
+.. method:: SslCipher cipher() const
 
     Get the cipher used by this connection. If there is no cipher used, this function returns empty cipher. ``Cipher::isNull()`` returns true in that case.
     
     The cipher is available only after handshaking.
 
-.. function:: Ssl::SslProtocol sslProtocol() const
+.. method:: Ssl::SslProtocol sslProtocol() const
 
     Returns the ssl protocol used by this connection.
 
-.. function:: SslConfiguration sslConfiguration() const
+.. method:: SslConfiguration sslConfiguration() const
 
     Returns the configuration used by this connection.
 
-.. function:: QList<SslError> sslErrors() const
+.. method:: QList<SslError> sslErrors() const
 
     Returns the errors occured while handshaking and communication.
 
-.. function:: void setSslConfiguration(const SslConfiguration &configuration)
+.. method:: void setSslConfiguration(const SslConfiguration &configuration)
 
     Set the configuration to use. This function must called before ``handshake()`` is called.
     
@@ -870,7 +1193,7 @@ The first construct an empty ``Socks5Proxy``. The address of proxy server is nee
 
 The second constructor use the ``hostName`` and ``port`` to create a valid Socks5 Proxy.
 
-.. function:: QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port);
+.. method:: QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port);
 
     Use this function to connect to ``remoteHost`` at ``port`` via this proxy.
     
@@ -880,7 +1203,7 @@ The second constructor use the ``hostName`` and ``port`` to create a valid Socks
     
     The DNS query of ``remoteHost`` is made at the proxy server.
     
-.. function:: QSharedPointer<Socket> connect(const QHostAddress &remoteHost, quint16 port)
+.. method:: QSharedPointer<Socket> connect(const QHostAddress &remoteHost, quint16 port)
 
     Connect to ``remoteHost`` at ``port`` via this proxy.
     
@@ -890,7 +1213,7 @@ The second constructor use the ``hostName`` and ``port`` to create a valid Socks
     
     This function is similar to ``connect(QString, quint16)`` except that there is no DNS query made.
     
-.. function:: QSharedPointer<SocketLike> listen(quint16 port)
+.. method:: QSharedPointer<SocketLike> listen(quint16 port)
 
     Tell the Socks5 proxy to Listen at ``port``.
     
@@ -902,54 +1225,54 @@ The second constructor use the ``hostName`` and ``port`` to create a valid Socks
     
     The ``SocketLike::accept()`` is blocked until new request arrived.
     
-.. function:: bool isNull() const
+.. method:: bool isNull() const
     
     Returns true if there is no ``hostName`` or ``port`` of proxy server is provided.
     
-.. function:: Capabilities capabilities() const
+.. method:: Capabilities capabilities() const
 
     Returns the capabilities of proxy server.
     
-.. function:: QString hostName() const
+.. method:: QString hostName() const
 
     Returns the ``hostName`` of proxy server.
     
-.. function:: quint16 port() const;
+.. method:: quint16 port() const;
 
     Returns the ``port`` of proxy server.
     
-.. function:: QString user() const
+.. method:: QString user() const
 
     Returns the ``user`` used for autherication of proxy server.
     
-.. function:: QString password() const
+.. method:: QString password() const
 
     Returns the ``password`` used for autherication of proxy server.
     
-.. function:: void setCapabilities(QFlags<Capability> capabilities)
+.. method:: void setCapabilities(QFlags<Capability> capabilities)
 
     Set the capabilities of proxy server.
     
-.. function:: void setHostName(const QString &hostName)
+.. method:: void setHostName(const QString &hostName)
     
     Set the ``hostName`` of proxy server.
     
-.. function:: void setPort(quint16 port)
+.. method:: void setPort(quint16 port)
 
     Set the ``port`` of proxy server.
     
-.. function:: void setUser(const QString &user)
+.. method:: void setUser(const QString &user)
 
     Set the ``user`` used for autherication of proxy server.
     
-.. function:: void setPassword(const QString &password)
+.. method:: void setPassword(const QString &password)
 
     Set the ``password`` used for autherication of proxy server.
 
 2.4 SocketServer
 ^^^^^^^^^^^^^^^^
 
-Not implmented.
+Not implmented yet.
 
 3. Http Client
 --------------
@@ -970,7 +1293,7 @@ Not implmented.
 ^^^^^^^^^^^^^^^^^^^^^
 
 4.2 Application Server
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 5. Configuration And Build
 --------------------------

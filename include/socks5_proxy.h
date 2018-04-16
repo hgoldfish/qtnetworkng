@@ -68,7 +68,7 @@ public:
     quint16 port() const;
     QString user() const;
     QString password() const;
-    void setCapabilities(QFlags<Capability> capabilities);
+    void setCapabilities(Capabilities capabilities);
     void setHostName(const QString &hostName);
     void setPort(quint16 port);
     void setUser(const QString &user);

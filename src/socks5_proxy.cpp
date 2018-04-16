@@ -68,8 +68,10 @@ class Socks5ProxyPrivate
 public:
     Socks5ProxyPrivate() {}
     Socks5ProxyPrivate(const QString &hostName, quint16 port, const QString &user, const QString &password)
-        :hostName(hostName), port(port), user(user), password(password) {
-        capabilities = Socks5Proxy::TunnelingCapability | Socks5Proxy:: HostNameLookupCapability;
+        :hostName(hostName), port(port), user(user), password(password)
+    {
+        capabilities |= Socks5Proxy::TunnelingCapability;
+        capabilities |= Socks5Proxy:: HostNameLookupCapability;
     }
 public:
     QSharedPointer<Socket> getControlSocket() const;
@@ -411,6 +413,12 @@ QString Socks5Proxy::password() const
 {
     Q_D(const Socks5Proxy);
     return d->password;
+}
+
+void Socks5Proxy::setCapabilities(Socks5Proxy::Capabilities capabilities)
+{
+    Q_D(Socks5Proxy);
+    d->capabilities = capabilities;
 }
 
 void Socks5Proxy::setHostName(const QString &hostName)

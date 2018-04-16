@@ -312,7 +312,7 @@ Or send json data.
     HttpResponse resp = session.post(url, obj);
     
 Get data from ``HttpResponse``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``HttpResponse`` contains all the data from HTTP server, such as headers, content, and status code.
 

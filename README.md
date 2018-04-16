@@ -7,8 +7,13 @@ Introduction
 
 QtNetworkgNg is a self-contained coroutine-based network toolkit, like boost::asio but uses concepts of QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg requires Qt5 framework. For more detail visit:
 
-[Introduction to QtNetworkNg](docs/intro.rst)
+[Introduction to QtNetworkNg](http://qtng.org/intro.html)
 
+
+Documents
+---------
+
+Visit http://qtng.org/
 
 Examples
 --------

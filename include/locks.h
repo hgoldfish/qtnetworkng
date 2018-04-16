@@ -97,6 +97,7 @@ public:
     void set() { event.set(); }
     void clear() { event.clear(); }
     bool isSet() const { return event.isSet(); }
+    int getting() const { return event.getting(); }
 public:
     Event event;
     Value value;
