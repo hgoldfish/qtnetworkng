@@ -11,7 +11,7 @@ private slots:
     void testKill();
     void testKillall();
     void testmap();
-    void testeach();
+//    void testeach();
 };
 
 
@@ -76,16 +76,16 @@ void output(int i)
     qDebug() << i;
 }
 
-void TestCoroutines::testeach()
-{
-    QSharedPointer<Coroutine> coroutine(Coroutine::spawn([]{
-        QList<int> range10;
-        for(int i = 0; i < 10; ++i)
-            range10.append(i);
-        CoroutineGroup::each<int>(output, range10);
-    }));
-    coroutine->join();
-}
+//void TestCoroutines::testeach()
+//{
+//    QSharedPointer<Coroutine> coroutine(Coroutine::spawn([]{
+//        QList<int> range10;
+//        for(int i = 0; i < 10; ++i)
+//            range10.append(i);
+//        CoroutineGroup::each<int>(output, range10);
+//    }));
+//    coroutine->join();
+//}
 
 QTEST_MAIN(TestCoroutines)
 
