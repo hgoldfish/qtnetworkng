@@ -10,7 +10,7 @@ private slots:
     void testStart();
     void testKill();
     void testKillall();
-//    void testmap();
+    void testmap();
     void testeach();
 };
 
@@ -50,23 +50,24 @@ void TestCoroutines::testKillall()
 }
 
 
-//int pow2(int i)
-//{
-//    return i * i;
-//}
+int pow2(int i)
+{
+    return i * i;
+}
 
 
 void TestCoroutines::testmap()
 {
-    QSharedPointer<Coroutine> coroutine([]{
+    QSharedPointer<Coroutine> coroutine(Coroutine::spawn([]{
         QList<int> range10;
         for(int i = 0; i < 10; ++i)
             range10.append(i);
 
-        QList<int> result = qtng::CoroutineGroup::map<int,int>(pow2, range10);
-        for(int i =0; i < 10; ++i)
+        QList<int> result = CoroutineGroup::map<int,int>(pow2, range10);
+        for(int i =0; i < result.size(); ++i)
             qDebug() << result[i];
-    });
+    }));
+    coroutine->join();
 }
 
 
@@ -77,12 +78,12 @@ void output(int i)
 
 void TestCoroutines::testeach()
 {
-    QSharedPointer<Coroutine> coroutine([]{
+    QSharedPointer<Coroutine> coroutine(Coroutine::spawn([]{
         QList<int> range10;
         for(int i = 0; i < 10; ++i)
             range10.append(i);
         CoroutineGroup::each<int>(output, range10);
-    });
+    }));
     coroutine->join();
 }
 
