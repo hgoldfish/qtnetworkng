@@ -65,6 +65,6 @@ void TestSsl::testVersion10()
     QVERIFY(response.version == Http1_0);
 }
 
-QTEST_MAIN(TestSsl)
+//QTEST_MAIN(TestSsl)
 
 #include "test_ssl.moc"

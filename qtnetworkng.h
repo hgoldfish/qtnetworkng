@@ -11,7 +11,6 @@
 #include "include/http_proxy.h"
 #include "include/http_utils.h"
 #include "include/socks5_proxy.h"
-#include "contrib/data_channel.h"
 
 #ifdef QTNETWOKRNG_USE_SSL
 #include "include/ssl.h"

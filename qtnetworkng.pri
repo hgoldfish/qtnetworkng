@@ -13,7 +13,6 @@ SOURCES += \
     $$PWD/src/locks.cpp \
     $$PWD/src/coroutine_utils.cpp \
     $$PWD/src/http.cpp \
-    $$PWD/contrib/data_channel.cpp \
     $$PWD/src/socket_utils.cpp \
     $$PWD/src/http_utils.cpp \
     $$PWD/src/http_proxy.cpp \
@@ -31,8 +30,6 @@ HEADERS += \
     $$PWD/include/coroutine_p.h \
     $$PWD/include/http.h \
     $$PWD/include/http_p.h \
-    $$PWD/contrib/data_pack.h \
-    $$PWD/contrib/data_channel.h \
     $$PWD/include/socket_utils.h \
     $$PWD/include/qsystemlibrary_p.h \
     $$PWD/include/http_utils.h \

@@ -81,6 +81,6 @@ void TestCoroutines::testeach()
     CoroutineGroup::each<int>(output, range10);
 }
 
-//QTEST_MAIN(TestCoroutines)
+QTEST_MAIN(TestCoroutines)
 
 #include "test_coroutines.moc"
