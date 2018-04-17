@@ -56,16 +56,18 @@ void TestCoroutines::testKillall()
 //}
 
 
-//void TestCoroutines::testmap()
-//{
-//    QList<int> range10;
-//    for(int i = 0; i < 10; ++i)
-//        range10.append(i);
+void TestCoroutines::testmap()
+{
+    QSharedPointer<Coroutine> coroutine([]{
+        QList<int> range10;
+        for(int i = 0; i < 10; ++i)
+            range10.append(i);
 
-//    QList<int> result = qtng::CoroutineGroup::map<int,int>(pow2, range10);
-//    for(int i =0; i < 10; ++i)
-//        qDebug() << result[i];
-//}
+        QList<int> result = qtng::CoroutineGroup::map<int,int>(pow2, range10);
+        for(int i =0; i < 10; ++i)
+            qDebug() << result[i];
+    });
+}
 
 
 void output(int i)
@@ -75,10 +77,13 @@ void output(int i)
 
 void TestCoroutines::testeach()
 {
-    QList<int> range10;
-    for(int i = 0; i < 10; ++i)
-        range10.append(i);
-    CoroutineGroup::each<int>(output, range10);
+    QSharedPointer<Coroutine> coroutine([]{
+        QList<int> range10;
+        for(int i = 0; i < 10; ++i)
+            range10.append(i);
+        CoroutineGroup::each<int>(output, range10);
+    });
+    coroutine->join();
 }
 
 QTEST_MAIN(TestCoroutines)
