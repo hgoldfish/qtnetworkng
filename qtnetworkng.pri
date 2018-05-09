@@ -150,16 +150,20 @@ android {
         SOURCES += $$PWD/src/coroutine_unix.cpp
     }
 } else: windows {
-    equals(QMAKE_HOST.arch, x86_64) {
-        SOURCES += $$PWD/src/context/asm/jump_x86_64_ms_pe_gas.S \
-            $$PWD/src/context/asm/make_x86_64_ms_pe_gas.S \
-            $$PWD/src/coroutine_fcontext.cpp
-    } else:equals(QMAKE_HOST.arch, x86) {
-        SOURCES += $$PWD/src/context/asm/jump_i386_ms_pe_gas.S \
-            $$PWD/src/context/asm/make_i386_ms_pe_gas.S \
-            $$PWD/src/coroutine_fcontext.cpp
-    } else {
+    win32-msvc* : {
         SOURCES += $$PWD/src/coroutine_win.cpp
+    } else {
+        equals(QMAKE_HOST.arch, x86_64) {
+            SOURCES += $$PWD/src/context/asm/jump_x86_64_ms_pe_gas.S \
+                $$PWD/src/context/asm/make_x86_64_ms_pe_gas.S \
+                $$PWD/src/coroutine_fcontext.cpp
+        } else:equals(QMAKE_HOST.arch, x86) {
+            SOURCES += $$PWD/src/context/asm/jump_i386_ms_pe_gas.S \
+                $$PWD/src/context/asm/make_i386_ms_pe_gas.S \
+                $$PWD/src/coroutine_fcontext.cpp
+        } else {
+            SOURCES += $$PWD/src/coroutine_win.cpp
+        }
     }
 } else {
     error(Unsupported platform)

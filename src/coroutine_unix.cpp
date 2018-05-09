@@ -20,7 +20,7 @@ public:
     bool yield();
 private:
     BaseCoroutine * const q_ptr;
-    BaseCoroutine * const previous;
+    BaseCoroutine * previous;
     size_t stackSize;
     void *stack;
     enum BaseCoroutine::State state;
@@ -30,6 +30,7 @@ private:
     Q_DECLARE_PUBLIC(BaseCoroutine)
 private:
     static void run_stub(BaseCoroutinePrivate *coroutine);
+    void cleanup() { q_ptr->cleanup(); }
     friend BaseCoroutine* createMainCoroutine();
 };
 
@@ -38,32 +39,32 @@ private:
 void BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
 {
     coroutine->state = BaseCoroutine::Started;
-    emit coroutine->q_ptr->started();
+    coroutine->q_ptr->started.callback(coroutine->q_ptr);
     try
     {
         coroutine->q_ptr->run();
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
     }
     catch(const CoroutineExitException &e)
     {
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
     }
     catch(const CoroutineException &e)
     {
         qDebug() << "got coroutine exception:" << e.what();
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
     }
     catch(...)
     {
         qWarning() << "coroutine throw a unhandled exception.";
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
 //        throw; // cause undefined behaviors
     }
-    swapcontext(coroutine->context, coroutine->previous->d_ptr->context);
+    coroutine->cleanup();
 }
 
 
@@ -260,5 +261,26 @@ bool BaseCoroutine::yield()
     return d->yield();
 }
 
+
+void BaseCoroutine::cleanup()
+{
+    Q_D(BaseCoroutine);
+    if(d->previous) {
+        d->previous->yield();
+    }
+}
+
+BaseCoroutine *BaseCoroutine::previous() const
+{
+    Q_D(const BaseCoroutine);
+    return d->previous;
+}
+
+
+void BaseCoroutine::setPrevious(BaseCoroutine *previous)
+{
+    Q_D(BaseCoroutine);
+    d->previous = previous;
+}
 
 QTNETWORKNG_NAMESPACE_END

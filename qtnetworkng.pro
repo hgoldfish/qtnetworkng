@@ -2,9 +2,10 @@ QT = core network testlib
 
 TARGET = qtnetworkng
 CONFIG += console
-# CONFIG += networkng_ev
 CONFIG -= app_bundle
 TEMPLATE = app
+# CONFIG += networkng_ev
+# QT_ARCH = undefined
 SOURCES += tests/simple_test.cpp \
     tests/many_httpget.cpp \
     tests/sleep_coroutines.cpp \

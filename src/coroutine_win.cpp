@@ -23,38 +23,32 @@ private:
     Q_DECLARE_PUBLIC(QBaseCoroutine)
 private:
     static void CALLBACK run_stub(BaseCoroutinePrivate *coroutine);
+    void cleanup() { q_ptr->cleanup(); }
     friend BaseCoroutine* createMainCoroutine();
 };
 
 void CALLBACK BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
 {
     coroutine->state = BaseCoroutine::Started;
-    emit coroutine->q_ptr->started();
-    try
-    {
+    coroutine->q_ptr->started.callback(coroutine->q_ptr);
+    try {
         coroutine->q_ptr->run();
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
-    }
-    catch(const CoroutineExitException &e)
-    {
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
+    } catch(const CoroutineExitException &e) {
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
-    }
-    catch(const CoroutineException &e)
-    {
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
+    } catch(const CoroutineException &e) {
         qDebug() << "got coroutine exception:" << e.what();
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
-    }
-    catch(...)
-    {
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
+    } catch(...) {
         qWarning("coroutine throw a unhandled exception.");
         coroutine->state = BaseCoroutine::Stopped;
-        emit coroutine->q_ptr->finished();
+        coroutine->q_ptr->finished.callback(coroutine->q_ptr);
         //throw; // cause undefined behaviors
     }
-    SwitchToFiber(coroutine->previous->d_ptr->context);
+    coroutine->cleanup();
 }
 
 
@@ -103,28 +97,26 @@ bool BaseCoroutinePrivate::initContext()
 bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 {
     Q_Q(BaseCoroutine);
-    if(currentCoroutine().get() == q)
-    {
+    if(currentCoroutine().get() == q) {
         qWarning("can not kill oneself.");
         return false;
     }
 
-    if(this->exception)
-    {
+    if(this->exception) {
         qWarning("coroutine had been killed.");
         return false;
     }
 
-    if(state == BaseCoroutine::Stopped || state == BaseCoroutine::Joined)
-    {
+    if(state == BaseCoroutine::Stopped || state == BaseCoroutine::Joined) {
         qWarning("coroutine is stopped.");
         return false;
     }
 
-    if(exception)
+    if(exception) {
         this->exception = exception;
-    else
+    } else {
         this->exception = new CoroutineExitException();
+    }
 
     try {
         bool result = yield();
@@ -153,8 +145,7 @@ bool BaseCoroutinePrivate::yield()
     currentCoroutine().set(q);
     //qDebug() << "yield from " << old << "to" << q;
     SwitchToFiber(context);
-    if(currentCoroutine().get() != old)  // when coroutine finished, swapcontext auto yield to the previous.
-    {
+    if(currentCoroutine().get() != old) { // when coroutine finished, swapcontext auto yield to the previous.
         currentCoroutine().set(old);
     }
     CoroutineException *e = old->d_ptr->exception;
@@ -210,10 +201,12 @@ BaseCoroutine::BaseCoroutine(BaseCoroutine *previous, size_t stackSize)
 {
 }
 
+
 BaseCoroutine::~BaseCoroutine()
 {
     delete d_ptr;
 }
+
 
 BaseCoroutine::State BaseCoroutine::state() const
 {
@@ -221,11 +214,13 @@ BaseCoroutine::State BaseCoroutine::state() const
     return d->state;
 }
 
+
 bool BaseCoroutine::raise(CoroutineException *exception)
 {
     Q_D(BaseCoroutine);
     return d->raise(exception);
 }
+
 
 bool BaseCoroutine::yield()
 {
@@ -233,10 +228,34 @@ bool BaseCoroutine::yield()
     return d->yield();
 }
 
+
 void BaseCoroutine::setState(BaseCoroutine::State state)
 {
     Q_D(BaseCoroutine);
     d->state = state;
+}
+
+
+void BaseCoroutine::cleanup()
+{
+    Q_D(BaseCoroutine);
+    if(d->previous) {
+        d->previous->yield();
+    }
+}
+
+
+BaseCoroutine *BaseCoroutine::previous() const
+{
+    Q_D(const BaseCoroutine);
+    return d->previous;
+}
+
+
+void BaseCoroutine::setPrevious(BaseCoroutine *previous)
+{
+    Q_D(BaseCoroutine);
+    d->previous = previous;
 }
 
 QTNETWORKNG_NAMESPACE_END

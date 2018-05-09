@@ -47,7 +47,7 @@ And another exmaple to make tcp connection.
         return 0;
     }
 
-To create tcp server. ::
+To create tcp server.
 
     Socket s;
     CoroutineGroup workers;
