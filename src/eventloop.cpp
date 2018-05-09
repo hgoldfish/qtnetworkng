@@ -143,10 +143,16 @@ int EventLoopCoroutine::exitCode()
     return d->exitCode();
 }
 
-void EventLoopCoroutine::runUntil(BaseCoroutine *coroutine)
+bool EventLoopCoroutine::runUntil(BaseCoroutine *coroutine)
 {
     Q_D(EventLoopCoroutine);
     return d->runUntil(coroutine);
+}
+
+void EventLoopCoroutine::yield()
+{
+    Q_D(EventLoopCoroutine);
+    return d->yield();
 }
 
 // 开始写 CurrentLoopStorage 的实现
@@ -307,6 +313,7 @@ void CoroutinePrivate::kill(CoroutineException *e, int msecs)
     }
 }
 
+
 void CoroutinePrivate::cancelStart()
 {
     Q_Q(Coroutine);
@@ -323,10 +330,12 @@ void CoroutinePrivate::cancelStart()
     callbackId = 0;
 }
 
+
 void CoroutinePrivate::setFinishedEvent()
 {
     finishedEvent.set();
 }
+
 
 bool CoroutinePrivate::join()
 {
@@ -334,8 +343,7 @@ bool CoroutinePrivate::join()
 
     if(q->state() == BaseCoroutine::Initialized || q->state() == BaseCoroutine::Started) {
         if(!dynamic_cast<Coroutine*>(BaseCoroutine::current())) {
-            EventLoopCoroutine::get()->runUntil(q);
-            return true;
+            return EventLoopCoroutine::get()->runUntil(q);
         }
         return finishedEvent.wait();
     } else {
@@ -350,27 +358,32 @@ Coroutine::Coroutine(size_t stackSize)
 {
 }
 
+
 Coroutine::Coroutine(QObject *obj, const char *slot, size_t stackSize)
     :BaseCoroutine(EventLoopCoroutine::get(), stackSize), d_ptr(new CoroutinePrivate(this, obj, slot))
 {
 
 }
 
+
 Coroutine::~Coroutine()
 {
     delete d_ptr;
 }
+
 
 bool Coroutine::isRunning() const
 {
     return state() == BaseCoroutine::Started;
 }
 
+
 bool Coroutine::isFinished() const
 {
     const BaseCoroutine::State s = state();
     return s == BaseCoroutine::Stopped || s == BaseCoroutine::Joined;
 }
+
 
 Coroutine *Coroutine::start(int msecs)
 {
@@ -379,17 +392,20 @@ Coroutine *Coroutine::start(int msecs)
     return this;
 }
 
+
 void Coroutine::kill(CoroutineException *e, int msecs)
 {
     Q_D(Coroutine);
     d->kill(e, msecs);
 }
 
+
 void Coroutine::cancelStart()
 {
     Q_D(Coroutine);
     d->cancelStart();
 }
+
 
 void Coroutine::run()
 {
@@ -399,6 +415,13 @@ void Coroutine::run()
         QMetaObject::invokeMethod(d->obj, d->slot);
     }
 }
+
+
+void Coroutine::cleanup()
+{
+    EventLoopCoroutine::get()->yield();
+}
+
 
 bool Coroutine::join()
 {

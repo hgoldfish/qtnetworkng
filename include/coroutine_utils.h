@@ -188,10 +188,9 @@ public:
         for(int i = 0; i < l.size(); ++i) {
             result->append(T());
             S s = l[i];
-            operations.add(Coroutine::spawn([func, s, result, i]{
-                qDebug() << result->size() << (*result)[i] << i << s;
+            operations.spawn([func, s, result, i]{
                 (*result)[i] = func(s);
-            }));
+            });
         }
         operations.joinall();
         return *result;

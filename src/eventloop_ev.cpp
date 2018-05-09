@@ -109,7 +109,8 @@ public:
     virtual void cancelCall(int callbackId) override;
     virtual void callLaterThreadSafe(int msecs, Functor *callback) override;
     virtual int exitCode() override;
-    virtual void runUntil(BaseCoroutine *coroutine) override;
+    virtual bool runUntil(BaseCoroutine *coroutine) override;
+    virtual void yield() override;
     void doCallLater();
 private:
     static void ev_async_callback(struct ev_loop *loop, ev_async *w, int revents);
@@ -121,6 +122,7 @@ private:
     QQueue<QPair<int, Functor*>> callLaterQueue;
     ev_async asyncContext;
     QAtomicInteger<bool> exitingFlag;
+    QPointer<BaseCoroutine> loopCoroutine;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
     friend struct TriggerIoWatchersFunctor;
 };
@@ -286,18 +288,41 @@ int EventLoopCoroutinePrivateEv::exitCode()
 }
 
 
-void EventLoopCoroutinePrivateEv::runUntil(BaseCoroutine *coroutine)
+bool EventLoopCoroutinePrivateEv::runUntil(BaseCoroutine *coroutine)
 {
-    QPointer<BaseCoroutine> loopCoroutine = BaseCoroutine::current();
-    std::function<BaseCoroutine*(BaseCoroutine*)> exitOneDepth = [this, loopCoroutine] (BaseCoroutine *arg) -> BaseCoroutine * {
-        ev_break(loop, EVBREAK_ONE);
-        if(!loopCoroutine.isNull()) {
-            loopCoroutine->yield();
-        }
-        return arg;
-    };
-    coroutine->finished.addCallback(exitOneDepth);
-    ev_run(loop);
+    if(!loopCoroutine.isNull()) {
+        QPointer<BaseCoroutine> current = BaseCoroutine::current();
+        std::function<BaseCoroutine*(BaseCoroutine*)> here = [current] (BaseCoroutine *arg) -> BaseCoroutine *  {
+            if(!current.isNull()) {
+                current->yield();
+            }
+            return arg;
+        };
+        coroutine->finished.addCallback(here);
+        loopCoroutine->yield();
+    } else {
+        loopCoroutine = BaseCoroutine::current();
+        std::function<BaseCoroutine*(BaseCoroutine*)> exitOneDepth = [this] (BaseCoroutine *arg) -> BaseCoroutine * {
+            ev_break(loop, EVBREAK_ONE);
+            if(!loopCoroutine.isNull()) {
+                loopCoroutine->yield();
+            }
+            return arg;
+        };
+        coroutine->finished.addCallback(exitOneDepth);
+        ev_run(loop);
+        loopCoroutine.clear();
+    }
+}
+
+void EventLoopCoroutinePrivateEv::yield()
+{
+    Q_Q(EventLoopCoroutine);
+    if(!loopCoroutine.isNull()) {
+        loopCoroutine->yield();
+    } else {
+       q->BaseCoroutine::yield();
+    }
 }
 
 EventLoopCoroutine::EventLoopCoroutine()

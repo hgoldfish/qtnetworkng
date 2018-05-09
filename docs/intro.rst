@@ -1,7 +1,7 @@
 Introduction to QtNetworkNg
 ===========================
 
-QtNetworkNg is a coroutine-based networking programming toolkit, like boost::asio but use concept of QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API.
+QtNetworkNg is a coroutine-based networking programming toolkit, like boost::asio but use concepts from QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API.
 
 
 Why Coroutines

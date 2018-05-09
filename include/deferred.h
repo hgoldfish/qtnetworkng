@@ -9,9 +9,9 @@ class Deferred
 {
 public:
     typedef std::function<ARG(const ARG &)> Callback;
-    Deferred() {}
+    Deferred();
 public:
-    void addCallbacks(Callback callback, Callback errback) { stack.append(qMakePair(callback, errback)); }
+    void addCallbacks(Callback callback, Callback errback);
     void addBoth(Callback callback) { addCallbacks(callback, callback); }
     void addCallback(Callback callback);
     void addErrback(Callback errback);
@@ -22,8 +22,30 @@ private:
     void run(const ARG &arg, bool ok);
 private:
     QList<QPair<Callback, Callback>> stack;
+    QPair<ARG, bool> originalResult;
+    bool ran;
 };
 
+
+template<typename ARG>
+Deferred<ARG>::Deferred()
+    :ran(false)
+{
+
+}
+
+template<typename ARG>
+void Deferred<ARG>::addCallbacks(Callback callback, Callback errback)
+{
+     stack.append(qMakePair(callback, errback));
+     if(ran) {
+         if(originalResult.second) {
+             callback(originalResult.first);
+         } else {
+             errback(originalResult.first);
+         }
+     }
+}
 
 template<typename ARG>
 void Deferred<ARG>::addCallback(Callback callback)
@@ -48,6 +70,8 @@ void Deferred<ARG>::addErrback(Callback errback)
 template<typename ARG>
 void Deferred<ARG>::run(const ARG &arg, bool ok)
 {
+    originalResult = qMakePair(arg, ok);
+    ran = true;
     ARG result = arg;
     bool _ok = ok;
     for(const QPair<Callback, Callback> &item: stack) {

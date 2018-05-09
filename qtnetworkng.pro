@@ -2,7 +2,7 @@ QT = core network testlib
 
 TARGET = qtnetworkng
 CONFIG += console
-CONFIG += networkng_ev
+# CONFIG += networkng_ev
 CONFIG -= app_bundle
 TEMPLATE = app
 SOURCES += tests/simple_test.cpp \

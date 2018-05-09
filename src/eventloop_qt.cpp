@@ -83,7 +83,8 @@ public:
     virtual int callRepeat(int msecs, Functor *callback) override;
     virtual void cancelCall(int callbackId) override;
     virtual int exitCode() override;
-    virtual void runUntil(BaseCoroutine *coroutine) override;
+    virtual bool runUntil(BaseCoroutine *coroutine) override;
+    virtual void yield() override;
 private slots:
     void callLaterThreadSafeStub(int msecs, void* callback)
     {
@@ -94,17 +95,17 @@ protected:
 private slots:
     void handleIoEvent(int socket);
 private:
-    QEventLoop *loop;
     QMap<int, QtWatcher*> watchers;
     QMap<int, int> timers;
     int nextWatcherId;
     int qtExitCode;
+    QPointer<BaseCoroutine> loopCoroutine;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
     friend struct TriggerIoWatchersArgumentsFunctor;
 };
 
 EventLoopCoroutinePrivateQt::EventLoopCoroutinePrivateQt(EventLoopCoroutine *q)
-    :EventLoopCoroutinePrivate(q), loop(new QEventLoop()), nextWatcherId(1)
+    :EventLoopCoroutinePrivate(q), nextWatcherId(1)
 {
 }
 
@@ -113,26 +114,14 @@ EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
     foreach(QtWatcher *watcher, watchers) {
         delete watcher;
     }
-    if(loop->isRunning()) {
-        qWarning("deleting running qt eventloop.");
-        loop->quit();
-    }
-    delete loop;
-//    if(loop) {
-//        loop->quit(); // XXX ::run() may be in other coroutine;
-//    }
 }
 
 void EventLoopCoroutinePrivateQt::run()
 {
     QPointer<EventLoopCoroutinePrivateQt> self(this);
-    int result;
 
-    // XXX loop is deleted in other coroutine, `this` pointer is invalid.
-    // very bad taste! I don't like this.
-    volatile QEventLoop *localLoop = loop;
-    result = ((QEventLoop*)localLoop)->exec();
-//    delete localLoop;
+    QEventLoop localLoop;
+    int result = localLoop.exec();
 
     if(!self.isNull()) {
         self->qtExitCode = result;
@@ -304,19 +293,43 @@ int EventLoopCoroutinePrivateQt::exitCode()
 }
 
 
-void EventLoopCoroutinePrivateQt::runUntil(BaseCoroutine *coroutine)
+bool EventLoopCoroutinePrivateQt::runUntil(BaseCoroutine *coroutine)
 {
-    QSharedPointer<QEventLoop> sub(new QEventLoop());
-    QPointer<BaseCoroutine> loopCoroutine = BaseCoroutine::current();
-    std::function<BaseCoroutine*(BaseCoroutine*)> shutdown = [this, sub, loopCoroutine] (BaseCoroutine *arg) -> BaseCoroutine * {
-        sub->exit();
-        if(!loopCoroutine.isNull()) {
-            loopCoroutine->yield();
-        }
-        return arg;
-    };
-    coroutine->finished.addCallback(shutdown);
-    sub->exec();
+    if(!loopCoroutine.isNull()) {
+        QPointer<BaseCoroutine> current = BaseCoroutine::current();
+        std::function<BaseCoroutine*(BaseCoroutine*)> return_here = [current] (BaseCoroutine *arg) -> BaseCoroutine * {
+            if(!current.isNull()) {
+                current->yield();
+            }
+            return arg;
+        };
+        coroutine->finished.addCallback(return_here);
+        loopCoroutine->yield();
+    } else {
+        loopCoroutine = BaseCoroutine::current();
+        QSharedPointer<QEventLoop> sub(new QEventLoop());
+        std::function<BaseCoroutine*(BaseCoroutine*)> shutdown = [this, sub] (BaseCoroutine *arg) -> BaseCoroutine * {
+            sub->exit();
+            if(!loopCoroutine.isNull()) {
+                loopCoroutine->yield();
+            }
+            return arg;
+        };
+        coroutine->finished.addCallback(shutdown);
+        sub->exec();
+        loopCoroutine.clear();
+    }
+    return true;
+}
+
+void EventLoopCoroutinePrivateQt::yield()
+{
+    Q_Q(EventLoopCoroutine);
+    if(!loopCoroutine.isNull()) {
+        loopCoroutine->yield();
+    } else {
+        q->BaseCoroutine::yield();
+    }
 }
 
 EventLoopCoroutine::EventLoopCoroutine()

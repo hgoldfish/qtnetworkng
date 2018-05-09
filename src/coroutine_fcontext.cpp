@@ -37,7 +37,7 @@ public:
     bool yield();
 private:
     BaseCoroutine * const q_ptr;
-    BaseCoroutine * const previous;
+    BaseCoroutine * previous;
     size_t stackSize;
     void *stack;
     enum BaseCoroutine::State state;
@@ -47,6 +47,7 @@ private:
     Q_DECLARE_PUBLIC(BaseCoroutine)
 private:
     static BaseCoroutinePrivate *getPrivateHelper(BaseCoroutine *coroutine) { return coroutine->d_ptr; }
+    void cleanup() { q_ptr->cleanup(); }
     friend void run_stub(intptr_t tr);
     friend BaseCoroutine* createMainCoroutine();
 };
@@ -80,11 +81,7 @@ extern "C" void run_stub(intptr_t data)
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
 //        throw; // cause undefined behaviors
     }
-    if(coroutine->previous) {
-        fcontext_t to = BaseCoroutinePrivate::getPrivateHelper(coroutine->previous)->context;
-        fcontext_t from;
-        jump_fcontext(&from, to, 0, false);
-    }
+    coroutine->cleanup();
 }
 
 
@@ -133,6 +130,7 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
     }
 }
 
+
 bool BaseCoroutinePrivate::yield()
 {
     Q_Q(BaseCoroutine);
@@ -168,6 +166,7 @@ bool BaseCoroutinePrivate::yield()
     return true;
 }
 
+
 bool BaseCoroutinePrivate::initContext()
 {
     if(context)
@@ -186,6 +185,7 @@ bool BaseCoroutinePrivate::initContext()
     }
     return true;
 }
+
 
 bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 {
@@ -220,6 +220,7 @@ bool BaseCoroutinePrivate::raise(CoroutineException *exception)
     }
 }
 
+
 BaseCoroutine* createMainCoroutine()
 {
     BaseCoroutine *main = new BaseCoroutine(0, 0);
@@ -233,6 +234,7 @@ BaseCoroutine* createMainCoroutine()
     mainPrivate->state = BaseCoroutine::Started;
     return main;
 }
+
 
 // 开始实现 QBaseCoroutine
 BaseCoroutine::BaseCoroutine(BaseCoroutine * previous, size_t stackSize)
@@ -253,10 +255,20 @@ BaseCoroutine::State BaseCoroutine::state() const
     return d->state;
 }
 
+
 void BaseCoroutine::setState(BaseCoroutine::State state)
 {
     Q_D(BaseCoroutine);
     d->state = state;
+}
+
+
+void BaseCoroutine::cleanup()
+{
+    Q_D(BaseCoroutine);
+    if(d->previous) {
+        d->previous->yield();
+    }
 }
 
 bool BaseCoroutine::raise(CoroutineException *exception)
@@ -265,11 +277,25 @@ bool BaseCoroutine::raise(CoroutineException *exception)
     return d->raise(exception);
 }
 
+
 bool BaseCoroutine::yield()
 {
     Q_D(BaseCoroutine);
     return d->yield();
 }
 
+
+BaseCoroutine *BaseCoroutine::previous() const
+{
+    Q_D(const BaseCoroutine);
+    return d->previous;
+}
+
+
+void BaseCoroutine::setPrevious(BaseCoroutine *previous)
+{
+    Q_D(BaseCoroutine);
+    d->previous = previous;
+}
 
 QTNETWORKNG_NAMESPACE_END

@@ -4,10 +4,9 @@
 #include <QtCore/qthreadstorage.h>
 #include "coroutine.h"
 
-// this file is not used by other code, but just a stub figure out how to write a new coroutine implementation.
-
 QTNETWORKNG_NAMESPACE_BEGIN
 
+// this class is not used by other code, but just a stub figure out how to write a new coroutine implementation.
 class BaseCoroutinePrivate;
 class BaseCoroutinePrivatePlatformCommon
 {

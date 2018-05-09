@@ -87,6 +87,12 @@ Linux, Windows, Android and OpenBSD is supported. Macos, iOS is not tested yet.
 
 QtNetworkNg uses more effective boost::context asm code in arm, arm64, x86, amd64 machines, and uses native ucontext or windows fiber API in other architectures.
 
+
+TODO List
+---------
+
+* 
+
 Building
 --------
 

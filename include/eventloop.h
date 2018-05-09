@@ -74,7 +74,8 @@ public:
     int callRepeat(int msecs, Functor *callback);
     void cancelCall(int callbackId);
     int exitCode();
-    void runUntil(BaseCoroutine *coroutine);
+    bool runUntil(BaseCoroutine *coroutine);
+    void yield();
 public:
     static EventLoopCoroutine *get();
 private:
@@ -117,6 +118,8 @@ public:
     static void msleep(int msecs);
     static void sleep(float secs) { msleep(secs * 1000); }
     inline static Coroutine *spawn(std::function<void()> f);
+protected:
+    virtual void cleanup() override;
 private:
     CoroutinePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Coroutine)
@@ -157,7 +160,8 @@ public:
     virtual int callRepeat(int msecs, Functor * callback) = 0;
     virtual void cancelCall(int callbackId) = 0;
     virtual int exitCode() = 0;
-    virtual void runUntil(BaseCoroutine *coroutine) = 0;
+    virtual bool runUntil(BaseCoroutine *coroutine) = 0;
+    virtual void yield() = 0;
 protected:
     EventLoopCoroutine * const q_ptr;
 };

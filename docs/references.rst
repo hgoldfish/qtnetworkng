@@ -259,6 +259,14 @@ The ``BaseCoroutine`` has some rarely used functions. Use them at your own risk.
 
     Returns an unique imutable id for the coroutine. Basicly, the id is the pointer of coroutine.
     
+.. method:: BaseCoroutine *BaseCoroutine::previous() const
+
+    Returns an pointer of ``BaseCoroutine`` which will switch to after this coroutine finished.
+    
+.. method:: void BaseCoroutine::setPrevious(BaseCoroutine *previous)
+
+    Set the pointer of ``BaseCoroutine`` which will switch to after this coroutine finished.
+    
 .. method:: Deferred<BaseCoroutine*> BaseCoroutine::started`
 
     This is not a function but ``Deferred`` object. It acts like a Qt event. If you want to do something after the coroutine is started, add callback function to this ``started`` event.

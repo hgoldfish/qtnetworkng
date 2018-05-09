@@ -51,12 +51,17 @@ public:
     bool raise(CoroutineException *exception = 0);
     bool yield();
     quintptr id() const;
+
+    BaseCoroutine *previous() const;
+    void setPrevious(BaseCoroutine *previous);
+
     static BaseCoroutine *current();
 public:
     Deferred<BaseCoroutine*> started;
     Deferred<BaseCoroutine*> finished;
 protected:
     void setState(BaseCoroutine::State state);
+    virtual void cleanup();
 private:
     BaseCoroutinePrivate * const d_ptr;
     friend BaseCoroutine* createMainCoroutine();
