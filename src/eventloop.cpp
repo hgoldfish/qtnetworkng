@@ -484,7 +484,9 @@ void TimeoutException::raise()
 Timeout::Timeout(int msecs)
     :msecs(msecs), timeoutId(0)
 {
-    restart();
+    if(msecs) {
+        restart();
+    }
 }
 
 Timeout::~Timeout()
@@ -500,48 +502,49 @@ void Timeout::restart()
     timeoutId = EventLoopCoroutine::get()->callLater(msecs, new TimeoutFunctor(this, BaseCoroutine::current()));
 }
 
-#ifdef Q_OS_UNIX
+//#ifdef Q_OS_UNIX
 
-QPointer<EventLoopCoroutine> mainLoop;
-QPointer<BaseCoroutine> mainCoroutine;
+//QPointer<EventLoopCoroutine> mainLoop;
+//QPointer<BaseCoroutine> mainCoroutine;
 
-struct ExitLoopFunctor: public Functor
-{
-    virtual void operator ()()
-    {
-        if(mainCoroutine.isNull())
-            return;
-        mainCoroutine->raise();
-    }
-};
+//struct ExitLoopFunctor: public Functor
+//{
+//    virtual void operator ()()
+//    {
+//        if(mainCoroutine.isNull())
+//            return;
+//        mainCoroutine->raise();
+//    }
+//};
 
-void handle_sigint(int sig)
-{
-    Q_UNUSED(sig)
-    qDebug() << "terminate event loop.";
-    if(mainLoop.isNull()) {
-        return;
-    }
-    mainLoop->callLaterThreadSafe(0, new ExitLoopFunctor());
-}
+//void handle_sigint(int sig)
+//{
+//    Q_UNUSED(sig)
+//    qDebug() << "terminate event loop.";
+//    if(mainLoop.isNull()) {
+//        return;
+//    }
+//    mainLoop->callLaterThreadSafe(0, new ExitLoopFunctor());
+//}
 
-#endif
+//#endif
 
 
-int start_application(std::function<void()> coroutine_entry)
-{
-    QSharedPointer<Coroutine> coroutine(Coroutine::spawn(coroutine_entry));
-#ifdef Q_OS_UNIX
-    mainLoop = currentLoop().get();
-    mainCoroutine = BaseCoroutine::current();
-    auto old_handler = signal(SIGINT, handle_sigint);
-    coroutine->join();
-    signal(SIGINT, old_handler);
-#else
-    coroutine->join();
-#endif
-    return currentLoop().get()->exitCode();
+//int start_application(std::function<void()> coroutine_entry)
+//{
+//    QSharedPointer<Coroutine> coroutine(Coroutine::spawn(coroutine_entry));
+//#ifdef Q_OS_UNIX
+//    mainLoop = currentLoop().get();
+//    mainCoroutine = BaseCoroutine::current();
+//    auto old_handler = signal(SIGINT, handle_sigint);
+//    coroutine->join();
+//    signal(SIGINT, old_handler);
+//#else
+//    coroutine->join();
+//#endif
+//    return currentLoop().get()->exitCode();
 
-}
+//}
+
 
 QTNETWORKNG_NAMESPACE_END

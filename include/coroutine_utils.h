@@ -85,12 +85,12 @@ void runLocalLoop(EventLoop *loop)
 
 
 template<typename Func1>
-void waitSignal(const QObject *obj, Func1 signal, Qt::ConnectionType type)
+void waitSignal(const QObject *obj, Func1 signal, const QObject *context, Qt::ConnectionType type = Qt::DirectConnection)
 {
     QSharedPointer<Event> event(new Event);
-    QObject::connect(obj, signal, [event]() {
+    QObject::connect(obj, signal, [event] {
         event->set();
-    }, type);
+    });
     event->wait();
 }
 

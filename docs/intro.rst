@@ -9,7 +9,7 @@ Why Coroutines
 
 The coroutine-based paradigm is not a new thing, Python, Go, and C# was using coroutines to simplify network programming many years ago. 
 
-The traditional network programming use threads. `send()/recv()` is blocked, and then the Operating System switch current thread to another ready thread until data arrived. This is very straightforward, and easy for network programming. But threads use heavy resources, thousouds connections may consume many memory. More worst, threads cause data races, data currupt, even crashes.
+The traditional network programming use threads. `send()/recv()` is blocked, and then the Operating System switch current thread to another ready thread until data arrived. This is very straightforward, and easy for network programming. But threads use heavy resources, thousands of connections may consume many memory. More worst, threads cause data races, data currupt, even crashes.
 
 Another choice is use callback-based paradigm. Before calling `send()/recv()`, use `select()/poll()/epoll()` to determine data arriving. Although `select()` is blocked, but many connections are handled in one thread. **Pseudocode** like this.
 

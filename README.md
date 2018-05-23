@@ -99,7 +99,7 @@ TODO List
 * Auto detect HTML encoding.
 * Add more OpenSSL functions.
 * Support MacOS and iOS platform.
-
+* Remove QtNetwork dependence.
 
 Building
 --------

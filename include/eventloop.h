@@ -164,6 +164,11 @@ public:
     virtual void yield() = 0;
 protected:
     EventLoopCoroutine * const q_ptr;
+    static EventLoopCoroutinePrivate *getPrivateHelper(EventLoopCoroutine *coroutine)
+    {
+        return coroutine->d_func();
+    }
+    Q_DECLARE_PUBLIC(EventLoopCoroutine)
 };
 
 class TimeoutException: public CoroutineException
@@ -187,7 +192,7 @@ private:
 };
 
 // useful for qt application.
-int start_application(std::function<void()> coroutine_entry);
+int startQtLoop();
 
 
 QTNETWORKNG_NAMESPACE_END

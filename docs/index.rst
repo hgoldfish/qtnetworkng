@@ -59,6 +59,14 @@ To create tcp server.
     }
     
 As you can see, networking programming is done with very straightforward API.
+
+Give it a try (for linux). ::
+
+    git clone https://github.com/hgoldfish/qtnetworkng.git
+    cd qtnetworkng/
+    qmake-qt5
+    make -j4   # mingw32-make -j4
+    ./qtnetworkng
     
 More details please refer to these documents:
 

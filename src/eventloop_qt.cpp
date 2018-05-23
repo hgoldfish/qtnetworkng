@@ -1,5 +1,6 @@
 #include <QtCore/qmap.h>
 #include <QtCore/qeventloop.h>
+#include <QtCore/qcoreapplication.h>
 #include <QtCore/qthread.h>
 #include <QtCore/qsocketnotifier.h>
 #include <QtCore/qdebug.h>
@@ -102,11 +103,20 @@ private:
     QPointer<BaseCoroutine> loopCoroutine;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
     friend struct TriggerIoWatchersArgumentsFunctor;
+
+    static EventLoopCoroutinePrivateQt *getPrivateHelper(EventLoopCoroutine *coroutine)
+    {
+        EventLoopCoroutinePrivate *d = EventLoopCoroutinePrivate::getPrivateHelper(coroutine);
+        return static_cast<EventLoopCoroutinePrivateQt*>(d);
+    }
+
+    friend int startQtLoop();
 };
 
 EventLoopCoroutinePrivateQt::EventLoopCoroutinePrivateQt(EventLoopCoroutine *q)
     :EventLoopCoroutinePrivate(q), nextWatcherId(1)
 {
+    setObjectName("EventLoopCoroutinePrivateQt");
 }
 
 EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
@@ -336,6 +346,19 @@ EventLoopCoroutine::EventLoopCoroutine()
     :BaseCoroutine(BaseCoroutine::current()), d_ptr(new EventLoopCoroutinePrivateQt(this))
 {
 
+}
+
+
+int startQtLoop()
+{
+    EventLoopCoroutine *coroutine = EventLoopCoroutine::get();
+    EventLoopCoroutinePrivateQt *priv = EventLoopCoroutinePrivateQt::getPrivateHelper(coroutine);
+    Q_ASSERT(priv);
+    Q_ASSERT(priv->loopCoroutine.isNull());
+    priv->loopCoroutine = BaseCoroutine::current();
+    int result = QCoreApplication::instance()->exec();
+    priv->loopCoroutine.clear();
+    return result;
 }
 
 QTNETWORKNG_NAMESPACE_END
