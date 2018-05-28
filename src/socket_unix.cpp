@@ -825,9 +825,9 @@ bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value
     if(!isValid())
         return false;
 
-    if(option == Socket::BroadcastSocketOption) {
-        return true;
-    }
+//    if(option == Socket::BroadcastSocketOption) {
+//        return true;
+//    }
 
     int n, level;
     bool ok;

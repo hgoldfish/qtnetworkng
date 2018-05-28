@@ -11,48 +11,10 @@ The coroutine-based paradigm is not a new thing, Python, Go, and C# was using co
 
 The traditional network programming use threads. `send()/recv()` is blocked, and then the Operating System switch current thread to another ready thread until data arrived. This is very straightforward, and easy for network programming. But threads use heavy resources, thousands of connections may consume many memory. More worst, threads cause data races, data currupt, even crashes.
 
-Another choice is use callback-based paradigm. Before calling `send()/recv()`, use `select()/poll()/epoll()` to determine data arriving. Although `select()` is blocked, but many connections are handled in one thread. **Pseudocode** like this.
-
-.. code-block:: c++
-    :caption: callback-based networking programming
-
-    class HandleRequest {
-    public:
-        HandleRequest() {
-            state = ReadingHeader;
-            fd->readyRead->addCallback(this::onReadyRead); // add fd to select() hub, if data arrived, call this::onReadRead;
-        }
-        void onReadyRead() {
-            const QByteArray &buf = fd->read(fd->bytesAvailable());
-            data.append(buf);
-            if (this->state == ReadingHeader) {
-                tryToReadHeader(data);
-            } else if (this->state == ReadingBody) {
-                tryToReadBody(data);
-            }
-        }
-    };
-    
-    class SelectHub {
-    public:
-        typedef void* context;
-        typedef std::function<void(int,Context) Callback;
-        void addOnRead(int fd, Callback callback, Context context) {
-            fds.append(make_tuple(fd, callback, context));
-        }
-    private:
-        void run() {
-            while(true) {
-                fd, callback, context = select(fds);
-                callback(fd, context);
-            }
-        }
-        List<Tuple<int, Callback, Context>> fds;
-    };
-
-Callback-based paradigm is considered "the new-age goto", hard to understand and read/write code. But it is widely used by C++ programmer for the popularity of boost::asio and other traditional C++ networking programming frameworks.
+Another choice is use callback-based paradigm. Before calling `send()/recv()`, use `select()/poll()/epoll()` to determine data arriving. Although `select()` is blocked, but many connections are handled in one thread. Callback-based paradigm is considered "the new-age goto", hard to understand and read/write code. But it is widely used by C++ programmer for the popularity of boost::asio and other traditional C++ networking programming frameworks.
 
 Coroutine-based paradigm is the now and feature of network programming. Coroutine is light-weight thread which has its own stack, not managed by Operating System but QtNetworkNg. Like thread-based paradigm, send()/recv() is blocked, but switch to another coroutine in the same thread unitl data arrived. Many coroutines can be created at low cost. Because there is only one thread, no locks or other synchoronization is needed. The API is straightforward like thread-based paradigm, but avoid the complexities of using threads.
+
 
 Cross platforms
 ---------------
@@ -64,6 +26,7 @@ QtCore, QtNetwork is required to build QtNetworkNg. I am working hard to remove 
 The coroutine is implemented using boost::context asm code, and support native posix `ucontext` and windows `fiber` API. Running tests is successful in ARM, ARM64, x86, amd64.
 
 In theory, QtNetworkNg can be ran in macos and ios. But there is nothing I can do before I having macos machine. And mips architecture would be supported.
+
 
 Use QtNetworkNg in qmake projects
 ---------------------------------
@@ -158,6 +121,7 @@ Now you can build QtNetworkNg as usual C++/Qt library.
 ..     SOURCES += main.cpp
 ..     LIBS += qtnetworkng
     
+
 The Coroutine 
 -------------
 
@@ -208,6 +172,77 @@ Killing coroutine safely is a big advanced feature of coroutine compare to threa
     
 The ``CoroutineExit`` exception is handled by QtNetworkNg silently.
 
+
+Special Considers for Qt GUI Application
+----------------------------------------
+
+A Qt GUI Application typically use Qt eventloop.
+
+.. code-block:: c++
+    :caption: A typical Qt GUI Application
+    
+    #include <QApplication>
+    
+    int main(int argc, char **argv) {
+        QApplication app(argc, argv);
+        QWidget w;
+        w.show();
+        return app.exec();
+    }
+
+The problem is the ``app.exec()``. It runs an eventloop not managed by QtNetworkNg, and blocks main coroutine forever.
+
+To solve this problem, please use ``startQtLoop()`` instead of ``app.exec()``, which turn main coroutine to eventloop coroutine.
+
+This is an example to get content from url.
+
+.. code-block:: c++
+    :caption: A typical 
+
+    #include <QApplication>
+    #include <QTextBrowser>
+    #include "qtnetworkng/qtnetworkng.h"
+
+    using namespace qtng;
+
+    class HtmlWindow: public QTextBrowser
+    {
+    public:
+        HtmlWindow()
+            :operations(new CoroutineGroup) {
+            operations->spawn([this] {
+                Coroutine::sleep(1);
+                loadNews();
+            });
+        }
+
+        ~HtmlWindow() {
+            delete operations;
+        }
+
+    private:
+        void loadNews() {
+            HttpSession session;
+            HttpResponse response = session.get("http://qtng.org/");
+            if(response.isOk()) {
+                setHtml(response.html());
+            } else {
+                setHtml("failed");
+            }
+        }
+    private:
+        CoroutineGroup *operations;
+    };
+
+    int main(int argc, char **argv)
+    {
+        QApplication app(argc, argv);
+        HtmlWindow w;
+        w.show();
+        return startQtLoop();
+    }
+
+
 The Socket and SslSocket
 ------------------------
 
@@ -218,6 +253,7 @@ The ``Socket`` class is a straightforward transliteration of the bsd socket inte
 ``SslSocket`` has the same interface as ``Socket``, but do ssl handshake after connection established.
 
 ``Socket`` and ``SslSocket`` objects can be converted to ``SocketLike`` objects, which are useful for functions accept both ``Socket`` and ``SslSocket`` parameter.
+
 
 Create Socket client
 ^^^^^^^^^^^^^^^^^^^^
@@ -245,6 +281,7 @@ The ``SslSocket`` has similar constructors which accpet an extra ``SslConfigurat
     SslSocket s(socketDescriptor, config);
     bool ok = s.connect(remoteHost, 443);
     
+    
 Create socket server
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -268,6 +305,7 @@ Combine ``Socket`` and ``Coroutine``, you can create socket server in few lines 
         });
     }
     
+    
 Http Client
 -----------
 
@@ -276,6 +314,7 @@ QtNetworkNg provides a HTTP client support http 1.1 and https, can handle socks5
 HTTP 2.0 is planned.
 
 Many concepts are inspired by *requests* module of Python.
+
 
 Get url from HTTP server
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -289,6 +328,7 @@ QtNetworkNg implement HTTP client in ``HttpSession`` class. To fetch data from o
     HttpResponse resp = session.get(url);
     
 The ``HttpSession`` accept and store cookies from data, so sessions is persisted among HTTP requests. 
+
 
 Send data to HTTP server
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -310,6 +350,7 @@ Or send json data.
     QJsonObject obj;
     obj.insert("name", "fish");
     HttpResponse resp = session.post(url, obj);
+    
     
 Get data from ``HttpResponse``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -340,6 +381,7 @@ As crypto library
 
 QtNetworkNg can load OpenSSL dynamically, and provide many crypto routines.
 
+
 Message Digest
 ^^^^^^^^^^^^^^
 
@@ -351,6 +393,7 @@ QtNetworkNg support most OpenSSL Message Digest.
     MessageDigest m(MessageDigest::SHA512);
     m.update("data");
     qDebug() << m.hexDigest();
+    
     
 Symmetrical encryption and decryption
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -382,6 +425,7 @@ QtNetworkNg can generate and manipulate RSA/DSA keys.
     qDebug() << key.save();
     PrivateKey clonedKey = PrivateKey::load(key.save());
 
+    
 Certificate and CertificateRequest
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

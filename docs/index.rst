@@ -57,6 +57,63 @@ To create tcp server.
             request->close();
         });
     }
+
+    
+A Qt GUI example to fetch web page.
+
+.. code-block:: c++
+
+    // main.cpp
+    #include <QApplication>
+    #include <QTextBrowser>
+    #include "qtnetworkng/qtnetworkng.h"
+
+    using namespace qtng;
+
+    class HtmlWindow: public QTextBrowser
+    {
+    public:
+        HtmlWindow()
+            :operations(new CoroutineGroup)
+        {
+            operations->spawn([this] {
+                Coroutine::sleep(1);
+                HttpSession session;
+                HttpResponse response = session.get("http://qtng.org/");
+                if(response.isOk()) {
+                    setHtml(response.html());
+                } else {
+                    setHtml("failed");
+                }
+            });
+        }
+
+        ~HtmlWindow()
+        {
+            delete operations;
+        }
+    private:
+        CoroutineGroup *operations;
+    };
+    
+    int main(int argc, char **argv)
+    {
+        QApplication app(argc, argv);
+        HtmlWindow w;
+        w.show();
+        return startQtLoop(); // Qt GUI application start the eventloop using startQtLoop() instead of app.exec()
+    }
+
+And its project file.
+
+.. code-block:: text
+
+    # fetch_web_content.pro
+    TEMPLATE = app
+    QT += widgets
+    SOURCES += main.cpp
+    include(qtnetworkng/qtnetworkng.pri)
+    
     
 As you can see, networking programming is done with very straightforward API.
 
