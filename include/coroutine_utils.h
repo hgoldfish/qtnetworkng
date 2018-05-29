@@ -84,14 +84,20 @@ void runLocalLoop(EventLoop *loop)
 }
 
 
-template<typename Func1>
-void waitSignal(const QObject *obj, Func1 signal, const QObject *context, Qt::ConnectionType type = Qt::DirectConnection)
+template <typename Func>
+void qAwait(const typename QtPrivate::FunctionPointer<Func>::Object *obj, Func signal)
 {
     QSharedPointer<Event> event(new Event);
-    QObject::connect(obj, signal, [event] {
+    const auto connection = QObject::connect(obj, signal, [event] {
         event->set();
     });
-    event->wait();
+    try {
+        event->wait();
+        QObject::disconnect(connection);
+    } catch (...) {
+        QObject::disconnect(connection);
+        throw;
+    }
 }
 
 
