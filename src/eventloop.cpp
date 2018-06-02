@@ -481,10 +481,10 @@ void TimeoutException::raise()
     throw *this;
 }
 
-Timeout::Timeout(int msecs)
-    :msecs(msecs), timeoutId(0)
+Timeout::Timeout(float secs)
+    :secs(secs), timeoutId(0)
 {
-    if(msecs) {
+    if(!qFuzzyIsNull(secs)) {
         restart();
     }
 }
@@ -499,52 +499,7 @@ void Timeout::restart()
 {
     if(timeoutId)
         EventLoopCoroutine::get()->cancelCall(timeoutId);
-    timeoutId = EventLoopCoroutine::get()->callLater(msecs, new TimeoutFunctor(this, BaseCoroutine::current()));
+    timeoutId = EventLoopCoroutine::get()->callLater(secs * 1000, new TimeoutFunctor(this, BaseCoroutine::current()));
 }
-
-//#ifdef Q_OS_UNIX
-
-//QPointer<EventLoopCoroutine> mainLoop;
-//QPointer<BaseCoroutine> mainCoroutine;
-
-//struct ExitLoopFunctor: public Functor
-//{
-//    virtual void operator ()()
-//    {
-//        if(mainCoroutine.isNull())
-//            return;
-//        mainCoroutine->raise();
-//    }
-//};
-
-//void handle_sigint(int sig)
-//{
-//    Q_UNUSED(sig)
-//    qDebug() << "terminate event loop.";
-//    if(mainLoop.isNull()) {
-//        return;
-//    }
-//    mainLoop->callLaterThreadSafe(0, new ExitLoopFunctor());
-//}
-
-//#endif
-
-
-//int start_application(std::function<void()> coroutine_entry)
-//{
-//    QSharedPointer<Coroutine> coroutine(Coroutine::spawn(coroutine_entry));
-//#ifdef Q_OS_UNIX
-//    mainLoop = currentLoop().get();
-//    mainCoroutine = BaseCoroutine::current();
-//    auto old_handler = signal(SIGINT, handle_sigint);
-//    coroutine->join();
-//    signal(SIGINT, old_handler);
-//#else
-//    coroutine->join();
-//#endif
-//    return currentLoop().get()->exitCode();
-
-//}
-
 
 QTNETWORKNG_NAMESPACE_END

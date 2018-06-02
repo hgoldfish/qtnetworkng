@@ -181,7 +181,7 @@ public:
 public:
     void add(Socket *socket, EventLoopCoroutine::EventType event);
     void remove(Socket *socket);
-    Socket *wait(qint64 msecs = 0);
+    Socket *wait(float msecs = 0.0);
 private:
     PollPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Poll)

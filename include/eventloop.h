@@ -182,12 +182,12 @@ public:
 class Timeout: public QObject
 {
 public:
-    Timeout(int msecs);
+    Timeout(float secs);
     ~Timeout();
 public:
     void restart();
 private:
-    int msecs;
+    float secs;
     int timeoutId;
 };
 
