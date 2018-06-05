@@ -62,7 +62,7 @@ public:
     QByteArray finalData();
 public:
     QByteArray update(const QByteArray &data) { return addData(data); }
-    QByteArray final_() { return finalData(); }
+    QByteArray final() { return finalData(); }
 private:
     CipherPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Cipher)

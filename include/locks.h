@@ -115,7 +115,6 @@ void ValueEvent<Value>::send(const Value &value)
 template<typename Value>
 Value ValueEvent<Value>::wait(bool blocking)
 {
-    value = Value();
     event.wait(blocking);
     return value;
 }
