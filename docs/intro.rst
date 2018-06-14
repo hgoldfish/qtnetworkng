@@ -95,32 +95,39 @@ Now you can build QtNetworkNg as usual C++/Qt library.
     make
     ./foo
 
-.. Use QtNetworkNg in ordinary cpp projects
-.. ----------------------------------------
-.. 
-.. If you want a traditional cpp library usage, please download QtNetworkNg, build and install it. ::
-.. 
-..     git clone https://github.com/hgoldfish/qtnetworkng.git
-..     cd qtnetworkng
-.. 
-.. QtNetworkNg support qmake and cmake, which follow the similar build flow. ::
-.. 
-..     mkdir build
-..     cd build
-..     qmake ..
-..     make -j8
-..     make install
-..     
-.. Replace ``qmake`` with ``cmake`` if you use cmake.
-.. 
-.. Edit your foo.pro to link to `qtnetworkng`. ::
-.. 
-..     # foo.pro
-..     QT += core gui widgets
-..     TARGET += foo
-..     SOURCES += main.cpp
-..     LIBS += qtnetworkng
+Use QtNetworkNg in ordinary cpp projects
+----------------------------------------
+
+If you want a traditional cpp library usage, please download QtNetworkNg, build and install it. 
+
+.. code-block:: bash
+
+    git clone https://github.com/hgoldfish/qtnetworkng.git
+    cd qtnetworkng
+
+QtNetworkNg support qmake and cmake, which follow the similar build flow.
+
+.. code-block:: bash
+    :caption: build qtnetworkng
     
+    mkdir build
+    cd build
+    qmake ..   # use full path to qmake if you want another qt version.
+    make
+    make install  # may require `sudo`
+    
+The ``qmake`` should be the full path from the correct Qt version, if you have multiple Qt installed.
+
+Edit your foo.pro to link to ``qtnetworkng``. 
+
+.. code-block:: text
+    :caption: second foo.pro
+    
+    # foo.pro
+    QT += core gui widgets
+    TARGET += foo
+    SOURCES += main.cpp
+    LIBS += qtnetworkng
 
 The Coroutine 
 -------------
@@ -154,7 +161,7 @@ The CoroutineGroup can spawn coroutines, and kill or get coroutines by name.
     operations.kill("coroutine1");
     operations.killall();
 
-Killing coroutine safely is a big advanced feature of coroutine compare to thread and process. If coroutine is killed by other coroutine, is will throw a ``CoroutineExit`` exception. At your will, any exception based on ``CoroutineException`` can be thrown. Coroutine is killed and joined before deleted.
+Killing coroutine safely is a big advanced feature of coroutine compare to thread and process. If coroutine is killed by other coroutine, it will throw a ``CoroutineExit`` exception. At your will, any exception based on ``CoroutineException`` can be thrown. Coroutine is killed and joined before deleted.
 
 .. code-block:: c++
     :caption: how to kill coroutine
