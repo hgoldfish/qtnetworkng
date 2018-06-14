@@ -62,7 +62,7 @@ public:
 public:
     EventLoopCoroutine();
     virtual ~EventLoopCoroutine();
-    virtual void run();
+    virtual void run() override;
 public:
     int createWatcher(EventType event, qintptr fd, Functor *callback);
     void startWatcher(int watcherId);
@@ -113,7 +113,7 @@ public:
     void kill(CoroutineException *e = 0, int msecs = 0);
     void cancelStart();
     bool join();
-    virtual void run();
+    virtual void run() override;
     static Coroutine *current();
     static void msleep(int msecs);
     static void sleep(float secs) { msleep(secs * 1000); }
@@ -131,7 +131,7 @@ class CoroutineSpawnHelper: public Coroutine
 public:
     CoroutineSpawnHelper(std::function<void()> f)
         :f(f){}
-    virtual void run(){f(); }
+    virtual void run() override { f(); }
 private:
     std::function<void()> f;
 };

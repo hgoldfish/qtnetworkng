@@ -92,7 +92,7 @@ private slots:
         callLater(msecs, reinterpret_cast<Functor*>(callback));
     }
 protected:
-    virtual void timerEvent(QTimerEvent *event);
+    virtual void timerEvent(QTimerEvent *event) override;
 private slots:
     void handleIoEvent(int socket);
 private:

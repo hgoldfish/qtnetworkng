@@ -19,7 +19,6 @@ SOURCES += \
     $$PWD/src/socks5_proxy.cpp
 
 HEADERS += \
-    $$PWD/qtnetworkng.h \
     $$PWD/include/config.h \
     $$PWD/include/coroutine.h \
     $$PWD/include/socket.h \
@@ -84,25 +83,25 @@ networkng_ev {
 
 # decide which fcontext asm file to use.
 android {
-    equals(QT_ARCH, x86) {
+    equals(ANDROID_ARCHITECTURE, x86) {
         SOURCES += $$PWD/src/context/asm/jump_i386_sysv_elf_gas.S \
             $$PWD/src/context/asm/make_i386_sysv_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
-    } else: equals(QT_ARCH, x86_64) {
+    } else: equals(ANDROID_ARCHITECTURE, x86_64) {
         SOURCES += $$PWD/src/context/asm/jump_x86_64_sysv_elf_gas.S \
             $$PWD/src/context/asm/make_x86_64_sysv_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
-    } else: equals(QT_ARCH, mips) {
+    } else: equals(ANDROID_ARCHITECTURE, mips) {
         SOURCES += $$PWD/src/context/asm/jump_mips32_o32_elf_gas.S \
             $$PWD/src/context/asm/make_mips32_o32_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
-    } else: equals(QT_ARCH, mips64) {
+    } else: equals(ANDROID_ARCHITECTURE, mips64) {
         error(Unsupported platform)
-    } else: equals(QT_ARCH, arm64) {
+    } else: equals(ANDROID_ARCHITECTURE, arm64) {
         SOURCES += $$PWD/src/context/asm/jump_arm64_aapcs_elf_gas.S \
             $$PWD/src/context/asm/make_arm64_aapcs_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
-    } else: equals(QT_ARCH, arm) {
+    } else: equals(ANDROID_ARCHITECTURE, arm) {
         SOURCES += $$PWD/src/context/asm/jump_arm_aapcs_elf_gas.S \
             $$PWD/src/context/asm/make_arm_aapcs_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp

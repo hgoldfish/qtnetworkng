@@ -22,7 +22,11 @@
         #define QT_SOCKLEN_T            int
     #else
         #ifdef Q_OS_ANDROID
-            #define QT_SOCKLEN_T int
+            #if !defined(__LP64__)
+                #define QT_SOCKLEN_T int32_t
+            #else
+                #define QT_SOCKLEN_T socklen_t
+            #endif
         #elif defined(Q_OS_OPENBSD)
             #define QT_SOCKLEN_T __socklen_t
         #else
