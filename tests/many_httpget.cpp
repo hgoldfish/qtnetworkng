@@ -1,12 +1,9 @@
-#include <QCoreApplication>
 #include <QTimer>
 #include <QTime>
 #include "qtnetworkng.h"
 
-int many_httpget(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-    QCoreApplication app(argc, argv);
-    Q_UNUSED(app);
     qtng::CoroutineGroup operations;
     qtng::HttpSession session;
     session.setMaxConnectionsPerServer(0);
@@ -29,7 +26,7 @@ int many_httpget(int argc, char *argv[])
                 float rps = total * 1.0 / timer.elapsed() * 1000;
                 qDebug() << total << ":" << rps << response.statusCode;
             } catch (qtng::RequestException &e) {
-                //qDebug() << total << ":" << "failed";
+                qDebug() << total << ":" << "failed";
             }
             semp.release();
         });

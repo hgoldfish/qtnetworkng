@@ -77,6 +77,8 @@ public:
 
     HttpRequest();
     virtual ~HttpRequest();
+    HttpRequest(const HttpRequest &other);
+    HttpRequest &operator=(const HttpRequest &other);
 public:
     QString method;
     QUrl url;
@@ -273,7 +275,7 @@ public:
 };
 
 
-class InvalidSchema: public RequestException
+class InvalidScheme: public RequestException
 {
 public:
     virtual QString what() const throw ();

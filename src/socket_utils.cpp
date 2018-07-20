@@ -26,7 +26,8 @@ public:
     virtual Socket::SocketState state() const override;
     virtual Socket::NetworkLayerProtocol protocol() const override;
 
-    virtual Socket *accept() override;
+    virtual Socket *acceptRaw() override;
+    virtual QSharedPointer<SocketLike> accept() override;
     virtual bool bind(QHostAddress &address, quint16 port, Socket::BindMode mode) override;
     virtual bool bind(quint16 port, Socket::BindMode mode) override;
     virtual bool connect(const QHostAddress &addr, quint16 port) override;
@@ -116,9 +117,15 @@ Socket::NetworkLayerProtocol SocketLikeImpl::protocol() const
     return s->protocol();
 }
 
-Socket *SocketLikeImpl::accept()
+Socket *SocketLikeImpl::acceptRaw()
 {
     return s->accept();
+}
+
+
+QSharedPointer<SocketLike> SocketLikeImpl::accept()
+{
+    return SocketLike::rawSocket(s->accept());
 }
 
 bool SocketLikeImpl::bind(QHostAddress &address, quint16 port, Socket::BindMode mode)

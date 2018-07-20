@@ -26,7 +26,8 @@ public:
     virtual Socket::SocketState state() const = 0;
     virtual Socket::NetworkLayerProtocol protocol() const = 0;
 
-    virtual Socket *accept() = 0;
+    virtual QSharedPointer<SocketLike> accept() = 0;
+    virtual Socket *acceptRaw() = 0;
     virtual bool bind(QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform) = 0;
     virtual bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform) = 0;
     virtual bool connect(const QHostAddress &addr, quint16 port) = 0;

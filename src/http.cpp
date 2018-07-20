@@ -90,6 +90,36 @@ HttpRequest::~HttpRequest()
 {
 }
 
+HttpRequest::HttpRequest(const HttpRequest &other)
+{
+    this->headers = other.headers;
+    this->method = other.method;
+    this->url = other.url;
+    this->query = other.query;
+    this->cookies = other.cookies;
+    this->body = other.body;
+    this->maxBodySize = other.maxBodySize;
+    this->maxRedirects = other.maxRedirects;
+    this->priority = other.priority;
+    this->version = other.version;
+}
+
+HttpRequest &HttpRequest::operator=(const HttpRequest &other)
+{
+    this->headers = other.headers;
+    this->method = other.method;
+    this->url = other.url;
+    this->query = other.query;
+    this->cookies = other.cookies;
+    this->body = other.body;
+    this->maxBodySize = other.maxBodySize;
+    this->maxRedirects = other.maxRedirects;
+    this->priority = other.priority;
+    this->version = other.version;
+    return *this;
+}
+
+    
 void HttpRequest::setFormData(FormData &formData, const QString &method)
 {
     this->method = method;
@@ -376,6 +406,7 @@ void ConnectionPool::setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy)
     proxySwitcher->socks5Proxies.append(proxy);
 }
 
+
 void ConnectionPool::setHttpProxy(QSharedPointer<HttpProxy> proxy)
 {
     proxySwitcher->httpProxies.clear();
@@ -463,7 +494,10 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 {
     QUrl &url = request.url;
     if(url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https")) {
-        throw InvalidSchema();
+        if (debugLevel > 0) {
+            qDebug() << "invalid scheme" << url.scheme();
+        }
+        throw InvalidScheme();
     }
     if(!request.query.isEmpty()) {
         QUrlQuery query(url);
@@ -490,7 +524,10 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     } else if(request.version == HttpVersion::Http2_0) {
         versionBytes = "HTTP/2.0";
     } else {
-        throw InvalidSchema();
+        if (debugLevel > 0) {
+            qDebug() << "invalid http version." << request.version;
+        }
+        throw InvalidScheme();
     }
 
     QByteArrayList lines;
@@ -619,7 +656,6 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         }
     }
     const QByteArray &contentEncodingHeader = response.header("Content-Encoding");
-    qDebug() << contentEncodingHeader;
     if(contentEncodingHeader.toLower() == QByteArray("deflate") && response.body.isEmpty()) {
         response.body = qUncompress(response.body);
         if(response.body.isEmpty()) {
@@ -1027,7 +1063,7 @@ QString MissingSchema::what() const throw()
 }
 
 
-QString InvalidSchema::what() const throw()
+QString InvalidScheme::what() const throw()
 {
     return QStringLiteral("The URL schema can not be handled.");
 }

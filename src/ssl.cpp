@@ -731,6 +731,8 @@ bool SslConnection<Socket>::_handshake()
             case SSL_ERROR_WANT_X509_LOOKUP:
 //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
             case SSL_ERROR_SYSCALL:
+                qDebug() << "invalid ssl connection state.";
+                return false;
             case SSL_ERROR_SSL:
                 qDebug() << "handshake error.";
                 return false;
@@ -1389,7 +1391,8 @@ public:
     virtual Socket::SocketState state() const override;
     virtual Socket::NetworkLayerProtocol protocol() const override;
 
-    virtual Socket *accept() override;
+    virtual Socket *acceptRaw() override;
+    virtual QSharedPointer<SocketLike> accept() override;
     virtual bool bind(QHostAddress &address, quint16 port, Socket::BindMode mode) override;
     virtual bool bind(quint16 port, Socket::BindMode mode) override;
     virtual bool connect(const QHostAddress &addr, quint16 port) override;
@@ -1474,9 +1477,14 @@ Socket::NetworkLayerProtocol SocketLikeImpl::protocol() const
     return s->protocol();
 }
 
-Socket *SocketLikeImpl::accept()
+Socket *SocketLikeImpl::acceptRaw()
 {
     return s->acceptRaw();
+}
+
+QSharedPointer<SocketLike> SocketLikeImpl::accept()
+{
+    return SocketLike::sslSocket(s->accept());
 }
 
 bool SocketLikeImpl::bind(QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
@@ -1564,6 +1572,11 @@ qint64 SocketLikeImpl::sendall(const QByteArray &data)
 QSharedPointer<SocketLike> SocketLike::sslSocket(QSharedPointer<SslSocket> s)
 {
     return QSharedPointer<SocketLikeImpl>::create(s).dynamicCast<SocketLike>();
+}
+
+QSharedPointer<SocketLike> SocketLike::sslSocket(SslSocket *s)
+{
+    return QSharedPointer<SocketLikeImpl>::create(QSharedPointer<SslSocket>(s)).dynamicCast<SocketLike>();
 }
 
 QTNETWORKNG_NAMESPACE_END

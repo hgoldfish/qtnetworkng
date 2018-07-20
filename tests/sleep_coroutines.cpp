@@ -17,10 +17,8 @@ void SleepCoroutine::run()
     qDebug() << this << 3;
 }
 
-
-int sleep_coroutines(int argc, char **argv)
+int main(int argc, char **argv)
 {
-    QCoreApplication app(argc, argv);
     qtng::CoroutineGroup operations;
     operations.start(new SleepCoroutine);
     operations.joinall();

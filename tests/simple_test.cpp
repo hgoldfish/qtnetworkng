@@ -1,5 +1,4 @@
 #include <QDebug>
-#include <QCoreApplication>
 #include <QList>
 #include <QTime>
 #include "qtnetworkng.h"
@@ -22,31 +21,27 @@ void GetNeteaseCoroutine::run()
 {
     qtng::Timeout out(5000);Q_UNUSED(out);
     try{
-        qtng::HttpResponse response = session->get(QStringLiteral("https://www.baidu.com/"));
-        qDebug() << response.html();
+        qtng::HttpResponse response = session->get("https://news.163.com/");
+        qDebug() << response.html().size();
     } catch(qtng::RequestException &e) {
         qDebug() << "got exception: " << e.what();
+    } catch(...) {
+        qDebug() << "got unexpected exception.";
     }
-
 }
 
-
-
-int get_baidu(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-    QCoreApplication app(argc, argv);
-    Q_UNUSED(app);
     qtng::CoroutineGroup operations;
     qtng::HttpSession session;
+    // session.setDebugLevel(2);
 
-    for(int i = 0; i < 500; ++i)
-    {
+    for(int i = 0; i < 100; ++i) {
         qtng::Coroutine *coroutine = new GetNeteaseCoroutine(&session);
-        coroutine->setObjectName(QStringLiteral("get_baidu%1").arg(i + 1));
+        coroutine->setObjectName(QStringLiteral("get_netease_%1").arg(i + 1));
         operations.add(coroutine);
         coroutine->start();
     }
     operations.joinall();
-    qDebug() << operations.size();
     return 0;
 }

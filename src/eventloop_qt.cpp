@@ -8,16 +8,16 @@
 #include <QtCore/qpointer.h>
 #include <QtCore/qcoreevent.h>
 
-#include "../include/eventloop.h"
+#include "../include/eventloop_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
+
+namespace {
 
 struct QtWatcher
 {
     virtual ~QtWatcher();
 };
-
-QtWatcher::~QtWatcher() {}
 
 struct IoWatcher: public QtWatcher
 {
@@ -31,18 +31,6 @@ struct IoWatcher: public QtWatcher
     qintptr fd;
 };
 
-IoWatcher::IoWatcher(qintptr fd, EventLoopCoroutine::EventType event, Functor *callback)
-    :event(event), read(fd, QSocketNotifier::Read), write(fd, QSocketNotifier::Write), callback(callback), fd(fd)
-{
-    read.setEnabled(false);
-    write.setEnabled(false);
-}
-
-IoWatcher::~IoWatcher()
-{
-    delete callback;
-}
-
 struct TimerWatcher: public QtWatcher
 {
     TimerWatcher(int interval, bool singleshot, Functor *callback);
@@ -53,6 +41,22 @@ struct TimerWatcher: public QtWatcher
     bool singleshot;
     Functor *callback;
 };
+
+QtWatcher::~QtWatcher() {}
+
+IoWatcher::IoWatcher(qintptr fd, EventLoopCoroutine::EventType event, Functor *callback)
+    :event(event), read(fd, QSocketNotifier::Read), write(fd, QSocketNotifier::Write), callback(callback), fd(fd)
+{
+    read.setEnabled(false);
+    write.setEnabled(false);
+    read.setProperty("parent", QVariant::fromValue(static_cast<void*>(this)));
+    write.setProperty("parent", QVariant::fromValue(static_cast<void*>(this)));
+}
+
+IoWatcher::~IoWatcher()
+{
+    delete callback;
+}
 
 TimerWatcher::TimerWatcher(int interval, bool singleshot, Functor *callback)
     :interval(interval), singleshot(singleshot), callback(callback)
@@ -66,9 +70,11 @@ TimerWatcher::~TimerWatcher()
     }
 }
 
-class EventLoopCoroutinePrivateQt: public QObject, EventLoopCoroutinePrivate
+}  // anonymous namespace
+
+class EventLoopCoroutinePrivateQtHelper;
+class EventLoopCoroutinePrivateQt: public EventLoopCoroutinePrivate
 {
-    Q_OBJECT
 public:
     EventLoopCoroutinePrivateQt(EventLoopCoroutine* q);
     virtual ~EventLoopCoroutinePrivateQt();
@@ -86,22 +92,18 @@ public:
     virtual int exitCode() override;
     virtual bool runUntil(BaseCoroutine *coroutine) override;
     virtual void yield() override;
-private slots:
-    void callLaterThreadSafeStub(int msecs, void* callback)
-    {
-        callLater(msecs, reinterpret_cast<Functor*>(callback));
-    }
-protected:
-    virtual void timerEvent(QTimerEvent *event) override;
-private slots:
-    void handleIoEvent(int socket);
+public:
+    void timerEvent(QTimerEvent *event);
+    void handleIoEvent(int socket, QSocketNotifier *n);
 private:
     QMap<int, QtWatcher*> watchers;
     QMap<int, int> timers;
     int nextWatcherId;
     int qtExitCode;
     QPointer<BaseCoroutine> loopCoroutine;
+    EventLoopCoroutinePrivateQtHelper *helper;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
+    
     friend struct TriggerIoWatchersArgumentsFunctor;
 
     static EventLoopCoroutinePrivateQt *getPrivateHelper(EventLoopCoroutine *coroutine)
@@ -113,10 +115,37 @@ private:
     friend int startQtLoop();
 };
 
-EventLoopCoroutinePrivateQt::EventLoopCoroutinePrivateQt(EventLoopCoroutine *q)
-    :EventLoopCoroutinePrivate(q), nextWatcherId(1)
+
+class EventLoopCoroutinePrivateQtHelper: public QObject
 {
-    setObjectName("EventLoopCoroutinePrivateQt");
+    Q_OBJECT
+public:
+    EventLoopCoroutinePrivateQtHelper(EventLoopCoroutinePrivateQt *parent)
+        :parent(parent) {}
+public slots:
+    virtual void timerEvent(QTimerEvent *event) override
+    {
+        parent->timerEvent(event);
+    }
+    
+    void callLaterThreadSafeStub(int msecs, void* callback)
+    {
+        parent->callLater(msecs, static_cast<Functor*>(callback));
+    }
+    
+    void handleIoEvent(int socket)
+    {
+        QSocketNotifier *n = dynamic_cast<QSocketNotifier*>(sender());
+        parent->handleIoEvent(socket, n);
+    }
+private:
+    EventLoopCoroutinePrivateQt * const parent;
+};
+
+
+EventLoopCoroutinePrivateQt::EventLoopCoroutinePrivateQt(EventLoopCoroutine *q)
+    :EventLoopCoroutinePrivate(q), nextWatcherId(1), helper(new EventLoopCoroutinePrivateQtHelper(this))
+{
 }
 
 EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
@@ -124,40 +153,26 @@ EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
     foreach(QtWatcher *watcher, watchers) {
         delete watcher;
     }
+    delete helper;
 }
 
 void EventLoopCoroutinePrivateQt::run()
 {
-    QPointer<EventLoopCoroutinePrivateQt> self(this);
-
     QEventLoop localLoop;
     int result = localLoop.exec();
-
-    if(!self.isNull()) {
-        self->qtExitCode = result;
-    }
+    this->qtExitCode = result;
 }
 
-void EventLoopCoroutinePrivateQt::handleIoEvent(int socket)
+void EventLoopCoroutinePrivateQt::handleIoEvent(int socket, QSocketNotifier *n)
 {
     Q_UNUSED(socket)
 
-    QSocketNotifier *n = dynamic_cast<QSocketNotifier*>(sender());
     if(!n) {
         qDebug() << "can not retrieve sender() while handling qt io event.";
         return;
     }
 
-    IoWatcher *w = 0;
-    if(n->type() == QSocketNotifier::Read) {
-        w = reinterpret_cast<IoWatcher*>(reinterpret_cast<char*>(n) - offsetof(IoWatcher, read));
-    } else if (n->type() == QSocketNotifier::Write) {
-        w = reinterpret_cast<IoWatcher*>(reinterpret_cast<char*>(n) - offsetof(IoWatcher, write));
-    } else {
-        qDebug() << "unknown QSocketNotifier type.";
-        return;
-    }
-
+    IoWatcher *w = static_cast<IoWatcher*>(n->property("parent").value<void*>());
     (*w->callback)();
 }
 
@@ -165,8 +180,8 @@ int EventLoopCoroutinePrivateQt::createWatcher(EventLoopCoroutine::EventType eve
 {
     IoWatcher *w = new IoWatcher(fd, event, callback);
 
-    connect(&w->read, SIGNAL(activated(int)), SLOT(handleIoEvent(int)), Qt::DirectConnection);
-    connect(&w->write, SIGNAL(activated(int)), SLOT(handleIoEvent(int)), Qt::DirectConnection);
+    QObject::connect(&w->read, SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
+    QObject::connect(&w->write, SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
     watchers.insert(nextWatcherId, w);
     return nextWatcherId++;
 }
@@ -205,17 +220,18 @@ void EventLoopCoroutinePrivateQt::removeWatcher(int watcherId)
 
 struct TriggerIoWatchersArgumentsFunctor: public Functor
 {
-    TriggerIoWatchersArgumentsFunctor(int watcherId, EventLoopCoroutinePrivateQt *eventloop)
+    TriggerIoWatchersArgumentsFunctor(int watcherId, EventLoopCoroutine *eventloop)
         :watcherId(watcherId), eventloop(eventloop) {}
     int watcherId;
-    QPointer<EventLoopCoroutinePrivateQt> eventloop;
+    QPointer<EventLoopCoroutine> eventloop;
     virtual void operator() () override
     {
         if(eventloop.isNull()) {
             qWarning("triggerIoWatchers() is called without eventloop.");
             return;
         }
-        IoWatcher *w = dynamic_cast<IoWatcher*>(eventloop->watchers.value(watcherId));
+        EventLoopCoroutinePrivateQt *d = EventLoopCoroutinePrivateQt::getPrivateHelper(eventloop.data());
+        IoWatcher *w = dynamic_cast<IoWatcher*>(d->watchers.value(watcherId));
         if(w) {
             (*w->callback)();
         }
@@ -225,12 +241,13 @@ struct TriggerIoWatchersArgumentsFunctor: public Functor
 
 void EventLoopCoroutinePrivateQt::triggerIoWatchers(qintptr fd)
 {
+    Q_Q(EventLoopCoroutine);
     for(QMap<int, QtWatcher*>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
         IoWatcher *w = dynamic_cast<IoWatcher*>(itor.value());
         if(w && w->fd == fd) {
             w->read.setEnabled(false);
             w->write.setEnabled(false);
-            callLater(0, new TriggerIoWatchersArgumentsFunctor(itor.key(), this));
+            callLater(0, new TriggerIoWatchersArgumentsFunctor(itor.key(), q));
         }
     }
 }
@@ -255,7 +272,7 @@ void EventLoopCoroutinePrivateQt::timerEvent(QTimerEvent *event)
         if(watchers.contains(watcherId)) {
             watchers.remove(watcherId);
             timers.remove(event->timerId());
-            killTimer(event->timerId());
+            helper->killTimer(event->timerId());
             delete watcher;
         }
     } else {
@@ -267,7 +284,7 @@ void EventLoopCoroutinePrivateQt::timerEvent(QTimerEvent *event)
 int EventLoopCoroutinePrivateQt::callLater(int msecs, Functor *callback)
 {
     TimerWatcher *w = new TimerWatcher(msecs, true, callback);
-    w->timerId = startTimer(msecs, Qt::CoarseTimer);
+    w->timerId = helper->startTimer(msecs, Qt::CoarseTimer);
     watchers.insert(nextWatcherId, w);
     timers.insert(w->timerId, nextWatcherId);
     return nextWatcherId++;
@@ -275,13 +292,13 @@ int EventLoopCoroutinePrivateQt::callLater(int msecs, Functor *callback)
 
 void EventLoopCoroutinePrivateQt::callLaterThreadSafe(int msecs, Functor *callback)
 {
-    QMetaObject::invokeMethod(this, "callLaterThreadSafeStub", Qt::QueuedConnection, Q_ARG(int, msecs), Q_ARG(void*, callback));
+    QMetaObject::invokeMethod(this->helper, "callLaterThreadSafeStub", Qt::QueuedConnection, Q_ARG(int, msecs), Q_ARG(void*, callback));
 }
 
 int EventLoopCoroutinePrivateQt::callRepeat(int msecs, Functor *callback)
 {
     TimerWatcher *w = new TimerWatcher(msecs, false, callback);
-    w->timerId = startTimer(msecs);
+    w->timerId = helper->startTimer(msecs);
     watchers.insert(nextWatcherId, w);
     timers.insert(w->timerId, nextWatcherId);
     return nextWatcherId++;
@@ -292,7 +309,7 @@ void EventLoopCoroutinePrivateQt::cancelCall(int callbackId)
     TimerWatcher *w = dynamic_cast<TimerWatcher*>(watchers.take(callbackId));
     if(w) {
         timers.remove(w->timerId);
-        killTimer(w->timerId);
+        helper->killTimer(w->timerId);
         delete w;
     }
 }
@@ -342,19 +359,34 @@ void EventLoopCoroutinePrivateQt::yield()
     }
 }
 
-EventLoopCoroutine::EventLoopCoroutine()
-    :BaseCoroutine(BaseCoroutine::current()), d_ptr(new EventLoopCoroutinePrivateQt(this))
+QtEventLoopCoroutine::QtEventLoopCoroutine()
+    :EventLoopCoroutine(new EventLoopCoroutinePrivateQt(this))
 {
-
 }
 
 
 int startQtLoop()
 {
-    EventLoopCoroutine *coroutine = EventLoopCoroutine::get();
-    EventLoopCoroutinePrivateQt *priv = EventLoopCoroutinePrivateQt::getPrivateHelper(coroutine);
-    Q_ASSERT(priv);
-    Q_ASSERT(priv->loopCoroutine.isNull());
+    if (!QCoreApplication::instance()) {
+        qDebug() << "require QCoreApplication.";
+        return -1;
+    }
+    
+    QSharedPointer<EventLoopCoroutine> eventLoop = currentLoop()->get();
+    QtEventLoopCoroutine *qtEventLoop = 0;
+    if (!eventLoop.isNull()) {
+        qtEventLoop = dynamic_cast<QtEventLoopCoroutine*>(eventLoop.data());
+        if (!qtEventLoop) {
+            qDebug() << "current eventloop is not Qt.";
+            return -1;
+        }
+    } else {
+        qtEventLoop = new QtEventLoopCoroutine();
+        currentLoop()->set(QSharedPointer<EventLoopCoroutine>(qtEventLoop));
+    }
+    
+    EventLoopCoroutinePrivateQt *priv = EventLoopCoroutinePrivateQt::getPrivateHelper(qtEventLoop);
+    
     priv->loopCoroutine = BaseCoroutine::current();
     int result = QCoreApplication::instance()->exec();
     priv->loopCoroutine.clear();

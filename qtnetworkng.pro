@@ -1,10 +1,12 @@
-QT = core network testlib
+QT += core network
+QT -= gui
 
 TARGET = qtnetworkng
 CONFIG += console staticlib
 CONFIG -= app_bundle
 TEMPLATE = lib
 CONFIG += networkng_ev
+
 TESTS_SOURCES = tests/simple_test.cpp \
     tests/many_httpget.cpp \
     tests/sleep_coroutines.cpp \

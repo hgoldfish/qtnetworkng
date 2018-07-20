@@ -49,6 +49,7 @@ unix | macos {
 networkng_ev {
     LIBS += -lev
     SOURCES += $$PWD/src/eventloop_ev.cpp
+    DEFINES += QTNETWOKRNG_USE_EV
 } else {
     SOURCES += $$PWD/src/eventloop_qt.cpp
 }
@@ -152,11 +153,11 @@ android {
     win32-msvc* : {
         SOURCES += $$PWD/src/coroutine_win.cpp
     } else {
-        equals(QMAKE_HOST.arch, x86_64) {
+        equals(QT_ARCH, x86_64) {
             SOURCES += $$PWD/src/context/asm/jump_x86_64_ms_pe_gas.S \
                 $$PWD/src/context/asm/make_x86_64_ms_pe_gas.S \
                 $$PWD/src/coroutine_fcontext.cpp
-        } else:equals(QMAKE_HOST.arch, x86) {
+        } else:equals(QT_ARCH, i386) {
             SOURCES += $$PWD/src/context/asm/jump_i386_ms_pe_gas.S \
                 $$PWD/src/context/asm/make_i386_ms_pe_gas.S \
                 $$PWD/src/coroutine_fcontext.cpp

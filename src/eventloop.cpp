@@ -1,12 +1,38 @@
 #include <QtCore/qdebug.h>
 #include <QtCore/qpointer.h>
-#include "../include/eventloop.h"
+#include <QtCore/qcoreapplication.h>
+#include <QtCore/qthread.h>
+#include "../include/eventloop_p.h"
 #include "../include/locks.h"
 #ifdef Q_OS_UNIX
 #include <signal.h>
 #endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
+
+Q_GLOBAL_STATIC(CurrentLoopStorage, currentLoopStorage);
+
+CurrentLoopStorage *currentLoop()
+{
+    return currentLoopStorage();
+}
+
+class CoroutineSpawnHelper: public Coroutine
+{
+public:
+    CoroutineSpawnHelper(std::function<void()> f)
+        :f(f){}
+    virtual void run() override { f(); }
+private:
+    std::function<void()> f;
+};
+
+Coroutine *Coroutine::spawn(std::function<void()> f)
+{
+    Coroutine *c =  new CoroutineSpawnHelper(f);
+    c->start();
+    return c;
+}
 
 
 Functor::~Functor()
@@ -36,25 +62,6 @@ void YieldCurrentFunctor::operator ()()
     }
 }
 
-
-// 开始写 CurrentLoopStorage 的定义
-class CurrentLoopStorage
-{
-public:
-    EventLoopCoroutine* get();
-    void set(EventLoopCoroutine* loop);
-    void clean();
-private:
-    struct CurrentLoop
-    {
-        EventLoopCoroutine *value;
-    };
-    QThreadStorage<CurrentLoop> storage;
-};
-
-CurrentLoopStorage &currentLoop();
-
-
 // 开始写 EventLoopCoroutinePrivate 的实现代码。
 
 EventLoopCoroutinePrivate::EventLoopCoroutinePrivate(EventLoopCoroutine *q)
@@ -65,6 +72,11 @@ EventLoopCoroutinePrivate::~EventLoopCoroutinePrivate(){}
 
 // 开始写 EventLoopCoroutine 的实现代码。
 
+EventLoopCoroutine::EventLoopCoroutine(EventLoopCoroutinePrivate *d, size_t stackSize)
+    :BaseCoroutine(BaseCoroutine::current(), stackSize), d_ptr(d)
+{
+}
+
 EventLoopCoroutine::~EventLoopCoroutine()
 {
     delete d_ptr;
@@ -72,7 +84,7 @@ EventLoopCoroutine::~EventLoopCoroutine()
 
 EventLoopCoroutine *EventLoopCoroutine::get()
 {
-    return currentLoop().get();
+    return currentLoopStorage->getOrCreate().data();
 }
 
 void EventLoopCoroutine::run()
@@ -157,54 +169,75 @@ void EventLoopCoroutine::yield()
 
 // 开始写 CurrentLoopStorage 的实现
 
-EventLoopCoroutine* CurrentLoopStorage::get()
+QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::getOrCreate()
 {
+    QSharedPointer<EventLoopCoroutine> eventLoop;
     if(storage.hasLocalData()) {
-        return storage.localData().value;
+        eventLoop = storage.localData();
     }
-    EventLoopCoroutine *eventLoop = new EventLoopCoroutine();
-    eventLoop->setObjectName("eventloop_coroutine");
-    storage.setLocalData(CurrentLoop());
-    storage.localData().value = eventLoop;
+    if (eventLoop.isNull()) {
+#ifdef QTNETWOKRNG_USE_EV
+        if (QCoreApplication::instance() && QCoreApplication::instance()->thread() == QThread::currentThread()) {
+            eventLoop.reset(new QtEventLoopCoroutine());
+            eventLoop->setObjectName("qt_eventloop_coroutine");
+            storage.setLocalData(eventLoop);
+        } else {
+            eventLoop.reset(new EvEventLoopCoroutine());
+            eventLoop->setObjectName("libev_eventloop_coroutine");
+            storage.setLocalData(eventLoop);
+        }
+#else
+        eventLoop.reset(new QtEventLoopCoroutine());
+        eventLoop->setObjectName("qt_eventloop_coroutine");
+        storage.setLocalData(eventLoop);
+#endif
+    }
     return eventLoop;
 }
 
-void CurrentLoopStorage::set(EventLoopCoroutine *loop)
+
+QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::get()
 {
-    storage.localData().value = loop;
+    if(storage.hasLocalData()) {
+        return storage.localData();
+    } else {
+        return QSharedPointer<EventLoopCoroutine>();
+    }
 }
+
+
+void CurrentLoopStorage::set(QSharedPointer<EventLoopCoroutine> eventLoop)
+{
+    storage.setLocalData(eventLoop);
+}
+
 
 void CurrentLoopStorage::clean()
 {
     if(storage.hasLocalData()) {
-        delete storage.localData().value;
+        storage.localData().reset();
     }
 }
 
-CurrentLoopStorage &currentLoop()
-{
-    static CurrentLoopStorage storage;
-    return storage;
-}
 
 // 开始写 ScopedWatcher 的实现
 
 ScopedIoWatcher::ScopedIoWatcher(EventLoopCoroutine::EventType event, qintptr fd)
 {
-    EventLoopCoroutine *eventLoop = currentLoop().get();
+    QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
     watcherId = eventLoop->createWatcher(event, fd, new YieldCurrentFunctor());
 }
 
 void ScopedIoWatcher::start()
 {
-    EventLoopCoroutine *eventLoop = currentLoop().get();
+    QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
     eventLoop->startWatcher(watcherId);
     eventLoop->yield();
 }
 
 ScopedIoWatcher::~ScopedIoWatcher()
 {
-    EventLoopCoroutine *eventLoop = currentLoop().get();
+    QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
     eventLoop->removeWatcher(watcherId);
 }
 

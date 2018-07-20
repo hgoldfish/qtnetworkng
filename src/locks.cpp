@@ -1,6 +1,6 @@
 #include <QtCore/qpointer.h>
 #include <QtCore/qsharedpointer.h>
-#include "../include/eventloop.h"
+#include "../include/eventloop_p.h"
 #include "../include/locks.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN

@@ -9,7 +9,7 @@ void LambdaFunctor::operator ()()
 }
 
 
-DeferCallThread::DeferCallThread(const std::function<void()> &func, YieldCurrentFunctor *yieldCoroutine, EventLoopCoroutine *eventloop)
+DeferCallThread::DeferCallThread(const std::function<void()> &func, LambdaFunctor *yieldCoroutine, EventLoopCoroutine *eventloop)
 :func(func), yieldCoroutine(yieldCoroutine), eventloop(eventloop)
 {
 }

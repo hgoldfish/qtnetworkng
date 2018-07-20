@@ -250,6 +250,6 @@ void TestCrypto::testCertificate()
     QVERIFY(cert == cert2);
 }
 
-//QTEST_MAIN(TestCrypto)
+QTEST_MAIN(TestCrypto)
 
 #include "test_crypto.moc"
