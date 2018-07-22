@@ -58,6 +58,7 @@ SET(QTNETWORKNG_INCLUDE
     include/socket.h
     include/socket_p.h
     include/eventloop.h
+    include/eventloop_p.h
     include/locks.h
     include/coroutine_utils.h
     include/coroutine_p.h
@@ -283,7 +284,7 @@ ELSE()
 ENDIF()
 
 LINK_DIRECTORIES(${_qt5Core_install_prefix}/lib/)
-ADD_LIBRARY(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTSSLNG_SRC} ${OS_DEPENDENDED_SRC} ${EVENTLOOP_SRC})
+ADD_LIBRARY(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTSSLNG_SRC} ${QTSSLNG_INCLUDE} ${OS_DEPENDENDED_SRC} ${EVENTLOOP_SRC})
 TARGET_LINK_LIBRARIES(qtnetworkng Qt5::Core Qt5::Network ${OS_EXTRA_LINK})
 
 SET(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})

@@ -201,7 +201,10 @@ DEFINEFUNC(const EVP_CIPHER *, EVP_CIPHER_CTX_cipher, const EVP_CIPHER *e, e, re
 DEFINEFUNC8(int, EVP_BytesToKey, const EVP_CIPHER *type, type, const EVP_MD *md, md, const unsigned char *salt, salt,
             const unsigned char *data, data, int datal, datal, int count, count, unsigned char *key, key, unsigned char *iv, iv,
             return 0, return)
-
+DEFINEFUNC8(int, PKCS5_PBKDF2_HMAC, const char *pass, pass, int passlen, passlen,
+            const unsigned char *salt, salt, int saltlen, saltlen, int iter, iter,
+            const EVP_MD *digest, digest, int keylen, keylen, unsigned char *out, out,
+            return 0, return)
 DEFINEFUNC(const EVP_CIPHER *, EVP_enc_null, void, DUMMYARG, return 0, return)
 DEFINEFUNC(const EVP_CIPHER *, EVP_des_ecb, void, DUMMYARG, return 0, return)
 DEFINEFUNC(const EVP_CIPHER *, EVP_des_cfb64, void, DUMMYARG, return 0, return)
@@ -960,6 +963,7 @@ bool q_resolveOpenSslSymbols(bool force)
     RESOLVEFUNC(EVP_CIPHER_type)
     RESOLVEFUNC(EVP_CIPHER_CTX_cipher)
     RESOLVEFUNC(EVP_BytesToKey)
+    RESOLVEFUNC(PKCS5_PBKDF2_HMAC)
 
     RESOLVEFUNC(EVP_enc_null)
     RESOLVEFUNC(EVP_des_ecb)

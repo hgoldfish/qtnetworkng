@@ -383,6 +383,41 @@ Certificate CertificatePrivate::load(const QByteArray &data, Ssl::EncodingFormat
     return cert;
 }
 
+static bool setIssuerInfos(openssl::X509 *x, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
+{
+    openssl::X509_NAME *name = openssl::q_X509_get_issuer_name(x);
+    if(!name) {
+        return false;
+    }
+    QMap<Certificate::SubjectInfo, QByteArray> table = {
+        {Certificate::Organization, "O" },
+        {Certificate::CommonName, "CN" },
+        {Certificate::LocalityName, "L" },
+        {Certificate::OrganizationalUnitName, "OU" },
+        {Certificate::CountryName, "C" },
+        {Certificate::StateOrProvinceName, "ST" },
+        {Certificate::DistinguishedNameQualifier, "dnQualifier" },
+        {Certificate::SerialNumber, "serialNumber" },
+//        {Certificate::EmailAddress, "emailAddress" },
+
+    };
+    bool success = true;
+    for(QMap<Certificate::SubjectInfo, QByteArray>::const_iterator itor = table.constBegin(); itor != table.constEnd(); ++itor) {
+        const QStringList &sl = subjectInfoes.values(itor.key());
+        foreach(const QString &s, sl) {
+            QByteArray bs = s.toUtf8();
+            success = success && openssl::q_X509_NAME_add_entry_by_txt(name, itor.value().data(), MBSTRING_UTF8,
+                                                                       (const unsigned char *)bs.constData(),
+                                                                       bs.size(), -1, 0);
+        }
+    }
+    if(!success) {
+        return false;
+    }
+    int r = openssl::q_X509_set_issuer_name(x, name);
+    return r;
+}
+
 static bool setSubjectInfos(openssl::X509 *x, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
 {
     openssl::X509_NAME *name = openssl::q_X509_get_subject_name(x);
@@ -415,7 +450,6 @@ static bool setSubjectInfos(openssl::X509 *x, const QMultiMap<Certificate::Subje
         return false;
     }
     int r  = openssl::q_X509_set_subject_name(x, name);
-    r &= openssl::q_X509_set_issuer_name(x, name);
     return r;
 }
 
@@ -452,6 +486,10 @@ Certificate CertificatePrivate::generate(const PrivateKey &key, MessageDigest::A
     openssl::q_X509_set_pubkey(x509.data(), static_cast<openssl::EVP_PKEY*>(key.handle()));
     if(!setSubjectInfos(x509.data(), subjectInfoes)) {
         qDebug() << "can not set subject infos.";
+        return cert;
+    }
+    if(!setIssuerInfos(x509.data(), subjectInfoes)) {
+        qDebug() << "can not set issuer infos.";
         return cert;
     }
     //FIXME set datetime

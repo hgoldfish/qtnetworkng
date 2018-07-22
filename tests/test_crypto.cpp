@@ -27,7 +27,7 @@ private slots:
     void testSaveLoadRsa();
     void testGenDSA();
     void testSignDSA();
-    void testCryptoDSA();
+//    void testCryptoDSA();
     void testCertificate();
 };
 
@@ -209,13 +209,13 @@ void TestCrypto::testSignDSA()
     QVERIFY(key.verify("123456", signedText, MessageDigest::Sha512));
 }
 
-void TestCrypto::testCryptoDSA()
-{
-    PrivateKey key = PrivateKey::generate(PrivateKey::Dsa, 2048);
-    QByteArray text = randomBytes(16);
-    QByteArray entext = key.encrypt(text);
+//void TestCrypto::testCryptoDSA()
+//{
+//    PrivateKey key = PrivateKey::generate(PrivateKey::Dsa, 2048);
+//    QByteArray text = randomBytes(16);
+//    QByteArray entext = key.encrypt(text);
 //    QCOMPARE(key.decrypt(entext), text);
-}
+//}
 
 QString first(const QStringList &l) {
     if(l.size() > 0) {
@@ -230,7 +230,7 @@ void TestCrypto::testCertificate()
     PrivateKey pkey = PrivateKey::generate(PrivateKey::Rsa, 2048);
     const QDateTime &now = QDateTime::currentDateTime();
     QMultiMap<Certificate::SubjectInfo, QString> subjectInfoes = {
-        { Certificate::Organization, QStringLiteral("Besteam") },
+        { Certificate::Organization, QStringLiteral("Gigacores") },
         { Certificate::CommonName, QStringLiteral("Goldfish") },
         { Certificate::CountryName, QStringLiteral("CN") },
     };
@@ -238,7 +238,7 @@ void TestCrypto::testCertificate()
     QVERIFY(!cert.isNull());
     QVERIFY(qAbs(cert.effectiveDate().msecsTo(now)) < 1000);
     QVERIFY(qAbs(cert.expiryDate().msecsTo(now.addYears(10))) < 1000);
-    QCOMPARE(first(cert.issuerInfo(Certificate::Organization)), QStringLiteral("Besteam"));
+    QCOMPARE(first(cert.issuerInfo(Certificate::Organization)), QStringLiteral("Gigacores"));
     QCOMPARE(first(cert.issuerInfo(Certificate::CommonName)), QStringLiteral("Goldfish"));
     QCOMPARE(first(cert.issuerInfo(Certificate::CountryName)), QStringLiteral("CN"));
     QVERIFY(cert.isSelfSigned());

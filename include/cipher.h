@@ -53,6 +53,9 @@ public:
     bool setPassword(const QByteArray &password,
                      const MessageDigest::Algorithm hashAlgo = MessageDigest::Sha256,
                      const QByteArray &salt = QByteArray(), int i = 100000 /* same as django PBKDF2*/);
+    bool setOpensslPassword(const QByteArray &password,
+                            const MessageDigest::Algorithm hashAlgo = MessageDigest::Md5,
+                            const QByteArray &salt = QByteArray(), int i = 1);
     QByteArray salt() const;
     QByteArray saltHeader() const; // `openssl enc` generate a header contains salt
     QPair<QByteArray, QByteArray> parseSalt(const QByteArray &header); // parse salt from `openssl enc` header

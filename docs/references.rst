@@ -12,7 +12,7 @@ Coroutine is light-weight thread. In other programming languages, it is called *
 .. code-block:: c++
     :caption: Example 1: switch between two BaseCoroutine
 
-    // warning: yiled() is rarelly used, this is just an example showing the ability of coroutine.
+    // warning: yield() is rarelly used, this is just an example showing the ability of coroutine.
     #include <qtnetworkng/qtnetworkng.h>
     #include <QCoreApplication>
     
@@ -44,7 +44,7 @@ Coroutine is light-weight thread. In other programming languages, it is called *
         return 0;
     }
 
-In last example, we define a ``MyCoroutine`` which derived from ``BaseCoroutine`` first, and overwrite its ``run()`` member function. Be convenient, the main thread is converted to Coroutine implicitly. After create ``MyCoroutine`` object, we can yiled to it. The example output:
+In last example, we define a ``MyCoroutine`` which derived from ``BaseCoroutine`` first, and overwrite its ``run()`` member function. Be convenient, the main thread is converted to Coroutine implicitly. After create ``MyCoroutine`` object, we can yield to it. The example output:
 
 .. code-block:: text
     :caption: output of example 1
@@ -370,17 +370,17 @@ Functions in ``CorotuineGroup``.
 
     Return whether there is any coroutine in the group.
 
-.. method:: QSharedPointer<Coroutine> spawnWithName(const QString &name, const std::function<void()> &func, bool one = true)`
+.. method:: QSharedPointer<Coroutine> spawnWithName(const QString &name, const std::function<void()> &func, bool replace = false)`
 
-    Start a new coroutine to run ``func``, and add it to group with ``name``. If the parameter ``one`` is true, and there is already a coroutine with the same name exists, no action is taken. This function return the new coroutine.
+    Start a new coroutine to run ``func``, and add it to group with ``name``. If the parameter ``replace`` is false, and there is already a coroutine with the same name exists, no action is taken. Otherwise, if there is already a coroutine with the same name exists, the old one is returned. This function returns the new coroutine.
     
 .. method:: QSharedPointer<Coroutine> spawn(const std::function<void()> &func)
 
     Start a new coroutine to run ``func``, and add it to group. This function return the new coroutine.
 
-.. method:: QSharedPointer<Coroutine> spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool one = true)`
+.. method:: QSharedPointer<Coroutine> spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool replace = false)`
 
-    Start a new thread to run ``func``. Create a new coroutine which waits for the new thread finishing, and add it to group with ``name``. If the parameter `one` is true, and there is alreay a coroutine with the same name exists, no action is taken. This function returns the new coroutine.
+    Start a new thread to run ``func``. Create a new coroutine which waits for the new thread finishing, and add it to group with ``name``. If the parameter ``replace`` is false, and there is already a coroutine with the same name exists, no action is taken. Otherwise, if there is already a coroutine with the same name exists, the old one is returned. This function returns the new coroutine.
 
 .. method:: QSharedPointer<Coroutine> spawnInThread(const std::function<void()> &func)
 
