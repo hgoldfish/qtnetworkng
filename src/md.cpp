@@ -166,4 +166,58 @@ QByteArray MessageDigest::result()
     return d->result();
 }
 
+QByteArray PBKDF2_HMAC(int keylen,const QByteArray &password,
+                       const MessageDigest::Algorithm hashAlgo = MessageDigest::Sha256,
+                       const QByteArray &salt, int i = 10000)
+{
+    initOpenSSL();
+    const openssl::EVP_MD *dgst = getOpenSSL_MD(hashAlgo);
+
+    if(!dgst || salt.isEmpty() || password.isEmpty() || i <= 0) {
+        return QByteArray();
+    }
+
+    QByteArray key;
+    key.resize(keylen);
+
+    int rvalue = openssl::q_PKCS5_PBKDF2_HMAC(password.data(), password.size(),
+            (unsigned char*) salt.data(), salt.size(), i, dgst, keylen, (unsigned char *) key.data());
+    if (rvalue) {
+        return key;
+    } else {
+        return QByteArray();
+    }
+}
+
+//QByteArray scrypt(const QByteArray &password, int keylen, const QByteArray &salt,
+//                  int n, int r, int p)
+//{
+//    initOpenSSL();
+//    openssl::EVP_PKEY_CTX *pctx = openssl::q_EVP_PKEY_CTX_new_id(EVP_PKEY_SCRYPT, NULL);
+
+//    if(!pctx || password.isEmpty() || salt.isEmpty()) {
+//        return QByteArray();
+//    }
+
+//    QByteArray key;
+//    key.resize(keylen);
+
+//    int rvalue = openssl::q_EVP_PKEY_derive_init(pctx);
+//    if (rvalue <= 0) {
+//        qDebug() << "can not init scrypt kdf.";
+//        return QByteArray();
+//    }
+//    rvalue = openssl::q_EVP_PKEY_CTX_set1_pbe_pass(pctx, password.data(), password.size());
+//    if (rvalue <= 0) {
+//        qDebug() << "can not set scrypt password.";
+//        return QByteArray();
+//    }
+//    rvalue = openssl::q_EVP_PKEY_CTX_set1_scrypt_salt(pctx, salt.data(), salt.size());
+//    if (rvalue <= 0) {
+//        qDebug() << "can not set scrypt salt.";
+//        return QByteArray();
+//    }
+
+//}
+
 QTNETWORKNG_NAMESPACE_END

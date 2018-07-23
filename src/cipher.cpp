@@ -342,22 +342,17 @@ QPair<QByteArray, QByteArray> CipherPrivate::PBKDF2_HMAC(const QByteArray &passw
     const openssl::EVP_MD *dgst = getOpenSSL_MD(hashAlgo);
     unsigned char key[EVP_MAX_KEY_LENGTH], iv[EVP_MAX_IV_LENGTH];
 
-    if(hasError || !context || !cipher || !dgst
-            || (!salt.isEmpty() && salt.size() != 8) || password.isEmpty() || i <= 0) {
+    if(hasError || !context || !cipher || !dgst || salt.isEmpty() || password.isEmpty() || i <= 0) {
         return qMakePair(QByteArray(), QByteArray());
-    }
-    const unsigned char *saltPtr = NULL;
-    if(!salt.isEmpty()) {
-        saltPtr = (unsigned char*) salt.data();
     }
     int keylen = openssl::q_EVP_CIPHER_key_length(cipher);
     int ivlen = openssl::q_EVP_CIPHER_iv_length(cipher);
     if (keylen > 0 && ivlen > 0) {
         int rvalue = openssl::q_PKCS5_PBKDF2_HMAC(password.data(), password.size(),
-                saltPtr, salt.size(), i, dgst, keylen, key);
+                (unsigned char*) salt.data(), salt.size(), i, dgst, keylen, key);
         if(rvalue) {
             rvalue = openssl::q_PKCS5_PBKDF2_HMAC(password.data(), password.size(),
-                    saltPtr, salt.size(), i, dgst, ivlen, iv);
+                    key, keylen, i, dgst, ivlen, iv);
             if (rvalue) {
                 return qMakePair(QByteArray((const char*) key, keylen), QByteArray((const char *) iv, ivlen));
             }
@@ -403,16 +398,12 @@ bool CipherPrivate::setPassword(const QByteArray &password,const MessageDigest::
 {
     QByteArray s;
     if(salt.isEmpty()) {
-        s = randomBytes(8);
+        s = randomBytes(32);
     } else {
-        if(salt.size() == 8) {
-            s = salt;
-        } else {
-            return false;
-        }
+        s = salt;
     }
     this->salt = s;
-    const QPair<QByteArray, QByteArray> &t = bytesToKey(password, hashAlgo, s, i);
+    const QPair<QByteArray, QByteArray> &t = PBKDF2_HMAC(password, hashAlgo, s, i);
     key = t.first;
     iv = t.second;
     if(key.isEmpty()) {
@@ -430,11 +421,12 @@ bool CipherPrivate::setOpensslPassword(const QByteArray &password, const Message
         if(salt.size() == 8) {
             s = salt;
         } else {
+            qWarning("setOpensslPassword() require the length of salt is 8.");
             return false;
         }
     }
     this->salt = s;
-    const QPair<QByteArray, QByteArray> &t = PBKDF2_HMAC(password, hashAlgo, s, i);
+    const QPair<QByteArray, QByteArray> &t = bytesToKey(password, hashAlgo, s, i);
     key = t.first;
     iv = t.second;
     if(key.isEmpty()) {
@@ -527,7 +519,7 @@ QByteArray Cipher::salt() const
 }
 
 
-QPair<QByteArray, QByteArray> parseSalt(const QByteArray &header)
+QPair<QByteArray, QByteArray> Cipher::parseSalt(const QByteArray &header)
 {
     if(header.startsWith("Salted_") && header.size() >= 15) {
         const QByteArray &salt = header.mid(7, 8);
@@ -537,7 +529,6 @@ QPair<QByteArray, QByteArray> parseSalt(const QByteArray &header)
         return qMakePair(QByteArray(), QByteArray());
     }
 }
-
 
 bool Cipher::setPadding(bool padding)
 {
@@ -557,6 +548,27 @@ QByteArray Cipher::initialVector() const
 {
     Q_D(const Cipher);
     return d->iv;
+}
+
+int Cipher::keySize() const
+{
+    Q_D(const Cipher);
+    int keylen = openssl::q_EVP_CIPHER_key_length(d->cipher);
+    return keylen;
+}
+
+int Cipher::ivSize() const
+{
+    Q_D(const Cipher);
+    int ivlen = openssl::q_EVP_CIPHER_iv_length(d->cipher);
+    return ivlen;
+}
+
+int Cipher::blockSize() const
+{
+    Q_D(const Cipher);
+    int blockSize = openssl::q_EVP_CIPHER_block_size(cipher);
+    return blockSize;
 }
 
 QTNETWORKNG_NAMESPACE_END

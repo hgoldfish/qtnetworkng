@@ -185,6 +185,7 @@ typedef int i2d_of_void (void *,unsigned char **);
 #define EVP_PKEY_DH 28
 #define EVP_PKEY_EC 408
 #define EVP_PKEY_HMAC 855
+#define EVP_PKEY_SCRYPT 937
 
 #define V_ASN1_UTCTIME 23
 #define V_ASN1_GENERALIZEDTIME 24
