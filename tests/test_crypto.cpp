@@ -84,7 +84,7 @@ void TestCrypto::testRipemd160()
 void TestCrypto::testAES128()
 {
     Cipher c(Cipher::AES128, Cipher::ECB, Cipher::Encrypt);
-    c.setPassword("123456", MessageDigest::Sha256, "12345678", 1);
+    c.setOpensslPassword("123456", MessageDigest::Sha256, "12345678", 1);
     QByteArray result;
     result.append(c.addData("fish is here."));
     result.append(c.finalData());
@@ -97,7 +97,7 @@ void TestCrypto::testAES128()
 void TestCrypto::testAES256()
 {
     Cipher c(Cipher::AES256, Cipher::ECB, Cipher::Encrypt);
-    c.setPassword("123456", MessageDigest::Sha256, "12345678", 1);
+    c.setOpensslPassword("123456", MessageDigest::Sha256, "12345678", 1);
     QByteArray result;
     result.append(c.addData("fish is here."));
     result.append(c.finalData());
@@ -110,7 +110,7 @@ void TestCrypto::testAES256()
 void TestCrypto::testBlowfish()
 {
     Cipher c(Cipher::Blowfish, Cipher::ECB, Cipher::Encrypt);
-    c.setPassword("123456", MessageDigest::Sha256, "12345678", 1);
+    c.setOpensslPassword("123456", MessageDigest::Sha256, "12345678", 1);
     QByteArray result;
     result.append(c.addData("fish is here."));
     result.append(c.finalData());
@@ -123,14 +123,15 @@ void TestCrypto::testBlowfish()
 
 void TestCrypto::testDecrypt()
 {
-    Cipher c1(Cipher::Blowfish, Cipher::ECB, Cipher::Encrypt);
-    c1.setPassword("123456", MessageDigest::Sha256, "12345678", 1);
+    Cipher c1(Cipher::Blowfish, Cipher::CBC, Cipher::Encrypt);
+    c1.setPassword("123456", MessageDigest::Sha256, "12345678", 10000);
     QByteArray encryptedText;
     encryptedText.append(c1.addData("fish is here."));
     encryptedText.append(c1.finalData());
+    QVERIFY(!encryptedText.isEmpty());
 
-    Cipher c2(Cipher::Blowfish, Cipher::ECB, Cipher::Decrypt);
-    c2.setPassword("123456", MessageDigest::Sha256, "12345678", 1);
+    Cipher c2(Cipher::Blowfish, Cipher::CBC, Cipher::Decrypt);
+    c2.setPassword("123456", MessageDigest::Sha256, "12345678", 10000);
     QByteArray clearText;
     clearText.append(c2.addData(encryptedText));
     clearText.append(c2.finalData());

@@ -567,7 +567,7 @@ int Cipher::ivSize() const
 int Cipher::blockSize() const
 {
     Q_D(const Cipher);
-    int blockSize = openssl::q_EVP_CIPHER_block_size(cipher);
+    int blockSize = openssl::q_EVP_CIPHER_block_size(d->cipher);
     return blockSize;
 }
 

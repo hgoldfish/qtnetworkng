@@ -8,6 +8,14 @@
 #include "deferred.h"
 
 
+#ifndef DEFAULT_COROUTINE_STACK_SIZE
+    #if Q_OS_ANDROID
+        #define DEFAULT_COROUTINE_STACK_SIZE 1024 * 256
+    #else
+        #define DEFAULT_COROUTINE_STACK_SIZE 1024 * 1024 * 8
+    #endif
+#endif
+
 QTNETWORKNG_NAMESPACE_BEGIN
 
 class CoroutineException
@@ -42,7 +50,7 @@ public:
         Stopped,
         Joined,
     };
-    explicit BaseCoroutine(BaseCoroutine * previous, size_t stackSize = 1024 * 1024 * 8);
+    explicit BaseCoroutine(BaseCoroutine * previous, size_t stackSize = DEFAULT_COROUTINE_STACK_SIZE);
     virtual ~BaseCoroutine();
 
     virtual void run();

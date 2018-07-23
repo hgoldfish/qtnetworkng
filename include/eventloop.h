@@ -16,8 +16,8 @@ class Coroutine: public BaseCoroutine
 {
     Q_DISABLE_COPY(Coroutine)
 public:
-    explicit Coroutine(size_t stackSize = 1024 * 1024 * 8);
-    Coroutine(QObject *obj, const char *slot, size_t stackSize = 1024 * 1024 * 8);
+    explicit Coroutine(size_t stackSize = DEFAULT_COROUTINE_STACK_SIZE);
+    Coroutine(QObject *obj, const char *slot, size_t stackSize = DEFAULT_COROUTINE_STACK_SIZE);
     virtual ~Coroutine();
 public:
     bool isRunning() const;

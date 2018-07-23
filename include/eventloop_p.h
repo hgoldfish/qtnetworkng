@@ -75,6 +75,7 @@ public:
 public:
     static EventLoopCoroutine *get();
 protected:
+    // eventloop coroutine should use a bigger stack size instead of DEFAULT_COROUTINE_STACK_SIZE, which may be defined smaller.
     EventLoopCoroutine(EventLoopCoroutinePrivate *d, size_t stackSize = 1024 * 1024 * 8);
 private:
     EventLoopCoroutinePrivate * const d_ptr;
