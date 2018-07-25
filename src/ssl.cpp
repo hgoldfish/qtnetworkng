@@ -683,6 +683,9 @@ SslConnection<Socket>::~SslConnection()
 template<typename Socket>
 bool SslConnection<Socket>::handshake(bool asServer, const QString &verificationPeerName)
 {
+    if (rawSocket.isNull()) {
+        return false;
+    }
     this->asServer = asServer;
     this->verificationPeerName = verificationPeerName;
     // TODO set verify name.
@@ -811,6 +814,9 @@ bool SslConnection<Socket>::_handshake()
 template<typename Socket>
 bool SslConnection<Socket>::pumpOutgoing()
 {
+    if (ssl.isNull()) {
+        return false;
+    }
     int pendingBytes;
     QVarLengthArray<char, 4096> buf;
     openssl::BIO *outgoing = openssl::q_SSL_get_wbio(ssl.data());
@@ -830,6 +836,9 @@ bool SslConnection<Socket>::pumpOutgoing()
 template<typename Socket>
 bool SslConnection<Socket>::pumpIncoming()
 {
+    if (ssl.isNull()) {
+        return false;
+    }
     QByteArray buf = rawSocket->recv(1024 * 8);
     if(buf.isEmpty())
         return false;
@@ -851,6 +860,9 @@ bool SslConnection<Socket>::pumpIncoming()
 template<typename Socket>
 qint64 SslConnection<Socket>::recv(char *data, qint64 size, bool all)
 {
+    if (ssl.isNull()) {
+        return -1;
+    }
     qint64 total = 0;
     while(true) {
         int result = openssl::q_SSL_read(ssl.data(), data + total, size - total);
@@ -897,6 +909,9 @@ qint64 SslConnection<Socket>::recv(char *data, qint64 size, bool all)
 template<typename Socket>
 qint64 SslConnection<Socket>::send(const char *data, qint64 size, bool all)
 {
+    if (ssl.isNull()) {
+        return -1;
+    }
     qint64 total = 0;
     while(true) {
         int result = openssl::q_SSL_write(ssl.data(), data + total, size - total);
@@ -924,8 +939,8 @@ qint64 SslConnection<Socket>::send(const char *data, qint64 size, bool all)
 //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL:
-                qDebug() << "recv error.";
-                return false;
+                qDebug() << "send error.";
+                return -1;
             }
         } else {
             total += result;
@@ -933,6 +948,9 @@ qint64 SslConnection<Socket>::send(const char *data, qint64 size, bool all)
                 qDebug() << "send too many data.";
                 return size;
             } else if(total == size) {
+                if (all) {
+                    pumpOutgoing();
+                }
                 return total;
             } else {
                 if(all) {
