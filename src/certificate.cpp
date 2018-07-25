@@ -455,7 +455,7 @@ static bool setSubjectInfos(openssl::X509 *x, const QMultiMap<Certificate::Subje
 
 std::string toText(const QDateTime &t)
 {
-    return (t.toUTC().toString("yyyyMMddhhmms") + QStringLiteral("Z")).toStdString();
+    return (t.toUTC().toString("yyyyMMddhhmmss") + QStringLiteral("Z")).toStdString();
 }
 
 struct Asn1TimeCleaner
@@ -749,7 +749,11 @@ bool Certificate::isNull() const
 
 QByteArray Certificate::digest(MessageDigest::Algorithm algorithm) const
 {
-    return MessageDigest::hash(save(Ssl::Der), algorithm);
+    const QByteArray &der = save(Ssl::Der);
+    if (der.isEmpty()) {
+        return QByteArray();
+    }
+    return MessageDigest::hash(der, algorithm);
 }
 
 QDateTime Certificate::effectiveDate() const
@@ -853,6 +857,21 @@ bool Certificate::operator==(const Certificate &other) const
     return false;
 }
 
+uint qHash(const Certificate &key, uint seed)
+{
+    if (openssl::X509 * const x509 = key.d.constData()->x509.data()) {
+        const openssl::EVP_MD *sha256 = openssl::q_EVP_sha256();
+        if(sha256) {
+            unsigned int len = 0;
+            unsigned char md[EVP_MAX_MD_SIZE];
+            openssl::q_X509_digest(x509, sha256, md, &len);
+            return qHashBits(md, len, seed);
+        }
+    }
+    return seed;
+}
+
+
 QDebug &operator<<(QDebug &debug, const Certificate &certificate)
 {
     QDebugStateSaver saver(debug); Q_UNUSED(saver);
@@ -885,18 +904,5 @@ QDebug &operator<<(QDebug &debug, Certificate::SubjectInfo info)
     return debug;
 }
 
-uint qHash(const Certificate &key, uint seed)
-{
-    if (openssl::X509 * const x509 = key.d.constData()->x509.data()) {
-        const openssl::EVP_MD *sha256 = openssl::q_EVP_sha256();
-        if(sha256) {
-            unsigned int len = 0;
-            unsigned char md[EVP_MAX_MD_SIZE];
-            openssl::q_X509_digest(x509, sha256, md, &len);
-            return qHashBits(md, len, seed);
-        }
-    }
-    return seed;
-}
-
 QTNETWORKNG_NAMESPACE_END
+

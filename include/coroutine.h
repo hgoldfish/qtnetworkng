@@ -76,14 +76,7 @@ private:
     Q_DECLARE_PRIVATE(BaseCoroutine)
 };
 
-inline QDebug &operator <<(QDebug &out, const BaseCoroutine& coroutine)
-{
-    if(coroutine.objectName().isEmpty()) {
-        return out << QString::fromLatin1("BaseCourtine(id=%1)").arg(coroutine.id());
-    } else {
-        return out << QString::fromLatin1("%1(id=%2)").arg(coroutine.objectName()).arg(coroutine.id());
-    }
-}
+QDebug &operator <<(QDebug &out, const BaseCoroutine& coroutine);
 
 QTNETWORKNG_NAMESPACE_END
 

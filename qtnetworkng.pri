@@ -16,7 +16,8 @@ SOURCES += \
     $$PWD/src/socket_utils.cpp \
     $$PWD/src/http_utils.cpp \
     $$PWD/src/http_proxy.cpp \
-    $$PWD/src/socks5_proxy.cpp
+    $$PWD/src/socks5_proxy.cpp \
+    $$PWD/src/eventloop_qt.cpp
 
 HEADERS += \
     $$PWD/include/config.h \
@@ -50,11 +51,9 @@ networkng_ev {
     LIBS += -lev
     SOURCES += $$PWD/src/eventloop_ev.cpp
     DEFINES += QTNETWOKRNG_USE_EV
-} else {
-    SOURCES += $$PWD/src/eventloop_qt.cpp
 }
 
-!no_sslng {
+!no_cryptong {
     HEADERS += $$PWD/include/config.h \
         $$PWD/include/crypto.h \
         $$PWD/include/ssl.h \
@@ -67,6 +66,7 @@ networkng_ev {
         $$PWD/include/crypto_p.h \
         $$PWD/include/certificate.h \
         $$PWD/include/qasn1element.h \
+        $$PWD/include/qtcryptng.h \
         $$PWD/qtcryptng.h
 
     SOURCES += $$PWD/src/ssl.cpp \

@@ -5,7 +5,7 @@
 #include <QtCore/qtextcodec.h>
 #include "../include/http_p.h"
 #include "../include/socks5_proxy.h"
-#ifdef QTNETWOKRNG_USE_SSL
+#ifndef QTNG_NO_CRYPTO
 #include "../include/ssl.h"
 #endif
 
@@ -317,7 +317,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url)
     int defaultPort = 80;
     if(url.scheme() == QStringLiteral("http")) {
     } else{
-#ifdef QTNETWOKRNG_USE_SSL
+#ifndef QTNG_NO_CRYPTO
         defaultPort = 443;
 #else
         qDebug() << "invalid scheme";
@@ -333,7 +333,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url)
         if(url.scheme() == QStringLiteral("http")) {
             connection = SocketLike::rawSocket(rawSocket);
         } else{
-    #ifdef QTNETWOKRNG_USE_SSL
+    #ifndef QTNG_NO_CRYPTO
             QSharedPointer<SslSocket> ssl(new SslSocket(rawSocket));
             ssl->handshake(false);
             connection = SocketLike::sslSocket(ssl);
@@ -349,7 +349,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url)
         if(url.scheme() == QStringLiteral("http")) {
             connection = SocketLike::rawSocket(rawSocket);
         } else{
-    #ifdef QTNETWOKRNG_USE_SSL
+    #ifndef QTNG_NO_CRYPTO
             connection = SocketLike::sslSocket(QSharedPointer<SslSocket>::create(rawSocket));
     #else
             qDebug() << "invalid scheme";

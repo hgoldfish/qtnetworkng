@@ -11,6 +11,7 @@ private slots:
     void testSimple();
     void testSocks5Proxy();
     void testVersion10();
+    void testServer();
 };
 
 
@@ -65,6 +66,52 @@ void TestSsl::testVersion10()
     QVERIFY(response.version == Http1_0);
 }
 
+
+void TestSsl::testServer()
+{
+    PrivateKey key = PrivateKey::generate(PrivateKey::Rsa, 2048);
+    QVERIFY(!key.isNull());
+    QMultiMap<Certificate::SubjectInfo, QString> info;
+    info.insert(Certificate::CommonName, "Goldifsh");
+    info.insert(Certificate::CountryName, "CN");
+    info.insert(Certificate::Organization, "GigaCores");
+    const QDateTime &now = QDateTime::currentDateTime();
+    const Certificate &cert = Certificate::generate(key, MessageDigest::Sha256,
+                                                    293424, now, now.addYears(10), info);
+    QVERIFY(!cert.isNull());
+    QVERIFY(cert.isSelfSigned());
+
+    SslConfiguration config;
+    config.setPrivateKey(key);
+    config.setLocalCertificate(cert);
+    SslSocket server(Socket::AnyIPProtocol, config);
+    bool success = server.bind();
+    QVERIFY(success);
+    QVERIFY(server.state() == Socket::BoundState);
+    server.listen(100);
+    int port = server.localPort();
+    QVERIFY(port != 0);
+    QSharedPointer<Coroutine> clientCoroutine(Coroutine::spawn([port]{
+        SslSocket client;
+        bool success = client.connect(QHostAddress::LocalHost, port);
+        if (!success) {
+            return;
+        }
+        client.sendall("fish is here.");
+        client.close();
+    }));
+    {
+        Timeout _(5.0);
+        QSharedPointer<SslSocket> request = server.accept();
+        QVERIFY(!request.isNull());
+        QCOMPARE(request->localCertificate().digest(MessageDigest::Sha256),
+                 cert.digest(MessageDigest::Sha256));
+        QByteArray data = request->recv(1024);
+        qDebug() << data << request->sslErrors() << request->errorString();
+        QVERIFY(data == "fish is here.");
+    }
+    clientCoroutine->join();
+}
 QTEST_MAIN(TestSsl)
 
 #include "test_ssl.moc"

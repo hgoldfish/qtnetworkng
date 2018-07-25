@@ -6,14 +6,15 @@ HEADERS += $$PWD/include/config.h \
     $$PWD/include/crypto.h \
     $$PWD/include/openssl_symbols.h \
     $$PWD/include/qtng_temp.h \
-    $$PWD/qtsslng.h \
     $$PWD/include/md.h \
     $$PWD/include/random.h \
     $$PWD/include/cipher.h \
     $$PWD/include/pkey.h \
     $$PWD/include/crypto_p.h \
     $$PWD/include/certificate.h \
-    $$PWD/include/qasn1element.h
+    $$PWD/include/qasn1element.h \
+    $$PWD/include/qtsslng.h \
+    $$PWD/qtsslng.h \
 
 SOURCES += $$PWD/src/crypto.cpp \
     $$PWD/src/openssl_symbols.cpp \

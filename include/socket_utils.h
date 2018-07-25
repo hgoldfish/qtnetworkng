@@ -6,7 +6,7 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-#ifdef QTNETWOKRNG_USE_SSL
+#ifndef QTNG_NO_CRYPTO
 class SslSocket;
 #endif
 class SocketLike
@@ -48,7 +48,7 @@ public:
 public:
     static QSharedPointer<SocketLike> rawSocket(QSharedPointer<Socket> s);
     static QSharedPointer<SocketLike> rawSocket(Socket *s) { return rawSocket(QSharedPointer<Socket>(s)); }
-#ifdef QTNETWOKRNG_USE_SSL
+#ifndef QTNG_NO_CRYPTO
     static QSharedPointer<SocketLike> sslSocket(QSharedPointer<SslSocket> s);
     static QSharedPointer<SocketLike> sslSocket(SslSocket *s);
 #endif

@@ -79,14 +79,14 @@ private:
     friend uint qHash(const Certificate &key, uint seed);
 };
 
-QDebug &operator<<(QDebug &debug, const Certificate &certificate);
-QDebug &operator<<(QDebug &debug, Certificate::SubjectInfo info);
-
 class CertificateRequest
 {
 public:
     Certificate certificate() const;
 };
+
+QDebug &operator<<(QDebug &debug, const Certificate &certificate);
+QDebug &operator<<(QDebug &debug, Certificate::SubjectInfo info);
 
 QTNETWORKNG_NAMESPACE_END
 

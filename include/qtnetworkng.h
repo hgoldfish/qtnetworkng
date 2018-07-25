@@ -12,7 +12,7 @@
 #include "http_utils.h"
 #include "socks5_proxy.h"
 
-#ifdef QTNETWOKRNG_USE_SSL
+#ifndef QTNG_NO_CRYPTO
 #include "ssl.h"
 #include "random.h"
 #include "md.h"

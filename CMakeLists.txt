@@ -73,7 +73,7 @@ SET(QTNETWORKNG_INCLUDE
     include/qtnetworkng.h
 )
 
-SET(QTSSLNG_SRC
+SET(QTCRYPTONG_SRC
     src/ssl.cpp
     src/crypto.cpp
     src/openssl_symbols.cpp
@@ -85,7 +85,7 @@ SET(QTSSLNG_SRC
     src/qasn1element.cpp
 )
 
-SET(QTSSLNG_INCLUDE
+SET(QTCRYPTONG_INCLUDE
     include/config.h
     include/crypto.h
     include/ssl.h
@@ -99,8 +99,6 @@ SET(QTSSLNG_INCLUDE
     include/certificate.h
     include/qasn1element.h
 )
-
-ADD_DEFINITIONS(-DQTNETWOKRNG_USE_SSL)
 
 IF(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     SET(OS_DEPENDENDED_SRC 
@@ -203,10 +201,6 @@ ELSE()
     MESSAGE(FATAL_ERROR ${CMAKE_SYSTEM_NAME} is not supported.)
 ENDIF()
 
-# SET(EVENTLOOP_SRC
-#     src/eventloop_qt.cpp
-# )
-
 # start intergrating libev
 INCLUDE(CheckIncludeFiles)
 INCLUDE(CheckFunctionExists)
@@ -253,7 +247,7 @@ CONFIGURE_FILE(ev/config.h.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR} ev/)
 # Ignore deprecation warnings and cast warnings
 IF(MSVC)
-    ADD_DEFINITIONS("/wd4244") 
+    ADD_DEFINITIONS("/wd4244")
     ADD_DEFINITIONS("/wd4996")
 ENDIF()
 
@@ -272,8 +266,10 @@ IF((EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.so) OR
    (EXISTS ${_qt5Core_install_prefix}/lib64/libQt5Core.so) OR
    (EXISTS ${_qt5Core_install_prefix}/lib64/Qt5Core.dll))
     MESSAGE("Shared Qt is detected.")
+    SET(QTNG_USE_STATIC_QT OFF)
 ELSE()
     MESSAGE("Static Qt is detected.")
+    SET(QTNG_USE_STATIC_QT ON)
     IF(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         SET(OS_EXTRA_LINK z log qtpcre2)
     ELSEIF(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
@@ -284,12 +280,12 @@ ELSE()
 ENDIF()
 
 LINK_DIRECTORIES(${_qt5Core_install_prefix}/lib/)
-ADD_LIBRARY(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTSSLNG_SRC} ${QTSSLNG_INCLUDE} ${OS_DEPENDENDED_SRC} ${EVENTLOOP_SRC})
+ADD_LIBRARY(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${OS_DEPENDENDED_SRC} ${EVENTLOOP_SRC})
 TARGET_LINK_LIBRARIES(qtnetworkng Qt5::Core Qt5::Network ${OS_EXTRA_LINK})
 
 SET(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 INSTALL(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
-INSTALL(FILES ${QTNETWORKNG_INCLUDE} ${QTSSLNG_INCLUDE} DESTINATION include/qtnetworkng/)
+INSTALL(FILES ${QTNETWORKNG_INCLUDE} ${QTCRYPTONG_INCLUDE} DESTINATION include/qtnetworkng/)
 
 IF(Qt5Test_FOUND)
     ADD_EXECUTABLE(test_ssl tests/test_ssl.cpp)

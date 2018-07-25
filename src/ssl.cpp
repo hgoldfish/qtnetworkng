@@ -239,7 +239,7 @@ QSharedPointer<openssl::SSL_CTX> SslConfigurationPrivate::makeContext(const SslC
     QSharedPointer<openssl::SSL_CTX> ctx;
     const openssl::SSL_METHOD *method = NULL;
     if(asServer) {
-        method = openssl::q_TLSv1_server_method();
+        method = openssl::q_TLSv1_2_server_method();
     } else {
         method = openssl::q_TLSv1_2_client_method();
     }
@@ -540,6 +540,7 @@ QString SslError::errorString() const
                              " for this certificate");
         break;
     case NoSslSupport:
+        errStr = QStringLiteral("SSL is not supported on this pltform.");
         break;
     case CertificateBlacklisted:
         errStr = QStringLiteral("The peer certificate is blacklisted");
@@ -635,6 +636,7 @@ public:
     ~SslConnection();
     bool handshake(bool asServer, const QString &verificationPeerName);
     bool _handshake();
+    bool close();
     qint64 recv(char *data, qint64 size, bool all);
     qint64 send(const char *data, qint64 size, bool all);
     bool pumpOutgoing();
@@ -675,7 +677,7 @@ SslConnection<Socket>::SslConnection()
 template<typename Socket>
 SslConnection<Socket>::~SslConnection()
 {
-
+    close();
 }
 
 template<typename Socket>
@@ -701,6 +703,8 @@ bool SslConnection<Socket>::handshake(bool asServer, const QString &verification
             // do not free incoming & outgoing
             openssl::q_SSL_set_bio(ssl.data(), incoming, outgoing);
             return _handshake();
+        } else {
+            ctx.reset();
         }
     }
 
@@ -709,6 +713,65 @@ bool SslConnection<Socket>::handshake(bool asServer, const QString &verification
     return false;
 }
 
+
+template<typename Socket>
+bool SslConnection<Socket>::close()
+{
+    if (!ssl.isNull()) {
+        while(true) {
+            int result = openssl::q_SSL_shutdown(ssl.data());
+            bool done = true;
+            if (result < 0) {
+                int err = openssl::q_SSL_get_error(ssl.data(), result);
+                switch(err) {
+                case SSL_ERROR_WANT_READ:
+                    if (pumpOutgoing()) {
+                        if (pumpIncoming()) {
+                            done = false;
+                        }
+                    }
+                    break;
+                case SSL_ERROR_WANT_WRITE:
+                    if (pumpOutgoing()) {
+                        done = false;
+                    }
+                    break;
+                case SSL_ERROR_NONE:
+                case SSL_ERROR_ZERO_RETURN:
+                    break;
+                case SSL_ERROR_WANT_CONNECT:
+                case SSL_ERROR_WANT_ACCEPT:
+                case SSL_ERROR_WANT_X509_LOOKUP:
+    //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+                    qDebug() << "what?";
+                    break;
+                case SSL_ERROR_SYSCALL:
+                case SSL_ERROR_SSL:
+                    qDebug() << "underlying socket is closed.";
+                    break;
+                default:
+                    qDebug() << "unkown returned value of SSL_shutdown().";
+                    break;
+                }
+            } else if (result > 0) {
+                // success.
+            } else { // result == 0
+                done = false;
+                // process the second SSL_shutdown();
+                // https://www.openssl.org/docs/manmaster/man3/SSL_shutdown.html
+            }
+            if (done) {
+                break;
+            }
+        }
+        ssl.reset();
+    }
+    if (ctx.isNull()) {
+        ctx.reset();
+    }
+    rawSocket->close();
+    return true;
+}
 
 template<typename Socket>
 bool SslConnection<Socket>::_handshake()
@@ -734,6 +797,7 @@ bool SslConnection<Socket>::_handshake()
                 qDebug() << "invalid ssl connection state.";
                 return false;
             case SSL_ERROR_SSL:
+            default:
                 qDebug() << "handshake error.";
                 return false;
             }
@@ -806,12 +870,14 @@ qint64 SslConnection<Socket>::recv(char *data, qint64 size, bool all)
                 }
                 break;
             case SSL_ERROR_ZERO_RETURN:
+                return total == 0 ? -1 :total;
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
 //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL:
+            default:
                 qDebug() << "recv error.";
                 return total == 0 ? -1 : total;
             }
@@ -850,6 +916,8 @@ qint64 SslConnection<Socket>::send(const char *data, qint64 size, bool all)
                 }
                 break;
             case SSL_ERROR_ZERO_RETURN:
+                // may the remote peer close the connection.
+                return total == 0 ? -1 : total;
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
@@ -1050,6 +1118,7 @@ SslSocket::SslSocket(QSharedPointer<Socket> rawSocket, const SslConfiguration &c
 {
     Q_D(SslSocket);
     d->rawSocket = rawSocket;
+    d->asServer = false;
 }
 
 
@@ -1152,7 +1221,7 @@ QSharedPointer<SslSocket> SslSocket::accept()
     Q_D(SslSocket);
     Socket *rawSocket = d->rawSocket->accept();
     if(rawSocket) {
-        QSharedPointer<SslSocket> s(new SslSocket(QSharedPointer<Socket>(rawSocket)));
+        QSharedPointer<SslSocket> s(new SslSocket(QSharedPointer<Socket>(rawSocket), d->config));
         if(s->d_func()->handshake(true, QString())) {
             return s;
         }
@@ -1199,7 +1268,7 @@ bool SslSocket::connect(const QString &hostName, quint16 port, Socket::NetworkLa
 bool SslSocket::close()
 {
     Q_D(SslSocket);
-    return d->rawSocket->close();
+    return d->close();
 }
 
 bool SslSocket::listen(int backlog)
