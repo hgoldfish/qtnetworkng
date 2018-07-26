@@ -266,10 +266,9 @@ IF((EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.so) OR
    (EXISTS ${_qt5Core_install_prefix}/lib64/libQt5Core.so) OR
    (EXISTS ${_qt5Core_install_prefix}/lib64/Qt5Core.dll))
     MESSAGE("Shared Qt is detected.")
-    SET(QTNG_USE_STATIC_QT OFF)
 ELSE()
     MESSAGE("Static Qt is detected.")
-    SET(QTNG_USE_STATIC_QT ON)
+    LINK_DIRECTORIES(${_qt5Core_install_prefix}/lib/)
     IF(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         SET(OS_EXTRA_LINK z log qtpcre2)
     ELSEIF(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
@@ -279,7 +278,6 @@ ELSE()
     ENDIF()
 ENDIF()
 
-LINK_DIRECTORIES(${_qt5Core_install_prefix}/lib/)
 ADD_LIBRARY(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${OS_DEPENDENDED_SRC} ${EVENTLOOP_SRC})
 TARGET_LINK_LIBRARIES(qtnetworkng Qt5::Core Qt5::Network ${OS_EXTRA_LINK})
 

@@ -1,6 +1,7 @@
 #ifndef QTNG_DEFERRED_H
 #define QTNG_DEFERRED_H
 
+#include <functional>
 #include <QtCore/qlist.h>
 #include <QtCore/qpair.h>
 

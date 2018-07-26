@@ -316,7 +316,11 @@ static inline Socket::SocketType qt_socket_getType(qintptr socketDescriptor)
 
 inline uint scopeIdFromString(const QString &scopeid)
 {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     return QNetworkInterface::interfaceIndexFromName(scopeid);
+#else
+    return QNetworkInterface::interfaceFromName(scopeid).index();
+#endif
 }
 
 
@@ -608,7 +612,9 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
                     }
                     tries++;
                 } while (tryAgain && (tries < 2));
+#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
                     Q_FALLTHROUGH();
+#endif
                 }
             case WSAEINPROGRESS:
                 break;
