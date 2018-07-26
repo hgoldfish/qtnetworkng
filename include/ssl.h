@@ -55,6 +55,8 @@ public:
     QString peerVerifyName() const;
     int peerVerifyDepth() const;
     PrivateKey privateKey() const;
+    bool onlySecureProtocol() const;
+    bool supportCompression() const;
 
     void addCaCertificate(const Certificate &certificate);
     void addCaCertificates(const QList<Certificate> &certificates);
@@ -68,6 +70,8 @@ public:
                        Ssl::EncodingFormat format = Ssl::Pem, const QByteArray &passPhrase = QByteArray());
     void setSslProtocol(Ssl::SslProtocol protocol);
     void setAllowedNextProtocols(const QList<QByteArray> &protocols);
+    void setOnlySecureProtocol(bool onlySecureProtocol);
+    void setSupportCompression(bool supportCompression);
 public:
     static QList<SslCipher> supportedCiphers();
 public:

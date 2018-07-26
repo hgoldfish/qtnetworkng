@@ -318,6 +318,15 @@ typedef int i2d_of_void (void *,unsigned char **);
 #define SSL_VERIFY_FAIL_IF_NO_PEER_CERT 0x02
 #define SSL_VERIFY_CLIENT_ONCE 0x04
 
+const unsigned long SSL_OP_NO_SSLv2 = 0x01000000U;
+const unsigned long SSL_OP_NO_SSLv3 = 0x02000000U;
+const unsigned long SSL_OP_NO_TLSv1 = 0x04000000U;
+const unsigned long SSL_OP_NO_TLSv1_2 = 0x08000000U;
+const unsigned long SSL_OP_NO_TLSv1_1 = 0x10000000U;
+const unsigned long SSL_OP_NO_COMPRESSION = 0x00020000U;
+const int SSL_CTRL_OPTIONS = 32;
+const int SSL_CTRL_MODE = 33;
+
 // section end.
 
 
@@ -898,12 +907,14 @@ int q_SSL_CTX_set_cipher_list(SSL_CTX *a, const char *b);
 int q_SSL_CTX_set_default_verify_paths(SSL_CTX *a);
 void q_SSL_CTX_set_verify(SSL_CTX *a, int b, int (*c)(int, X509_STORE_CTX *));
 void q_SSL_CTX_set_verify_depth(SSL_CTX *a, int b);
+//long q_SSL_CTX_set_options(SSL_CTX *ctx, long options);
 int q_SSL_CTX_use_certificate(SSL_CTX *a, X509 *b);
 int q_SSL_CTX_use_certificate_file(SSL_CTX *a, const char *b, int c);
 int q_SSL_CTX_use_PrivateKey(SSL_CTX *a, EVP_PKEY *b);
 int q_SSL_CTX_use_RSAPrivateKey(SSL_CTX *a, RSA *b);
 int q_SSL_CTX_use_PrivateKey_file(SSL_CTX *a, const char *b, int c);
 X509_STORE *q_SSL_CTX_get_cert_store(const SSL_CTX *a);
+
 void q_SSL_free(SSL *a);
 STACK_OF(SSL_CIPHER) *q_SSL_get_ciphers(const SSL *a);
 #if OPENSSL_VERSION_NUMBER >= 0x10000000L
@@ -997,8 +1008,8 @@ PKCS12 *q_d2i_PKCS12_bio(BIO *bio, PKCS12 **pkcs12);
 void q_PKCS12_free(PKCS12 *pkcs12);
 
 
-#define q_SSL_CTX_set_options(ctx,op) q_SSL_CTX_ctrl((ctx),SSL_CTRL_OPTIONS,(op),NULL)
-#define q_SSL_CTX_set_mode(ctx,op) q_SSL_CTX_ctrl((ctx),SSL_CTRL_MODE,(op),NULL)
+#define q_SSL_CTX_set_options(ctx,op) q_SSL_CTX_ctrl((ctx),32,(op),NULL)
+#define q_SSL_CTX_set_mode(ctx,op) q_SSL_CTX_ctrl((ctx),33,(op),NULL)
 #define q_SKM_sk_num(type, st) ((int (*)(const STACK_OF(type) *))q_sk_num)(st)
 #define q_SKM_sk_value(type, st,i) ((type * (*)(const STACK_OF(type) *, int))q_sk_value)(st, i)
 #define q_sk_GENERAL_NAME_num(st) q_SKM_sk_num(GENERAL_NAME, (st))

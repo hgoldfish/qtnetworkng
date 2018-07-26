@@ -203,6 +203,8 @@ public:
     int peerVerifyDepth;
     QString peerVerifyName;
     QList<SslCipher> ciphers;
+    bool onlySecureProtocol;
+    bool supportCompression;
 };
 
 bool SslConfigurationPrivate::operator==(const SslConfigurationPrivate &other) const
@@ -214,34 +216,40 @@ bool SslConfigurationPrivate::operator==(const SslConfigurationPrivate &other) c
             peerVerifyMode == other.peerVerifyMode &&
             peerVerifyDepth == other.peerVerifyDepth &&
             peerVerifyName == other.peerVerifyName &&
-            ciphers == other.ciphers;
+            ciphers == other.ciphers &&
+            onlySecureProtocol == other.onlySecureProtocol &&
+            supportCompression == other.supportCompression;
 }
 
 bool SslConfigurationPrivate::isNull() const
 {
     return caCertificates.isEmpty() &&
             localCertificate.isNull() &&
-            privateKey.isValid() &&
+            !privateKey.isValid() &&
             allowedNextProtocols.isEmpty() &&
             peerVerifyMode == Ssl::AutoVerifyPeer &&
-            peerVerifyDepth == 0 &&
+            peerVerifyDepth == 4 &&
             peerVerifyName.isEmpty() &&
-            ciphers.isEmpty();
+            ciphers.isEmpty() &&
+            onlySecureProtocol == true &&
+            supportCompression == true;
 }
 
 SslConfigurationPrivate::SslConfigurationPrivate()
+    :peerVerifyMode(Ssl::AutoVerifyPeer), peerVerifyDepth(4), onlySecureProtocol(true), supportCompression(true)
 {
 
 }
+
 
 QSharedPointer<openssl::SSL_CTX> SslConfigurationPrivate::makeContext(const SslConfiguration &config, bool asServer)
 {
     QSharedPointer<openssl::SSL_CTX> ctx;
     const openssl::SSL_METHOD *method = NULL;
     if(asServer) {
-        method = openssl::q_TLSv1_2_server_method();
+        method = openssl::q_SSLv23_server_method();
     } else {
-        method = openssl::q_TLSv1_2_client_method();
+        method = openssl::q_SSLv23_client_method();
     }
     if(!method) {
         return ctx;
@@ -250,6 +258,15 @@ QSharedPointer<openssl::SSL_CTX> SslConfigurationPrivate::makeContext(const SslC
     if(ctx.isNull()) {
         return ctx;
     }
+    openssl::q_SSL_CTX_set_verify_depth(ctx.data(), config.peerVerifyDepth());
+    long flags = openssl::SSL_OP_NO_SSLv2 | openssl::SSL_OP_NO_SSLv3 | openssl::SSL_OP_NO_TLSv1;
+    if (config.onlySecureProtocol()) {
+        flags |= openssl::SSL_OP_NO_TLSv1_1;
+    }
+    if (!config.supportCompression()) {
+        flags |= openssl::SSL_OP_NO_COMPRESSION;
+    }
+    openssl::q_SSL_CTX_set_options(ctx.data(), flags);
     const PrivateKey &privateKey = config.privateKey();
     if(privateKey.isValid()) {
         int r = openssl::q_SSL_CTX_use_PrivateKey(ctx.data(), (openssl::EVP_PKEY *) privateKey.handle());
@@ -349,6 +366,16 @@ PrivateKey SslConfiguration::privateKey() const
     return d->privateKey;
 }
 
+bool SslConfiguration::onlySecureProtocol() const
+{
+    return d->onlySecureProtocol;
+}
+
+bool SslConfiguration::supportCompression() const
+{
+    return d->supportCompression;
+}
+
 void SslConfiguration::addCaCertificate(const Certificate &certificate)
 {
     d->caCertificates.append(certificate);
@@ -402,6 +429,16 @@ bool SslConfiguration::setLocalCertificate(const QString &path, Ssl::EncodingFor
 void SslConfiguration::setPrivateKey(const PrivateKey &key)
 {
     d->privateKey = key;
+}
+
+void SslConfiguration::setOnlySecureProtocol(bool onlySecureProtocol)
+{
+    d->onlySecureProtocol = onlySecureProtocol;
+}
+
+void SslConfiguration::setSupportCompression(bool supportCompression)
+{
+    d->supportCompression = supportCompression;
 }
 
 QList<SslCipher> SslConfiguration::supportedCiphers()
