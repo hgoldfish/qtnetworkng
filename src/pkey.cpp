@@ -777,6 +777,16 @@ QByteArray PublicKey::encrypt(const QByteArray &data)
 }
 
 
+QByteArray PublicKey::digest(MessageDigest::Algorithm algorithm) const
+{
+    const QByteArray &bs = save(Ssl::Pem);
+    if (bs.isEmpty()) {
+        return QByteArray();
+    } else {
+        return MessageDigest::hash(bs, algorithm);
+    }
+}
+
 QByteArray PublicKey::rsaPublicEncrypt(const QByteArray &data, PrivateKey::RsaPadding padding)
 {
     Q_D(PublicKey);

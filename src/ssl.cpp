@@ -787,7 +787,7 @@ bool SslConnection<Socket>::close()
                     break;
                 case SSL_ERROR_SYSCALL:
                 case SSL_ERROR_SSL:
-                    qDebug() << "underlying socket is closed.";
+                    // qDebug() << "underlying socket is closed.";
                     break;
                 default:
                     qDebug() << "unkown returned value of SSL_shutdown().";
@@ -983,11 +983,10 @@ qint64 SslConnection<Socket>::send(const char *data, qint64 size, bool all)
             total += result;
             if(total > size) {
                 qDebug() << "send too many data.";
+                pumpOutgoing();
                 return size;
             } else if(total == size) {
-                if (all) {
-                    pumpOutgoing();
-                }
+                pumpOutgoing();
                 return total;
             } else {
                 if(all) {
@@ -1274,14 +1273,15 @@ void SslSocket::setSslConfiguration(const SslConfiguration &configuration)
 QSharedPointer<SslSocket> SslSocket::accept()
 {
     Q_D(SslSocket);
-    Socket *rawSocket = d->rawSocket->accept();
-    if(rawSocket) {
-        QSharedPointer<SslSocket> s(new SslSocket(QSharedPointer<Socket>(rawSocket), d->config));
-        if(s->d_func()->handshake(true, QString())) {
-            return s;
+    while(true) {
+        Socket *rawSocket = d->rawSocket->accept();
+        if(rawSocket) {
+            QSharedPointer<SslSocket> s(new SslSocket(QSharedPointer<Socket>(rawSocket), d->config));
+            if(s->d_func()->handshake(true, QString())) {
+                return s;
+            }
         }
     }
-    return QSharedPointer<SslSocket>();
 }
 
 Socket *SslSocket::acceptRaw()

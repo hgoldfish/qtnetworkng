@@ -532,6 +532,9 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 
     QByteArrayList lines;
     QByteArray resourcePath = url.toEncoded(QUrl::RemoveAuthority | QUrl::RemoveFragment | QUrl::RemoveScheme);
+    if (resourcePath.isEmpty()) {
+        resourcePath = "/";
+    }
     const QByteArray &commandLine = request.method.toUpper().toUtf8() + QByteArray(" ") +
             resourcePath + QByteArray(" ") + versionBytes + QByteArray("\r\n");
     lines.append(commandLine);

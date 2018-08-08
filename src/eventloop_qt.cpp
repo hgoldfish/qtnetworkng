@@ -368,7 +368,7 @@ QtEventLoopCoroutine::QtEventLoopCoroutine()
 int startQtLoop()
 {
     if (!QCoreApplication::instance()) {
-        qDebug() << "require QCoreApplication.";
+        qWarning("Qt eventloop require QCoreApplication.");
         return -1;
     }
     
