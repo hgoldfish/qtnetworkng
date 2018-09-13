@@ -123,12 +123,12 @@ namespace openssl {
 
 static void qsslSocketUnresolvedSymbolWarning(const char *functionName)
 {
-    qWarning("QSslSocket: cannot call unresolved function %s", functionName);
+    qWarning("SslSocket: cannot call unresolved function %s", functionName);
 }
 
 static void qsslSocketCannotResolveSymbolWarning(const char *functionName)
 {
-    qWarning("QSslSocket: cannot resolve %s", functionName);
+    qWarning("SslSocket: cannot resolve %s", functionName);
 }
 
 

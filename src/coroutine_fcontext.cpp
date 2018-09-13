@@ -62,7 +62,6 @@ extern "C" void run_stub(intptr_t data)
         return;
     }
     coroutine->state = BaseCoroutine::Started;
-//    emit coroutine->q_ptr->started();
     coroutine->q_ptr->started.callback(coroutine->q_ptr);
     try {
         coroutine->q_ptr->run();
@@ -111,7 +110,12 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
 {
     Q_Q(BaseCoroutine);
     if(state == BaseCoroutine::Started) {
-        qWarning() << "do not delete running BaseCoroutine:" << q;
+        if (q->objectName().isEmpty()) {
+            qWarning() << "do not delete running BaseCoroutine:" << q;
+        } else {
+            qWarning() << "do not delete running BaseCoroutine:" << q->objectName();
+        }
+
     }
     if(exception)
         delete exception;

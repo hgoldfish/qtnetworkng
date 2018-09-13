@@ -819,7 +819,6 @@ bool SslConnection<Socket>::_handshake()
     while(true) {
         int result = asServer ? openssl::q_SSL_accept(ssl.data()) : openssl::q_SSL_connect(ssl.data());
         if(result <= 0) {
-            QByteArray buf;
             switch(openssl::q_SSL_get_error(ssl.data(), result)) {
             case SSL_ERROR_WANT_READ:
                 if(!pumpOutgoing()) return false;
@@ -860,7 +859,7 @@ bool SslConnection<Socket>::pumpOutgoing()
     while(outgoing && rawSocket->isValid() && (pendingBytes = openssl::q_BIO_pending(outgoing)) > 0) {
         buf.resize(pendingBytes);
         int encryptedBytesRead = openssl::q_BIO_read(outgoing, buf.data(), pendingBytes);
-        qint64 actualWritten = rawSocket->send(buf.constData(), encryptedBytesRead);
+        qint64 actualWritten = rawSocket->sendall(buf.constData(), encryptedBytesRead);
         if (actualWritten < 0) {
             qDebug() << "error sending data.";
             return false;
