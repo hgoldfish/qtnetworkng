@@ -163,6 +163,7 @@ class Queue
 {
 public:
     Queue(int capacity);
+    Queue() : Queue(INT_MAX) {}
     ~Queue();
     void setCapacity(int capacity);
     bool put(const T &e);

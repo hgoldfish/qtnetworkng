@@ -1135,7 +1135,7 @@ public:
 
 
 SslSocketPrivate::SslSocketPrivate(const SslConfiguration &config)
-    :SslConnection<Socket>(config)
+    :SslConnection<Socket>(config), error(Socket::NoError)
 {
 
 }
