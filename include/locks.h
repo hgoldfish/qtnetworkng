@@ -170,20 +170,21 @@ public:
     T get();
     bool isEmpty() const;
     bool isFull() const;
-    int getCapacity() const { return capacity; }
+    int capacity() const { return mCapacity; }
     int size() const { return queue.size(); }
     int getting() const { return notEmpty.getting();}
+    void clear();
 private:
     QQueue<T> queue;
     Event notEmpty;
     Event notFull;
-    int capacity;
+    int mCapacity;
     Q_DISABLE_COPY(Queue)
 };
 
 template<typename T>
 Queue<T>::Queue(int capacity)
-    :capacity(capacity)
+    :mCapacity(capacity)
 {
     notEmpty.clear();
     notFull.set();
@@ -200,11 +201,21 @@ Queue<T>::~Queue()
 template<typename T>
 void Queue<T>::setCapacity(int capacity)
 {
-    this->capacity = capacity;
+    this->mCapacity = capacity;
     if(isFull()) {
         notFull.clear();
     }
 }
+
+
+template<typename T>
+void Queue<T>::clear()
+{
+    this->queue.clear();
+    notFull.set();
+    notEmpty.clear();
+}
+
 
 template<typename T>
 bool Queue<T>::put(const T &e)
@@ -244,7 +255,7 @@ inline bool Queue<T>::isEmpty() const
 template<typename T>
 inline bool Queue<T>::isFull() const
 {
-    return capacity > 0 && queue.size() >= capacity;
+    return mCapacity > 0 && queue.size() >= mCapacity;
 }
 
 QTNETWORKNG_NAMESPACE_END

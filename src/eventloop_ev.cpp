@@ -4,7 +4,7 @@
 #include <QtCore/qpointer.h>
 #include <QtCore/qdebug.h>
 #include <stddef.h>
-#include "ev.h"
+#include "ev/ev.h"
 #include "../include/eventloop_p.h"
 
 

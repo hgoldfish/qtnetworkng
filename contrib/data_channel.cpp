@@ -308,7 +308,7 @@ QByteArray DataChannelPrivate::recvPacket()
     if(packet.isNull()) {
         return QByteArray();
     }
-    if(receivingQueue.size() == receivingQueue.getCapacity() - 1){
+    if(receivingQueue.size() == receivingQueue.capacity() - 1){
         sendPacketRawAsync(CommandChannelNumber, packGoThroughRequest());
     }
     return packet;
@@ -349,6 +349,9 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
             if(!channel.isNull()) {
                 channel.data()->d_func()->notPending.open();
                 return true;
+            } else {
+                qDebug() << "channel is gone." << channelNumber;
+                return false;
             }
         } else {
             qWarning() << "channel is not found." << channelNumber;
@@ -370,6 +373,9 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
     } else if(command == GO_THROUGH_REQUEST) {
         goThrough.open();
         return true;
+    } else {
+        qDebug() << "unknown command.";
+        return false;
     }
 }
 
@@ -523,7 +529,7 @@ void SocketChannelPrivate::doReceive()
             return close();
         }
         if(channelNumber == DataChannelNumber) {
-            if(receivingQueue.size() > receivingQueue.getCapacity() - 1) {
+            if(receivingQueue.size() > receivingQueue.capacity() - 1) {
                 sendPacketRawAsync(CommandChannelNumber, packSlowDownRequest());
             }
             receivingQueue.put(packet);
@@ -658,7 +664,7 @@ bool VirtualChannelPrivate::handleIncomingPacket(const QByteArray &packet)
     const QByteArray &payload = packet.mid(headerSize);
     if(channelNumber == DataChannelNumber) {
         receivingQueue.put(payload);
-        if(receivingQueue.size() > (receivingQueue.getCapacity() - 1)) {
+        if(receivingQueue.size() > (receivingQueue.capacity() - 1)) {
             sendPacketRawAsync(CommandChannelNumber, packSlowDownRequest());
         }
         return true;
@@ -878,7 +884,7 @@ void DataChannel::setCapacity(int capacity)
 int DataChannel::capacity()
 {
     Q_D(DataChannel);
-    return d->receivingQueue.getCapacity();
+    return d->receivingQueue.capacity();
 }
 
 

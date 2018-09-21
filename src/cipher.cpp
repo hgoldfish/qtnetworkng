@@ -366,7 +366,7 @@ QByteArray CipherPrivate::addData(const QByteArray &data)
     if(!context || !inited || hasError) {
         return QByteArray();
     }
-    unsigned char outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
+    unsigned char outbuf[data.size() + EVP_MAX_BLOCK_LENGTH];
     int outl = 0;
     int rvalue = openssl::q_EVP_CipherUpdate(context, (unsigned char *) outbuf, &outl, (unsigned char *) data.data(), data.size());
     if(rvalue) {

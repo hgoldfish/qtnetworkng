@@ -414,7 +414,7 @@ bool EventPrivate::wait(bool blocking)
     if(!blocking) {
         return flag;
     } else {
-        if(!flag) {
+        while(!flag) {
             condition.wait();
         }
         return flag;
