@@ -213,6 +213,7 @@ add_subdirectory(ev)
 
 add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE}
                                ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${OS_DEPENDENDED_SRC})
+target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 
 # Fix Qt-static cmake BUG
 # https://bugreports.qt.io/browse/QTBUG-38913

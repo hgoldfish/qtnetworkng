@@ -16,23 +16,26 @@ public:
     void notifyWaiters(bool force);
     void scheduleDelete();
 private:
+    Semaphore * const q_ptr;
+    QList<QPointer<BaseCoroutine> > waiters;
     const int init_value;
     volatile int counter;
     int notified;
-    QList<QPointer<BaseCoroutine> > waiters;
-    Semaphore * const q_ptr;
     Q_DECLARE_PUBLIC(Semaphore)
 };
 
+
 SemaphorePrivate::SemaphorePrivate(Semaphore *q, int value)
-    :init_value(value), counter(value), notified(0), q_ptr(q)
+    :q_ptr(q), init_value(value), counter(value), notified(0)
 {
 }
+
 
 SemaphorePrivate::~SemaphorePrivate()
 {
     Q_ASSERT(waiters.isEmpty());
 }
+
 
 void SemaphorePrivate::scheduleDelete()
 {
@@ -77,6 +80,7 @@ struct SemaphoreNotifyWaitersFunctor: public Functor
 {
     SemaphoreNotifyWaitersFunctor(SemaphorePrivate *sp)
         :sp(sp) {}
+    virtual ~SemaphoreNotifyWaitersFunctor() override;
     QPointer<SemaphorePrivate> sp;
     virtual void operator() () override
     {
@@ -87,6 +91,7 @@ struct SemaphoreNotifyWaitersFunctor: public Functor
         sp->notifyWaiters(false);
     }
 };
+SemaphoreNotifyWaitersFunctor::~SemaphoreNotifyWaitersFunctor() {}
 
 void SemaphorePrivate::release(int value)
 {
@@ -129,7 +134,7 @@ Semaphore::Semaphore(int value)
 Semaphore::~Semaphore()
 {
     d_ptr->scheduleDelete();
-    d_ptr = 0;
+    d_ptr = nullptr;
 }
 
 bool Semaphore::acquire(bool blocking)
@@ -165,11 +170,13 @@ Lock::Lock()
 {
 }
 
+
 struct RLockState
 {
-    qintptr holder;
+    quintptr holder;
     int counter;
 };
+
 
 class RLockPrivate
 {
@@ -182,15 +189,15 @@ public:
     RLockState reset();
     void set(const RLockState& state);
 private:
+    RLock * const q_ptr;
     Lock lock;
     quintptr holder;
     int counter;
-    RLock * const q_ptr;
     Q_DECLARE_PUBLIC(RLock)
 };
 
 RLockPrivate::RLockPrivate(RLock *q)
-    :holder(0), counter(0), q_ptr(q)
+    :q_ptr(q), holder(0), counter(0)
 {}
 
 RLockPrivate::~RLockPrivate()
@@ -378,14 +385,14 @@ public:
     void clear();
     bool wait(bool blocking);
 private:
+    Event * const q_ptr;
     Condition condition;
     bool flag;
-    Event * const q_ptr;
     Q_DECLARE_PUBLIC(Event)
 };
 
 EventPrivate::EventPrivate(Event *q)
-    :flag(false), q_ptr(q)
+    :q_ptr(q), flag(false)
 {
 }
 

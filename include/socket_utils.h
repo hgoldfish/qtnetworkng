@@ -37,14 +37,14 @@ public:
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) = 0;
     virtual QVariant option(Socket::SocketOption option) const = 0;
 
-    virtual qint64 recv(char *data, qint64 size) = 0;
-    virtual qint64 recvall(char *data, qint64 size) = 0;
-    virtual qint64 send(const char *data, qint64 size) = 0;
-    virtual qint64 sendall(const char *data, qint64 size) = 0;
-    virtual QByteArray recv(qint64 size) = 0;
-    virtual QByteArray recvall(qint64 size) = 0;
-    virtual qint64 send(const QByteArray &data) = 0;
-    virtual qint64 sendall(const QByteArray &data) = 0;
+    virtual qint32 recv(char *data, qint32 size) = 0;
+    virtual qint32 recvall(char *data, qint32 size) = 0;
+    virtual qint32 send(const char *data, qint32 size) = 0;
+    virtual qint32 sendall(const char *data, qint32 size) = 0;
+    virtual QByteArray recv(qint32 size) = 0;
+    virtual QByteArray recvall(qint32 size) = 0;
+    virtual qint32 send(const QByteArray &data) = 0;
+    virtual qint32 sendall(const QByteArray &data) = 0;
 public:
     static QSharedPointer<SocketLike> rawSocket(QSharedPointer<Socket> s);
     static QSharedPointer<SocketLike> rawSocket(Socket *s) { return rawSocket(QSharedPointer<Socket>(s)); }

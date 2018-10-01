@@ -67,10 +67,10 @@ public:
     bool setOption(Socket::SocketOption option, const QVariant &value);
     bool setNonblocking();
     QVariant option(Socket::SocketOption option) const;
-    qint64 recv(char *data, qint64 size, bool all);
-    qint64 send(const char *data, qint64 size, bool all = true);
-    qint64 recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port);
-    qint64 sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port);
+    qint32 recv(char *data, qint32 size, bool all);
+    qint32 send(const char *data, qint32 size, bool all = true);
+    qint32 recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port);
+    qint32 sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port);
 private:
     bool fetchConnectionParameters();
     void setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, QT_SOCKLEN_T *sockAddrSize);
@@ -87,7 +87,11 @@ private:
     quint16 localPort;
     QHostAddress peerAddress;
     quint16 peerPort;
+#ifdef Q_OS_WIN
     qintptr fd;
+#else
+    int fd;
+#endif
     QSharedPointer<SocketDnsCache> dnsCache;
 
     Q_DECLARE_PUBLIC(Socket)

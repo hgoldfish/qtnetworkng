@@ -22,10 +22,13 @@ class CoroutineSpawnHelper: public Coroutine
 public:
     CoroutineSpawnHelper(std::function<void()> f)
         :f(f){}
-    virtual void run() override { f(); }
+    virtual ~CoroutineSpawnHelper() override;
+    virtual void run() override;
 private:
     std::function<void()> f;
 };
+CoroutineSpawnHelper::~CoroutineSpawnHelper() {}
+void CoroutineSpawnHelper::run() { f(); }
 
 Coroutine *Coroutine::spawn(std::function<void()> f)
 {
@@ -73,13 +76,13 @@ EventLoopCoroutinePrivate::~EventLoopCoroutinePrivate(){}
 // 开始写 EventLoopCoroutine 的实现代码。
 
 EventLoopCoroutine::EventLoopCoroutine(EventLoopCoroutinePrivate *d, size_t stackSize)
-    :BaseCoroutine(BaseCoroutine::current(), stackSize), d_ptr(d)
+    :BaseCoroutine(BaseCoroutine::current(), stackSize), dd_ptr(d)
 {
 }
 
 EventLoopCoroutine::~EventLoopCoroutine()
 {
-    delete d_ptr;
+    delete dd_ptr;
 }
 
 EventLoopCoroutine *EventLoopCoroutine::get()
@@ -255,11 +258,12 @@ public:
 private:
     void setFinishedEvent();
 private:
+    Coroutine * const q_ptr;
+    Event finishedEvent;
     QObject * const obj;
     const char * const slot;
     int callbackId;
-    Coroutine * const q_ptr;
-    Event finishedEvent;
+
     Q_DECLARE_PUBLIC(Coroutine)
     friend struct StartCoroutineFunctor;
     friend struct KillCoroutineFunctor;
@@ -268,7 +272,7 @@ private:
 // 开始写 CoroutinePrivate的实现
 
 CoroutinePrivate::CoroutinePrivate(Coroutine *q, QObject *obj, const char *slot)
-    :obj(obj), slot(slot), callbackId(0), q_ptr(q)
+    :q_ptr(q), obj(obj), slot(slot), callbackId(0)
 {
     q->finished.addCallback([this] (BaseCoroutine *coroutine) -> BaseCoroutine * {
         setFinishedEvent();
@@ -285,6 +289,7 @@ struct StartCoroutineFunctor: public Functor
 {
     StartCoroutineFunctor(CoroutinePrivate *cp)
         :cp(cp) {}
+    virtual ~StartCoroutineFunctor() override;
     QPointer<CoroutinePrivate> cp;
     virtual void operator()() override
     {
@@ -301,25 +306,31 @@ struct StartCoroutineFunctor: public Functor
     }
 };
 
+StartCoroutineFunctor::~StartCoroutineFunctor() {}
 
 struct KillCoroutineFunctor: public Functor
 {
     KillCoroutineFunctor(CoroutinePrivate *cp, CoroutineException *e)
         :cp(cp), e(e) {}
+    virtual ~KillCoroutineFunctor() override;
     QPointer<CoroutinePrivate> cp;
     CoroutineException *e;
-    virtual void operator()() override
-    {
-        if(cp.isNull()) {
-            qWarning("killCoroutine is called without coroutine");
-            return;
-        }
-        if(cp->q_func()->state() != BaseCoroutine::Started) {
-            return;
-        }
-        cp->q_func()->raise(e);
-    }
+    virtual void operator()() override;
 };
+
+KillCoroutineFunctor::~KillCoroutineFunctor() {}
+
+void KillCoroutineFunctor::operator()()
+{
+    if(cp.isNull()) {
+        qWarning("killCoroutine is called without coroutine");
+        return;
+    }
+    if(cp->q_func()->state() != BaseCoroutine::Started) {
+        return;
+    }
+    cp->q_func()->raise(e);
+}
 
 
 void CoroutinePrivate::start(int msecs)
@@ -387,7 +398,7 @@ bool CoroutinePrivate::join()
 // 开始写 Coroutine 的实现
 
 Coroutine::Coroutine(size_t stackSize)
-    :BaseCoroutine(EventLoopCoroutine::get(), stackSize), d_ptr(new CoroutinePrivate(this, 0, 0))
+    :BaseCoroutine(EventLoopCoroutine::get(), stackSize), d_ptr(new CoroutinePrivate(this, nullptr, nullptr))
 {
 }
 
@@ -488,23 +499,26 @@ struct TimeoutFunctor: public Functor
 {
     TimeoutFunctor(Timeout *out, BaseCoroutine *coroutine)
         :out(out), coroutine(coroutine) {}
+    virtual ~TimeoutFunctor() override;
     QPointer<Timeout> out;
     QPointer<BaseCoroutine> coroutine;
-    virtual void operator()() override
-    {
-        if(out.isNull() || coroutine.isNull()) {
-            qDebug("triggerTimeout is called while timeout or coroutine is deleted.");
-            return;
-        }
-        coroutine->raise(new TimeoutException());
-    }
+    virtual void operator()() override;
 };
+TimeoutFunctor::~TimeoutFunctor() {}
+void TimeoutFunctor::operator()()
+{
+    if(out.isNull() || coroutine.isNull()) {
+        qDebug("triggerTimeout is called while timeout or coroutine is deleted.");
+        return;
+    }
+    coroutine->raise(new TimeoutException());
+}
 
 TimeoutException::TimeoutException()
 {
 }
 
-QString TimeoutException::what() const throw()
+QString TimeoutException::what() const
 {
     return QString::fromLatin1("coroutine had set timeout.");
 }
@@ -532,7 +546,7 @@ void Timeout::restart()
 {
     if(timeoutId)
         EventLoopCoroutine::get()->cancelCall(timeoutId);
-    timeoutId = EventLoopCoroutine::get()->callLater(secs * 1000, new TimeoutFunctor(this, BaseCoroutine::current()));
+    timeoutId = EventLoopCoroutine::get()->callLater(static_cast<int>(secs * 1000), new TimeoutFunctor(this, BaseCoroutine::current()));
 }
 
 QTNETWORKNG_NAMESPACE_END

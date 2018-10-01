@@ -208,14 +208,14 @@ public:
     bool setOption(Socket::SocketOption option, const QVariant &value);
     QVariant option(Socket::SocketOption option) const;
 
-    qint64 recv(char *data, qint64 size);
-    qint64 recvall(char *data, qint64 size);
-    qint64 send(const char *data, qint64 size);
-    qint64 sendall(const char *data, qint64 size);
-    QByteArray recv(qint64 size);
-    QByteArray recvall(qint64 size);
-    qint64 send(const QByteArray &data);
-    qint64 sendall(const QByteArray &data);
+    qint32 recv(char *data, qint32 size);
+    qint32 recvall(char *data, qint32 size);
+    qint32 send(const char *data, qint32 size);
+    qint32 sendall(const char *data, qint32 size);
+    QByteArray recv(qint32 size);
+    QByteArray recvall(qint32 size);
+    qint32 send(const QByteArray &data);
+    qint32 sendall(const QByteArray &data);
 private:
     SslSocketPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(SslSocket)

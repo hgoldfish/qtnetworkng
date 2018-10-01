@@ -35,7 +35,7 @@ public:
     void setContentType(const QString &contentType);
     QString getContentType() const;
     void setContentLength(qint64 contentLength);
-    qint64 getContentLength() const;
+    qint32 getContentLength() const;
     void setLocation(const QUrl &url);
     QUrl getLocation() const;
     void setLastModified(const QDateTime &lastModified);

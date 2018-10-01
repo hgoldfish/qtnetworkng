@@ -5,7 +5,7 @@ QTNETWORKNG_NAMESPACE_BEGIN
 
 const openssl::EVP_MD *getOpenSSL_MD(MessageDigest::Algorithm algo)
 {
-    const openssl::EVP_MD *md = NULL;
+    const openssl::EVP_MD *md = nullptr;
     switch(algo)
     {
     case MessageDigest::Md4:
@@ -47,7 +47,7 @@ const openssl::EVP_MD *getOpenSSL_MD(MessageDigest::Algorithm algo)
 
 openssl::EVP_MD_CTX *EVP_MD_CTX_new()
 {
-    openssl::EVP_MD_CTX *context = NULL;
+    openssl::EVP_MD_CTX *context = nullptr;
     if(openssl::has_EVP_MD_CTX_new()) {
         context = openssl::q_EVP_MD_CTX_new();
     } else {
@@ -73,15 +73,15 @@ public:
     ~MessageDigestPrivate();
     void addData(const QByteArray &data);
     QByteArray result();
-    MessageDigest::Algorithm algo;
     openssl::EVP_MD_CTX *context;
-    bool hasError;
     QByteArray finalData;
+    MessageDigest::Algorithm algo;
+    bool hasError;
 };
 
 
 MessageDigestPrivate::MessageDigestPrivate(MessageDigest::Algorithm algo)
-    :algo(algo), context(0), hasError(false)
+    :context(nullptr), algo(algo), hasError(false)
 {
     initOpenSSL();
     const openssl::EVP_MD *md = getOpenSSL_MD(algo);
@@ -97,9 +97,9 @@ MessageDigestPrivate::MessageDigestPrivate(MessageDigest::Algorithm algo)
         hasError = true;
         return;
     }
-    if(!openssl::q_EVP_DigestInit_ex(context, md, 0)) {
+    if(!openssl::q_EVP_DigestInit_ex(context, md, nullptr)) {
         EVP_MD_CTX_free(context);
-        context = 0;
+        context = nullptr;
         hasError = true;
         return;
     }
@@ -116,7 +116,7 @@ void MessageDigestPrivate::addData(const QByteArray &data)
 {
     if(hasError)
         return;
-    int rvalue = openssl::q_EVP_DigestUpdate(context, data.data(), data.size());
+    int rvalue = openssl::q_EVP_DigestUpdate(context, data.data(), static_cast<size_t>(data.size()));
     hasError = !rvalue;
 }
 
@@ -130,12 +130,12 @@ QByteArray MessageDigestPrivate::result()
     }
     unsigned int len;
     finalData.resize(EVP_MAX_MD_SIZE);
-    int rvalue = openssl::q_EVP_DigestFinal_ex(context, (unsigned char*)finalData.data(), &len);
+    int rvalue = openssl::q_EVP_DigestFinal_ex(context, reinterpret_cast<unsigned char*>(finalData.data()), &len);
     if(!rvalue) {
         hasError = true;
         finalData.clear();
     } else {
-        finalData.resize(len);
+        finalData.resize(static_cast<int>(len));
     }
 
     return finalData;
@@ -166,7 +166,7 @@ QByteArray MessageDigest::result()
     return d->result();
 }
 
-QByteArray PBKDF2_HMAC(int keylen,const QByteArray &password,
+QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password,
                        const MessageDigest::Algorithm hashAlgo,
                        const QByteArray &salt, int i)
 {
@@ -181,7 +181,8 @@ QByteArray PBKDF2_HMAC(int keylen,const QByteArray &password,
     key.resize(keylen);
 
     int rvalue = openssl::q_PKCS5_PBKDF2_HMAC(password.data(), password.size(),
-            (unsigned char*) salt.data(), salt.size(), i, dgst, keylen, (unsigned char *) key.data());
+                                              reinterpret_cast<const unsigned char*>(salt.data()), salt.size(),
+                                              i, dgst, keylen, reinterpret_cast<unsigned char *>(key.data()));
     if (rvalue) {
         return key;
     } else {
@@ -193,7 +194,7 @@ QByteArray PBKDF2_HMAC(int keylen,const QByteArray &password,
 //                  int n, int r, int p)
 //{
 //    initOpenSSL();
-//    openssl::EVP_PKEY_CTX *pctx = openssl::q_EVP_PKEY_CTX_new_id(EVP_PKEY_SCRYPT, NULL);
+//    openssl::EVP_PKEY_CTX *pctx = openssl::q_EVP_PKEY_CTX_new_id(EVP_PKEY_SCRYPT, nullptr);
 
 //    if(!pctx || password.isEmpty() || salt.isEmpty()) {
 //        return QByteArray();

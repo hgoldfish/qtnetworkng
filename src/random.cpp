@@ -9,7 +9,7 @@ QByteArray randomBytes(int i)
     initOpenSSL();
     QByteArray b;
     b.resize(i);
-    openssl::q_RAND_bytes((unsigned char*) b.data(), i);
+    openssl::q_RAND_bytes(reinterpret_cast<unsigned char*>(b.data()), i);
     return b;
 }
 

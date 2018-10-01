@@ -128,16 +128,21 @@ bool CoroutineGroup::joinall()
     return hasCoroutines;
 }
 
-struct DeleteCoroutineFunctor: public Functor
+class DeleteCoroutineFunctor: public Functor
 {
-    virtual void operator()() {}
+public:
+    virtual ~DeleteCoroutineFunctor() override;
+    virtual void operator()() override;
     QSharedPointer<BaseCoroutine> coroutine;
 };
+DeleteCoroutineFunctor::~DeleteCoroutineFunctor() {}
+void DeleteCoroutineFunctor::operator()() {}
+
 
 void CoroutineGroup::deleteCoroutine(BaseCoroutine *baseCoroutine)
 {
     Coroutine *coroutine = dynamic_cast<Coroutine*>(baseCoroutine);
-    Q_ASSERT(coroutine != 0);
+    Q_ASSERT(coroutine != nullptr);
     for(QList<QSharedPointer<Coroutine>>::iterator itor = coroutines.begin(); itor != coroutines.end(); ++itor) {
         if(itor->data() == coroutine) {
             DeleteCoroutineFunctor *callback = new DeleteCoroutineFunctor();

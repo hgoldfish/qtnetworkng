@@ -142,7 +142,7 @@ public:
     NetworkLayerProtocol protocol() const;
 
     Socket *accept();
-    bool bind(QHostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform);
+    bool bind(const QHostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool bind(quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool connect(const QHostAddress &host, quint16 port);
     bool connect(const QString &hostName, quint16 port, NetworkLayerProtocol protocol = AnyIPProtocol);
@@ -151,26 +151,26 @@ public:
     bool setOption(SocketOption option, const QVariant &value);
     QVariant option(SocketOption option) const;
 
-    qint64 recv(char *data, qint64 size);
-    qint64 recvall(char *data, qint64 size);
-    qint64 send(const char *data, qint64 size);
-    qint64 sendall(const char *data, qint64 size);
-    qint64 recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port);
-    qint64 sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port);
+    qint32 recv(char *data, qint32 size);
+    qint32 recvall(char *data, qint32 size);
+    qint32 send(const char *data, qint32 size);
+    qint32 sendall(const char *data, qint32 size);
+    qint32 recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port);
+    qint32 sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port);
 
-    QByteArray recvall(qint64 size);
-    QByteArray recv(qint64 size);
-    qint64 send(const QByteArray &data);
-    qint64 sendall(const QByteArray &data);
-    QByteArray recvfrom(qint64 size, QHostAddress *addr, quint16 *port);
-    qint64 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port);
+    QByteArray recvall(qint32 size);
+    QByteArray recv(qint32 size);
+    qint32 send(const QByteArray &data);
+    qint32 sendall(const QByteArray &data);
+    QByteArray recvfrom(qint32 size, QHostAddress *addr, quint16 *port);
+    qint32 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port);
 
     static QList<QHostAddress> resolve(const QString &hostName);
     void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache);
 protected:
-    SocketPrivate * const d_ptr;
+    SocketPrivate * const dd_ptr;
 private:
-    Q_DECLARE_PRIVATE(Socket)
+    Q_DECLARE_PRIVATE_D(dd_ptr, Socket)
     Q_DISABLE_COPY(Socket)
 };
 

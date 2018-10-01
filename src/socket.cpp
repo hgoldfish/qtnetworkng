@@ -36,7 +36,7 @@ SocketPrivate::SocketPrivate(qintptr socketDescriptor, Socket *parent)
 #ifdef Q_OS_WIN
     initWinSock();
 #endif
-    fd = socketDescriptor;
+    fd = static_cast<int>(socketDescriptor);
     setNonblocking();
     if(!isValid())
         return;
@@ -200,8 +200,6 @@ void SocketPrivate::setError(Socket::SocketError error, ErrorString errorString)
     case UnknownSocketErrorString:
         socketErrorString = QString::fromLatin1("Unknown error");
         break;
-    default:
-        socketErrorString = QString();
     }
     this->errorString = socketErrorString;
 }
@@ -212,19 +210,19 @@ QString SocketPrivate::getErrorString() const
 }
 
 Socket::Socket(NetworkLayerProtocol protocol, SocketType type)
-    :d_ptr(new SocketPrivate(protocol, type, this))
+    :dd_ptr(new SocketPrivate(protocol, type, this))
 {
 
 }
 
 Socket::Socket(qintptr socketDescriptor)
-    :d_ptr(new SocketPrivate(socketDescriptor, this))
+    :dd_ptr(new SocketPrivate(socketDescriptor, this))
 {
 }
 
 Socket::~Socket()
 {
-    delete d_ptr;
+    delete dd_ptr;
 }
 
 Socket::SocketError Socket::error() const
@@ -305,7 +303,7 @@ Socket *Socket::accept()
     return d->accept();
 }
 
-bool Socket::bind(QHostAddress &address, quint16 port, Socket::BindMode mode)
+bool Socket::bind(const QHostAddress &address, quint16 port, Socket::BindMode mode)
 {
     Q_D(Socket);
     return d->bind(address, port, mode);
@@ -353,22 +351,22 @@ QVariant Socket::option(Socket::SocketOption option) const
     return d->option(option);
 }
 
-qint64 Socket::recv(char *data, qint64 size)
+qint32 Socket::recv(char *data, qint32 size)
 {
     Q_D(Socket);
     return d->recv(data, size, false);
 }
 
-qint64 Socket::recvall(char *data, qint64 size)
+qint32 Socket::recvall(char *data, qint32 size)
 {
     Q_D(Socket);
     return d->recv(data, size, true);
 }
 
-qint64 Socket::send(const char *data, qint64 size)
+qint32 Socket::send(const char *data, qint32 size)
 {
     Q_D(Socket);
-    qint64 bytesSent = d->send(data, size, false);
+    qint32 bytesSent = d->send(data, size, false);
     if(bytesSent == 0 && !d->isValid()) {
         return -1;
     } else {
@@ -376,31 +374,45 @@ qint64 Socket::send(const char *data, qint64 size)
     }
 }
 
-qint64 Socket::sendall(const char *data, qint64 size)
+qint32 Socket::sendall(const char *data, qint32 size)
 {
     Q_D(Socket);
     return d->send(data, size, true);
 }
 
-qint64 Socket::recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port)
+qint32 Socket::recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port)
 {
     Q_D(Socket);
     return d->recvfrom(data, size, addr, port);
 }
 
-qint64 Socket::sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port)
+qint32 Socket::sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
 {
     Q_D(Socket);
     return d->sendto(data, size, addr, port);
 }
 
-QByteArray Socket::recv(qint64 size)
+QByteArray Socket::recv(qint32 size)
+{
+    Q_D(Socket);
+    QByteArray bs;
+    bs.resize(static_cast<int>(size));
+
+    qint32 bytes = d->recv(bs.data(), bs.size(), false);
+    if(bytes > 0) {
+        bs.resize(static_cast<int>(bytes));
+        return bs;
+    }
+    return QByteArray();
+}
+
+QByteArray Socket::recvall(qint32 size)
 {
     Q_D(Socket);
     QByteArray bs;
     bs.resize(size);
 
-    qint64 bytes = d->recv(bs.data(), bs.size(), false);
+    qint32 bytes = d->recv(bs.data(), bs.size(), true);
     if(bytes > 0) {
         bs.resize(bytes);
         return bs;
@@ -408,24 +420,10 @@ QByteArray Socket::recv(qint64 size)
     return QByteArray();
 }
 
-QByteArray Socket::recvall(qint64 size)
+qint32 Socket::send(const QByteArray &data)
 {
     Q_D(Socket);
-    QByteArray bs;
-    bs.resize(size);
-
-    qint64 bytes = d->recv(bs.data(), bs.size(), true);
-    if(bytes > 0) {
-        bs.resize(bytes);
-        return bs;
-    }
-    return QByteArray();
-}
-
-qint64 Socket::send(const QByteArray &data)
-{
-    Q_D(Socket);
-    qint64 bytesSent = d->send(data.data(), data.size(), false);
+    qint32 bytesSent = d->send(data.data(), data.size(), false);
     if(bytesSent == 0 && !d->isValid()) {
         return -1;
     } else {
@@ -433,19 +431,19 @@ qint64 Socket::send(const QByteArray &data)
     }
 }
 
-qint64 Socket::sendall(const QByteArray &data)
+qint32 Socket::sendall(const QByteArray &data)
 {
     Q_D(Socket);
     return d->send(data.data(), data.size(), true);
 }
 
 
-QByteArray Socket::recvfrom(qint64 size, QHostAddress *addr, quint16 *port)
+QByteArray Socket::recvfrom(qint32 size, QHostAddress *addr, quint16 *port)
 {
     Q_D(Socket);
     QByteArray bs;
     bs.resize(size);
-    qint64 bytes = d->recvfrom(bs.data(), size, addr, port);
+    qint32 bytes = d->recvfrom(bs.data(), size, addr, port);
     if(bytes > 0)
     {
         bs.resize(bytes);
@@ -454,7 +452,7 @@ QByteArray Socket::recvfrom(qint64 size, QHostAddress *addr, quint16 *port)
     return QByteArray();
 }
 
-qint64 Socket::sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
+qint32 Socket::sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
 {
     Q_D(Socket);
     return d->sendto(data.data(), data.size(), addr, port);
@@ -521,7 +519,7 @@ struct PollFunctor: public Functor
 
 
 PollFunctor::PollFunctor(Event &done, QSet<Socket*> &events)
-    :done(done), events(events), socket(0)
+    :done(done), events(events), socket(nullptr)
 {}
 
 
@@ -577,11 +575,11 @@ Socket *PollPrivate::wait(float secs)
         itor.remove();
         return socket;
     }
-    Timeout timeout(secs); Q_UNUSED(timeout);
     try {
+        Timeout timeout(secs); Q_UNUSED(timeout);
         done.wait();
     } catch(TimeoutException &) {
-        return 0;
+        return nullptr;
     }
     if(!events.isEmpty()) {
         // is there some one hungry?
@@ -590,7 +588,7 @@ Socket *PollPrivate::wait(float secs)
         itor.remove();
         return socket;
     } else {
-        return 0;
+        return nullptr;
     }
 }
 

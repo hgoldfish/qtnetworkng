@@ -337,7 +337,7 @@ const int SSL_CTRL_MODE = 33;
 // ret func(arg)
 #  define DEFINEFUNC(ret, func, arg, a, err, funcret) \
     typedef ret (*_q_PTR_##func)(arg); \
-    static _q_PTR_##func _q_##func = 0; \
+    static _q_PTR_##func _q_##func = nullptr; \
     ret q_##func(arg) { \
         if (Q_UNLIKELY(!_q_##func)) { \
             qsslSocketUnresolvedSymbolWarning(#func); \
@@ -349,7 +349,7 @@ const int SSL_CTRL_MODE = 33;
 // ret func(arg1, arg2)
 #  define DEFINEFUNC2(ret, func, arg1, a, arg2, b, err, funcret) \
     typedef ret (*_q_PTR_##func)(arg1, arg2);         \
-    static _q_PTR_##func _q_##func = 0;               \
+    static _q_PTR_##func _q_##func = nullptr;               \
     ret q_##func(arg1, arg2) { \
         if (Q_UNLIKELY(!_q_##func)) { \
             qsslSocketUnresolvedSymbolWarning(#func);\
@@ -361,7 +361,7 @@ const int SSL_CTRL_MODE = 33;
 // ret func(arg1, arg2, arg3)
 #  define DEFINEFUNC3(ret, func, arg1, a, arg2, b, arg3, c, err, funcret) \
     typedef ret (*_q_PTR_##func)(arg1, arg2, arg3);            \
-    static _q_PTR_##func _q_##func = 0;                        \
+    static _q_PTR_##func _q_##func = nullptr;                        \
     ret q_##func(arg1, arg2, arg3) { \
         if (Q_UNLIKELY(!_q_##func)) { \
             qsslSocketUnresolvedSymbolWarning(#func); \
@@ -373,7 +373,7 @@ const int SSL_CTRL_MODE = 33;
 // ret func(arg1, arg2, arg3, arg4)
 #  define DEFINEFUNC4(ret, func, arg1, a, arg2, b, arg3, c, arg4, d, err, funcret) \
     typedef ret (*_q_PTR_##func)(arg1, arg2, arg3, arg4);               \
-    static _q_PTR_##func _q_##func = 0;                                 \
+    static _q_PTR_##func _q_##func = nullptr;                                 \
     ret q_##func(arg1, arg2, arg3, arg4) { \
          if (Q_UNLIKELY(!_q_##func)) { \
              qsslSocketUnresolvedSymbolWarning(#func); \
@@ -385,7 +385,7 @@ const int SSL_CTRL_MODE = 33;
 // ret func(arg1, arg2, arg3, arg4, arg5)
 #  define DEFINEFUNC5(ret, func, arg1, a, arg2, b, arg3, c, arg4, d, arg5, e, err, funcret) \
     typedef ret (*_q_PTR_##func)(arg1, arg2, arg3, arg4, arg5);         \
-    static _q_PTR_##func _q_##func = 0;                                 \
+    static _q_PTR_##func _q_##func = nullptr;                                 \
     ret q_##func(arg1, arg2, arg3, arg4, arg5) { \
         if (Q_UNLIKELY(!_q_##func)) { \
             qsslSocketUnresolvedSymbolWarning(#func); \
@@ -397,7 +397,7 @@ const int SSL_CTRL_MODE = 33;
 // ret func(arg1, arg2, arg3, arg4, arg6)
 #  define DEFINEFUNC6(ret, func, arg1, a, arg2, b, arg3, c, arg4, d, arg5, e, arg6, f, err, funcret) \
     typedef ret (*_q_PTR_##func)(arg1, arg2, arg3, arg4, arg5, arg6);   \
-    static _q_PTR_##func _q_##func = 0;                                 \
+    static _q_PTR_##func _q_##func = nullptr;                                 \
     ret q_##func(arg1, arg2, arg3, arg4, arg5, arg6) { \
         if (Q_UNLIKELY(!_q_##func)) { \
             qsslSocketUnresolvedSymbolWarning(#func); \
@@ -409,7 +409,7 @@ const int SSL_CTRL_MODE = 33;
 // ret func(arg1, arg2, arg3, arg4, arg6, arg7)
 #  define DEFINEFUNC7(ret, func, arg1, a, arg2, b, arg3, c, arg4, d, arg5, e, arg6, f, arg7, g, err, funcret) \
     typedef ret (*_q_PTR_##func)(arg1, arg2, arg3, arg4, arg5, arg6, arg7);   \
-    static _q_PTR_##func _q_##func = 0;                                       \
+    static _q_PTR_##func _q_##func = nullptr;                                       \
     ret q_##func(arg1, arg2, arg3, arg4, arg5, arg6, arg7) { \
         if (Q_UNLIKELY(!_q_##func)) { \
             qsslSocketUnresolvedSymbolWarning(#func); \
@@ -421,7 +421,7 @@ const int SSL_CTRL_MODE = 33;
 // ret func(arg1, arg2, arg3, arg4, arg6, arg7, arg8)
 #  define DEFINEFUNC8(ret, func, arg1, a, arg2, b, arg3, c, arg4, d, arg5, e, arg6, f, arg7, g, arg8, h, err, funcret) \
     typedef ret (*_q_PTR_##func)(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);   \
-    static _q_PTR_##func _q_##func = 0;                                       \
+    static _q_PTR_##func _q_##func = nullptr;                                       \
     ret q_##func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) { \
         if (Q_UNLIKELY(!_q_##func)) { \
             qsslSocketUnresolvedSymbolWarning(#func); \
@@ -433,7 +433,7 @@ const int SSL_CTRL_MODE = 33;
 // ret func(arg1, arg2, arg3, arg4, arg6, arg7, arg8, arg9)
 #  define DEFINEFUNC9(ret, func, arg1, a, arg2, b, arg3, c, arg4, d, arg5, e, arg6, f, arg7, g, arg8, h, arg9, i, err, funcret) \
     typedef ret (*_q_PTR_##func)(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);   \
-    static _q_PTR_##func _q_##func = 0;                                                   \
+    static _q_PTR_##func _q_##func = nullptr;                                                   \
     ret q_##func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9) { \
         if (Q_UNLIKELY(!_q_##func)) { \
             qsslSocketUnresolvedSymbolWarning(#func); \
@@ -543,7 +543,7 @@ EVP_CIPHER_CTX *q_EVP_CIPHER_CTX_new(void);
 void q_EVP_CIPHER_CTX_free(EVP_CIPHER_CTX *ctx);
 int q_EVP_CipherInit_ex(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *type, ENGINE *impl, unsigned char *key,
                         unsigned char *iv, int enc);
-int q_EVP_CipherUpdate(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl, unsigned char *in, int inl);
+int q_EVP_CipherUpdate(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl, const unsigned char *in, int inl);
 int q_EVP_CipherFinal_ex(EVP_CIPHER_CTX *ctx, unsigned char *outm, int *outl);
 int q_EVP_CIPHER_CTX_set_padding(EVP_CIPHER_CTX *x, int padding);
 int q_EVP_CIPHER_CTX_set_key_length(EVP_CIPHER_CTX *x, int keylen);
@@ -723,10 +723,10 @@ int q_EVP_PKEY_size(EVP_PKEY *pkey);
 RSA *q_RSA_new();
 void q_RSA_free(RSA *a);
 int q_RSA_generate_key_ex(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb);
-int q_RSA_private_encrypt(int flen, unsigned char *from, unsigned char *to, RSA *rsa, int padding);
-int q_RSA_public_decrypt(int flen, unsigned char *from, unsigned char *to, RSA *rsa, int padding);
-int q_RSA_public_encrypt(int flen, unsigned char *from, unsigned char *to, RSA *rsa, int padding);
-int q_RSA_private_decrypt(int flen, unsigned char *from, unsigned char *to, RSA *rsa, int padding);
+int q_RSA_private_encrypt(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding);
+int q_RSA_public_decrypt(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding);
+int q_RSA_public_encrypt(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding);
+int q_RSA_private_decrypt(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding);
 int q_RSA_size(const RSA *rsa);
 
 DSA *q_DSA_new();
@@ -854,7 +854,7 @@ int q_ASN1_TIME_set_string(ASN1_TIME *s, const char *str);
 
 long q_BIO_ctrl(BIO *a, int b, long c, void *d);
 inline long q_BIO_get_mem_data(BIO *b, char **pp) { return  q_BIO_ctrl(b, BIO_CTRL_INFO, 0, (void *) pp); }
-inline int q_BIO_pending(BIO *b) { return (int) q_BIO_ctrl(b, BIO_CTRL_PENDING, 0, NULL); }
+inline int q_BIO_pending(BIO *b) { return (int) q_BIO_ctrl(b, BIO_CTRL_PENDING, 0, nullptr); }
 int q_BIO_free(BIO *a);
 BIO *q_BIO_new(BIO_METHOD *a);
 BIO *q_BIO_new_mem_buf(const void *a, int b);
@@ -1008,8 +1008,8 @@ PKCS12 *q_d2i_PKCS12_bio(BIO *bio, PKCS12 **pkcs12);
 void q_PKCS12_free(PKCS12 *pkcs12);
 
 
-#define q_SSL_CTX_set_options(ctx,op) q_SSL_CTX_ctrl((ctx),32,(op),NULL)
-#define q_SSL_CTX_set_mode(ctx,op) q_SSL_CTX_ctrl((ctx),33,(op),NULL)
+#define q_SSL_CTX_set_options(ctx,op) q_SSL_CTX_ctrl((ctx),32,(op),nullptr)
+#define q_SSL_CTX_set_mode(ctx,op) q_SSL_CTX_ctrl((ctx),33,(op),nullptr)
 #define q_SKM_sk_num(type, st) ((int (*)(const STACK_OF(type) *))q_sk_num)(st)
 #define q_SKM_sk_value(type, st,i) ((type * (*)(const STACK_OF(type) *, int))q_sk_value)(st, i)
 #define q_sk_GENERAL_NAME_num(st) q_SKM_sk_num(GENERAL_NAME, (st))

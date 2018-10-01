@@ -162,10 +162,11 @@ public:
     WritingPacket()
         :channelNumber(0) {}
     WritingPacket(quint32 channelNumber, const QByteArray &packet, const QSharedPointer<ValueEvent<bool>> &done)
-        :channelNumber(channelNumber), packet(packet), done(done) {}
-    quint32 channelNumber;
+        :packet(packet), done(done), channelNumber(channelNumber) {}
+
     QByteArray packet;
     QSharedPointer<ValueEvent<bool>> done;
+    quint32 channelNumber;
     bool isValid()
     {
         return !(channelNumber == 0 && packet.isNull() && done.isNull());

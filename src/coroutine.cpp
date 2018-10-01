@@ -2,36 +2,83 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-CoroutineException::CoroutineException() throw ()
+CoroutineException::CoroutineException()
 {
 }
 
-CoroutineException::~CoroutineException() throw()
+
+CoroutineException::CoroutineException(CoroutineException &)
+{
+}
+
+
+CoroutineException::~CoroutineException()
 {}
+
 
 void CoroutineException::raise()
 {
     throw *this;
 }
 
-QString CoroutineException::what() const throw()
+
+QString CoroutineException::what() const
 {
-    return QString::fromLatin1("coroutine base exception.");
+    return QStringLiteral("coroutine base exception.");
 }
+
+
+CoroutineException *CoroutineException::clone() const
+{
+    return new CoroutineException();
+}
+
 
 CoroutineExitException::CoroutineExitException()
 {
 }
+
 
 void CoroutineExitException::raise()
 {
     throw *this;
 }
 
-QString CoroutineExitException::what() const throw()
+
+QString CoroutineExitException::what() const
 {
-    return QString::fromLatin1("coroutine was asked to quit.");
+    return QStringLiteral("coroutine was asked to quit.");
 }
+
+
+CoroutineException *CoroutineExitException::clone() const
+{
+    return new CoroutineExitException();
+}
+
+
+CoroutineInterruptedException::CoroutineInterruptedException()
+{
+}
+
+
+void CoroutineInterruptedException::raise()
+{
+    throw *this;
+}
+
+
+QString CoroutineInterruptedException::what() const
+{
+    return QStringLiteral("coroutine was interrupted.");
+}
+
+
+CoroutineException *CoroutineInterruptedException::clone() const
+{
+    return new CoroutineInterruptedException();
+}
+
 
 quintptr BaseCoroutine::id() const
 {
@@ -52,6 +99,7 @@ CurrentCoroutineStorage &currentCoroutine()
     return storage;
 }
 
+
 // 开始实现 QBaseCoroutine::current()
 BaseCoroutine *CurrentCoroutineStorage::get()
 {
@@ -65,18 +113,21 @@ BaseCoroutine *CurrentCoroutineStorage::get()
     return main;
 }
 
+
 void CurrentCoroutineStorage::set(BaseCoroutine *coroutine)
 {
     storage.localData().value = coroutine;
 }
 
+
 void CurrentCoroutineStorage::clean()
 {
     if(storage.hasLocalData())
     {
-        storage.localData().value = 0;
+        storage.localData().value = nullptr;
     }
 }
+
 
 BaseCoroutine *BaseCoroutine::current()
 {

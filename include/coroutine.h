@@ -21,21 +21,33 @@ QTNETWORKNG_NAMESPACE_BEGIN
 class CoroutineException
 {
 public:
-    explicit CoroutineException() throw();
-    virtual ~CoroutineException() throw();
+    explicit CoroutineException();
+    CoroutineException(CoroutineException &);
+    virtual ~CoroutineException();
     virtual void raise();
-    virtual QString what() const throw();
+    virtual QString what() const;
+    virtual CoroutineException *clone() const;
 };
+
 
 class CoroutineExitException: public CoroutineException
 {
 public:
     explicit CoroutineExitException();
-    virtual void raise();
-    virtual QString what() const throw();
+    virtual void raise() override;
+    virtual QString what() const override;
+    virtual CoroutineException *clone() const override;
 };
 
 
+class CoroutineInterruptedException: public CoroutineException
+{
+public:
+    explicit CoroutineInterruptedException();
+    virtual void raise() override;
+    virtual QString what() const override;
+    virtual CoroutineException *clone() const override;
+};
 
 
 class BaseCoroutinePrivate;
@@ -56,7 +68,7 @@ public:
     virtual void run();
 
     State state() const;
-    bool raise(CoroutineException *exception = 0);
+    bool raise(CoroutineException *exception = nullptr);
     bool yield();
     quintptr id() const;
 
@@ -71,9 +83,9 @@ protected:
     void setState(BaseCoroutine::State state);
     virtual void cleanup();
 private:
-    BaseCoroutinePrivate * const d_ptr;
+    BaseCoroutinePrivate * const dd_ptr;
     friend BaseCoroutine* createMainCoroutine();
-    Q_DECLARE_PRIVATE(BaseCoroutine)
+    Q_DECLARE_PRIVATE_D(dd_ptr, BaseCoroutine)
 };
 
 QDebug &operator <<(QDebug &out, const BaseCoroutine& coroutine);

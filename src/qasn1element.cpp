@@ -121,7 +121,7 @@ bool QAsn1Element::read(QDataStream &stream)
         return false;
 
     // length
-    qint64 length = 0;
+    qint32 length = 0;
     quint8 first;
     stream >> first;
     if (first & 0x80) {
@@ -170,7 +170,7 @@ void QAsn1Element::write(QDataStream &stream) const
         quint8 encodedLength = 0x80;
         QByteArray ba;
         while (length) {
-            ba.prepend(quint8((length & 0xff)));
+            ba.prepend(static_cast<char>(static_cast<quint8>(length & 0xff)));
             length >>= 8;
             encodedLength += 1;
         }
@@ -188,14 +188,14 @@ void QAsn1Element::write(QDataStream &stream) const
 QAsn1Element QAsn1Element::fromBool(bool val)
 {
     return QAsn1Element(QAsn1Element::BooleanType,
-        QByteArray(1, val ? 0xff : 0x00));
+        QByteArray(1, val ? static_cast<char>(0xff) : 0x00));
 }
 
 QAsn1Element QAsn1Element::fromInteger(unsigned int val)
 {
     QAsn1Element elem(QAsn1Element::IntegerType);
     while (val > 127) {
-        elem.mValue.prepend(val & 0xff);
+        elem.mValue.prepend(static_cast<char>(val) & static_cast<char>(0xff));
         val >>= 8;
     }
     elem.mValue.prepend(val & 0x7f);

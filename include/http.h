@@ -202,132 +202,132 @@ class RequestException
 {
 public:
     virtual ~RequestException();
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class HTTPError: public RequestException {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class ConnectionError: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class ProxyError: public ConnectionError
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class SSLError: public ConnectionError
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class RequestTimeout: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class ConnectTimeout: public ConnectionError, RequestTimeout
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class ReadTimeout: public RequestTimeout
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class URLRequired: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class TooManyRedirects: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class MissingSchema: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class InvalidScheme: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class InvalidURL: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class InvalidHeader: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class ChunkedEncodingError: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class ContentDecodingError: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class StreamConsumedError: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class RetryError: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 
 class UnrewindableBodyError: public RequestException
 {
 public:
-    virtual QString what() const throw ();
+    virtual QString what() const;
 };
 
 

@@ -12,8 +12,9 @@ struct X509Cleaner
     static inline void cleanup(openssl::X509 *x) { if(x) openssl::q_X509_free(x); }
 };
 
-struct CertificatePrivate: public QSharedData
+class CertificatePrivate: public QSharedData
 {
+public:
     CertificatePrivate() {}
     CertificatePrivate(const CertificatePrivate &) = default;
 
@@ -77,9 +78,9 @@ static QMap<QByteArray, QString> _q_mapFromX509Name(openssl::X509_NAME *name)
         openssl::X509_NAME_ENTRY *e = openssl::q_X509_NAME_get_entry(name, i);
 
         QByteArray name = asn1ObjectName(q_X509_NAME_ENTRY_get_object(e));
-        unsigned char *data = 0;
+        unsigned char *data = nullptr;
         int size = openssl::q_ASN1_STRING_to_UTF8(&data, openssl::q_X509_NAME_ENTRY_get_data(e));
-        info.insertMulti(name, QString::fromUtf8((char*)data, size));
+        info.insertMulti(name, QString::fromUtf8(static_cast<char*>(static_cast<void*>(data)), size));
         openssl::q_CRYPTO_free(data);
     }
 
@@ -105,7 +106,7 @@ bool CertificatePrivate::init(openssl::X509 *x)
     } else if(parsed == 0) {
         parsed = qtParse() ? 1 : -1;
     }
-    int version = qlonglong(openssl::q_X509_get_version(x));
+    qlonglong version = qlonglong(openssl::q_X509_get_version(x));
     if(version >= 0) {
         versionString = QByteArray::number(version);
     } else if(parsed == 0){
@@ -192,7 +193,7 @@ static const char *const certificate_blacklist[] = {
     "27:83",                                           "NIC Certifying Authority", // intermediate certificate from NIC India (2007)
     "27:92",                                           "NIC CA 2011", // intermediate certificate from NIC India (2011)
     "27:b1",                                           "NIC CA 2014", // intermediate certificate from NIC India (2014)
-    0
+    nullptr
 };
 
 
@@ -200,7 +201,7 @@ bool CertificatePrivate::isBlacklisted() const
 {
     if(x509.isNull())
         return false;
-    for (int a = 0; certificate_blacklist[a] != 0; a++) {
+    for (int a = 0; certificate_blacklist[a] != nullptr; a++) {
         QString blacklistedCommonName = QString::fromUtf8(certificate_blacklist[(a+1)]);
         if (serialNumber() == certificate_blacklist[a++] &&
             (subjectInfo(Certificate::CommonName).contains(blacklistedCommonName) ||
@@ -340,17 +341,17 @@ QByteArray CertificatePrivate::save(Ssl::EncodingFormat format) const
         }
         int r = openssl::q_PEM_write_bio_X509(bio.data(), x509.data());
         if(r) {
-            char *p = NULL;
-            int size = openssl::q_BIO_get_mem_data(bio.data(), &p);
-            if(size > 0 && p != NULL) {
-                return QByteArray(p, size);
+            char *p = nullptr;
+            long size = openssl::q_BIO_get_mem_data(bio.data(), &p);
+            if(size > 0 && p != nullptr) {
+                return QByteArray(p, static_cast<int>(size));
             }
         }
     } else if(format == Ssl::Der) {
-        unsigned char *buf = NULL;
+        unsigned char *buf = nullptr;
         int len = openssl::q_i2d_X509(x509.data(), &buf);
         if(len > 0) {
-            return QByteArray((char*) buf, len);
+            return QByteArray(static_cast<char*>(static_cast<void*>(buf)), len);
         }
     }
     return QByteArray();
@@ -365,16 +366,16 @@ Certificate CertificatePrivate::load(const QByteArray &data, Ssl::EncodingFormat
         if(bio.isNull()) {
             return cert;
         }
-        openssl::X509 *x = NULL;
-        openssl::q_PEM_read_bio_X509(bio.data(), &x, NULL, NULL);
+        openssl::X509 *x = nullptr;
+        openssl::q_PEM_read_bio_X509(bio.data(), &x, nullptr, nullptr);
         if(x) {
             cert.d->init(x);
         }
     } else if (format == Ssl::Der) {
         const unsigned char *buf;
-        buf = (const unsigned char *) data.constData();
+        buf = reinterpret_cast<const unsigned char *>(data.constData());
         int len = data.size();
-        openssl::X509 *x = openssl::q_d2i_X509(NULL, &buf, len);
+        openssl::X509 *x = openssl::q_d2i_X509(nullptr, &buf, len);
         if(x) {
             cert.d->init(x);
         }
@@ -407,7 +408,7 @@ static bool setIssuerInfos(openssl::X509 *x, const QMultiMap<Certificate::Subjec
         foreach(const QString &s, sl) {
             QByteArray bs = s.toUtf8();
             success = success && openssl::q_X509_NAME_add_entry_by_txt(name, itor.value().data(), MBSTRING_UTF8,
-                                                                       (const unsigned char *)bs.constData(),
+                                                                       reinterpret_cast<const unsigned char *>(bs.constData()),
                                                                        bs.size(), -1, 0);
         }
     }
@@ -442,7 +443,7 @@ static bool setSubjectInfos(openssl::X509 *x, const QMultiMap<Certificate::Subje
         foreach(const QString &s, sl) {
             QByteArray bs = s.toUtf8();
             success = success && openssl::q_X509_NAME_add_entry_by_txt(name, itor.value().data(), MBSTRING_UTF8,
-                                                                       (const unsigned char *)bs.constData(),
+                                                                       reinterpret_cast<const unsigned char *>(bs.constData()),
                                                                        bs.size(), -1, 0);
         }
     }
@@ -543,7 +544,7 @@ QByteArray toHex(const QByteArray &bs, char separator)
     QByteArray hex;
     hex.resize(length);
     char *hexData = hex.data();
-    const uchar *data = (const uchar *)bs.data();
+    const uchar *data = reinterpret_cast<const uchar *>(bs.data());
     for (int i = 0, o = 0; i < bs.size(); ++i) {
         hexData[o++] = toHexLower(data[i] >> 4);
         hexData[o++] = toHexLower(data[i] & 0xf);
@@ -618,7 +619,7 @@ bool CertificatePrivate::qtParse()
         return false;
     }
 
-    QByteArray issuerDer = data.mid(dataStream.device()->pos() - elem.value().length(), elem.value().length());
+    QByteArray issuerDer = data.mid(static_cast<int>(dataStream.device()->pos()) - elem.value().length(), elem.value().length());
     Q_UNUSED(issuerDer);
 //    issuerInfoMap = elem.toInfo();
 
@@ -727,7 +728,7 @@ Certificate::Certificate(const Certificate &other)
 }
 
 Certificate::Certificate(Certificate &&other)
-    :d(0)
+    :d(nullptr)
 {
     qSwap(d, other.d);
 }

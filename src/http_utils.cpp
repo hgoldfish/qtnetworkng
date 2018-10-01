@@ -8,13 +8,17 @@ void HeaderOperationMixin::setContentLength(qint64 contentLength)
     setHeader(QStringLiteral("Content-Length"), QString::number(contentLength).toLatin1());
 }
 
-qint64 HeaderOperationMixin::getContentLength() const
+qint32 HeaderOperationMixin::getContentLength() const
 {
     bool ok;
     QByteArray s = header(QStringLiteral("Content-Length"));
-    qint64 l = s.toULongLong(&ok);
+    qint32 l = s.toInt(&ok);
     if(ok) {
-        return l;
+        if (l >= 0) {
+            return l;
+        } else {
+            return -1;
+        }
     } else {
         return -1;
     }

@@ -57,7 +57,7 @@ public:
         ReadWrite = 3,
     };
 public:
-    virtual ~EventLoopCoroutine();
+    virtual ~EventLoopCoroutine() override;
     virtual void run() override;
 public:
     int createWatcher(EventType event, qintptr fd, Functor *callback);  // the ownership of callback is taken
@@ -78,8 +78,8 @@ protected:
     // eventloop coroutine should use a bigger stack size instead of DEFAULT_COROUTINE_STACK_SIZE, which may be defined smaller.
     EventLoopCoroutine(EventLoopCoroutinePrivate *d, size_t stackSize = 1024 * 1024 * 8);
 private:
-    EventLoopCoroutinePrivate * const d_ptr;
-    Q_DECLARE_PRIVATE(EventLoopCoroutine)
+    EventLoopCoroutinePrivate * const dd_ptr;
+    Q_DECLARE_PRIVATE_D(dd_ptr, EventLoopCoroutine)
 };
 
 inline QDebug &operator <<(QDebug &out, const EventLoopCoroutine& el)

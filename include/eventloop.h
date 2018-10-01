@@ -43,7 +43,7 @@ class TimeoutException: public CoroutineException
 {
 public:
     explicit TimeoutException();
-    virtual QString what() const throw();
+    virtual QString what() const;
     virtual void raise();
 };
 

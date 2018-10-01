@@ -37,14 +37,14 @@ public:
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
     virtual QVariant option(Socket::SocketOption option) const override;
 
-    virtual qint64 recv(char *data, qint64 size) override;
-    virtual qint64 recvall(char *data, qint64 size) override;
-    virtual qint64 send(const char *data, qint64 size) override;
-    virtual qint64 sendall(const char *data, qint64 size) override;
-    virtual QByteArray recv(qint64 size) override;
-    virtual QByteArray recvall(qint64 size) override;
-    virtual qint64 send(const QByteArray &data) override;
-    virtual qint64 sendall(const QByteArray &data) override;
+    virtual qint32 recv(char *data, qint32 size) override;
+    virtual qint32 recvall(char *data, qint32 size) override;
+    virtual qint32 send(const char *data, qint32 size) override;
+    virtual qint32 sendall(const char *data, qint32 size) override;
+    virtual QByteArray recv(qint32 size) override;
+    virtual QByteArray recvall(qint32 size) override;
+    virtual qint32 send(const QByteArray &data) override;
+    virtual qint32 sendall(const QByteArray &data) override;
 private:
     QSharedPointer<Socket> s;
 };
@@ -168,42 +168,42 @@ QVariant SocketLikeImpl::option(Socket::SocketOption option) const
     return s->option(option);
 }
 
-qint64 SocketLikeImpl::recv(char *data, qint64 size)
+qint32 SocketLikeImpl::recv(char *data, qint32 size)
 {
     return s->recv(data, size);
 }
 
-qint64 SocketLikeImpl::recvall(char *data, qint64 size)
+qint32 SocketLikeImpl::recvall(char *data, qint32 size)
 {
     return s->recvall(data, size);
 }
 
-qint64 SocketLikeImpl::send(const char *data, qint64 size)
+qint32 SocketLikeImpl::send(const char *data, qint32 size)
 {
     return s->send(data, size);
 }
 
-qint64 SocketLikeImpl::sendall(const char *data, qint64 size)
+qint32 SocketLikeImpl::sendall(const char *data, qint32 size)
 {
     return s->sendall(data, size);
 }
 
-QByteArray SocketLikeImpl::recv(qint64 size)
+QByteArray SocketLikeImpl::recv(qint32 size)
 {
     return s->recv(size);
 }
 
-QByteArray SocketLikeImpl::recvall(qint64 size)
+QByteArray SocketLikeImpl::recvall(qint32 size)
 {
     return s->recvall(size);
 }
 
-qint64 SocketLikeImpl::send(const QByteArray &data)
+qint32 SocketLikeImpl::send(const QByteArray &data)
 {
     return s->send(data);
 }
 
-qint64 SocketLikeImpl::sendall(const QByteArray &data)
+qint32 SocketLikeImpl::sendall(const QByteArray &data)
 {
     return s->sendall(data);
 }

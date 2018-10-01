@@ -314,7 +314,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url)
     ScopedLock<Semaphore> lock(*item.semaphore);Q_UNUSED(lock);
 
     QSharedPointer<Socket> rawSocket;
-    int defaultPort = 80;
+    quint16 defaultPort = 80;
     if(url.scheme() == QStringLiteral("http")) {
     } else{
 #ifndef QTNG_NO_CRYPTO
@@ -329,7 +329,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url)
 
     QSharedPointer<Socks5Proxy> socks5Proxy = proxySwitcher->selectSocks5Proxy(url);
     if(socks5Proxy) {
-        rawSocket = socks5Proxy->connect(url.host(), url.port(defaultPort));
+        rawSocket = socks5Proxy->connect(url.host(), static_cast<quint16>(url.port(defaultPort)));
         if(url.scheme() == QStringLiteral("http")) {
             connection = SocketLike::rawSocket(rawSocket);
         } else{
@@ -356,7 +356,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url)
             throw ConnectionError();
     #endif
         }
-        if(!connection->connect(url.host(), url.port(defaultPort))) {
+        if(!connection->connect(url.host(), static_cast<quint16>(url.port(defaultPort)))) {
             qDebug() << "can not connect to host: " << url.host() << connection->errorString();
             throw ConnectionError();
         }
@@ -370,7 +370,11 @@ void ConnectionPool::removeUnusedConnections()
 {
     while(true) {
         const QDateTime &now = QDateTime::currentDateTimeUtc();
-        Coroutine::sleep(1);
+        try {
+            Coroutine::sleep(1);
+        } catch (CoroutineException &) {
+            return;
+        }
         QMap<QUrl, ConnectionPoolItem> newItems;
         for(QMap<QUrl, ConnectionPoolItem>::const_iterator itor = items.constBegin(); itor != items.constEnd(); ++itor) {
             if(itor.value().lastUsed.secsTo(now) < timeToLive) {
@@ -458,7 +462,7 @@ struct ChunkedBlockReader
             throw ChunkedEncodingError();
         }
 
-        qint64 bytesToRead = numBytes.toUInt(&ok, 16);
+        qint32 bytesToRead = numBytes.toInt(&ok, 16);
         if(!ok) {
             if(debugLevel > 0) {
                 qDebug() << "got invalid chunked bytes:" << numBytes;
@@ -466,7 +470,7 @@ struct ChunkedBlockReader
             throw ChunkedEncodingError();
         }
 
-        if(bytesToRead > leftBytes) {
+        if(bytesToRead > leftBytes || bytesToRead < 0) {
             throw UnrewindableBodyError();
         }
 
@@ -613,13 +617,13 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         response.body = splitter.buf;
     }
 
-    qint64 contentLength = response.getContentLength();
+    qint32 contentLength = response.getContentLength();
     if(contentLength > 0) {
         if(contentLength > request.maxBodySize) {
             throw UnrewindableBodyError();
         } else {
             while(response.body.size() < contentLength) {
-                qint64 leftBytes = qMin((qint64) 1024 * 8, contentLength - response.body.size());
+                qint32 leftBytes = qMin<qint32>(1024 * 8, contentLength - response.body.size());
                 const QByteArray &t = connection->recvall(leftBytes);
                 if(t.isEmpty()) {
                     qDebug() << "no content!";
@@ -996,118 +1000,119 @@ void HttpSession::setHttpProxy(QSharedPointer<HttpProxy> proxy)
     d->setHttpProxy(proxy);
 }
 
+
 RequestException::~RequestException()
 {}
 
 
-QString RequestException::what() const throw()
+QString RequestException::what() const
 {
     return QStringLiteral("An HTTP error occurred.");
 }
 
 
-QString HTTPError::what() const throw()
+QString HTTPError::what() const
 {
     return QStringLiteral("server respond error.");
 }
 
 
-QString ConnectionError::what() const throw()
+QString ConnectionError::what() const
 {
     return QStringLiteral("A Connection error occurred.");
 }
 
 
-QString ProxyError::what() const throw()
+QString ProxyError::what() const
 {
     return QStringLiteral("A proxy error occurred.");
 }
 
 
-QString SSLError::what() const throw()
+QString SSLError::what() const
 {
     return QStringLiteral("A SSL error occurred.");
 }
 
 
-QString RequestTimeout::what() const throw()
+QString RequestTimeout::what() const
 {
     return QStringLiteral("The request timed out.");
 }
 
 
-QString ConnectTimeout::what() const throw()
+QString ConnectTimeout::what() const
 {
     return QStringLiteral("The request timed out while trying to connect to the remote server.");
 }
 
 
-QString ReadTimeout::what() const throw()
+QString ReadTimeout::what() const
 {
     return QStringLiteral("The server did not send any data in the allotted amount of time.");
 }
 
 
-QString URLRequired::what() const throw()
+QString URLRequired::what() const
 {
     return QStringLiteral("A valid URL is required to make a request.");
 }
 
 
-QString TooManyRedirects::what() const throw()
+QString TooManyRedirects::what() const
 {
     return QStringLiteral("Too many redirects.");
 }
 
 
-QString MissingSchema::what() const throw()
+QString MissingSchema::what() const
 {
     return QStringLiteral("The URL schema (e.g. http or https) is missing.");
 }
 
 
-QString InvalidScheme::what() const throw()
+QString InvalidScheme::what() const
 {
     return QStringLiteral("The URL schema can not be handled.");
 }
 
 
-QString InvalidURL::what() const throw()
+QString InvalidURL::what() const
 {
     return QStringLiteral("The URL provided was somehow invalid.");
 }
 
 
-QString InvalidHeader::what() const throw()
+QString InvalidHeader::what() const
 {
     return QStringLiteral("Can not parse the http header.");
 }
 
-QString ChunkedEncodingError::what() const throw()
+QString ChunkedEncodingError::what() const
 {
     return QStringLiteral("The server declared chunked encoding but sent an invalid chunk.");
 }
 
 
-QString ContentDecodingError::what() const throw()
+QString ContentDecodingError::what() const
 {
     return QStringLiteral("Failed to decode response content");
 }
 
 
-QString StreamConsumedError::what() const throw()
+QString StreamConsumedError::what() const
 {
     return QStringLiteral("The content for this response was already consumed");
 }
 
 
-QString RetryError::what() const throw()
+QString RetryError::what() const
 {
     return QStringLiteral("Custom retries logic failed");
 }
 
 
-QString UnrewindableBodyError::what() const throw()
+QString UnrewindableBodyError::what() const
 {
     return QStringLiteral("Requests encountered an error when trying to rewind a body");
 }

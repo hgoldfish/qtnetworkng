@@ -33,20 +33,20 @@ public:
     BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *previous, size_t stackSize);
     ~BaseCoroutinePrivate();
     bool initContext();
-    bool raise(CoroutineException *exception = 0);
+    bool raise(CoroutineException *exception = nullptr);
     bool yield();
 private:
     BaseCoroutine * const q_ptr;
     BaseCoroutine * previous;
+    CoroutineException *exception;
+    fcontext_t context;
     size_t stackSize;
     void *stack;
     enum BaseCoroutine::State state;
     bool bad;
-    CoroutineException *exception;
-    fcontext_t context;
     Q_DECLARE_PUBLIC(BaseCoroutine)
 private:
-    static BaseCoroutinePrivate *getPrivateHelper(BaseCoroutine *coroutine) { return coroutine->d_ptr; }
+    static BaseCoroutinePrivate *getPrivateHelper(BaseCoroutine *coroutine) { return coroutine->dd_ptr; }
     void cleanup() { q_ptr->cleanup(); }
     friend void run_stub(intptr_t tr);
     friend BaseCoroutine* createMainCoroutine();
@@ -67,7 +67,7 @@ extern "C" void run_stub(intptr_t data)
         coroutine->q_ptr->run();
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
-    } catch(const CoroutineExitException &e) {
+    } catch(const CoroutineExitException &) {
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
     } catch(const CoroutineException &e) {
@@ -85,21 +85,21 @@ extern "C" void run_stub(intptr_t data)
 
 
 BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *previous, size_t stackSize)
-    :q_ptr(q), previous(previous), stackSize(stackSize), stack(0), state(BaseCoroutine::Initialized),
-      bad(false), exception(0), context(0)
+    :q_ptr(q), previous(previous), exception(nullptr), context(nullptr), stackSize(stackSize), stack(nullptr),
+      state(BaseCoroutine::Initialized), bad(false)
 {
     if(stackSize) {
 #ifdef Q_OS_UNIX
 #ifdef MAP_GROWSDOWN
-        stack = mmap(NULL, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
+        stack = mmap(nullptr, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
 #else
-        stack = mmap(NULL, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        stack = mmap(nullptr, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 #endif
 #else
         stack = operator new(stackSize);
 #endif
         if(!stack) {
-            qFatal("Coroutine can not malloc new memroy.");
+            qWarning("Coroutine can not malloc new memroy.");
             bad = true;
         }
     }
@@ -151,7 +151,7 @@ bool BaseCoroutinePrivate::yield()
 
     currentCoroutine().set(q);
 
-    intptr_t result = jump_fcontext(&old->d_ptr->context, context, reinterpret_cast<intptr_t>(this), false);
+    intptr_t result = jump_fcontext(&old->d_func()->context, context, reinterpret_cast<intptr_t>(this), false);
     if(!result && state != BaseCoroutine::Stopped) {  // last coroutine private.
         qDebug() << "jump_fcontext() return error.";
         return false;
@@ -159,9 +159,9 @@ bool BaseCoroutinePrivate::yield()
     if(currentCoroutine().get() != old) {  // when coroutine finished, jump_fcontext auto yield to the previous.
         currentCoroutine().set(old);
     }
-    CoroutineException *e = old->d_ptr->exception;
+    CoroutineException *e = old->d_func()->exception;
     if(e) {
-        old->d_ptr->exception = 0;
+        old->d_func()->exception = nullptr;
         if(!dynamic_cast<CoroutineExitException*>(e)) {
             qDebug() << "got exception:" << e->what() << old;
         }
@@ -183,7 +183,7 @@ bool BaseCoroutinePrivate::initContext()
     void * stackTop = static_cast<char*>(stack) + stackSize;
     context = make_fcontext(stackTop, stackSize, run_stub);
     if(!context) {
-        qFatal("Coroutine can not malloc new context.");
+        qWarning("Coroutine can not malloc new context.");
         bad = true;
         return false;
     }
@@ -227,14 +227,14 @@ bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 
 BaseCoroutine* createMainCoroutine()
 {
-    BaseCoroutine *main = new BaseCoroutine(0, 0);
+    BaseCoroutine *main = new BaseCoroutine(nullptr, 0);
     if(!main)
-        return 0;
-    BaseCoroutinePrivate *mainPrivate = main->d_ptr;
+        return nullptr;
+    BaseCoroutinePrivate *mainPrivate = main->d_func();
     mainPrivate->stack = new char[1024];
     mainPrivate->stackSize = 1024;
     void *stackTop = static_cast<char*>(mainPrivate->stack) + mainPrivate->stackSize;
-    mainPrivate->context = make_fcontext(stackTop, mainPrivate->stackSize, 0);
+    mainPrivate->context = make_fcontext(stackTop, mainPrivate->stackSize, nullptr);
     mainPrivate->state = BaseCoroutine::Started;
     return main;
 }
@@ -242,14 +242,14 @@ BaseCoroutine* createMainCoroutine()
 
 // 开始实现 QBaseCoroutine
 BaseCoroutine::BaseCoroutine(BaseCoroutine * previous, size_t stackSize)
-    :d_ptr(new BaseCoroutinePrivate(this, previous, stackSize))
+    :dd_ptr(new BaseCoroutinePrivate(this, previous, stackSize))
 {
 
 }
 
 BaseCoroutine::~BaseCoroutine()
 {
-    delete d_ptr;
+    delete dd_ptr;
 }
 
 

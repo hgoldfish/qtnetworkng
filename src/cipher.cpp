@@ -8,7 +8,7 @@ const openssl::EVP_MD *getOpenSSL_MD(MessageDigest::Algorithm algo);
 
 const openssl::EVP_CIPHER *getOpenSSL_CIPHER(Cipher::Algorithm algo, Cipher::Mode mode)
 {
-    const openssl::EVP_CIPHER * cipher = NULL;
+    const openssl::EVP_CIPHER * cipher = nullptr;
     switch(algo) {
     case Cipher::Null:
         cipher = openssl::q_EVP_enc_null();
@@ -233,14 +233,13 @@ const openssl::EVP_CIPHER *getOpenSSL_CIPHER(Cipher::Algorithm algo, Cipher::Mod
     case Cipher::Chacha20:
         cipher = openssl::q_EVP_chacha20();
         break;
-    default:
-        Q_UNREACHABLE();
     }
     return cipher;
 }
 
-struct CipherPrivate
+class CipherPrivate
 {
+public:
     CipherPrivate(Cipher::Algorithm algo, Cipher::Mode mode, Cipher::Operation operation);
     ~CipherPrivate();
     QByteArray addData(const QByteArray &data);
@@ -257,26 +256,26 @@ struct CipherPrivate
     bool init();
     bool setPadding(bool padding);
 
+    openssl::EVP_CIPHER_CTX *context;
+    const openssl::EVP_CIPHER *cipher;
+    QByteArray key;
+    QByteArray iv;
+    QByteArray salt;
     Cipher::Algorithm algo;
     Cipher::Mode mode;
     Cipher::Operation operation;
-    openssl::EVP_CIPHER_CTX *context;
-    const openssl::EVP_CIPHER *cipher;
     bool hasError;
-    QByteArray key;
-    QByteArray iv;
     bool inited;
-    QByteArray salt;
 };
 
 CipherPrivate::CipherPrivate(Cipher::Algorithm algo, Cipher::Mode mode, Cipher::Operation operation)
-    :algo(algo), mode(mode), operation(operation), context(0), cipher(0), hasError(false), inited(false)
+    :context(nullptr), cipher(nullptr), algo(algo), mode(mode), operation(operation), hasError(false), inited(false)
 {
     initOpenSSL();
     cipher = getOpenSSL_CIPHER(algo, mode);
     if(!cipher) {
         hasError = true;
-        qFatal("cipher is not supported.");
+        qWarning("cipher is not supported.");
         return;
     }
 
@@ -298,7 +297,10 @@ bool CipherPrivate::init()
 {
     if(inited || !context || !cipher || key.isEmpty())
         return false;
-    int rvalue = openssl::q_EVP_CipherInit_ex(context, cipher, NULL, (unsigned char*) key.data(), (unsigned char*) iv.data(), operation == Cipher::Decrypt? 0 : 1);
+    int rvalue = openssl::q_EVP_CipherInit_ex(context, cipher, nullptr,
+                                              reinterpret_cast<unsigned char*>(key.data()),
+                                              reinterpret_cast<unsigned char*>(iv.data()),
+                                              operation == Cipher::Decrypt? 0 : 1);
     if(rvalue) {
         inited = true;
         return true;
@@ -318,17 +320,18 @@ QPair<QByteArray, QByteArray> CipherPrivate::bytesToKey(const QByteArray &passwo
             || (!salt.isEmpty() && salt.size() != 8) || password.isEmpty() || i <= 0) {
         return qMakePair(QByteArray(), QByteArray());
     }
-    const unsigned char *saltPtr = NULL;
+    const unsigned char *saltPtr = nullptr;
     if(!salt.isEmpty()) {
-        saltPtr = (unsigned char*) salt.data();
+        saltPtr = reinterpret_cast<const unsigned char*>(salt.data());
     }
     int rvalue = openssl::q_EVP_BytesToKey(cipher, dgst, saltPtr,
-            (const unsigned char *) password.data(), password.size(), i, key, iv);
+                                           reinterpret_cast<const unsigned char *>(password.data()),
+                                           password.size(), i, key, iv);
     if(rvalue) {
         int keylen = openssl::q_EVP_CIPHER_key_length(cipher);
         int ivlen = openssl::q_EVP_CIPHER_iv_length(cipher);
         if(keylen > 0 && ivlen >= 0) {
-            return qMakePair(QByteArray((const char*) key, keylen), QByteArray((const char *) iv, ivlen));
+            return qMakePair(QByteArray(reinterpret_cast<const char*>(key), keylen), QByteArray(reinterpret_cast<const char *>(iv), ivlen));
         }
     }
     return qMakePair(QByteArray(), QByteArray());
@@ -349,12 +352,13 @@ QPair<QByteArray, QByteArray> CipherPrivate::PBKDF2_HMAC(const QByteArray &passw
     int ivlen = openssl::q_EVP_CIPHER_iv_length(cipher);
     if (keylen > 0 && ivlen > 0) {
         int rvalue = openssl::q_PKCS5_PBKDF2_HMAC(password.data(), password.size(),
-                (unsigned char*) salt.data(), salt.size(), i, dgst, keylen, key);
+                                                  reinterpret_cast<const unsigned char*>(salt.data()),
+                                                  salt.size(), i, dgst, keylen, key);
         if(rvalue) {
             rvalue = openssl::q_PKCS5_PBKDF2_HMAC(password.data(), password.size(),
                     key, keylen, i, dgst, ivlen, iv);
             if (rvalue) {
-                return qMakePair(QByteArray((const char*) key, keylen), QByteArray((const char *) iv, ivlen));
+                return qMakePair(QByteArray(reinterpret_cast<const char*>(key), keylen), QByteArray(reinterpret_cast<const char *>(iv), ivlen));
             }
         }
     }
@@ -366,11 +370,14 @@ QByteArray CipherPrivate::addData(const QByteArray &data)
     if(!context || !inited || hasError) {
         return QByteArray();
     }
-    unsigned char outbuf[data.size() + EVP_MAX_BLOCK_LENGTH];
+    QByteArray out;
+    out.resize(data.size() + EVP_MAX_BLOCK_LENGTH);
     int outl = 0;
-    int rvalue = openssl::q_EVP_CipherUpdate(context, (unsigned char *) outbuf, &outl, (unsigned char *) data.data(), data.size());
+    int rvalue = openssl::q_EVP_CipherUpdate(context, reinterpret_cast<unsigned char *>(out.data()), &outl,
+                                             reinterpret_cast<const unsigned char *>(data.data()), data.size());
     if(rvalue) {
-        return QByteArray((const char *) outbuf, outl);
+        out.resize(outl);
+        return out;
     } else {
         hasError = true;
         return QByteArray();
@@ -382,11 +389,13 @@ QByteArray CipherPrivate::finalData()
     if(!context || !inited || hasError) {
         return QByteArray();
     }
-    unsigned char outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
+    QByteArray out;
+    out.resize(1024 + EVP_MAX_BLOCK_LENGTH);
     int outl = 0;
-    int rvalue = openssl::q_EVP_CipherFinal_ex(context, outbuf, &outl);
+    int rvalue = openssl::q_EVP_CipherFinal_ex(context, reinterpret_cast<unsigned char *>(out.data()), &outl);
     if(rvalue) {
-        return QByteArray((const char *) outbuf, outl);
+        out.resize(outl);
+        return out;
     } else {
         hasError = true;
         return QByteArray();
