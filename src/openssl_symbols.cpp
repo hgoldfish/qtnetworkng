@@ -54,6 +54,7 @@
 ****************************************************************************/
 
 #include <algorithm>
+#include <QtCore/qcoreapplication.h>
 #include <QtCore/qmutex.h>
 #include <QtCore/qdatetime.h>
 #include <QtCore/qstring.h>
@@ -684,11 +685,18 @@ static QStringList libraryPathList()
             .split(QLatin1Char(':'), QString::SkipEmptyParts);
 #  endif
     paths << QLatin1String("/lib") << QLatin1String("/usr/lib") << QLatin1String("/usr/local/lib");
+#if Q_PROCESSOR_WORDSIZE == 8
     paths << QLatin1String("/lib64") << QLatin1String("/usr/lib64") << QLatin1String("/usr/local/lib64");
+#else
     paths << QLatin1String("/lib32") << QLatin1String("/usr/lib32") << QLatin1String("/usr/local/lib32");
+#endif
 
 #if defined(Q_OS_ANDROID)
-    paths << QLatin1String("/system/lib");
+    #if Q_PROCESSOR_WORDSIZE == 8
+        paths << QLatin1String("/system/lib64");
+    #else
+        paths << QLatin1String("/system/lib");
+    #endif
 #elif defined(Q_OS_LINUX)
     // discover paths of already loaded libraries
     QSet<QString> loadedPaths;
@@ -734,33 +742,41 @@ static QStringList findAllLibCrypto()
 #ifdef Q_OS_WIN
 static bool tryToLoadOpenSslWin32Library(QLatin1String ssleay32LibName, QLatin1String libeay32LibName, QPair<QSystemLibrary*, QSystemLibrary*> &pair)
 {
-    pair.first = 0;
-    pair.second = 0;
+    pair.first = nullptr;
+    pair.second = nullptr;
 
     QSystemLibrary *ssleay32 = new QSystemLibrary(ssleay32LibName);
-    if (!ssleay32->load(false)) {
+    if (!ssleay32->load(true)) {
         delete ssleay32;
-        return FALSE;
+        return false;
     }
 
     QSystemLibrary *libeay32 = new QSystemLibrary(libeay32LibName);
-    if (!libeay32->load(false)) {
+    if (!libeay32->load(true)) {
         delete ssleay32;
         delete libeay32;
-        return FALSE;
+        return false;
     }
 
     pair.first = ssleay32;
     pair.second = libeay32;
-    return TRUE;
+    return true;
 }
 
 static QPair<QSystemLibrary*, QSystemLibrary*> loadOpenSslWin32()
 {
     QPair<QSystemLibrary*,QSystemLibrary*> pair;
-    pair.first = 0;
-    pair.second = 0;
+    pair.first = nullptr;
+    pair.second = nullptr;
 
+#ifdef Q_PROCESSOR_X86_64
+#define QT_SSL_SUFFIX "-x64"
+#else // !Q_PROCESSOFR_X86_64
+#define QT_SSL_SUFFIX
+#endif // !Q_PROCESSOR_x86_64
+    tryToLoadOpenSslWin32Library(QLatin1String("libssl-1_1" QT_SSL_SUFFIX),
+                                 QLatin1String("libcrypto-1_1" QT_SSL_SUFFIX), pair);
+#undef QT_SSL_SUFFIX
     // When OpenSSL is built using MSVC then the libraries are named 'ssleay32.dll' and 'libeay32'dll'.
     // When OpenSSL is built using GCC then different library names are used (depending on the OpenSSL version)
     // The oldest version of a GCC-based OpenSSL which can be detected by the code below is 0.9.8g (released in 2007)
@@ -771,7 +787,6 @@ static QPair<QSystemLibrary*, QSystemLibrary*> loadOpenSslWin32()
             }
         }
     }
-
     return pair;
 }
 #else

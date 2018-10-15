@@ -446,6 +446,21 @@ QList<SslCipher> SslConfiguration::supportedCiphers()
     return QList<SslCipher>();
 }
 
+SslConfiguration SslConfiguration::testPurpose(const QString &commonName, const QString &countryCode, const QString &organization)
+{
+    PrivateKey key = PrivateKey::generate(qtng::PrivateKey::Rsa, 2048);
+    QMultiMap<Certificate::SubjectInfo, QString> info;
+    info.insert(Certificate::CommonName, commonName);
+    info.insert(Certificate::CountryName, countryCode);
+    info.insert(Certificate::Organization, organization);
+    const QDateTime &now = QDateTime::currentDateTime();
+    const Certificate &cert = Certificate::generate(key, MessageDigest::Sha256,
+                                                    293424, now, now.addYears(10), info);
+    SslConfiguration config;
+    config.setPrivateKey(key);
+    config.setLocalCertificate(cert);
+    return config;
+}
 
 class SslErrorPrivate
 {

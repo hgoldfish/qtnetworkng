@@ -802,13 +802,13 @@ bool SocketPrivate::fetchConnectionParameters()
 }
 
 
-qint64 SocketPrivate::recv(char *data, qint64 size, bool all)
+qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 {
     if(!isValid()) {
         return -1;
     }
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
-    qint64 total = 0;
+    qint32 total = 0;
     while(total < size)
     {
         if(!isValid()) {
@@ -871,14 +871,14 @@ qint64 SocketPrivate::recv(char *data, qint64 size, bool all)
     return total;
 }
 
-qint64 SocketPrivate::send(const char *data, qint64 size, bool all)
+qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 {
     if(!isValid()) {
         return -1;
     }
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
-    qint64 ret = 0;
-    qint64 bytesToSend = size;
+    qint32 ret = 0;
+    qint32 bytesToSend = size;
     while(bytesToSend > 0)
     {
         if(!isValid()) {
@@ -901,12 +901,12 @@ qint64 SocketPrivate::send(const char *data, qint64 size, bool all)
         }
 
         WSABUF buf;
-        buf.buf = (char*)data + ret;
-        buf.len = bytesToSend;
+        buf.buf = const_cast<char*>(data + ret);
+        buf.len = static_cast<u_long>(bytesToSend);
         DWORD flags = 0;
         DWORD bytesWritten = 0;
 
-        int socketRet = ::WSASend(fd, &buf, 1, &bytesWritten, flags, 0,0);
+        int socketRet = ::WSASend(fd, &buf, 1, &bytesWritten, flags, nullptr, nullptr);
         ret += qint64(bytesWritten);
 
         if (socketRet != SOCKET_ERROR) {
@@ -983,7 +983,7 @@ qint64 SocketPrivate::send(const char *data, qint64 size, bool all)
 }
 
 
-qint64 SocketPrivate::recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port)
+qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port)
 {
     if(!isValid()) {
         return -1;
@@ -1040,7 +1040,7 @@ qint64 SocketPrivate::recvfrom(char *data, qint64 size, QHostAddress *addr, quin
             if (err == WSAEMSGSIZE) {
                 // it is ok the buffer was to small if bytesRead is larger than
                 // maxLength then assume bytes read is really maxLenth
-                ret = qMin(size, qint64(bytesRead));
+                ret = qMin(size, static_cast<qint32>(bytesRead));
             } else {
                 WS_ERROR_DEBUG(err);
                 switch (err) {
@@ -1077,7 +1077,7 @@ qint64 SocketPrivate::recvfrom(char *data, qint64 size, QHostAddress *addr, quin
                 }
             }
         } else {
-            ret = qint64(bytesRead);
+            ret = bytesRead;
 
         }
         if(ret > 0) {
@@ -1095,7 +1095,7 @@ qint64 SocketPrivate::recvfrom(char *data, qint64 size, QHostAddress *addr, quin
     }
 }
 
-qint64 SocketPrivate::sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port)
+qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
 {
     if(!isValid()) {
         return -1;
@@ -1113,8 +1113,8 @@ qint64 SocketPrivate::sendto(const char *data, qint64 size, const QHostAddress &
     }
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
-    qint64 ret = 0;
-    qint64 bytesToSend = size;
+    qint32 ret = 0;
+    qint32 bytesToSend = size;
 
     WSAMSG msg;
     WSABUF buf;
@@ -1137,8 +1137,8 @@ qint64 SocketPrivate::sendto(const char *data, qint64 size, const QHostAddress &
             return ret == 0 ? -1 : ret;
         }
 
-        buf.buf = bytesToSend ? (char*)data : 0;
-        buf.len = bytesToSend; // TODO datagram max size!
+        buf.buf = bytesToSend ? const_cast<char*>(data) : nullptr;
+        buf.len = static_cast<u_long>(bytesToSend); // TODO datagram max size!
 
         DWORD flags = 0;
         DWORD bytesSent = 0;
@@ -1149,7 +1149,7 @@ qint64 SocketPrivate::sendto(const char *data, qint64 size, const QHostAddress &
 //        } else {
 //            socketRet = ::WSASendTo(fd, &buf, 1, &bytesSent, flags, msg.name, msg.namelen, 0,0);
 //        }
-        socketRet = ::WSASendTo(fd, &buf, 1, &bytesSent, flags, msg.name, msg.namelen, 0,0);
+        socketRet = ::WSASendTo(fd, &buf, 1, &bytesSent, flags, msg.name, msg.namelen, nullptr, nullptr);
         ret += qint64(bytesSent);
 
         if (socketRet == SOCKET_ERROR) {

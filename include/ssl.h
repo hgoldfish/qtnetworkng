@@ -74,6 +74,7 @@ public:
     void setSupportCompression(bool supportCompression);
 public:
     static QList<SslCipher> supportedCiphers();
+    static SslConfiguration testPurpose(const QString &commonName, const QString &countryCode, const QString &organization);
 public:
     inline bool operator!=(const SslConfiguration &other) const { return !operator==(other); }
     SslConfiguration &operator=(SslConfiguration &&other) { swap(other); return *this; }

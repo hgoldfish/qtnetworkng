@@ -5,8 +5,7 @@
 #include <QtCore/QtEndian>
 #include "../include/locks.h"
 #include "../include/coroutine_utils.h"
-#include "./data_pack.h"
-#include "./data_channel.h"
+#include "../include/data_channel.h"
 
 #define DEBUG_PROTOCOL
 

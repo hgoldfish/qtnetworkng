@@ -86,10 +86,10 @@ static QString qSystemDirectory()
 {
     QVarLengthArray<wchar_t, MAX_PATH> fullPath;
 
-    UINT retLen = ::GetSystemDirectory(fullPath.data(), MAX_PATH);
+    UINT retLen = ::GetSystemDirectoryW(fullPath.data(), MAX_PATH);
     if (retLen > MAX_PATH) {
-        fullPath.resize(retLen);
-        retLen = ::GetSystemDirectory(fullPath.data(), retLen);
+        fullPath.resize(static_cast<int>(retLen)); // retLen always greater than 0
+        retLen = ::GetSystemDirectoryW(fullPath.data(), retLen);
     }
     // in some rare cases retLen might be 0
     return QString::fromWCharArray(fullPath.constData(), int(retLen));
@@ -99,8 +99,8 @@ HINSTANCE QSystemLibrary::load(const wchar_t *libraryName, bool onlySystemDirect
 {
     QStringList searchOrder;
 
-    searchOrder << qSystemDirectory();
     searchOrder << QCoreApplication::applicationDirPath();
+    searchOrder << qSystemDirectory();
 
     if (!onlySystemDirectory) {
         const QString PATH(QLatin1String(qgetenv("PATH").constData()));
@@ -116,11 +116,11 @@ HINSTANCE QSystemLibrary::load(const wchar_t *libraryName, bool onlySystemDirect
             fullPathAttempt.append(QLatin1Char('\\'));
         }
         fullPathAttempt.append(fileName);
-        HINSTANCE inst = ::LoadLibrary((const wchar_t *)fullPathAttempt.utf16());
-        if (inst != 0)
+        HINSTANCE inst = ::LoadLibraryW(reinterpret_cast<const wchar_t *>(fullPathAttempt.utf16()));
+        if (inst)
             return inst;
     }
-    return 0;
+    return nullptr;
 
 }
 

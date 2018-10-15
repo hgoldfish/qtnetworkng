@@ -51,4 +51,10 @@ if(MSVC)
     add_definitions("/wd4996")
 endif()
 
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    set(OS_EXTRA_LINK ws2_32)
+endif()
+
 add_library(ev STATIC ev.c)
+target_link_libraries(ev ${OS_EXTRA_LINK})
+

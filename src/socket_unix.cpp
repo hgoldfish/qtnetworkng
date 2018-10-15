@@ -911,8 +911,7 @@ Socket *SocketPrivate::accept()
     }
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
-    while(true)
-    {
+    while(true) {
         int acceptedDescriptor = qt_safe_accept(fd, nullptr, nullptr);
         if (acceptedDescriptor == -1) {
             switch (errno) {
@@ -952,9 +951,7 @@ Socket *SocketPrivate::accept()
             case EAGAIN:
                 break;
             }
-        }
-        else
-        {
+        } else {
             Socket *conn = new Socket(acceptedDescriptor);
             return conn;
         }

@@ -5,6 +5,8 @@
 #include <QtCore/qlist.h>
 #include <QtCore/qpair.h>
 
+QTNETWORKNG_NAMESPACE_BEGIN
+
 template<typename ARG>
 class Deferred
 {
@@ -89,5 +91,7 @@ void Deferred<ARG>::run(const ARG &arg, bool ok)
         }
     }
 }
+
+QTNETWORKNG_NAMESPACE_END
 
 #endif // DEFERRED_H

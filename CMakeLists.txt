@@ -11,7 +11,7 @@
 #
 # How to cross build QtNetworkNg for Android with cmake
 # 1. Build static Qt:
-#     ./configure --prefix="/usr/local/Qt5.11.1-android-static-armv7" -release -opensource -static -no-gui -no-icu -xplatform android-clang -disable-rpath -nomake tests -nomake examples -android-ndk /home/goldfish/bin/android-sdk-linux/ndk-bundle -android-sdk /home/goldfish/bin/android-sdk-linux -android-ndk-platform android-14 -android-arch armeabi-v7a 
+#     ./configure --prefix="/usr/local/Qt5.11.1-android-static-armv7" -release -opensource -static -no-gui -no-icu -xplatform android-clang -disable-rpath -nomake tests -nomake examples -android-ndk /home/goldfish/bin/android-sdk-linux/ndk-bundle -android-sdk /home/goldfish/bin/android-sdk-linux -android-ndk-platform android-14 -android-arch armeabi-v7a
 #     make -j4 && sudo make install
 # 2. Build QtNetworkNg
 #     mkdir build
@@ -23,10 +23,10 @@
 
 cmake_minimum_required(VERSION 3.1.0 FATAL_ERROR)
 
-project(qtnetworkng VERSION 0.3.2 LANGUAGES C CXX ASM)
+project(qtnetworkng VERSION 0.5.2 LANGUAGES C CXX ASM)
 
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
+option(QTNG_BUILD_TESTS OFF)
+set (CMAKE_AUTOMOC ON)
 
 if(ANDROID)
     find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
@@ -51,7 +51,8 @@ set(QTNETWORKNG_SRC
     src/socks5_proxy.cpp
     src/eventloop_ev.cpp
     src/eventloop_qt.cpp
-    contrib/data_channel.cpp
+    src/msgpack.cpp
+    src/data_channel.cpp
 )
 
 set(QTNETWORKNG_INCLUDE
@@ -73,8 +74,9 @@ set(QTNETWORKNG_INCLUDE
     include/socks5_proxy.h
     include/deferred.h
     include/qtnetworkng.h
-    contrib/data_channel.h
-    contrib/data_pack.h
+    include/msgpack.h
+    include/data_channel.h
+    include/data_pack.h
 )
 
 set(QTCRYPTONG_SRC
@@ -111,6 +113,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         src/coroutine_win.cpp
     )
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    # Android support cross build.
     if(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "arm64-v8a")
         set(OS_DEPENDENDED_SRC
             src/socket_unix.cpp
@@ -152,8 +155,12 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         message(FATAL_ERROR Android for ${CMAKE_ANDROID_ARCH_ABI} is not supported.)
     endif()
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-    message(FATAL_ERROR MacOS is not supported.)
+    set(OS_DEPENDENDED_SRC
+        src/socket_unix.cpp
+        src/coroutine_unix.cpp
+    )
 elseif(UNIX)
+    # TODO should support cross build.
     if((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
             OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "amd64"))
         set(OS_DEPENDENDED_SRC
@@ -186,7 +193,7 @@ elseif(UNIX)
             src/context/asm/make_arm_aapcs_elf_gas.S
             src/coroutine_fcontext.cpp
         )
-    #ELSEIF(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "mips64")   
+    #ELSEIF(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "mips64")
     elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "mips")
         set(OS_DEPENDENDED_SRC
             src/socket_unix.cpp
@@ -206,21 +213,18 @@ else()
 endif()
 
 # start intergrating libev
-
-
 add_definitions(-DQTNETWOKRNG_USE_EV)
 add_subdirectory(ev)
 
 add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE}
                                ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${OS_DEPENDENDED_SRC})
-target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
+target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Fix Qt-static cmake BUG
 # https://bugreports.qt.io/browse/QTBUG-38913
 if((EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.so) OR
-   (EXISTS ${_qt5Core_install_prefix}/lib/Qt5Core.dll) OR
    (EXISTS ${_qt5Core_install_prefix}/lib64/libQt5Core.so) OR
-   (EXISTS ${_qt5Core_install_prefix}/lib64/Qt5Core.dll))
+   (EXISTS ${_qt5Core_install_prefix}/bin/Qt5Core.dll))
     message("Shared Qt is detected.")
 else()
     message("Static Qt is detected.")
@@ -234,31 +238,34 @@ else()
     link_directories(${_qt5Core_install_prefix}/lib/)
 endif()
 
-target_link_libraries(qtnetworkng PUBLIC ${OS_EXTRA_LINK} Qt5::Core Qt5::Network PRIVATE ev)
+target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE ev ${OS_EXTRA_LINK})
 
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
 install(FILES ${QTNETWORKNG_INCLUDE} ${QTCRYPTONG_INCLUDE} DESTINATION include/qtnetworkng/)
 
-IF(Qt5Test_FOUND)
+IF(Qt5Test_FOUND AND QTNG_BUILD_TESTS)
     add_executable(test_ssl tests/test_ssl.cpp)
     target_link_libraries(test_ssl PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-    
+
     add_executable(test_crypto tests/test_crypto.cpp)
     target_link_libraries(test_crypto PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-    
+
     add_executable(test_coroutines tests/test_coroutines.cpp)
     target_link_libraries(test_coroutines PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-    
+
     add_executable(sleep_coroutines tests/sleep_coroutines.cpp)
     target_link_libraries(sleep_coroutines PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-    
+
     add_executable(simple_test tests/simple_test.cpp)
     target_link_libraries(simple_test PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-    
+
     add_executable(many_httpget tests/many_httpget.cpp)
     target_link_libraries(many_httpget PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-    
+
     add_executable(test_socket tests/test_socket.cpp)
     target_link_libraries(test_socket PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
+
+    add_executable(test_msgpack tests/test_msgpack.cpp)
+    target_link_libraries(test_msgpack PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
 endif()

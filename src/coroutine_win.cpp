@@ -10,17 +10,17 @@ public:
     BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *previous, size_t stackSize);
     virtual ~BaseCoroutinePrivate();
     bool initContext();
-    bool raise(CoroutineException *exception = 0);
+    bool raise(CoroutineException *exception = nullptr);
     bool yield();
 private:
     BaseCoroutine * const q_ptr;
     BaseCoroutine * const previous;
     size_t stackSize;
     enum BaseCoroutine::State state;
-    bool bad;
     CoroutineException *exception;
     LPVOID context;
-    Q_DECLARE_PUBLIC(QBaseCoroutine)
+    bool bad;
+    Q_DECLARE_PUBLIC(BaseCoroutine)
 private:
     static void CALLBACK run_stub(BaseCoroutinePrivate *coroutine);
     void cleanup() { q_ptr->cleanup(); }
@@ -35,7 +35,7 @@ void CALLBACK BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
         coroutine->q_ptr->run();
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
-    } catch(const CoroutineExitException &e) {
+    } catch(const CoroutineExitException &) {
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
     } catch(const CoroutineException &e) {
@@ -53,7 +53,7 @@ void CALLBACK BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
 
 
 BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *previous, size_t stackSize)
-    :q_ptr(q), previous(previous), stackSize(stackSize), state(BaseCoroutine::Initialized), bad(false), exception(0), context(NULL)
+    :q_ptr(q), previous(previous), stackSize(stackSize), state(BaseCoroutine::Initialized), exception(nullptr), context(nullptr),  bad(false)
 {
 
 }
@@ -83,7 +83,7 @@ bool BaseCoroutinePrivate::initContext()
         return true;
 
     context = CreateFiberEx(1024*4, stackSize, 0, (PFIBER_START_ROUTINE)BaseCoroutinePrivate::run_stub, this);
-    if(context == NULL) {
+    if(!context) {
         DWORD error = GetLastError();
         qDebug() << QStringLiteral("can not create fiber: error is %1").arg(error);
         bad = true;
@@ -148,9 +148,9 @@ bool BaseCoroutinePrivate::yield()
     if(currentCoroutine().get() != old) { // when coroutine finished, swapcontext auto yield to the previous.
         currentCoroutine().set(old);
     }
-    CoroutineException *e = old->d_ptr->exception;
+    CoroutineException *e = old->d_func()->exception;
     if(e) {
-        old->d_ptr->exception = 0;
+        old->d_func()->exception = nullptr;
         if(!dynamic_cast<CoroutineExitException*>(e)) {
             qDebug() << "got exception:" << e->what() << old;
         }
@@ -161,10 +161,10 @@ bool BaseCoroutinePrivate::yield()
 
 BaseCoroutine* createMainCoroutine()
 {
-    BaseCoroutine *main = new BaseCoroutine(0, 0);
+    BaseCoroutine *main = new BaseCoroutine(nullptr, 0);
     if(!main)
-        return 0;
-    BaseCoroutinePrivate *mainPrivate = main->d_ptr;
+        return nullptr;
+    BaseCoroutinePrivate *mainPrivate = main->d_func();
 #if ( _WIN32_WINNT > 0x0600)
         if ( IsThreadAFiber() ) {
             mainPrivate->context = GetCurrentFiber();
@@ -172,23 +172,22 @@ BaseCoroutine* createMainCoroutine()
             mainPrivate->context = ConvertThreadToFiberEx(NULL, 0);
         }
 #else
-        mainPrivate->context = ConvertThreadToFiberEx(NULL, 0);
+        mainPrivate->context = ConvertThreadToFiberEx(nullptr, 0);
         if(Q_UNLIKELY( NULL == mainPrivate->context) ) {
             DWORD err = GetLastError();
             if(err == ERROR_ALREADY_FIBER) {
                 mainPrivate->context = GetCurrentFiber();
             }
             if(reinterpret_cast<LPVOID>(0x1E00) == mainPrivate->context) {
-                mainPrivate->context = 0;
+                mainPrivate->context = nullptr;
             }
         }
 #endif
-    if(mainPrivate->context == NULL)
-    {
+    if(!mainPrivate->context) {
         DWORD error = GetLastError();
         qDebug() << QStringLiteral("Coroutine can not malloc new memroy: error is %1").arg(error);
         delete main;
-        return 0;
+        return nullptr;
     }
     mainPrivate->state = BaseCoroutine::Started;
     return main;
@@ -197,14 +196,14 @@ BaseCoroutine* createMainCoroutine()
 
 // here comes the public class.
 BaseCoroutine::BaseCoroutine(BaseCoroutine *previous, size_t stackSize)
-    :d_ptr(new BaseCoroutinePrivate(this, previous, stackSize))
+    :dd_ptr(new BaseCoroutinePrivate(this, previous, stackSize))
 {
 }
 
 
 BaseCoroutine::~BaseCoroutine()
 {
-    delete d_ptr;
+    delete dd_ptr;
 }
 
 
@@ -249,13 +248,6 @@ BaseCoroutine *BaseCoroutine::previous() const
 {
     Q_D(const BaseCoroutine);
     return d->previous;
-}
-
-
-void BaseCoroutine::setPrevious(BaseCoroutine *previous)
-{
-    Q_D(BaseCoroutine);
-    d->previous = previous;
 }
 
 QTNETWORKNG_NAMESPACE_END

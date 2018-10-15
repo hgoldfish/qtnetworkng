@@ -65,27 +65,27 @@ public:
     explicit QSystemLibrary(const QString &libraryName)
     {
         m_libraryName = libraryName;
-        m_handle = 0;
+        m_handle = nullptr;
         m_didLoad = false;
     }
 
     explicit QSystemLibrary(const wchar_t *libraryName)
     {
         m_libraryName = QString::fromWCharArray(libraryName);
-        m_handle = 0;
+        m_handle = nullptr;
         m_didLoad = false;
     }
 
     bool load(bool onlySystemDirectory = true)
     {
-        m_handle = load((const wchar_t *)m_libraryName.utf16(), onlySystemDirectory);
+        m_handle = load(reinterpret_cast<const wchar_t *>(m_libraryName.utf16()), onlySystemDirectory);
         m_didLoad = true;
-        return (m_handle != 0);
+        return m_handle;
     }
 
     bool isLoaded()
     {
-        return (m_handle != 0);
+        return !m_handle;
     }
 
     QString fileName() const
@@ -98,7 +98,7 @@ public:
         if (!m_didLoad)
             load();
         if (!m_handle)
-            return 0;
+            return nullptr;
         return QFunctionPointer(GetProcAddress(m_handle, symbol));
     }
 

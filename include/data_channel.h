@@ -1,10 +1,10 @@
 #ifndef QTNG_DATA_CHANNEL_H
 #define QTNG_DATA_CHANNEL_H
 
-#include <QtCore/QObject>
-#include <QtCore/QSharedPointer>
-#include "../include/socket.h"
-#include "../include/socket_utils.h"
+#include <QtCore/qobject.h>
+#include <QtCore/qsharedpointer.h>
+#include "socket.h"
+#include "socket_utils.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

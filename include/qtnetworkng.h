@@ -11,6 +11,7 @@
 #include "http_proxy.h"
 #include "http_utils.h"
 #include "socks5_proxy.h"
+#include "msgpack.h"
 
 #ifndef QTNG_NO_CRYPTO
 #include "ssl.h"
@@ -20,5 +21,7 @@
 #include "pkey.h"
 #include "certificate.h"
 #endif
+
+#include "data_channel.h"
 
 #endif // QTNG_QTNETWORKNG_H

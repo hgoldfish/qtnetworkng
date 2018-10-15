@@ -166,9 +166,8 @@ QByteArray MessageDigest::result()
     return d->result();
 }
 
-QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password,
-                       const MessageDigest::Algorithm hashAlgo,
-                       const QByteArray &salt, int i)
+QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray &salt,
+                       const MessageDigest::Algorithm hashAlgo, int i)
 {
     initOpenSSL();
     const openssl::EVP_MD *dgst = getOpenSSL_MD(hashAlgo);
