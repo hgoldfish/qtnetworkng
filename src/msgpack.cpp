@@ -177,9 +177,9 @@ bool MsgPackStreamPrivate::unpack_longlong(qint64 &i64)
         return false;
     }
 
-    if (p[0] <= 127) {// positive fixint 0x00 - 0x7f
+    if (p[0] <= FirstByte::POSITIVE_FIXINT) {// positive fixint 0x00 - 0x7f
         i64 = p[0];
-    } else if (p[0] >= 0xe0) { // negative fixint 0xe0 - 0xff
+    } else if (p[0] >= FirstByte::NEGATIVE_FIXINT) { // negative fixint 0xe0 - 0xff
         i64 = static_cast<qint8>(p[0]);
     } else if (p[0] == FirstByte::UINT8) {
         if (!readBytes(p + 1, 1)) {
@@ -241,9 +241,9 @@ bool MsgPackStreamPrivate::unpack_ulonglong(quint64 &u64)
         return false;
     }
 
-    if (p[0] <= 127) {// positive fixint 0x00 - 0x7f
+    if (p[0] <= FirstByte::POSITIVE_FIXINT) {// positive fixint 0x00 - 0x7f
         u64 = p[0];
-    } else if (p[0] >= 0xe0) { // negative fixint 0xe0 - 0xff
+    } else if (p[0] >= FirstByte::NEGATIVE_FIXINT) { // negative fixint 0xe0 - 0xff
         status = MsgPackStream::ReadCorruptData;
         return false;
     } else if (p[0] == FirstByte::UINT8) {
@@ -362,9 +362,9 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
         return false;
     }
 
-    if (p[0] <= 127) {// positive fixint 0x00 - 0x7f
+    if (p[0] <= FirstByte::POSITIVE_FIXINT) {// positive fixint 0x00 - 0x7f
         v = p[0];
-    } else if (p[0] >= 0xe0) { // negative fixint 0xe0 - 0xff
+    } else if (p[0] >= FirstByte::NEGATIVE_FIXINT) { // negative fixint 0xe0 - 0xff
         v = static_cast<qint8>(p[0]);
     } else if (FirstByte::FIXMAP <= p[0] && p[0] < FirstByte::FIXARRAY) {
         quint32 len = p[0] & 0xf;
@@ -715,32 +715,32 @@ bool MsgPackStreamPrivate::writeExtHeader(quint32 len, quint8 msgpackType)
 
     quint8 sz = 2;
     if (len == 1) {
-        p[0] = 0xd4;
+        p[0] = FirstByte::FIXEXT1;
         p[1] = msgpackType;
     } else if (len == 2) {
-        p[0] = 0xd5;
+        p[0] = FirstByte::FIXEXT2;
         p[1] = msgpackType;
     } else if (len == 4) {
-        p[0] = 0xd6;
+        p[0] = FirstByte::FIXEXT4;
         p[1] = msgpackType;
     } else if (len == 8) {
-        p[0] = 0xd7;
+        p[0] = FirstByte::FIXEXT8;
         p[1] = msgpackType;
     } else if (len == 16) {
-        p[0] = 0xd8;
+        p[0] = FirstByte::FIXEX16;
         p[1] = msgpackType;
     } else if (len <= std::numeric_limits<quint8>::max()) {
-        p[0] = 0xc7;
+        p[0] = FirstByte::EXT8;
         p[1] = static_cast<quint8>(len);
         p[2] = msgpackType;
         sz = 3;
     } else if (len <= std::numeric_limits<quint16>::max()) {
-        p[0] = 0xc8;
+        p[0] = FirstByte::EXT16;
         _msgpack_store16(p + 1, static_cast<quint16>(len));
         p[3] = msgpackType;
         sz = 4;
     } else {
-        p[0] = 0xc9;
+        p[0] = FirstByte::EXT32;
         _msgpack_store32(p + 1, len);
         p[5] = msgpackType;
         sz = 6;
@@ -1102,11 +1102,11 @@ MsgPackStream &MsgPackStream::operator<<(quint8 u8)
 {
     CHECK_STREAM_PRECOND(*this);
     quint8 p[2];
-    if (u8 <= 127) {
+    if (u8 <= FirstByte::POSITIVE_FIXINT) {
         _msgpack_store8(p, u8);
         d->writeBytes(p, 1);
     } else {
-        p[0] = 0xcc;
+        p[0] = FirstByte::UINT8;
         _msgpack_store8(p + 1, u8);
         d->writeBytes(p, 2);
     }
@@ -1120,7 +1120,7 @@ MsgPackStream &MsgPackStream::operator<<(quint16 u16)
         *this << static_cast<quint8>(u16);
     } else {
         quint8 p[3];
-        p[0] = 0xcd;
+        p[0] = FirstByte::UINT16;
         _msgpack_store16(p + 1, u16);
         d->writeBytes(p, 3);
     }
@@ -1135,7 +1135,7 @@ MsgPackStream &MsgPackStream::operator<<(quint32 u32)
         *this << static_cast<quint16>(u32);
     } else {
         quint8 p[5];
-        p[0] = 0xce;
+        p[0] = FirstByte::UINT32;
         _msgpack_store32(p + 1, u32);
         d->writeBytes(p, 5);
     }
@@ -1149,7 +1149,7 @@ MsgPackStream &MsgPackStream::operator<<(quint64 u64)
         *this << static_cast<quint32>(u64);
     } else {
         quint8 p[9];
-        p[0] = 0xcf;
+        p[0] = FirstByte::UINT64;
         _msgpack_store64(p + 1, u64);
         d->writeBytes(p, 9);
     }
@@ -1164,7 +1164,7 @@ MsgPackStream &MsgPackStream::operator<<(qint8 i8)
         _msgpack_store8(p, i8);
         d->writeBytes(p, 1);
     } else {
-        p[0] = i8 > 0 ? 0xcc : 0xd0;
+        p[0] = i8 > 0 ? FirstByte::UINT8 : FirstByte::INT8;
         _msgpack_store8(p + 1, i8);
         d->writeBytes(p, 2);
     }
@@ -1180,12 +1180,12 @@ MsgPackStream &MsgPackStream::operator<<(qint16 i16)
         *this << static_cast<qint8>(i16);
     } else if(std::numeric_limits<qint8>::max() <= i16 && i16 <= std::numeric_limits<quint8>::max()) {
         quint8 p[2];
-        p[0] = 0xcc;
+        p[0] = FirstByte::UINT8;
         _msgpack_store8(p + 1, static_cast<quint8>(i16));
         d->writeBytes(p, 2);
     } else {
         quint8 p[3];
-        p[0] = i16 > 0 ? 0xcd : 0xd1;
+        p[0] = i16 > 0 ? FirstByte::UINT16 : FirstByte::INT16;
         _msgpack_store16(p + 1, i16);
         d->writeBytes(p, 3);
     }
@@ -1199,12 +1199,12 @@ MsgPackStream &MsgPackStream::operator<<(qint32 i32)
         *this << static_cast<qint16>(i32);
     } else if(std::numeric_limits<qint16>::max() <= i32 && i32 <= std::numeric_limits<quint16>::max()) {
         quint8 p[3];
-        p[0] = 0xcd;
+        p[0] = FirstByte::UINT16;
         _msgpack_store16(p + 1, static_cast<quint16>(i32));
         d->writeBytes(p, 3);
     } else {
         quint8 p[5];
-        p[0] = i32 > 0 ? 0xce : 0xd2;
+        p[0] = i32 > 0 ? FirstByte::UINT32 : FirstByte::INT32;
         _msgpack_store32(p + 1, i32);
         d->writeBytes(p, 5);
     }
@@ -1218,12 +1218,12 @@ MsgPackStream &MsgPackStream::operator<<(qint64 i64)
         *this << static_cast<qint32>(i64);
     } else if(std::numeric_limits<qint32>::max() <= i64 && i64 <= std::numeric_limits<quint32>::max()) {
         quint8 p[5];
-        p[0] = 0xce;
+        p[0] = FirstByte::UINT32;
         _msgpack_store32(p + 1, static_cast<quint32>(i64));
         d->writeBytes(p, 5);
     } else {
         quint8 p[9];
-        p[0] = 0xd3;
+        p[0] = i64 > 0 ? FirstByte::UINT64 : FirstByte::INT64;
         _msgpack_store64(p + 1, i64);
         d->writeBytes(p, 9);
     }
@@ -1235,7 +1235,7 @@ MsgPackStream &MsgPackStream::operator<<(float f)
 {
     CHECK_STREAM_PRECOND(*this);
     quint8 p[5];
-    p[0] = 0xca;
+    p[0] = FirstByte::FLOAT32;
     quint32 u32;
     u32 = *((quint32 *) &f);
 //    strncpy(static_cast<char*>(static_cast<void*>(&u32)), static_cast<char*>(static_cast<void*>(&f)), 4);
@@ -1248,7 +1248,7 @@ MsgPackStream &MsgPackStream::operator<<(double f)
 {
     CHECK_STREAM_PRECOND(*this);
     quint8 p[9];
-    p[0] = 0xcb;
+    p[0] = FirstByte::FLOAT64;
     quint64 u64;
     u64 = *((quint64 *) &f);
     _msgpack_store64(p + 1, u64);
@@ -1265,18 +1265,18 @@ MsgPackStream &MsgPackStream::operator<<(const QString &str)
     quint8 p[5];
     int sz;
     if (len <= 31) {
-        p[0] = 0xa0 | len;
+        p[0] = FirstByte::FIXSTR | len;
         sz = 1;
     } else if (len <= std::numeric_limits<quint8>::max()) {
-        p[0] = 0xd9;
+        p[0] = FirstByte::STR8;
         _msgpack_store8(p + 1, static_cast<quint8>(len));
         sz = 2;
     } else if (len <= std::numeric_limits<quint16>::max()) {
-        p[0] = 0xda;
+        p[0] = FirstByte::STR16;
         _msgpack_store16(p + 1, static_cast<quint16>(len));
         sz = 3;
     } else {
-        p[0] = 0xdb;
+        p[0] = FirstByte::STR32;
         _msgpack_store32(p + 1, len);
         sz = 5;
     }
@@ -1295,15 +1295,15 @@ MsgPackStream &MsgPackStream::operator<<(const QByteArray &array)
     quint32 len = static_cast<quint32>(array.length());
     int sz;
     if (len <= std::numeric_limits<quint8>::max()) {
-        p[0] = 0xc4;
+        p[0] = FirstByte::BIN8;
         _msgpack_store8(p + 1, static_cast<quint8>(len));
         sz = 2;
     } else if (len <= std::numeric_limits<quint16>::max()) {
-        p[0] = 0xc5;
+        p[0] = FirstByte::BIN16;
         _msgpack_store16(p + 1, static_cast<quint16>(len));
         sz = 3;
     } else {
-        p[0] = 0xc6;
+        p[0] = FirstByte::BIN32;
         _msgpack_store32(p + 1, len);
         sz = 5;
     }
