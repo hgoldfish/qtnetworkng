@@ -17,25 +17,29 @@ SOURCES += \
     $$PWD/src/http_utils.cpp \
     $$PWD/src/http_proxy.cpp \
     $$PWD/src/socks5_proxy.cpp \
-    $$PWD/src/eventloop_qt.cpp
-
+    $$PWD/src/eventloop_qt.cpp \
+    $$PWD/src/msgpack.cpp
+    
+PRIVATE_HEADERS += \
+    $$PWD/include/private/coroutine_p.h \
+    $$PWD/include/private/http_p.h \
+    $$PWD/include/private/socket_p.h \
+    $$PWD/include/private/qsystemlibrary_p.h
+    
 HEADERS += \
     $$PWD/include/config.h \
     $$PWD/include/coroutine.h \
     $$PWD/include/socket.h \
-    $$PWD/include/socket_p.h \
     $$PWD/include/eventloop.h \
     $$PWD/include/locks.h \
     $$PWD/include/coroutine_utils.h \
-    $$PWD/include/coroutine_p.h \
     $$PWD/include/http.h \
-    $$PWD/include/http_p.h \
     $$PWD/include/socket_utils.h \
-    $$PWD/include/qsystemlibrary_p.h \
     $$PWD/include/http_utils.h \
     $$PWD/include/http_proxy.h \
     $$PWD/include/socks5_proxy.h \
-    $$PWD/include/deferred.h
+    $$PWD/include/deferred.h \
+    $$PWD/include/msgpack.h
 
 windows {
     SOURCES += $$PWD/src/socket_win.cpp \
@@ -54,21 +58,23 @@ networkng_ev {
 }
 
 !no_cryptong {
+    PRIVATE_HEADERS += \
+        $$PWD/include/private/openssl_symbols.h \
+        $$PWD/include/private/qtng_temp.h \
+        $$PWD/include/private/crypto_p.h \
+        
     HEADERS += $$PWD/include/config.h \
         $$PWD/include/crypto.h \
         $$PWD/include/ssl.h \
-        $$PWD/include/openssl_symbols.h \
-        $$PWD/include/qtng_temp.h \
         $$PWD/include/md.h \
         $$PWD/include/random.h \
         $$PWD/include/cipher.h \
         $$PWD/include/pkey.h \
-        $$PWD/include/crypto_p.h \
         $$PWD/include/certificate.h \
         $$PWD/include/qasn1element.h \
         $$PWD/include/qtcryptng.h \
         $$PWD/qtcryptng.h
-
+        
     SOURCES += $$PWD/src/ssl.cpp \
         $$PWD/src/crypto.cpp \
         $$PWD/src/openssl_symbols.cpp \
@@ -81,6 +87,8 @@ networkng_ev {
 
     DEFINES += QTNETWOKRNG_USE_SSL
 }
+
+HEADERS += $$PRIVATE_HEADERS
 
 # decide which fcontext asm file to use.
 android {

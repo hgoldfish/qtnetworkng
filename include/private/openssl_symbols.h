@@ -58,7 +58,7 @@
 
 #include <QtCore/qglobal.h>
 #include <QtCore/qdatetime.h>
-#include "config.h"
+#include "../config.h"
 
 
 namespace QTNETWORKNG_NAMESPACE {

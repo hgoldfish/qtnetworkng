@@ -51,7 +51,7 @@
 // We mean it.
 //
 
-#include "config.h"
+#include "../config.h"
 #include <QtCore/qstring.h>
 
 #ifdef Q_OS_WIN

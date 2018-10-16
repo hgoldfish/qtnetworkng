@@ -3,7 +3,7 @@
 #include <QtCore/qjsondocument.h>
 #include <QtCore/qdatetime.h>
 #include <QtCore/qtextcodec.h>
-#include "../include/http_p.h"
+#include "../include/private/http_p.h"
 #include "../include/socks5_proxy.h"
 #ifndef QTNG_NO_CRYPTO
 #include "../include/ssl.h"
@@ -119,7 +119,7 @@ HttpRequest &HttpRequest::operator=(const HttpRequest &other)
     return *this;
 }
 
-    
+
 void HttpRequest::setFormData(FormData &formData, const QString &method)
 {
     this->method = method;

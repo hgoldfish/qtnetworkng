@@ -7,7 +7,7 @@
 #include <QtNetwork/qhostaddress.h>
 #include <QtNetwork/qhostinfo.h>
 
-#include "eventloop_p.h"
+#include "private/eventloop_p.h"
 #include "locks.h"
 
 // #include <qplatformdefs.h>

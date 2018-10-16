@@ -8,7 +8,7 @@
 #include <QtCore/qpointer.h>
 #include <QtCore/qcoreevent.h>
 
-#include "../include/eventloop_p.h"
+#include "../include/private/eventloop_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -103,7 +103,7 @@ private:
     QPointer<BaseCoroutine> loopCoroutine;
     EventLoopCoroutinePrivateQtHelper *helper;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
-    
+
     friend struct TriggerIoWatchersArgumentsFunctor;
 
     static EventLoopCoroutinePrivateQt *getPrivateHelper(EventLoopCoroutine *coroutine)
@@ -127,12 +127,12 @@ public slots:
     {
         parent->timerEvent(event);
     }
-    
+
     void callLaterThreadSafeStub(int msecs, void* callback)
     {
         parent->callLater(msecs, static_cast<Functor*>(callback));
     }
-    
+
     void handleIoEvent(int socket)
     {
         QSocketNotifier *n = dynamic_cast<QSocketNotifier*>(sender());
@@ -375,7 +375,7 @@ int startQtLoop()
         qWarning("Qt eventloop require QCoreApplication.");
         return -1;
     }
-    
+
     QSharedPointer<EventLoopCoroutine> eventLoop = currentLoop()->get();
     QtEventLoopCoroutine *qtEventLoop = nullptr;
     if (!eventLoop.isNull()) {
@@ -388,9 +388,9 @@ int startQtLoop()
         qtEventLoop = new QtEventLoopCoroutine();
         currentLoop()->set(QSharedPointer<EventLoopCoroutine>(qtEventLoop));
     }
-    
+
     EventLoopCoroutinePrivateQt *priv = EventLoopCoroutinePrivateQt::getPrivateHelper(qtEventLoop);
-    
+
     priv->loopCoroutine = BaseCoroutine::current();
     int result = QCoreApplication::instance()->exec();
     priv->loopCoroutine.clear();

@@ -1,6 +1,6 @@
 #include "../include/random.h"
-#include "../include/openssl_symbols.h"
-#include "../include/crypto_p.h"
+#include "../include/private/openssl_symbols.h"
+#include "../include/private/crypto_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

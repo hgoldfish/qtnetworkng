@@ -5,13 +5,13 @@
 #include <QtCore/qdebug.h>
 #include <stddef.h>
 #include "ev/ev.h"
-#include "../include/eventloop_p.h"
+#include "../include/private/eventloop_p.h"
 
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
 namespace {
-    
+
 struct EvWatcher
 {
     virtual ~EvWatcher();

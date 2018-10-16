@@ -2,7 +2,7 @@
 #define QTNG_COROUTINE_P_H
 
 #include <QtCore/qthreadstorage.h>
-#include "coroutine.h"
+#include "../coroutine.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

@@ -3,7 +3,7 @@
 #include "../include/ssl.h"
 #include "../include/socket.h"
 #include "../include/socket_utils.h"
-#include "../include/crypto_p.h"
+#include "../include/private/crypto_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

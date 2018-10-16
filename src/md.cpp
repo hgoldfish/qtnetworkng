@@ -1,5 +1,5 @@
 #include "../include/md.h"
-#include "../include/crypto_p.h"
+#include "../include/private/crypto_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

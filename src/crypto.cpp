@@ -3,7 +3,7 @@
 #include <QtCore/qfile.h>
 #include <QtCore/qsharedpointer.h>
 #include "../include/crypto.h"
-#include "../include/openssl_symbols.h"
+#include "../include/private/openssl_symbols.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

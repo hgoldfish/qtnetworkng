@@ -6,7 +6,7 @@
 #include <QtCore/qthread.h>
 #include <QtCore/qsharedpointer.h>
 #include "locks.h"
-#include "eventloop_p.h"
+#include "private/eventloop_p.h"
 
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -118,7 +118,7 @@ T callInThread(std::function<T()> func)
 {
     QSharedPointer<T> result(new T());
     QSharedPointer<Event> done(new Event);
-    
+
     LambdaFunctor *yieldCoroutine = new LambdaFunctor([done] { done->set(); });
     QPointer<EventLoopCoroutine> eventloop = EventLoopCoroutine::get();
 

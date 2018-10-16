@@ -2,7 +2,7 @@
 #include <QtCore/qcoreapplication.h>
 #include <QtCore/qmap.h>
 #include <QtCore/qcache.h>
-#include "../include/socket_p.h"
+#include "../include/private/socket_p.h"
 #include "../include/coroutine_utils.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN

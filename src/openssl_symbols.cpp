@@ -61,7 +61,7 @@
 #include <QtCore/qvector.h>
 #include <QtCore/qset.h>
 #include <QtCore/qdebug.h>
-#include "../include/openssl_symbols.h"
+#include "../include/private/openssl_symbols.h"
 
 #ifdef Q_OS_WIN
 # include "../include/qsystemlibrary_p.h"

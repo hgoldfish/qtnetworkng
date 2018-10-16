@@ -59,16 +59,11 @@ set(QTNETWORKNG_INCLUDE
     include/config.h
     include/coroutine.h
     include/socket.h
-    include/socket_p.h
     include/eventloop.h
-    include/eventloop_p.h
     include/locks.h
     include/coroutine_utils.h
-    include/coroutine_p.h
     include/http.h
-    include/http_p.h
     include/socket_utils.h
-    include/qsystemlibrary_p.h
     include/http_utils.h
     include/http_proxy.h
     include/socks5_proxy.h
@@ -76,7 +71,15 @@ set(QTNETWORKNG_INCLUDE
     include/qtnetworkng.h
     include/msgpack.h
     include/data_channel.h
-    include/data_pack.h
+)
+
+SET(QTNETWORKNG_PRIVATE_INCLUDE
+    include/private/data_pack.h
+    include/private/qsystemlibrary_p.h
+    include/private/eventloop_p.h
+    include/private/coroutine_p.h
+    include/private/socket_p.h
+    include/private/http_p.h
 )
 
 set(QTCRYPTONG_SRC
@@ -95,15 +98,19 @@ set(QTCRYPTONG_INCLUDE
     include/config.h
     include/crypto.h
     include/ssl.h
-    include/openssl_symbols.h
-    include/qtng_temp.h
     include/md.h
     include/random.h
     include/cipher.h
     include/pkey.h
-    include/crypto_p.h
     include/certificate.h
     include/qasn1element.h
+)
+
+set(QTCRYPTONG_PRIVATE_INCLUDE
+    include/private/crypto_p.h
+    include/private/openssl_symbols.h
+    include/private/qtng_temp.h
+    include/private/crypto_backend.h
 )
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
@@ -216,8 +223,8 @@ endif()
 add_definitions(-DQTNETWOKRNG_USE_EV)
 add_subdirectory(ev)
 
-add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE}
-                               ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${OS_DEPENDENDED_SRC})
+add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
+                               ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} ${OS_DEPENDENDED_SRC})
 target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Fix Qt-static cmake BUG
@@ -243,6 +250,7 @@ target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE ev ${OS_
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
 install(FILES ${QTNETWORKNG_INCLUDE} ${QTCRYPTONG_INCLUDE} DESTINATION include/qtnetworkng/)
+install(FILES ${QTNETWORKNG_PRIVATE_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} DESTINATION include/qtnetworkng/private/)
 
 IF(Qt5Test_FOUND AND QTNG_BUILD_TESTS)
     add_executable(test_ssl tests/test_ssl.cpp)

@@ -1,7 +1,7 @@
 #include <QtCore/qdebug.h>
 #include <QtCore/qfile.h>
 #include "../include/pkey.h"
-#include "../include/crypto_p.h"
+#include "../include/private/crypto_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

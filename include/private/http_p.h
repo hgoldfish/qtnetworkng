@@ -1,12 +1,12 @@
 #ifndef QTNG_HTTP_P_H
 #define QTNG_HTTP_P_H
 
-#include "http.h"
-#include "locks.h"
-#include "socket.h"
-#include "socket_utils.h"
-#include "coroutine_utils.h"
-#include "http_proxy.h"
+#include "../http.h"
+#include "../locks.h"
+#include "../socket.h"
+#include "../socket_utils.h"
+#include "../coroutine_utils.h"
+#include "../http_proxy.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

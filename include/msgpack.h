@@ -132,9 +132,9 @@ inline void _msgpack_store32(quint8 *p, quint32 i) { qToBigEndian(i, static_cast
 inline void _msgpack_store32(quint8 *p, qint32 i) { qToBigEndian(i, static_cast<void*>(p)); }
 inline void _msgpack_store64(quint8 *p, quint64 i) { qToBigEndian(i, static_cast<void*>(p)); }
 inline void _msgpack_store64(quint8 *p, qint64 i) { qToBigEndian(i, static_cast<void*>(p)); }
-inline quint16 _msgpack_load16(quint8 *p) { qFromBigEndian<quint16>(static_cast<const void*>(p)); }
-inline quint32 _msgpack_load32(quint8 *p) { qFromBigEndian<quint32>(static_cast<const void*>(p)); }
-inline quint64 _msgpack_load64(quint8 *p) { qFromBigEndian<quint64>(static_cast<const void*>(p)); }
+inline quint16 _msgpack_load16(quint8 *p) { return qFromBigEndian<quint16>(static_cast<const void*>(p)); }
+inline quint32 _msgpack_load32(quint8 *p) { return qFromBigEndian<quint32>(static_cast<const void*>(p)); }
+inline quint64 _msgpack_load64(quint8 *p) { return qFromBigEndian<quint64>(static_cast<const void*>(p)); }
 #else
 inline void _msgpack_store16(quint8 *p, quint16 i) { qToBigEndian(i, static_cast<uchar*>(p)); }
 inline void _msgpack_store16(quint8 *p, qint16 i) { qToBigEndian(i, static_cast<uchar*>(p)); }
@@ -142,9 +142,9 @@ inline void _msgpack_store32(quint8 *p, quint32 i) { qToBigEndian(i, static_cast
 inline void _msgpack_store32(quint8 *p, qint32 i) { qToBigEndian(i, static_cast<uchar*>(p)); }
 inline void _msgpack_store64(quint8 *p, quint64 i) { qToBigEndian(i, static_cast<uchar*>(p)); }
 inline void _msgpack_store64(quint8 *p, qint64 i) { qToBigEndian(i, static_cast<uchar*>(p)); }
-inline quint16 _msgpack_load16(quint8 *p) { qFromBigEndian<quint16>(static_cast<const uchar*>(p)); }
-inline quint32 _msgpack_load32(quint8 *p) { qFromBigEndian<quint32>(static_cast<const uchar*>(p)); }
-inline quint64 _msgpack_load64(quint8 *p) { qFromBigEndian<quint64>(static_cast<const uchar*>(p)); }
+inline quint16 _msgpack_load16(quint8 *p) { return qFromBigEndian<quint16>(static_cast<const uchar*>(p)); }
+inline quint32 _msgpack_load32(quint8 *p) { return qFromBigEndian<quint32>(static_cast<const uchar*>(p)); }
+inline quint64 _msgpack_load64(quint8 *p) { return qFromBigEndian<quint64>(static_cast<const uchar*>(p)); }
 #endif
 
 inline void _msgpack_store8(quint8 *p, quint8 i)

@@ -2,7 +2,7 @@
 #include <QtCore/qpointer.h>
 #include <QtCore/qcoreapplication.h>
 #include <QtCore/qthread.h>
-#include "../include/eventloop_p.h"
+#include "../include/private/eventloop_p.h"
 #include "../include/locks.h"
 #ifdef Q_OS_UNIX
 #include <signal.h>

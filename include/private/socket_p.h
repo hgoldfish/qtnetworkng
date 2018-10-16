@@ -5,7 +5,7 @@
 #include <QtCore/qstring.h>
 #include <QtCore/qbytearray.h>
 #include <QtNetwork/qhostaddress.h>
-#include "socket.h"
+#include "../socket.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

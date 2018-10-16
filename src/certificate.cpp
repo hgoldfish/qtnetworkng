@@ -1,9 +1,9 @@
 #include <QtCore/qdebug.h>
 #include <QtCore/qdatastream.h>
 #include "../include/certificate.h"
-#include "../include/openssl_symbols.h"
+#include "../include/private/openssl_symbols.h"
 #include "../include/qasn1element.h"
-#include "../include/crypto_p.h"
+#include "../include/private/crypto_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

@@ -7,7 +7,7 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include "../include/socket_p.h"
+#include "../include/private/socket_p.h"
 
 #ifndef SOCK_NONBLOCK
 # define SOCK_NONBLOCK O_NONBLOCK

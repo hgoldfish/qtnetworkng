@@ -1,5 +1,5 @@
 #include "../include/cipher.h"
-#include "../include/crypto_p.h"
+#include "../include/private/crypto_p.h"
 #include "../include/random.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN

@@ -1,7 +1,7 @@
 #ifndef QTNG_EVENTLOOP_P_H
 #define QTNG_EVENTLOOP_P_H
 
-#include "eventloop.h"
+#include "../eventloop.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
