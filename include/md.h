@@ -19,13 +19,8 @@ public:
         Sha256 = 4,
         Sha384 = 5,
         Sha512 = 6,
-        Sha3_224 = 7,
-        Sha3_256 = 8,
-        Sha3_384 = 9,
-        Sha3_512 = 10,
         Ripemd160 = 11,
-        Blake2s256 = 12,
-        Blake2b512 = 13,
+        Whirlpool = 12
     };
 public:
     explicit MessageDigest(Algorithm algo);

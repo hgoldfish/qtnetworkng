@@ -4,7 +4,7 @@ CONFIG += c++11
 
 QMAKE_CXXFLAGS += -Wno-invalid-offsetof
 
-#INCLUDEPATH += $$PWD/include/
+INCLUDEPATH += $$PWD
 
 SOURCES += \
     $$PWD/src/socket.cpp \
@@ -23,8 +23,7 @@ SOURCES += \
 PRIVATE_HEADERS += \
     $$PWD/include/private/coroutine_p.h \
     $$PWD/include/private/http_p.h \
-    $$PWD/include/private/socket_p.h \
-    $$PWD/include/private/qsystemlibrary_p.h
+    $$PWD/include/private/socket_p.h
     
 HEADERS += \
     $$PWD/include/config.h \
@@ -42,8 +41,7 @@ HEADERS += \
     $$PWD/include/msgpack.h
 
 windows {
-    SOURCES += $$PWD/src/socket_win.cpp \
-        $$PWD/src/qsystemlibrary.cpp
+    SOURCES += $$PWD/src/socket_win.cpp
     LIBS += -lws2_32
 }
 
@@ -57,11 +55,10 @@ networkng_ev {
     DEFINES += QTNETWOKRNG_USE_EV
 }
 
-!no_cryptong {
+qtng_crypto {
     PRIVATE_HEADERS += \
-        $$PWD/include/private/openssl_symbols.h \
-        $$PWD/include/private/qtng_temp.h \
         $$PWD/include/private/crypto_p.h \
+        $$PWD/include/private/qasn1element.h
         
     HEADERS += $$PWD/include/config.h \
         $$PWD/include/crypto.h \
@@ -71,13 +68,10 @@ networkng_ev {
         $$PWD/include/cipher.h \
         $$PWD/include/pkey.h \
         $$PWD/include/certificate.h \
-        $$PWD/include/qasn1element.h \
-        $$PWD/include/qtcryptng.h \
-        $$PWD/qtcryptng.h
-        
+        $$PWD/include/qtcrypto.h
+
     SOURCES += $$PWD/src/ssl.cpp \
         $$PWD/src/crypto.cpp \
-        $$PWD/src/openssl_symbols.cpp \
         $$PWD/src/random.cpp \
         $$PWD/src/md.cpp \
         $$PWD/src/pkey.cpp \
@@ -85,7 +79,8 @@ networkng_ev {
         $$PWD/src/certificate.cpp \
         $$PWD/src/qasn1element.cpp
 
-    DEFINES += QTNETWOKRNG_USE_SSL
+    DEFINES += QTNG_CRYPTO
+    LIBS += -lssl -lcrypto
 }
 
 HEADERS += $$PRIVATE_HEADERS

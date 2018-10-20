@@ -1,5 +1,6 @@
 #include <QtCore/qdebug.h>
 #include <QtCore/qfile.h>
+#include <openssl/pem.h>
 #include "../include/pkey.h"
 #include "../include/private/crypto_p.h"
 
@@ -24,10 +25,10 @@ public:
     QByteArray rsaPrivateEncrypt(const QByteArray &data, PublicKey::RsaPadding padding) const;
     QByteArray rsaPrivateDecrypt(const QByteArray &data, PublicKey::RsaPadding padding) const;
     static PrivateKey generate(PublicKey::Algorithm algo, int bits);
-    static bool inline setPkey(PublicKey *key, openssl::EVP_PKEY *pkey, bool hasPrivate);
+    static bool inline setPkey(PublicKey *key, EVP_PKEY *pkey, bool hasPrivate);
 
-    openssl::EVP_PKEY_CTX *context;
-    QSharedPointer<openssl::EVP_PKEY> pkey;
+    EVP_PKEY_CTX *context;
+    QSharedPointer<EVP_PKEY> pkey;
     bool hasPrivate;
 };
 
@@ -43,7 +44,7 @@ PublicKeyPrivate::PublicKeyPrivate(PublicKeyPrivate *other)
 {
     initOpenSSL();
     if(other->context && !other->pkey.isNull()) {
-        context = openssl::q_EVP_PKEY_CTX_dup(other->context);
+        context = EVP_PKEY_CTX_dup(other->context);
         pkey = other->pkey;
         hasPrivate = other->hasPrivate;
     }
@@ -52,7 +53,7 @@ PublicKeyPrivate::PublicKeyPrivate(PublicKeyPrivate *other)
 PublicKeyPrivate::~PublicKeyPrivate()
 {
     if(context) {
-        openssl::q_EVP_PKEY_CTX_free(context);
+        EVP_PKEY_CTX_free(context);
     }
 }
 
@@ -60,7 +61,7 @@ PublicKeyPrivate::~PublicKeyPrivate()
 PublicKey::Algorithm PublicKeyPrivate::algorithm() const
 {
     if(!pkey.isNull()) {
-        int type = openssl::q_EVP_PKEY_base_id(pkey.data());
+        int type = EVP_PKEY_base_id(pkey.data());
         switch(type) {
         case EVP_PKEY_RSA:
             return PublicKey::Rsa;
@@ -79,27 +80,27 @@ PublicKey::Algorithm PublicKeyPrivate::algorithm() const
 int PublicKeyPrivate::bits() const
 {
     if(!pkey.isNull()) {
-        return openssl::q_EVP_PKEY_bits(pkey.data());
+        return EVP_PKEY_bits(pkey.data());
     } else {
         return 0;
     }
 }
 
-bool openssl_setPkey(PublicKey *key, openssl::EVP_PKEY *pkey, bool hasPrivate)
+bool openssl_setPkey(PublicKey *key, EVP_PKEY *pkey, bool hasPrivate)
 {
     return PublicKeyPrivate::setPkey(key, pkey, hasPrivate);
 }
 
-bool PublicKeyPrivate::setPkey(PublicKey *key, openssl::EVP_PKEY *pkey, bool hasPrivate)
+bool PublicKeyPrivate::setPkey(PublicKey *key, EVP_PKEY *pkey, bool hasPrivate)
 {
-    openssl::EVP_PKEY_CTX *context = nullptr;
-    context = openssl::q_EVP_PKEY_CTX_new(pkey, nullptr); // should i free pkey?
+    EVP_PKEY_CTX *context = nullptr;
+    context = EVP_PKEY_CTX_new(pkey, nullptr); // should i free pkey?
     if(!context) {
-        openssl::q_EVP_PKEY_free(pkey);
+        EVP_PKEY_free(pkey);
         return false;
     } else {
         key->d_ptr->context = context;
-        key->d_ptr->pkey.reset(pkey, openssl::q_EVP_PKEY_free);
+        key->d_ptr->pkey.reset(pkey, EVP_PKEY_free);
         key->d_ptr->hasPrivate = hasPrivate;
         return true;
     }
@@ -110,52 +111,52 @@ PrivateKey PublicKeyPrivate::generate(PublicKey::Algorithm algo, int bits)
     PrivateKey key;
     int rvalue;
 
-    openssl::EVP_PKEY *pkey = nullptr;
+    EVP_PKEY *pkey = nullptr;
 
-    pkey = openssl::q_EVP_PKEY_new();
+    pkey = EVP_PKEY_new();
     if (!pkey) {
         return key;
     }
 
     if (algo == PrivateKey::Rsa) {
-        openssl::RSA *rsa = openssl::q_RSA_new();
+        RSA *rsa = RSA_new();
         if(!rsa) {
-            openssl::q_EVP_PKEY_free(pkey);
+            EVP_PKEY_free(pkey);
             return key;
         }
-        openssl::BIGNUM *e = openssl::q_BN_new();
+        BIGNUM *e = BN_new();
         if(!e) {
-            openssl::q_RSA_free(rsa);
-            openssl::q_EVP_PKEY_free(pkey);
+            RSA_free(rsa);
+            EVP_PKEY_free(pkey);
             return key;
         }
-        openssl::q_BN_set_word(e, 65537);
-        rvalue = openssl::q_RSA_generate_key_ex(rsa, bits, e, nullptr);
-        openssl::q_BN_free(e);
+        BN_set_word(e, 65537);
+        rvalue = RSA_generate_key_ex(rsa, bits, e, nullptr);
+        BN_free(e);
         if(rvalue) {
-            rvalue = openssl::q_EVP_PKEY_set1_RSA(pkey, rsa);
+            rvalue = EVP_PKEY_set1_RSA(pkey, rsa);
         }
-        openssl::q_RSA_free(rsa);
+        RSA_free(rsa);
         if(!rvalue) {
-            openssl::q_EVP_PKEY_free(pkey);
+            EVP_PKEY_free(pkey);
             return key;
         }
     } else if (algo == PrivateKey::Dsa) {
-        openssl::DSA *dsa = openssl::q_DSA_new();
+        DSA *dsa = DSA_new();
         if(!dsa) {
-            openssl::q_EVP_PKEY_free(pkey);
+            EVP_PKEY_free(pkey);
             return key;
         }
-        rvalue = openssl::q_DSA_generate_parameters_ex(dsa, bits, nullptr, 0, nullptr, nullptr, nullptr);
+        rvalue = DSA_generate_parameters_ex(dsa, bits, nullptr, 0, nullptr, nullptr, nullptr);
         if(rvalue) {
-            rvalue = openssl::q_DSA_generate_key(dsa);
+            rvalue = DSA_generate_key(dsa);
             if(rvalue) {
-                rvalue = openssl::q_EVP_PKEY_set1_DSA(pkey, dsa);
+                rvalue = EVP_PKEY_set1_DSA(pkey, dsa);
             }
         }
-        openssl::q_DSA_free(dsa);
+        DSA_free(dsa);
         if(!rvalue) {
-            openssl::q_EVP_PKEY_free(pkey);
+            EVP_PKEY_free(pkey);
             return key;
         }
     } else if (algo == PrivateKey::Ec) {
@@ -176,27 +177,27 @@ QByteArray PublicKeyPrivate::sign(const QByteArray &data, MessageDigest::Algorit
     }
 
     int rvalue = 0;
-    const openssl::EVP_MD *md = getOpenSSL_MD(hashAlgo);
+    const EVP_MD *md = getOpenSSL_MD(hashAlgo);
     if(!md) {
         return QByteArray();
     }
 
-    openssl::EVP_MD_CTX *mctx = EVP_MD_CTX_new();
+    EVP_MD_CTX *mctx = EVP_MD_CTX_new();
     if(!mctx) {
         return QByteArray();
     }
-    rvalue = openssl::q_EVP_DigestSignInit(mctx, nullptr, md, nullptr, pkey.data());
+    rvalue = EVP_DigestSignInit(mctx, nullptr, md, nullptr, pkey.data());
     if(!rvalue) {
         EVP_MD_CTX_free(mctx);
         return QByteArray();
     }
-    rvalue = openssl::q_EVP_DigestSignUpdate(mctx, data.data(), static_cast<unsigned int>(data.size()));
+    rvalue = EVP_DigestSignUpdate(mctx, data.data(), static_cast<unsigned int>(data.size()));
     if(!rvalue) {
         EVP_MD_CTX_free(mctx);
         return QByteArray();
     }
     size_t siglen;
-    rvalue = openssl::q_EVP_DigestSignFinal(mctx, nullptr, &siglen);
+    rvalue = EVP_DigestSignFinal(mctx, nullptr, &siglen);
     if(!rvalue) {
         EVP_MD_CTX_free(mctx);
         return QByteArray();
@@ -204,7 +205,7 @@ QByteArray PublicKeyPrivate::sign(const QByteArray &data, MessageDigest::Algorit
 
     QByteArray result;
     result.resize(static_cast<int>(siglen));
-    rvalue = openssl::q_EVP_DigestSignFinal(mctx, reinterpret_cast<unsigned char*>(result.data()), &siglen);
+    rvalue = EVP_DigestSignFinal(mctx, reinterpret_cast<unsigned char*>(result.data()), &siglen);
     EVP_MD_CTX_free(mctx);
     if(!rvalue) {
         return QByteArray();
@@ -221,27 +222,27 @@ bool PublicKeyPrivate::verify(const QByteArray &data, const QByteArray &hash, Me
     }
 
     int rvalue = 0;
-    const openssl::EVP_MD *md = getOpenSSL_MD(hashAlgo);
+    const EVP_MD *md = getOpenSSL_MD(hashAlgo);
     if(!md) {
         return false;
     }
 
-    openssl::EVP_MD_CTX *mctx = EVP_MD_CTX_new();
+    EVP_MD_CTX *mctx = EVP_MD_CTX_new();
 
     if(!mctx) {
         return false;
     }
-    rvalue = openssl::q_EVP_DigestVerifyInit(mctx, nullptr, md, nullptr, pkey.data());
+    rvalue = EVP_DigestVerifyInit(mctx, nullptr, md, nullptr, pkey.data());
     if(!rvalue) {
         EVP_MD_CTX_free(mctx);
         return false;
     }
-    rvalue = openssl::q_EVP_DigestVerifyUpdate(mctx, data.data(), static_cast<unsigned int>(data.size()));
+    rvalue = EVP_DigestVerifyUpdate(mctx, data.data(), static_cast<unsigned int>(data.size()));
     if(!rvalue) {
         EVP_MD_CTX_free(mctx);
         return false;
     }
-    rvalue = openssl::q_EVP_DigestVerifyFinal(mctx, reinterpret_cast<const unsigned char *>(hash.data()), static_cast<size_t>(hash.size()));
+    rvalue = EVP_DigestVerifyFinal(mctx, reinterpret_cast<const unsigned char *>(hash.data()), static_cast<size_t>(hash.size()));
     EVP_MD_CTX_free(mctx);
     if(!rvalue) {
         return false;
@@ -257,16 +258,16 @@ QByteArray PublicKeyPrivate::encrypt(const QByteArray &data)
         return QByteArray();
     }
 
-    int rvalue = openssl::q_EVP_PKEY_encrypt_init(context);
+    int rvalue = EVP_PKEY_encrypt_init(context);
     if(rvalue) {
         size_t outlen = 0;
-        rvalue = openssl::q_EVP_PKEY_encrypt(context, nullptr, &outlen,
+        rvalue = EVP_PKEY_encrypt(context, nullptr, &outlen,
                                              reinterpret_cast<const unsigned char *>(data.data()),
                                              static_cast<unsigned int>(data.size()));
         if(rvalue && outlen) {
             QByteArray result;
             result.resize(static_cast<int>(outlen));
-            rvalue = openssl::q_EVP_PKEY_encrypt(context, reinterpret_cast<unsigned char *>(result.data()), &outlen,
+            rvalue = EVP_PKEY_encrypt(context, reinterpret_cast<unsigned char *>(result.data()), &outlen,
                                                  reinterpret_cast<const unsigned char *>(data.data()), static_cast<unsigned int>(data.size()));
             if(rvalue) {
                 result.resize(static_cast<int>(outlen));
@@ -285,14 +286,14 @@ QByteArray PublicKeyPrivate::decrypt(const QByteArray &data)
         return QByteArray();
     }
     int rvalue;
-    rvalue = openssl::q_EVP_PKEY_decrypt_init(context);
+    rvalue = EVP_PKEY_decrypt_init(context);
     if(rvalue) {
         size_t outlen;
-        rvalue = openssl::q_EVP_PKEY_decrypt(context, nullptr, &outlen, reinterpret_cast<const unsigned char *>(data.data()), static_cast<unsigned int>(data.size()));
+        rvalue = EVP_PKEY_decrypt(context, nullptr, &outlen, reinterpret_cast<const unsigned char *>(data.data()), static_cast<unsigned int>(data.size()));
         if(rvalue && outlen) {
             QByteArray result;
             result.resize(static_cast<int>(outlen));
-            rvalue = openssl::q_EVP_PKEY_decrypt(context, reinterpret_cast<unsigned char *>(result.data()),
+            rvalue = EVP_PKEY_decrypt(context, reinterpret_cast<unsigned char *>(result.data()),
                                                  &outlen, reinterpret_cast<const unsigned char *>(data.data()), static_cast<unsigned int>(data.size()));
             if(rvalue) {
                 result.resize(static_cast<int>(outlen));
@@ -311,29 +312,29 @@ QByteArray PublicKeyPrivate::rsaPublicEncrypt(const QByteArray &data, PublicKey:
         return QByteArray();
     }
 
-    if(padding != PublicKey::RSA_PKCS1_PADDING && padding != PublicKey::RSA_NO_PADDING
-            && padding != PublicKey::RSA_PKCS1_OAEP_PADDING) {
+    if(padding != PublicKey::PKCS1_PADDING && padding != PublicKey::NO_PADDING
+            && padding != PublicKey::PKCS1_OAEP_PADDING) {
         qDebug() << "invalid padding" << padding;
         return QByteArray();
     }
 
-    openssl::RSA *rsa = openssl::q_EVP_PKEY_get1_RSA(pkey.data());
+    RSA *rsa = EVP_PKEY_get1_RSA(pkey.data());
     if(!rsa) {
         return QByteArray();
     }
 
-    int rsaSize = openssl::q_RSA_size(rsa);
+    int rsaSize = RSA_size(rsa);
     if(!rsaSize) {
-        openssl::q_RSA_free(rsa);
+        RSA_free(rsa);
         return QByteArray();
     }
 
     int rvalue;
     QByteArray result;
     result.resize(rsaSize);
-    rvalue = openssl::q_RSA_public_encrypt(data.size(), reinterpret_cast<const unsigned char *>(data.data()),
+    rvalue = RSA_public_encrypt(data.size(), reinterpret_cast<const unsigned char *>(data.data()),
                                            reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
-    openssl::q_RSA_free(rsa);
+    RSA_free(rsa);
     if(rvalue) {
         result.resize(rvalue);
         return result;
@@ -348,28 +349,28 @@ QByteArray PublicKeyPrivate::rsaPublicDecrypt(const QByteArray &data, PublicKey:
     if(pkey.isNull() || data.isEmpty()) {
         return QByteArray();
     }
-    if(padding != PublicKey::RSA_PKCS1_PADDING && padding != PublicKey::RSA_NO_PADDING) {
+    if(padding != PublicKey::PKCS1_PADDING && padding != PublicKey::NO_PADDING) {
         qDebug() << "invalid padding" << padding;
         return QByteArray();
     }
 
-    openssl::RSA *rsa = openssl::q_EVP_PKEY_get1_RSA(pkey.data());
+    RSA *rsa = EVP_PKEY_get1_RSA(pkey.data());
     if(!rsa) {
         return QByteArray();
     }
 
-    int rsaSize = openssl::q_RSA_size(rsa);
+    int rsaSize = RSA_size(rsa);
     if(!rsaSize) {
-        openssl::q_RSA_free(rsa);
+        RSA_free(rsa);
         return QByteArray();
     }
 
     int rvalue;
     QByteArray result;
     result.resize(rsaSize);
-    rvalue = openssl::q_RSA_public_decrypt(data.size(), reinterpret_cast<const unsigned char *>(data.data()),
+    rvalue = RSA_public_decrypt(data.size(), reinterpret_cast<const unsigned char *>(data.data()),
                                            reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
-    openssl::q_RSA_free(rsa);
+    RSA_free(rsa);
     if(rvalue) {
         result.resize(rvalue);
         return result;
@@ -385,28 +386,28 @@ QByteArray PublicKeyPrivate::rsaPrivateEncrypt(const QByteArray &data, PrivateKe
         return QByteArray();
     }
 
-    if(padding != PrivateKey::RSA_PKCS1_PADDING && padding != PrivateKey::RSA_NO_PADDING) {
+    if(padding != PrivateKey::PKCS1_PADDING && padding != PrivateKey::NO_PADDING) {
         qDebug() << "invalid padding" << padding;
         return QByteArray();
     }
 
-    openssl::RSA *rsa = openssl::q_EVP_PKEY_get1_RSA(pkey.data());
+    RSA *rsa = EVP_PKEY_get1_RSA(pkey.data());
     if(!rsa) {
         return QByteArray();
     }
 
-    int rsaSize = openssl::q_RSA_size(rsa);
+    int rsaSize = RSA_size(rsa);
     if(!rsaSize) {
-        openssl::q_RSA_free(rsa);
+        RSA_free(rsa);
         return QByteArray();
     }
 
     int rvalue;
     QByteArray result;
     result.resize(rsaSize);
-    rvalue = openssl::q_RSA_private_encrypt(data.size(), reinterpret_cast<const unsigned char *>(data.data()),
+    rvalue = RSA_private_encrypt(data.size(), reinterpret_cast<const unsigned char *>(data.data()),
                                             reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
-    openssl::q_RSA_free(rsa);
+    RSA_free(rsa);
     if(rvalue) {
         result.resize(rvalue);
         return result;
@@ -422,29 +423,29 @@ QByteArray PublicKeyPrivate::rsaPrivateDecrypt(const QByteArray &data, PrivateKe
         return QByteArray();
     }
 
-    if(padding != PrivateKey::RSA_PKCS1_PADDING && padding != PrivateKey::RSA_NO_PADDING
-            && padding != PrivateKey::RSA_PKCS1_OAEP_PADDING) {
+    if(padding != PrivateKey::PKCS1_PADDING && padding != PrivateKey::NO_PADDING
+            && padding != PrivateKey::PKCS1_OAEP_PADDING) {
         qDebug() << "invalid padding" << padding;
         return QByteArray();
     }
 
-    openssl::RSA *rsa = openssl::q_EVP_PKEY_get1_RSA(pkey.data());
+    RSA *rsa = EVP_PKEY_get1_RSA(pkey.data());
     if(!rsa) {
         return QByteArray();
     }
 
-    int rsaSize = openssl::q_RSA_size(rsa);
+    int rsaSize = RSA_size(rsa);
     if(!rsaSize) {
-        openssl::q_RSA_free(rsa);
+        RSA_free(rsa);
         return QByteArray();
     }
 
     int rvalue;
     QByteArray result;
     result.resize(rsaSize);
-    rvalue = openssl::q_RSA_private_decrypt(data.size(), reinterpret_cast<const unsigned char *>(data.data()),
+    rvalue = RSA_private_decrypt(data.size(), reinterpret_cast<const unsigned char *>(data.data()),
                                             reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
-    openssl::q_RSA_free(rsa);
+    RSA_free(rsa);
     if(rvalue) {
         result.resize(rvalue);
         return result;
@@ -507,15 +508,15 @@ QByteArray PrivateKeyWriterPrivate::asPem()
         return QByteArray();
     }
 
-    openssl::BIO *bio = openssl::q_BIO_new(openssl::q_BIO_s_mem());
+    BIO *bio = BIO_new(BIO_s_mem());
     if(!bio) {
         return QByteArray();
     }
-    const openssl::EVP_CIPHER *cipher = nullptr;
+    const EVP_CIPHER *cipher = nullptr;
     if(algo != Cipher::Null && (!password.isEmpty() || !callback.isNull()))  {
         cipher = getOpenSSL_CIPHER(algo, mode);
         if(!cipher) {
-            openssl::q_BIO_free(bio);
+            BIO_free(bio);
             return QByteArray();
         }
     }
@@ -524,29 +525,28 @@ QByteArray PrivateKeyWriterPrivate::asPem()
         // we don't use PEM_write_bio_RSAPrivateKey() & PEM_write_bio_DSAPrivateKey
         if(!callback.isNull()) {
             //q_PEM_write_bio_PrivateKey
-            rvalue = openssl::q_PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(), cipher,
+            rvalue = PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(), cipher,
                                                               nullptr, 0, pem_password_cb, callback.data());
         } else if(!password.isEmpty()) {
-            rvalue = openssl::q_PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(), cipher,
-                                                              reinterpret_cast<unsigned char *>(password.data()),
-                                                              password.size(), nullptr, nullptr);
+            rvalue = PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(), cipher,
+                                                              password.data(), password.size(), nullptr, nullptr);
         } else {
-            rvalue = openssl::q_PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(),
+            rvalue = PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(),
                                                               nullptr, nullptr, 0, nullptr, nullptr);
         }
     } else {
-        rvalue = openssl::q_PEM_write_bio_PUBKEY(bio, key.d_ptr->pkey.data());
+        rvalue = PEM_write_bio_PUBKEY(bio, key.d_ptr->pkey.data());
     }
     if(rvalue) {
         char *p = nullptr;
-        long size = openssl::q_BIO_get_mem_data(bio, &p);
+        long size = BIO_get_mem_data(bio, &p);
         if(size > 0 && p != nullptr) {
             QByteArray result(p, static_cast<int>(size));
-            openssl::q_BIO_free(bio);
+            BIO_free(bio);
             return result;
         }
     }
-    openssl::q_BIO_free(bio);
+    BIO_free(bio);
     return QByteArray();
 }
 
@@ -591,30 +591,30 @@ PrivateKey PrivateKeyReaderPrivate::read(const QByteArray &data)
         return key;
     }
 
-    openssl::BIO *bio = openssl::q_BIO_new_mem_buf(data.data(), data.size());
-    openssl::EVP_PKEY *pkey = nullptr;
+    BIO *bio = BIO_new_mem_buf(data.data(), data.size());
+    EVP_PKEY *pkey = nullptr;
     if(!password.isEmpty()) {
         QSharedPointer<SimplePasswordCallback> cb(new SimplePasswordCallback(password));
-        openssl::q_PEM_read_bio_PrivateKey(bio, &pkey, pem_password_cb, cb.data());
+        PEM_read_bio_PrivateKey(bio, &pkey, pem_password_cb, cb.data());
     } else if (!callback.isNull()) {
-        openssl::q_PEM_read_bio_PrivateKey(bio, &pkey, pem_password_cb, callback.data());
+        PEM_read_bio_PrivateKey(bio, &pkey, pem_password_cb, callback.data());
     } else {
-        openssl::q_PEM_read_bio_PrivateKey(bio, &pkey, nullptr, nullptr);
+        PEM_read_bio_PrivateKey(bio, &pkey, nullptr, nullptr);
     }
     if(!pkey) {
-        openssl::q_BIO_free(bio);
+        BIO_free(bio);
         return key;
     }
-    openssl::EVP_PKEY_CTX *context = nullptr;
-    context = openssl::q_EVP_PKEY_CTX_new(pkey, nullptr); // should i free pkey?
+    EVP_PKEY_CTX *context = nullptr;
+    context = EVP_PKEY_CTX_new(pkey, nullptr); // should i free pkey?
     if(!context) {
-        openssl::q_EVP_PKEY_free(pkey);
+        EVP_PKEY_free(pkey);
     } else {
         key.d_ptr->hasPrivate = true;
         key.d_ptr->context = context;
-        key.d_ptr->pkey.reset(pkey, openssl::q_EVP_PKEY_free);
+        key.d_ptr->pkey.reset(pkey, EVP_PKEY_free);
     }
-    openssl::q_BIO_free(bio);
+    BIO_free(bio);
     return key;
 }
 
@@ -638,28 +638,28 @@ PublicKey PrivateKeyReaderPrivate::readPublic(const QByteArray &data)
         return key;
     }
 
-    openssl::BIO *bio = openssl::q_BIO_new_mem_buf(data.data(), data.size());
-    openssl::EVP_PKEY *pkey = nullptr;
+    BIO *bio = BIO_new_mem_buf(data.data(), data.size());
+    EVP_PKEY *pkey = nullptr;
     if(!password.isEmpty()) {
         QSharedPointer<SimplePasswordCallback> cb(new SimplePasswordCallback(password));
-        openssl::q_PEM_read_bio_PUBKEY(bio, &pkey, pem_password_cb, cb.data());
+        PEM_read_bio_PUBKEY(bio, &pkey, pem_password_cb, cb.data());
     } else if (!callback.isNull()) {
-        openssl::q_PEM_read_bio_PUBKEY(bio, &pkey, pem_password_cb, callback.data());
+        PEM_read_bio_PUBKEY(bio, &pkey, pem_password_cb, callback.data());
     } else {
-        openssl::q_PEM_read_bio_PUBKEY(bio, &pkey, nullptr, nullptr);
+        PEM_read_bio_PUBKEY(bio, &pkey, nullptr, nullptr);
     }
     if(!pkey) {
-        openssl::q_BIO_free(bio);
+        BIO_free(bio);
         return key;
     }
 
-    openssl::EVP_PKEY_CTX *context = nullptr;
-    context = openssl::q_EVP_PKEY_CTX_new(pkey, nullptr); // should i free pkey?
+    EVP_PKEY_CTX *context = nullptr;
+    context = EVP_PKEY_CTX_new(pkey, nullptr); // should i free pkey?
     if(!context) {
-        openssl::q_EVP_PKEY_free(pkey);
+        EVP_PKEY_free(pkey);
     } else {
         key.d_ptr->context = context;
-        key.d_ptr->pkey.reset(pkey, openssl::q_EVP_PKEY_free);
+        key.d_ptr->pkey.reset(pkey, EVP_PKEY_free);
         key.d_ptr->hasPrivate = false;
     }
     return key;
@@ -705,7 +705,7 @@ bool comparePublicKey(const PublicKeyPrivate * d1, const PublicKeyPrivate *d2)
     if(d1->pkey.isNull() || d2->pkey.isNull()) {
         return false;
     }
-    return openssl::q_EVP_PKEY_cmp(d1->pkey.data(), d2->pkey.data());
+    return EVP_PKEY_cmp(d1->pkey.data(), d2->pkey.data());
 }
 
 

@@ -6,6 +6,7 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+
 class PrivateKey;
 class PrivateKeyWriterPrivate;
 class PrivateKeyReaderPrivate;
@@ -21,12 +22,12 @@ public:
     };
 
     enum RsaPadding { // copy from openssl header
-        RSA_PKCS1_PADDING = 1,
-        RSA_NO_PADDING = 3,
-        RSA_PKCS1_OAEP_PADDING = 4,
-//        RSA_SSLV23_PADDING = 2,
-//        RSA_X931_PADDING = 5,
-//        RSA_PKCS1_PSS_PADDING = 6,
+        PKCS1_PADDING = 1,
+        NO_PADDING = 3,
+        PKCS1_OAEP_PADDING = 4,
+//        SSLV23_PADDING = 2,
+//        X931_PADDING = 5,
+//        PKCS1_PSS_PADDING = 6,
     };
 
 public:
@@ -44,8 +45,8 @@ public:
     QByteArray encrypt(const QByteArray &data);
     QByteArray digest(MessageDigest::Algorithm algorithm = MessageDigest::Sha256) const;
 public:
-    QByteArray rsaPublicEncrypt(const QByteArray &data, RsaPadding padding = RSA_PKCS1_PADDING); // RSA_PKCS1_OAEP_PADDING?
-    QByteArray rsaPublicDecrypt(const QByteArray &data, RsaPadding padding = RSA_PKCS1_PADDING);
+    QByteArray rsaPublicEncrypt(const QByteArray &data, RsaPadding padding = PKCS1_PADDING); // RSA_PKCS1_OAEP_PADDING?
+    QByteArray rsaPublicDecrypt(const QByteArray &data, RsaPadding padding = PKCS1_PADDING);
 public:
     static PublicKey load(const QByteArray &data, Ssl::EncodingFormat format = Ssl::Pem);
     QByteArray save(Ssl::EncodingFormat format = Ssl::Pem) const;
@@ -79,8 +80,8 @@ public:
     QByteArray sign(const QByteArray &data, MessageDigest::Algorithm hashAlgo);
     QByteArray decrypt(const QByteArray &data);
 public:
-    QByteArray rsaPrivateEncrypt(const QByteArray &data, RsaPadding padding = RSA_PKCS1_PADDING);
-    QByteArray rsaPrivateDecrypt(const QByteArray &data, RsaPadding padding = RSA_PKCS1_PADDING); // RSA_PKCS1_OAEP_PADDING?
+    QByteArray rsaPrivateEncrypt(const QByteArray &data, RsaPadding padding = PKCS1_PADDING);
+    QByteArray rsaPrivateDecrypt(const QByteArray &data, RsaPadding padding = PKCS1_PADDING); // RSA_PKCS1_OAEP_PADDING?
 public:
     static PrivateKey generate(Algorithm algo, int bits);
     static PrivateKey load(const QByteArray &data, Ssl::EncodingFormat format = Ssl::Pem, const QByteArray &password = QByteArray());

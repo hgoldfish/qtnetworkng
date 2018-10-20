@@ -4,7 +4,7 @@
 #include <mswsock.h>
 #include <QtCore/qsysinfo.h>
 #include <QtNetwork/qnetworkinterface.h>
-#include "../include/socket_p.h"
+#include "../include/private/socket_p.h"
 
 
 // The following definitions are copied from the MinGW header mswsock.h which
@@ -261,8 +261,7 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         if (socketProtocol == Socket::IPv6Protocol || socketProtocol == Socket::AnyIPProtocol) {
             level = IPPROTO_IPV6;
             n = IPV6_MULTICAST_HOPS;
-        } else
-        {
+        } else {
             level = IPPROTO_IP;
             n = IP_MULTICAST_TTL;
         }
@@ -302,7 +301,7 @@ static inline Socket::SocketType qt_socket_getType(qintptr socketDescriptor)
 {
     int value = 0;
     QT_SOCKLEN_T valueSize = sizeof(value);
-    if (::getsockopt(socketDescriptor, SOL_SOCKET, SO_TYPE, (char *) &value, &valueSize) != 0) {
+    if (::getsockopt(static_cast<SOCKET>(socketDescriptor), SOL_SOCKET, SO_TYPE, (char *) &value, &valueSize) != 0) {
         WS_ERROR_DEBUG(WSAGetLastError());
     } else {
         if (value == SOCK_STREAM)
@@ -317,7 +316,7 @@ static inline Socket::SocketType qt_socket_getType(qintptr socketDescriptor)
 inline uint scopeIdFromString(const QString &scopeid)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
-    return QNetworkInterface::interfaceIndexFromName(scopeid);
+    return static_cast<uint>(QNetworkInterface::interfaceIndexFromName(scopeid));
 #else
     return QNetworkInterface::interfaceFromName(scopeid).index();
 #endif
@@ -374,12 +373,12 @@ bool SocketPrivate::createSocket()
 #define WSA_FLAG_NO_HANDLE_INHERIT 0x80
 #endif
 
-    SOCKET socket = ::WSASocket(protocol, type, 0, NULL, 0, WSA_FLAG_NO_HANDLE_INHERIT | WSA_FLAG_OVERLAPPED);
+    SOCKET socket = ::WSASocket(protocol, type, 0, nullptr, 0, WSA_FLAG_NO_HANDLE_INHERIT | WSA_FLAG_OVERLAPPED);
     // previous call fails if the windows 7 service pack 1 or hot fix isn't installed.
 
     // Try the old API if the new one failed on Windows 7
     if (socket == INVALID_SOCKET && QSysInfo::windowsVersion() < QSysInfo::WV_WINDOWS8) {
-        socket = ::WSASocket(protocol, type, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
+        socket = ::WSASocket(protocol, type, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
 #ifdef HANDLE_FLAG_INHERIT
         if (socket != INVALID_SOCKET) {
             // make non inheritable the old way
@@ -438,7 +437,7 @@ bool SocketPrivate::createSocket()
 //                 &sendmsg, sizeof(sendmsg), &bytesReturned, NULL, NULL) == SOCKET_ERROR)
 //        sendmsg = 0;
 
-    fd = socket;
+    fd = static_cast<qintptr>(socket);
     if (socket == INVALID_SOCKET) {
         return false;
     } else {
@@ -471,11 +470,11 @@ bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode m
         int ipv6only = 0;
         if (address.protocol() == QAbstractSocket::IPv6Protocol)
             ipv6only = 1;
-        ::setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, sizeof(ipv6only) );
+        ::setsockopt(static_cast<SOCKET>(fd), IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, sizeof(ipv6only) );
     }
 
 
-    int bindResult = ::bind(fd, &aa.a, sockAddrSize);
+    int bindResult = ::bind(static_cast<SOCKET>(fd), &aa.a, sockAddrSize);
     if (bindResult == SOCKET_ERROR && WSAGetLastError() == WSAEAFNOSUPPORT
             && address.protocol() == QAbstractSocket::AnyIPProtocol) {
         // retry with v4
@@ -483,7 +482,7 @@ bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode m
         aa.a4.sin_port = htons(port);
         aa.a4.sin_addr.s_addr = htonl(address.toIPv4Address());
         sockAddrSize = sizeof(aa.a4);
-        bindResult = ::bind(fd, &aa.a, sockAddrSize);
+        bindResult = ::bind(static_cast<SOCKET>(fd), &aa.a, sockAddrSize);
     }
     if (bindResult == SOCKET_ERROR) {
         int err = WSAGetLastError();
@@ -538,7 +537,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
         //IPV6_V6ONLY option must be cleared to connect to a V4 mapped address
         if (QSysInfo::windowsVersion() >= QSysInfo::WV_6_0) {
             DWORD ipv6only = 0;
-            ipv6only = ::setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, sizeof(ipv6only) );
+            ipv6only = ::setsockopt(static_cast<SOCKET>(fd), IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, sizeof(ipv6only) );
         }
     }
 
@@ -550,7 +549,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
         if(state != Socket::ConnectingState)
             return false;
 
-        int connectResult = ::WSAConnect(fd, &aa.a, sockAddrSize, 0,0,0,0);
+        int connectResult = ::WSAConnect(static_cast<SOCKET>(fd), &aa.a, sockAddrSize, 0,0,0,0);
         if (connectResult == SOCKET_ERROR) {
             int err = WSAGetLastError();
             WS_ERROR_DEBUG(err);
@@ -574,12 +573,12 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
                 bool tryAgain = false;
                 int tries = 0;
                 do {
-                    if (::getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *) &value, &valueSize) == 0) {
+                    if (::getsockopt(static_cast<SOCKET>(fd), SOL_SOCKET, SO_ERROR, (char *) &value, &valueSize) == 0) {
                         if (value != NOERROR) {
                             // MSDN says getsockopt with SO_ERROR clears the error, but it's not actually cleared
                             // and this can affect all subsequent WSAConnect attempts, so clear it now.
                             const int val = NO_ERROR;
-                            ::setsockopt(fd, SOL_SOCKET, SO_ERROR, reinterpret_cast<const char*>(&val), sizeof val);
+                            ::setsockopt(static_cast<SOCKET>(fd), SOL_SOCKET, SO_ERROR, reinterpret_cast<const char*>(&val), sizeof val);
                         }
 
                         if (value == WSAECONNREFUSED) {
@@ -661,7 +660,7 @@ bool SocketPrivate::close()
 {
     if(fd > 0)
     {
-        ::closesocket(fd);
+        ::closesocket(static_cast<SOCKET>(fd));
         EventLoopCoroutine::get()->triggerIoWatchers(fd);
         fd = -1;
     }
@@ -681,7 +680,7 @@ bool SocketPrivate::listen(int backlog)
     if(state != Socket::BoundState) {
         return false;
     }
-    if (::listen(fd, backlog) == SOCKET_ERROR) {
+    if (::listen(static_cast<SOCKET>(fd), backlog) == SOCKET_ERROR) {
         int err = WSAGetLastError();
         WS_ERROR_DEBUG(err);
         switch (err) {
@@ -708,6 +707,7 @@ bool SocketPrivate::listen(int backlog)
     #endif
 
     state = Socket::ListeningState;
+    fetchConnectionParameters();
     return true;
 }
 
@@ -728,8 +728,9 @@ bool SocketPrivate::fetchConnectionParameters()
 
     // Determine local address
     memset(&sa, 0, sizeof(sa));
-    if (::getsockname(fd, &sa.a, &sockAddrSize) == 0) {
-        qt_socket_getPortAndAddress(fd, &sa, &localPort, &localAddress);
+    if (::getsockname(static_cast<SOCKET>(fd), &sa.a, &sockAddrSize) == 0) {
+        qt_socket_getPortAndAddress(static_cast<SOCKET>(fd), &sa, &localPort, &localAddress);
+        qDebug() << localPort << localAddress;
         // Determine protocol family
         switch (sa.a.sa_family) {
         case AF_INET:
@@ -757,7 +758,7 @@ bool SocketPrivate::fetchConnectionParameters()
     QT_SOCKOPTLEN_T optlen = sizeof(ipv6only);
     if (localAddress == QHostAddress::AnyIPv6
         && QSysInfo::windowsVersion() >= QSysInfo::WV_6_0
-        && !getsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, &optlen )) {
+        && !getsockopt(static_cast<SOCKET>(fd), IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, &optlen )) {
             if (!ipv6only) {
                 protocol = Socket::AnyIPProtocol;
                 localAddress = QHostAddress::Any;
@@ -778,8 +779,8 @@ bool SocketPrivate::fetchConnectionParameters()
     }
 
     memset(&sa, 0, sizeof(sa));
-    if (::getpeername(fd, &sa.a, &sockAddrSize) == 0) {
-        qt_socket_getPortAndAddress(fd, &sa, &peerPort, &peerAddress);
+    if (::getpeername(static_cast<SOCKET>(fd), &sa.a, &sockAddrSize) == 0) {
+        qt_socket_getPortAndAddress(static_cast<SOCKET>(fd), &sa, &peerPort, &peerAddress);
     } else {
         WS_ERROR_DEBUG(WSAGetLastError());
     }
@@ -809,32 +810,17 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
     }
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     qint32 total = 0;
-    while(total < size)
-    {
+    while(total < size) {
         if(!isValid()) {
             setError(Socket::SocketAccessError, AccessErrorString);
             return total == 0 ? -1: total;
         }
-        if(type == Socket::TcpSocket) {
-            if(state != Socket::ConnectedState) {
-                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-                return total == 0 ? -1 : total;
-            }
-        } else if(type == Socket::UdpSocket) {
-            if(state != Socket::UnconnectedState || state != Socket::BoundState) {
-                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-                return total == 0 ? -1 : total;
-            }
-        } else {
-            setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-            return total == 0 ? -1 : total;
-        }
         WSABUF buf;
         buf.buf = data + total;
-        buf.len = size - total;
+        buf.len = static_cast<quint32>(size - total);
         DWORD flags = 0;
         DWORD bytesRead = 0;
-        if (::WSARecv(fd, &buf, 1, &bytesRead, &flags, 0,0) ==  SOCKET_ERROR) {
+        if (::WSARecv(static_cast<SOCKET>(fd), &buf, 1, &bytesRead, &flags, nullptr, nullptr) ==  SOCKET_ERROR) {
             int err = WSAGetLastError();
             WS_ERROR_DEBUG(err);
             switch (err) {
@@ -858,12 +844,12 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
             setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
             close();
             return total;
-        } else {
-            if (WSAGetLastError() != WSAEWOULDBLOCK) {
-                total += qint64(bytesRead);
-                if(!all) {
-                    return total;
-                }
+        } else { // bytesRead > 0 || type == Socket::UdpSocket
+            total += bytesRead;
+            if(all) {
+                continue;
+            } else {
+                return total;
             }
         }
         watcher.start();
@@ -879,25 +865,10 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     qint32 ret = 0;
     qint32 bytesToSend = size;
-    while(bytesToSend > 0)
-    {
+    while(bytesToSend > 0) {
         if(!isValid()) {
             setError(Socket::SocketAccessError, AccessErrorString);
             return ret == 0 ? -1: ret;
-        }
-        if(type == Socket::TcpSocket) {
-            if(state != Socket::ConnectedState) {
-                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-                return ret == 0 ? -1 : ret;
-            }
-        } else if(type == Socket::UdpSocket) {
-            if(state != Socket::ConnectedState) {
-                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-                return ret == 0 ? -1 : ret;
-            }
-        } else {
-            setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-            return -1;
         }
 
         WSABUF buf;
@@ -906,12 +877,18 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
         DWORD flags = 0;
         DWORD bytesWritten = 0;
 
-        int socketRet = ::WSASend(fd, &buf, 1, &bytesWritten, flags, nullptr, nullptr);
-        ret += qint64(bytesWritten);
+        int socketRet = ::WSASend(static_cast<SOCKET>(fd), &buf, 1, &bytesWritten, flags, nullptr, nullptr);
+        ret += bytesWritten;
 
         if (socketRet != SOCKET_ERROR) {
-            if (ret == size) {
+            if (ret == size || !all) {
                 return ret;
+            } else if (ret > size) {
+                qWarning("sent too much data. there must be something went wrong.");
+                return size;
+            } else {
+                bytesToSend = qMin<qint32>(49152, size - ret);
+                continue;
             }
         } else {
             int err = WSAGetLastError();
@@ -976,7 +953,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
                 return -1;
             }
         }
-        bytesToSend = qMin<qint64>(49152, size - ret);
+        bytesToSend = qMin<qint32>(49152, size - ret);
         watcher.start();
     }
     return ret;
@@ -985,7 +962,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 
 qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port)
 {
-    if(!isValid()) {
+    if(!isValid() || size < 0) {
         return -1;
     }
 
@@ -998,7 +975,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
 
     // we need to receive at least one byte, even if our user isn't interested in it
     buf.buf = size ? data : &c;
-    buf.len = size ? size : 1;
+    buf.len = size ? static_cast<quint32>(size) : 1;
     msg.lpBuffers = &buf;
     msg.dwBufferCount = 1;
     msg.name = reinterpret_cast<LPSOCKADDR>(&aa);
@@ -1006,7 +983,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
 
     DWORD flags = 0;
     DWORD bytesRead = 0;
-    qint64 ret;
+    qint32 ret;
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
 
@@ -1015,26 +992,11 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
             setError(Socket::SocketAccessError, AccessErrorString);
             return -1;
         }
-        if(type == Socket::TcpSocket) {
-            if(state != Socket::ConnectedState) {
-                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-                return -1;
-            }
-        } else if(type == Socket::UdpSocket) {
-            if(state != Socket::ConnectedState || state != Socket::BoundState) {
-                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-                return -1;
-            }
-        } else {
-            // do it.
-        }
-
-        //        if (recvmsg)
-        //            ret = recvmsg(socketDescriptor, &msg, &bytesRead, 0,0);
-        //        else
-        //            ret = ::WSARecvFrom(socketDescriptor, &buf, 1, &bytesRead, &flags, msg.name, &msg.namelen,0,0);
-
-        ret = ::WSARecvFrom(fd, &buf, 1, &bytesRead, &flags, msg.name, &msg.namelen,0,0);
+        ret = ::WSARecvFrom(static_cast<SOCKET>(fd), &buf, 1, &bytesRead, &flags, msg.name, &msg.namelen, nullptr, nullptr);
+//        if (static_cast<qint32>(bytesRead) < 0) {
+//            qWarning("recv too much data.");
+//            return -1;
+//        }
         if (ret == SOCKET_ERROR) {
             int err = WSAGetLastError();
             if (err == WSAEMSGSIZE) {
@@ -1046,6 +1008,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
                 switch (err) {
                 case WSAEINPROGRESS:
                 case WSAEINTR:
+                case WSAEWOULDBLOCK:
                     break;
                 case WSAECONNRESET:
                     setError(Socket::ConnectionRefusedError, ConnectionResetErrorString);
@@ -1077,11 +1040,11 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
                 }
             }
         } else {
-            ret = bytesRead;
+            ret = static_cast<qint32>(bytesRead);
 
         }
         if(ret > 0) {
-            qt_socket_getPortAndAddress(fd, &aa, port, addr);
+            qt_socket_getPortAndAddress(static_cast<SOCKET>(fd), &aa, port, addr);
 #if defined (SOCKET_DEBUG)
             bool printSender = (ret != -1);
             qDebug("SocketPrivate::recvfrom(%p \"%s\", %lli, %s, %i) == %lli",
@@ -1090,8 +1053,9 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
                    printSender ? port : 0, ret);
 #endif
             return ret;
+        } else {
+            watcher.start();
         }
-        watcher.start();
     }
 }
 
@@ -1100,57 +1064,29 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
     if(!isValid()) {
         return -1;
     }
-    if(type == Socket::TcpSocket) {
-        setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-        return -1;
-    } else if(type == Socket::UdpSocket) {
-        if(state == Socket::ConnectedState) {
-            setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-            return -1;
-        }
-    } else {
-        // do it!
-    }
-
-    ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     qint32 ret = 0;
     qint32 bytesToSend = size;
 
     WSAMSG msg;
     WSABUF buf;
     qt_sockaddr aa;
-    setPortAndAddress(port, addr, &aa, &msg.namelen);
     memset(&msg, 0, sizeof(msg));
     memset(&aa, 0, sizeof(aa));
-
+    setPortAndAddress(port, addr, &aa, &msg.namelen);
     msg.lpBuffers = &buf;
     msg.dwBufferCount = 1;
     msg.name = &aa.a;
 
+    buf.buf = bytesToSend ? const_cast<char*>(data) : nullptr;
+    buf.len = static_cast<u_long>(bytesToSend); // TODO datagram max size!
 
-    do {
-        if(!isValid()) {
-            return ret == 0 ? -1 : ret;
-        }
-        if(state == Socket::ConnectedState) {
-            setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-            return ret == 0 ? -1 : ret;
-        }
+    DWORD flags = 0;
+    DWORD bytesSent = 0;
 
-        buf.buf = bytesToSend ? const_cast<char*>(data) : nullptr;
-        buf.len = static_cast<u_long>(bytesToSend); // TODO datagram max size!
-
-        DWORD flags = 0;
-        DWORD bytesSent = 0;
-        int socketRet;
-
-//        if (sendmsg) {
-//            socketRet = sendmsg(fd, &msg, flags, &bytesSent, 0,0);
-//        } else {
-//            socketRet = ::WSASendTo(fd, &buf, 1, &bytesSent, flags, msg.name, msg.namelen, 0,0);
-//        }
-        socketRet = ::WSASendTo(fd, &buf, 1, &bytesSent, flags, msg.name, msg.namelen, nullptr, nullptr);
-        ret += qint64(bytesSent);
+    ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
+    while(true) {
+        int socketRet = ::WSASendTo(static_cast<SOCKET>(fd), &buf, 1, &bytesSent, flags, msg.name, msg.namelen, nullptr, nullptr);
+        ret += bytesSent;
 
         if (socketRet == SOCKET_ERROR) {
             int err = WSAGetLastError();
@@ -1189,21 +1125,14 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
             }
         } else {
             if(ret >= size) {
+                if (type == Socket::UdpSocket && !localPort && localAddress.isNull()) {
+                    fetchConnectionParameters();
+                }
                 return ret;
             }
         }
         watcher.start();
-    } while(bytesToSend > 0);
-
-
-#if defined (SOCKET_DEBUG)
-    qDebug("SocketPrivate::sendto(%p \"%s\", %lli, \"%s\", %i) == %lli", data,
-           qt_prettyDebug(data, qMin<qint64>(size, 16), size).data(), size,
-           addr.toString().toLatin1().constData(),
-           port, ret);
-#endif
-
-    return ret;
+    }
 }
 
 QVariant SocketPrivate::option(Socket::SocketOption option) const
@@ -1230,7 +1159,7 @@ QVariant SocketPrivate::option(Socket::SocketOption option) const
     QT_SOCKOPTLEN_T len = sizeof(v);
 
     convertToLevelAndOption(option, this->protocol, level, n);
-    if (getsockopt(fd, level, n, (char *) &v, &len) == 0)
+    if (getsockopt(static_cast<SOCKET>(fd), level, n, static_cast<char*>(static_cast<void*>(&v)), &len) == 0)
         return v;
     WS_ERROR_DEBUG(WSAGetLastError());
     return -1;
@@ -1261,7 +1190,7 @@ bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value
 
     int n, level;
     convertToLevelAndOption(option, protocol, level, n);
-    if (::setsockopt(fd, level, n, (char*)&value, sizeof(value)) != 0) {
+    if (::setsockopt(static_cast<SOCKET>(fd), level, n, (char*)&value, sizeof(value)) != 0) {
         WS_ERROR_DEBUG(WSAGetLastError());
         return false;
     }
@@ -1273,7 +1202,7 @@ bool SocketPrivate::setNonblocking()
     unsigned long buf = 1;
     unsigned long outBuf;
     DWORD sizeWritten = 0;
-    if (::WSAIoctl(fd, FIONBIO, &buf, sizeof(unsigned long), &outBuf, sizeof(unsigned long), &sizeWritten, 0,0) == SOCKET_ERROR) {
+    if (::WSAIoctl(static_cast<SOCKET>(fd), FIONBIO, &buf, sizeof(unsigned long), &outBuf, sizeof(unsigned long), &sizeWritten, 0,0) == SOCKET_ERROR) {
         WS_ERROR_DEBUG(WSAGetLastError());
         return false;
     }
@@ -1284,50 +1213,50 @@ bool SocketPrivate::setNonblocking()
 Socket *SocketPrivate::accept()
 {
     if(!isValid()) {
-        return 0;
+        return nullptr;
     }
     if(state != Socket::ListeningState || type != Socket::TcpSocket)
-        return 0;
+        return nullptr;
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     while(true) {
-        int acceptedDescriptor = WSAAccept(fd, 0,0,0,0);
-        if (acceptedDescriptor == -1) {
+        SOCKET acceptedDescriptor = WSAAccept(static_cast<SOCKET>(fd), nullptr, nullptr, nullptr, 0);
+        if (acceptedDescriptor == SOCKET_ERROR) {
             int err = WSAGetLastError();
             switch (err) {
             case WSAEACCES:
                 setError(Socket::SocketAccessError, AccessErrorString);
-                return 0;
+                return nullptr;
             case WSAECONNREFUSED:
                 setError(Socket::ConnectionRefusedError, ConnectionRefusedErrorString);
-                return 0;
+                return nullptr;
             case WSAECONNRESET:
                 setError(Socket::NetworkError, RemoteHostClosedErrorString);
-                return 0;
+                return nullptr;
             case WSAENETDOWN:
                 setError(Socket::NetworkError, NetworkUnreachableErrorString);
-                return 0;
+                return nullptr;
             case WSAENOTSOCK:
                 setError(Socket::SocketResourceError, NotSocketErrorString);
-                return 0;
+                return nullptr;
             case WSAEINVAL:
             case WSAEOPNOTSUPP:
                 setError(Socket::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
-                return 0;
+                return nullptr;
             case WSAEFAULT:
             case WSAEMFILE:
             case WSAENOBUFS:
                 setError(Socket::SocketResourceError, ResourceErrorString);
-                return 0;
+                return nullptr;
             case WSAEINPROGRESS:
             case WSAEWOULDBLOCK:
                 break;
             default:
                 setError(Socket::UnknownSocketError, UnknownSocketErrorString);
-                return 0;
+                return nullptr;
             }
         } else {
-            Socket *conn = new Socket(acceptedDescriptor);
+            Socket *conn = new Socket(static_cast<qintptr>(acceptedDescriptor));
             return conn;
         }
         watcher.start();

@@ -21,5 +21,5 @@
 #include <openssl/rsa.h>
 #include <openssl/crypto.h>
 #include <openssl/tls1.h>
-X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT
+OPENSSL_add_all_algorithms_noconf();
 #endif // QTNG_TEMP_H

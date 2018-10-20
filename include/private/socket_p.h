@@ -55,7 +55,7 @@ public:
     QString getErrorString() const;
     void setError(Socket::SocketError error, const QString &errorString);
     void setError(Socket::SocketError error, ErrorString errorString);
-    bool isValid() const {return fd > 0 && error == Socket::NoError;}
+    bool isValid() const {return fd > 0 && (error == Socket::NoError || type != Socket::TcpSocket);}
 
     Socket *accept();
     bool bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
@@ -71,8 +71,8 @@ public:
     qint32 send(const char *data, qint32 size, bool all = true);
     qint32 recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port);
     qint32 sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port);
-private:
     bool fetchConnectionParameters();
+private:
     void setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, QT_SOCKLEN_T *sockAddrSize);
     bool createSocket();
 protected:

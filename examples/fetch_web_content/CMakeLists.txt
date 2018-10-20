@@ -7,7 +7,7 @@ SET(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 FIND_PACKAGE(Qt5Widgets REQUIRED)
 
-ADD_SUBDIRECTORY(${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_BINARY_DIR}/qtnetworkng)
+ADD_SUBDIRECTORY(${CMAKE_CURRENT_SOURCE_DIR}/../../ qtnetworkng)
 
 ADD_EXECUTABLE(fetch_web_content main.cpp)
 TARGET_LINK_LIBRARIES(fetch_web_content Qt5::Widgets qtnetworkng)

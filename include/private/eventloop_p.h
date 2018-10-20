@@ -95,6 +95,7 @@ public:
     void start();
 private:
     int watcherId;
+    bool started;
 };
 
 class EventLoopCoroutinePrivate

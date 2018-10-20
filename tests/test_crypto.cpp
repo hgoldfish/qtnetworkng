@@ -1,5 +1,5 @@
 #include <QtTest>
-#include "qtcryptng.h"
+#include "qtcrypto.h"
 
 using namespace qtng;
 
@@ -167,10 +167,10 @@ void TestCrypto::testCryptoRSA()
     QByteArray text = randomBytes(64);
     QByteArray entext = key.encrypt(text);
     QCOMPARE(key.decrypt(entext), text);
-    QByteArray entext2 = key.rsaPrivateEncrypt(text, PrivateKey::RSA_PKCS1_PADDING);
-    QCOMPARE(key.rsaPublicDecrypt(entext2, PrivateKey::RSA_PKCS1_PADDING), text);
-    QByteArray entext3 = key.rsaPublicEncrypt(text, PrivateKey::RSA_PKCS1_OAEP_PADDING);
-    QCOMPARE(key.rsaPrivateDecrypt(entext3, PrivateKey::RSA_PKCS1_OAEP_PADDING), text);
+    QByteArray entext2 = key.rsaPrivateEncrypt(text, PrivateKey::PKCS1_PADDING);
+    QCOMPARE(key.rsaPublicDecrypt(entext2, PrivateKey::PKCS1_PADDING), text);
+    QByteArray entext3 = key.rsaPublicEncrypt(text, PrivateKey::PKCS1_OAEP_PADDING);
+    QCOMPARE(key.rsaPrivateDecrypt(entext3, PrivateKey::PKCS1_OAEP_PADDING), text);
 }
 
 void TestCrypto::testSaveLoadRsa()

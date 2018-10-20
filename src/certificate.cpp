@@ -1,15 +1,111 @@
 #include <QtCore/qdebug.h>
+#include <QtCore/qdatetime.h>
 #include <QtCore/qdatastream.h>
+#include <openssl/x509v3.h>
+#include <openssl/pem.h>
+#include <openssl/asn1.h>
 #include "../include/certificate.h"
-#include "../include/private/openssl_symbols.h"
-#include "../include/qasn1element.h"
+#include "../include/private/qasn1element.h"
 #include "../include/private/crypto_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+static QDateTime getTimeFromASN1(const ASN1_TIME *aTime)
+{
+    size_t lTimeLength = static_cast<size_t>(aTime->length);
+    char *pString = reinterpret_cast<char*>(aTime->data);
+
+    if (aTime->type == V_ASN1_UTCTIME) {
+
+        char lBuffer[24];
+        char *pBuffer = lBuffer;
+
+        if ((lTimeLength < 11) || (lTimeLength > 17))
+            return QDateTime();
+
+        memcpy(pBuffer, pString, 10);
+        pBuffer += 10;
+        pString += 10;
+
+        if ((*pString == 'Z') || (*pString == '-') || (*pString == '+')) {
+            *pBuffer++ = '0';
+            *pBuffer++ = '0';
+        } else {
+            *pBuffer++ = *pString++;
+            *pBuffer++ = *pString++;
+            // Skip any fractional seconds...
+            if (*pString == '.') {
+                pString++;
+                while ((*pString >= '0') && (*pString <= '9'))
+                    pString++;
+            }
+        }
+
+        *pBuffer++ = 'Z';
+        *pBuffer++ = '\0';
+
+        time_t lSecondsFromUCT;
+        if (*pString == 'Z') {
+            lSecondsFromUCT = 0;
+        } else {
+            if ((*pString != '+') && (*pString != '-'))
+                return QDateTime();
+
+            lSecondsFromUCT = ((pString[1] - '0') * 10 + (pString[2] - '0')) * 60;
+            lSecondsFromUCT += (pString[3] - '0') * 10 + (pString[4] - '0');
+            lSecondsFromUCT *= 60;
+            if (*pString == '-')
+                lSecondsFromUCT = -lSecondsFromUCT;
+        }
+
+        tm lTime;
+        lTime.tm_sec = ((lBuffer[10] - '0') * 10) + (lBuffer[11] - '0');
+        lTime.tm_min = ((lBuffer[8] - '0') * 10) + (lBuffer[9] - '0');
+        lTime.tm_hour = ((lBuffer[6] - '0') * 10) + (lBuffer[7] - '0');
+        lTime.tm_mday = ((lBuffer[4] - '0') * 10) + (lBuffer[5] - '0');
+        lTime.tm_mon = (((lBuffer[2] - '0') * 10) + (lBuffer[3] - '0')) - 1;
+        lTime.tm_year = ((lBuffer[0] - '0') * 10) + (lBuffer[1] - '0');
+        if (lTime.tm_year < 50)
+            lTime.tm_year += 100; // RFC 2459
+
+        QDate resDate(lTime.tm_year + 1900, lTime.tm_mon + 1, lTime.tm_mday);
+        QTime resTime(lTime.tm_hour, lTime.tm_min, lTime.tm_sec);
+
+        QDateTime result(resDate, resTime, Qt::UTC);
+        result = result.addSecs(lSecondsFromUCT);
+        return result;
+
+    } else if (aTime->type == V_ASN1_GENERALIZEDTIME) {
+
+        if (lTimeLength < 15)
+            return QDateTime(); // hopefully never triggered
+
+        // generalized time is always YYYYMMDDHHMMSSZ (RFC 2459, section 4.1.2.5.2)
+        tm lTime;
+        lTime.tm_sec = ((pString[12] - '0') * 10) + (pString[13] - '0');
+        lTime.tm_min = ((pString[10] - '0') * 10) + (pString[11] - '0');
+        lTime.tm_hour = ((pString[8] - '0') * 10) + (pString[9] - '0');
+        lTime.tm_mday = ((pString[6] - '0') * 10) + (pString[7] - '0');
+        lTime.tm_mon = (((pString[4] - '0') * 10) + (pString[5] - '0'));
+        lTime.tm_year = ((pString[0] - '0') * 1000) + ((pString[1] - '0') * 100) +
+                        ((pString[2] - '0') * 10) + (pString[3] - '0');
+
+        QDate resDate(lTime.tm_year, lTime.tm_mon, lTime.tm_mday);
+        QTime resTime(lTime.tm_hour, lTime.tm_min, lTime.tm_sec);
+
+        QDateTime result(resDate, resTime, Qt::UTC);
+        return result;
+
+    } else {
+        qWarning("unsupported date format detected");
+        return QDateTime();
+    }
+
+}
+
 struct X509Cleaner
 {
-    static inline void cleanup(openssl::X509 *x) { if(x) openssl::q_X509_free(x); }
+    static inline void cleanup(X509 *x) { if(x) X509_free(x); }
 };
 
 class CertificatePrivate: public QSharedData
@@ -40,12 +136,12 @@ public:
                                       long serialNumber, const QDateTime &effectiveDate,
                                       const QDateTime &expiryDate, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes);
     static QByteArray subjectInfoToString(Certificate::SubjectInfo info);
-    static inline bool setX509(Certificate *cert, openssl::X509 *x509);
+    static inline bool setX509(Certificate *cert, X509 *x509);
 
-    bool init(openssl::X509 *x509);
+    bool init(X509 *x509);
     bool qtParse();
 
-    QSharedPointer<openssl::X509> x509;
+    QSharedPointer<X509> x509;
     QMap<QByteArray, QString> issuerInfoMap;
     QMap<QByteArray, QString> subjectInfoMap;
     QByteArray versionString;
@@ -54,78 +150,78 @@ public:
 };
 
 
-static QByteArray asn1ObjectId(openssl::ASN1_OBJECT *object)
+static QByteArray asn1ObjectId(ASN1_OBJECT *object)
 {
     char buf[80]; // The openssl docs a buffer length of 80 should be more than enough
-    openssl::q_OBJ_obj2txt(buf, sizeof(buf), object, 1); // the 1 says always use the oid not the long name
+    OBJ_obj2txt(buf, sizeof(buf), object, 1); // the 1 says always use the oid not the long name
 
     return QByteArray(buf);
 }
 
-static QByteArray asn1ObjectName(openssl::ASN1_OBJECT *object)
+static QByteArray asn1ObjectName(ASN1_OBJECT *object)
 {
-    int nid = openssl::q_OBJ_obj2nid(object);
+    int nid = OBJ_obj2nid(object);
     if (nid != NID_undef)
-        return QByteArray(openssl::q_OBJ_nid2sn(nid));
+        return QByteArray(OBJ_nid2sn(nid));
 
     return asn1ObjectId(object);
 }
 
-static QMap<QByteArray, QString> _q_mapFromX509Name(openssl::X509_NAME *name)
+static QMap<QByteArray, QString> _mapFromX509Name(X509_NAME *name)
 {
     QMap<QByteArray, QString> info;
-    for (int i = 0; i < openssl::q_X509_NAME_entry_count(name); ++i) {
-        openssl::X509_NAME_ENTRY *e = openssl::q_X509_NAME_get_entry(name, i);
+    for (int i = 0; i < X509_NAME_entry_count(name); ++i) {
+        X509_NAME_ENTRY *e = X509_NAME_get_entry(name, i);
 
-        QByteArray name = asn1ObjectName(q_X509_NAME_ENTRY_get_object(e));
+        QByteArray name = asn1ObjectName(X509_NAME_ENTRY_get_object(e));
         unsigned char *data = nullptr;
-        int size = openssl::q_ASN1_STRING_to_UTF8(&data, openssl::q_X509_NAME_ENTRY_get_data(e));
+        int size = ASN1_STRING_to_UTF8(&data, X509_NAME_ENTRY_get_data(e));
         info.insertMulti(name, QString::fromUtf8(static_cast<char*>(static_cast<void*>(data)), size));
-        openssl::q_CRYPTO_free(data);
+        CRYPTO_free(data);
     }
 
     return info;
 }
 
-bool CertificatePrivate::init(openssl::X509 *x)
+bool CertificatePrivate::init(X509 *x)
 {
     if(!x)
         return false;
-    this->x509.reset(x, openssl::q_X509_free);
+    this->x509.reset(x, X509_free);
 
     int parsed = 0; // 0 for never parsed, -1 for failed, and 1 for success.
-    openssl::ASN1_TIME *t = openssl::q_X509_getm_notBefore(x);
+    ASN1_TIME *t = X509_getm_notBefore(x);
     if(t) {
-        notValidBefore = openssl::q_getTimeFromASN1(t);
+        notValidBefore = getTimeFromASN1(t);
     } else {
         parsed = qtParse() ? 1 : -1;
     }
-    t = openssl::q_X509_getm_notAfter(x);
+    t = X509_getm_notAfter(x);
     if(t) {
-        notValidAfter = openssl::q_getTimeFromASN1(t);
+        notValidAfter = getTimeFromASN1(t);
     } else if(parsed == 0) {
         parsed = qtParse() ? 1 : -1;
     }
-    qlonglong version = qlonglong(openssl::q_X509_get_version(x));
+    qlonglong version = qlonglong(X509_get_version(x));
     if(version >= 0) {
         versionString = QByteArray::number(version);
     } else if(parsed == 0){
         parsed = qtParse() ? 1 : -1;
     }
 
-    issuerInfoMap = _q_mapFromX509Name(openssl::q_X509_get_issuer_name(x));
-    subjectInfoMap = _q_mapFromX509Name(openssl::q_X509_get_subject_name(x));
+    issuerInfoMap = _mapFromX509Name(X509_get_issuer_name(x));
+    subjectInfoMap = _mapFromX509Name(X509_get_subject_name(x));
     return parsed != -1;
 }
 
-bool CertificatePrivate::setX509(Certificate *cert, openssl::X509 *x)
+bool CertificatePrivate::setX509(Certificate *cert, X509 *x)
 {
     if(!x || !cert)
         return false;
-    return cert->d->init(openssl::q_X509_dup(x));
+    return cert->d->init(X509_dup(x));
 }
 
-bool openssl_setCertificate(Certificate *cert, openssl::X509 *x509)
+bool openssl_setCertificate(Certificate *cert, X509 *x509)
 {
     return CertificatePrivate::setX509(cert, x509);
 }
@@ -215,7 +311,7 @@ bool CertificatePrivate::isSelfSigned() const
 {
     if(x509.isNull())
         return false;
-    return (openssl::q_X509_check_issued(x509.data(), x509.data()) == X509_V_OK);
+    return (X509_check_issued(x509.data(), x509.data()) == X509_V_OK);
 }
 
 
@@ -261,7 +357,7 @@ PublicKey CertificatePrivate::publicKey() const
 {
     PublicKey key;
     if(!x509.isNull()) {
-        openssl::EVP_PKEY *pkey = openssl::q_X509_get_pubkey(x509.data());
+        EVP_PKEY *pkey = X509_get_pubkey(x509.data());
         if(pkey) {
             openssl_setPkey(&key, pkey, false);
         }
@@ -271,9 +367,9 @@ PublicKey CertificatePrivate::publicKey() const
 
 QByteArray CertificatePrivate::serialNumber() const
 {
-    openssl::ASN1_INTEGER *serialNumber = openssl::q_X509_get_serialNumber(x509.data());
+    ASN1_INTEGER *serialNumber = X509_get_serialNumber(x509.data());
     if(serialNumber) {
-        qlonglong n = openssl::q_ASN1_INTEGER_get(serialNumber);
+        qlonglong n = ASN1_INTEGER_get(serialNumber);
         if(n) {
             return QByteArray::number(n);
         }
@@ -304,7 +400,7 @@ QByteArray CertificatePrivate::version() const
 
 struct BioCleaner
 {
-    static void inline cleanup(openssl::BIO *o) { if(o) openssl::q_BIO_free(o); }
+    static void inline cleanup(BIO *o) { if(o) BIO_free(o); }
 };
 
 QString CertificatePrivate::toString() const
@@ -313,15 +409,15 @@ QString CertificatePrivate::toString() const
         return QString();
     }
     QByteArray result;
-    QScopedPointer<openssl::BIO, BioCleaner> bio(openssl::q_BIO_new(openssl::q_BIO_s_mem()));
+    QScopedPointer<BIO, BioCleaner> bio(BIO_new(BIO_s_mem()));
     if (bio.isNull())
         return QString();
 
     // FIXME I have got nothing.
-    openssl::q_X509_print(bio.data(), x509.data());
+    X509_print(bio.data(), x509.data());
 
     QVarLengthArray<char, 1024 * 64> data;
-    int count = openssl::q_BIO_read(bio.data(), data.data(), data.size());
+    int count = BIO_read(bio.data(), data.data(), data.size());
     if (count > 0) {
         result = QByteArray(data.data(), count);
     }
@@ -335,21 +431,21 @@ QByteArray CertificatePrivate::save(Ssl::EncodingFormat format) const
     }
 
     if(format == Ssl::Pem) {
-        QSharedPointer<openssl::BIO> bio(openssl::q_BIO_new(openssl::q_BIO_s_mem()), openssl::q_BIO_free);
+        QSharedPointer<BIO> bio(BIO_new(BIO_s_mem()), BIO_free);
         if(bio.isNull()) {
             return QByteArray();
         }
-        int r = openssl::q_PEM_write_bio_X509(bio.data(), x509.data());
+        int r = PEM_write_bio_X509(bio.data(), x509.data());
         if(r) {
             char *p = nullptr;
-            long size = openssl::q_BIO_get_mem_data(bio.data(), &p);
+            long size = BIO_get_mem_data(bio.data(), &p);
             if(size > 0 && p != nullptr) {
                 return QByteArray(p, static_cast<int>(size));
             }
         }
     } else if(format == Ssl::Der) {
         unsigned char *buf = nullptr;
-        int len = openssl::q_i2d_X509(x509.data(), &buf);
+        int len = i2d_X509(x509.data(), &buf);
         if(len > 0) {
             return QByteArray(static_cast<char*>(static_cast<void*>(buf)), len);
         }
@@ -362,12 +458,12 @@ Certificate CertificatePrivate::load(const QByteArray &data, Ssl::EncodingFormat
 {
     Certificate cert;
     if(format == Ssl::Pem) {
-        QSharedPointer<openssl::BIO> bio(openssl::q_BIO_new_mem_buf(data.data(), data.size()), openssl::q_BIO_free);
+        QSharedPointer<BIO> bio(BIO_new_mem_buf(data.data(), data.size()), BIO_free);
         if(bio.isNull()) {
             return cert;
         }
-        openssl::X509 *x = nullptr;
-        openssl::q_PEM_read_bio_X509(bio.data(), &x, nullptr, nullptr);
+        X509 *x = nullptr;
+        PEM_read_bio_X509(bio.data(), &x, nullptr, nullptr);
         if(x) {
             cert.d->init(x);
         }
@@ -375,7 +471,7 @@ Certificate CertificatePrivate::load(const QByteArray &data, Ssl::EncodingFormat
         const unsigned char *buf;
         buf = reinterpret_cast<const unsigned char *>(data.constData());
         int len = data.size();
-        openssl::X509 *x = openssl::q_d2i_X509(nullptr, &buf, len);
+        X509 *x = d2i_X509(nullptr, &buf, len);
         if(x) {
             cert.d->init(x);
         }
@@ -384,9 +480,9 @@ Certificate CertificatePrivate::load(const QByteArray &data, Ssl::EncodingFormat
     return cert;
 }
 
-static bool setIssuerInfos(openssl::X509 *x, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
+static bool setIssuerInfos(X509 *x, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
 {
-    openssl::X509_NAME *name = openssl::q_X509_get_issuer_name(x);
+    X509_NAME *name = X509_get_issuer_name(x);
     if(!name) {
         return false;
     }
@@ -407,21 +503,21 @@ static bool setIssuerInfos(openssl::X509 *x, const QMultiMap<Certificate::Subjec
         const QStringList &sl = subjectInfoes.values(itor.key());
         foreach(const QString &s, sl) {
             QByteArray bs = s.toUtf8();
-            success = success && openssl::q_X509_NAME_add_entry_by_txt(name, itor.value().data(), MBSTRING_UTF8,
-                                                                       reinterpret_cast<const unsigned char *>(bs.constData()),
-                                                                       bs.size(), -1, 0);
+            success = success && X509_NAME_add_entry_by_txt(name, itor.value().data(), MBSTRING_UTF8,
+                                                            reinterpret_cast<const unsigned char *>(bs.constData()),
+                                                            bs.size(), -1, 0);
         }
     }
     if(!success) {
         return false;
     }
-    int r = openssl::q_X509_set_issuer_name(x, name);
+    int r = X509_set_issuer_name(x, name);
     return r;
 }
 
-static bool setSubjectInfos(openssl::X509 *x, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
+static bool setSubjectInfos(X509 *x, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
 {
-    openssl::X509_NAME *name = openssl::q_X509_get_subject_name(x);
+    X509_NAME *name = X509_get_subject_name(x);
     if(!name) {
         return false;
     }
@@ -442,7 +538,7 @@ static bool setSubjectInfos(openssl::X509 *x, const QMultiMap<Certificate::Subje
         const QStringList &sl = subjectInfoes.values(itor.key());
         foreach(const QString &s, sl) {
             QByteArray bs = s.toUtf8();
-            success = success && openssl::q_X509_NAME_add_entry_by_txt(name, itor.value().data(), MBSTRING_UTF8,
+            success = success && X509_NAME_add_entry_by_txt(name, itor.value().data(), MBSTRING_UTF8,
                                                                        reinterpret_cast<const unsigned char *>(bs.constData()),
                                                                        bs.size(), -1, 0);
         }
@@ -450,7 +546,7 @@ static bool setSubjectInfos(openssl::X509 *x, const QMultiMap<Certificate::Subje
     if(!success) {
         return false;
     }
-    int r  = openssl::q_X509_set_subject_name(x, name);
+    int r  = X509_set_subject_name(x, name);
     return r;
 }
 
@@ -461,9 +557,9 @@ std::string toText(const QDateTime &t)
 
 struct Asn1TimeCleaner
 {
-    static void inline cleanup(openssl::ASN1_TIME *t)
+    static void inline cleanup(ASN1_TIME *t)
     {
-        if(t) openssl::q_ASN1_STRING_free(t);
+        if(t) ASN1_STRING_free(t);
     }
 };
 
@@ -472,19 +568,19 @@ Certificate CertificatePrivate::generate(const PrivateKey &key, MessageDigest::A
                                   const QDateTime &expiryDate, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
 {
     Certificate cert;
-    QScopedPointer<openssl::X509, X509Cleaner> x509(openssl::q_X509_new());
+    QScopedPointer<X509, X509Cleaner> x509(X509_new());
     if(x509.isNull()) {
         qDebug() << "can not allocate X509.";
         return cert;
     }
-    int r = openssl::q_X509_set_version(x509.data(), 2);
-    openssl::ASN1_INTEGER *i = openssl::q_X509_get_serialNumber(x509.data());
+    int r = X509_set_version(x509.data(), 2);
+    ASN1_INTEGER *i = X509_get_serialNumber(x509.data());
     if(!r || !i) {
         qDebug() << "can not set version and serial number.";
         return cert;
     }
-    openssl::q_ASN1_INTEGER_set(i, serialNumber);
-    openssl::q_X509_set_pubkey(x509.data(), static_cast<openssl::EVP_PKEY*>(key.handle()));
+    ASN1_INTEGER_set(i, serialNumber);
+    X509_set_pubkey(x509.data(), static_cast<EVP_PKEY*>(key.handle()));
     if(!setSubjectInfos(x509.data(), subjectInfoes)) {
         qDebug() << "can not set subject infos.";
         return cert;
@@ -494,20 +590,20 @@ Certificate CertificatePrivate::generate(const PrivateKey &key, MessageDigest::A
         return cert;
     }
     //FIXME set datetime
-    QScopedPointer<openssl::ASN1_TIME, Asn1TimeCleaner> t(openssl::q_ASN1_TIME_new());
+    QScopedPointer<ASN1_TIME, Asn1TimeCleaner> t(ASN1_TIME_new());
     if(!t.isNull()) {
-        r = openssl::q_ASN1_TIME_set_string(t.data(), toText(effectiveDate).c_str());
+        r = ASN1_TIME_set_string(t.data(), toText(effectiveDate).c_str());
         if(r) {
-            r = openssl::q_X509_set_notBefore(x509.data(), t.data());
+            r = X509_set1_notBefore(x509.data(), t.data());
             if(!r) {
                 qDebug() << "can not set effective date.";
             }
         } else {
             qDebug() << "invalid x509 effective date:" << effectiveDate;
         }
-        r = openssl::q_ASN1_TIME_set_string(t.data(), toText(expiryDate).c_str());
+        r = ASN1_TIME_set_string(t.data(), toText(expiryDate).c_str());
         if(r) {
-            r = openssl::q_X509_set_notAfter(x509.data(), t.data());
+            r = X509_set1_notAfter(x509.data(), t.data());
             if(!r) {
                 qDebug() << "can not set expiry date";
             }
@@ -515,12 +611,12 @@ Certificate CertificatePrivate::generate(const PrivateKey &key, MessageDigest::A
             qDebug() << "invalid x509 expiry date:" << expiryDate;
         }
     }
-    const openssl::EVP_MD *md = getOpenSSL_MD(signAlgo);
+    const EVP_MD *md = getOpenSSL_MD(signAlgo);
     if(!md) {
         qDebug() << "can not find md.";
         return cert;
     }
-    r = openssl::q_X509_sign(x509.data(), static_cast<openssl::EVP_PKEY*>(key.handle()), md);
+    r = X509_sign(x509.data(), static_cast<EVP_PKEY*>(key.handle()), md);
     if(!r) {
         qDebug() << "can not sign certificate.";
         return cert;
@@ -607,7 +703,7 @@ bool CertificatePrivate::qtParse()
         return false;
     }
     QByteArray serialNumberString = colonSeparatedHex(elem.value());
-    Q_UNUSED(serialNumberString);
+    Q_UNUSED(serialNumberString)
 
     // algorithm ID
     if (!elem.read(certStream) || elem.type() != QAsn1Element::SequenceType) {
@@ -854,18 +950,18 @@ Certificate Certificate::generate(const PrivateKey &key, MessageDigest::Algorith
 bool Certificate::operator==(const Certificate &other) const
 {
     if (d->x509 && other.d->x509)
-        return openssl::q_X509_cmp(d->x509.data(), other.d->x509.data()) == 0;
+        return X509_cmp(d->x509.data(), other.d->x509.data()) == 0;
     return false;
 }
 
 uint qHash(const Certificate &key, uint seed)
 {
-    if (openssl::X509 * const x509 = key.d.constData()->x509.data()) {
-        const openssl::EVP_MD *sha256 = openssl::q_EVP_sha256();
+    if (X509 * const x509 = key.d.constData()->x509.data()) {
+        const EVP_MD *sha256 = EVP_sha256();
         if(sha256) {
             unsigned int len = 0;
             unsigned char md[EVP_MAX_MD_SIZE];
-            openssl::q_X509_digest(x509, sha256, md, &len);
+            X509_digest(x509, sha256, md, &len);
             return qHashBits(md, len, seed);
         }
     }

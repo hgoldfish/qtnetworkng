@@ -362,8 +362,7 @@ bool SocketPrivate::fetchConnectionParameters()
 
     // Determine local address
     memset(&sa, 0, sizeof(sa));
-    if (::getsockname(fd, &sa.a, &sockAddrSize) == 0)
-    {
+    if (::getsockname(fd, &sa.a, &sockAddrSize) == 0) {
         qt_socket_getPortAndAddress(&sa, &localPort, &localAddress);
 
         // Determine protocol family
@@ -379,9 +378,7 @@ bool SocketPrivate::fetchConnectionParameters()
             protocol = Socket::UnknownNetworkLayerProtocol;
             break;
         }
-    }
-    else if (errno == EBADF)
-    {
+    } else if (errno == EBADF) {
         setError(Socket::UnsupportedSocketOperationError, InvalidSocketErrorString);
         return false;
     }
@@ -412,8 +409,7 @@ bool SocketPrivate::fetchConnectionParameters()
     // Determine the socket type (UDP/TCP)
     int value = 0;
     socklen_t valueSize = sizeof(int);
-    if (::getsockopt(fd, SOL_SOCKET, SO_TYPE, &value, &valueSize) == 0)
-    {
+    if (::getsockopt(fd, SOL_SOCKET, SO_TYPE, &value, &valueSize) == 0) {
         if (value == SOCK_STREAM)
             type = Socket::TcpSocket;
         else if (value == SOCK_DGRAM)
@@ -437,21 +433,6 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
             setError(Socket::SocketAccessError, AccessErrorString);
             return total == 0 ? -1: total;
         }
-        if(type == Socket::TcpSocket) {
-            if(state != Socket::ConnectedState) {
-                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-                return total == 0 ? -1 : total;
-            }
-        } else if(type == Socket::UdpSocket) {
-            if(state != Socket::UnconnectedState && state != Socket::BoundState) {
-                setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-                return total == 0 ? -1 : total;
-            }
-        } else {
-            setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
-            return total == 0 ? -1 : total;
-        }
-
         ssize_t r = 0;
         do {
             r = ::recv(fd, data + total, static_cast<size_t>(size - total), 0);
@@ -468,8 +449,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 #if defined(Q_OS_VXWORKS)
             case ESHUTDOWN:
 #endif
-                if(type == Socket::TcpSocket)
-                {
+                if(type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                     close();
                 }
@@ -488,7 +468,11 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
             return total;
         } else {
             total += r;
-            if(all) continue; else return total;
+            if(all) {
+                continue; 
+            } else {
+                return total;
+            }
         }
         watcher.start();
     }
@@ -509,8 +493,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     // TODO UDP socket may send zero length packet
 
-    while(sent < size)
-    {
+    while(sent < size) {
         ssize_t w;
         do {
             w = ::send(fd, data + sent, static_cast<size_t>(size - sent), all ? 0 : MSG_MORE);
@@ -520,11 +503,18 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
                 return static_cast<qint32>(w);
             } else {
                 sent += w;
+                continue;
             }
         } else if(w < 0) {
             switch(errno)
             {
+#if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
+            case EWOULDBLOCK:
+#endif
             case EAGAIN:
+                if (sent > 0 && !all) {
+                    return sent;
+                }
                 break;
             case EACCES:
                 setError(Socket::SocketAccessError, AccessErrorString);
@@ -563,11 +553,11 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, quint16 *port)
 {
     if(!isValid()) {
-        return 0;
+        return -1;
     }
 
     if(maxSize <= 0)
-        return 0;
+        return -1;
 
     struct msghdr msg;
     struct iovec vec;
@@ -584,8 +574,11 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, q
 
     ssize_t recvResult = 0;
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
-    while(true)
-    {
+    while(true) {
+        if(!isValid()){
+            setError(Socket::SocketAccessError, AccessErrorString);
+            return -1;
+        }
         do {
             recvResult = ::recvmsg(fd, &msg, 0);
         } while (recvResult == -1 && errno == EINTR);
@@ -603,8 +596,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, q
 #if defined(Q_OS_VXWORKS)
             case ESHUTDOWN:
 #endif
-                if(type == Socket::TcpSocket)
-                {
+                if(type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                     close();
                 }
@@ -660,14 +652,12 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
 #else
     int flags = 0;
 #endif
-    while(true)
-    {
+    while(true) {
         do {
             sentBytes = ::sendmsg(fd, &msg, flags);
         } while(sentBytes == -1 && error == EINTR);
 
-        if(sentBytes < 0)
-        {
+        if(sentBytes < 0) {
             switch(errno)
             {
 #if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
@@ -683,8 +673,7 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
                 return -1;
             case ECONNRESET:
             case ENOTSOCK:
-                if(type == Socket::TcpSocket)
-                {
+                if(type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                     close();
                 }
@@ -704,7 +693,10 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
                 setError(Socket::NetworkError, InvalidSocketErrorString);
                 return -1;
             }
-        } else {
+        } else { // sentBytes == 0 || sentBytes > 0
+            if (type == Socket::UdpSocket && !localPort && localAddress.isNull()) {
+                    fetchConnectionParameters();
+                }
             return static_cast<qint32>(sentBytes);
         }
         watcher.start();

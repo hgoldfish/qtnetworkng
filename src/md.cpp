@@ -3,68 +3,43 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-const openssl::EVP_MD *getOpenSSL_MD(MessageDigest::Algorithm algo)
+const EVP_MD *getOpenSSL_MD(MessageDigest::Algorithm algo)
 {
-    const openssl::EVP_MD *md = nullptr;
+    const EVP_MD *md = nullptr;
     switch(algo)
     {
     case MessageDigest::Md4:
-        md = openssl::q_EVP_md4();
+        md = EVP_md4();
         break;
     case MessageDigest::Md5:
-        md = openssl::q_EVP_md5();
+        md = EVP_md5();
         break;
     case MessageDigest::Sha1:
-        md = openssl::q_EVP_sha1();
+        md = EVP_sha1();
         break;
     case MessageDigest::Sha224:
-        md = openssl::q_EVP_sha224();
+        md = EVP_sha224();
         break;
     case MessageDigest::Sha256:
-        md = openssl::q_EVP_sha256();
+        md = EVP_sha256();
         break;
     case MessageDigest::Sha384:
-        md = openssl::q_EVP_sha384();
+        md = EVP_sha384();
         break;
     case MessageDigest::Sha512:
-        md = openssl::q_EVP_sha512();
+        md = EVP_sha512();
         break;
     case MessageDigest::Ripemd160:
-        md = openssl::q_EVP_ripemd160();
+        md = EVP_ripemd160();
         break;
-    case MessageDigest::Blake2s256:
-        md = openssl::q_EVP_blake2s256();
-        break;
-    case MessageDigest::Blake2b512:
-        md = openssl::q_EVP_blake2b512();
-        break;
+    case MessageDigest::Whirlpool:
+        md = EVP_whirlpool();
     default:
         Q_UNREACHABLE();
     }
     return md;
 }
 
-
-openssl::EVP_MD_CTX *EVP_MD_CTX_new()
-{
-    openssl::EVP_MD_CTX *context = nullptr;
-    if(openssl::has_EVP_MD_CTX_new()) {
-        context = openssl::q_EVP_MD_CTX_new();
-    } else {
-        context = openssl::q_EVP_MD_CTX_create();
-    }
-    return context;
-}
-
-
-void EVP_MD_CTX_free(openssl::EVP_MD_CTX *context)
-{
-    if(openssl::has_EVP_MD_CTX_new()) {
-        openssl::q_EVP_MD_CTX_free(context);
-    } else {
-        openssl::q_EVP_MD_CTX_cleanup(context);
-    }
-}
 
 class MessageDigestPrivate
 {
@@ -73,7 +48,7 @@ public:
     ~MessageDigestPrivate();
     void addData(const QByteArray &data);
     QByteArray result();
-    openssl::EVP_MD_CTX *context;
+    EVP_MD_CTX *context;
     QByteArray finalData;
     MessageDigest::Algorithm algo;
     bool hasError;
@@ -84,7 +59,7 @@ MessageDigestPrivate::MessageDigestPrivate(MessageDigest::Algorithm algo)
     :context(nullptr), algo(algo), hasError(false)
 {
     initOpenSSL();
-    const openssl::EVP_MD *md = getOpenSSL_MD(algo);
+    const EVP_MD *md = getOpenSSL_MD(algo);
 
     if(!md) {
         hasError = true;
@@ -97,7 +72,7 @@ MessageDigestPrivate::MessageDigestPrivate(MessageDigest::Algorithm algo)
         hasError = true;
         return;
     }
-    if(!openssl::q_EVP_DigestInit_ex(context, md, nullptr)) {
+    if(!EVP_DigestInit_ex(context, md, nullptr)) {
         EVP_MD_CTX_free(context);
         context = nullptr;
         hasError = true;
@@ -116,7 +91,7 @@ void MessageDigestPrivate::addData(const QByteArray &data)
 {
     if(hasError)
         return;
-    int rvalue = openssl::q_EVP_DigestUpdate(context, data.data(), static_cast<size_t>(data.size()));
+    int rvalue = EVP_DigestUpdate(context, data.data(), static_cast<size_t>(data.size()));
     hasError = !rvalue;
 }
 
@@ -130,7 +105,7 @@ QByteArray MessageDigestPrivate::result()
     }
     unsigned int len;
     finalData.resize(EVP_MAX_MD_SIZE);
-    int rvalue = openssl::q_EVP_DigestFinal_ex(context, reinterpret_cast<unsigned char*>(finalData.data()), &len);
+    int rvalue = EVP_DigestFinal_ex(context, reinterpret_cast<unsigned char*>(finalData.data()), &len);
     if(!rvalue) {
         hasError = true;
         finalData.clear();
@@ -170,7 +145,7 @@ QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray 
                        const MessageDigest::Algorithm hashAlgo, int i)
 {
     initOpenSSL();
-    const openssl::EVP_MD *dgst = getOpenSSL_MD(hashAlgo);
+    const EVP_MD *dgst = getOpenSSL_MD(hashAlgo);
 
     if(!dgst || salt.isEmpty() || password.isEmpty() || i <= 0) {
         return QByteArray();
@@ -179,9 +154,9 @@ QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray 
     QByteArray key;
     key.resize(keylen);
 
-    int rvalue = openssl::q_PKCS5_PBKDF2_HMAC(password.data(), password.size(),
-                                              reinterpret_cast<const unsigned char*>(salt.data()), salt.size(),
-                                              i, dgst, keylen, reinterpret_cast<unsigned char *>(key.data()));
+    int rvalue = PKCS5_PBKDF2_HMAC(password.data(), password.size(),
+                                   reinterpret_cast<const unsigned char*>(salt.data()), salt.size(),
+                                   i, dgst, keylen, reinterpret_cast<unsigned char *>(key.data()));
     if (rvalue) {
         return key;
     } else {
@@ -193,7 +168,7 @@ QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray 
 //                  int n, int r, int p)
 //{
 //    initOpenSSL();
-//    openssl::EVP_PKEY_CTX *pctx = openssl::q_EVP_PKEY_CTX_new_id(EVP_PKEY_SCRYPT, nullptr);
+//    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_SCRYPT, nullptr);
 
 //    if(!pctx || password.isEmpty() || salt.isEmpty()) {
 //        return QByteArray();
@@ -202,17 +177,17 @@ QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray 
 //    QByteArray key;
 //    key.resize(keylen);
 
-//    int rvalue = openssl::q_EVP_PKEY_derive_init(pctx);
+//    int rvalue = EVP_PKEY_derive_init(pctx);
 //    if (rvalue <= 0) {
 //        qDebug() << "can not init scrypt kdf.";
 //        return QByteArray();
 //    }
-//    rvalue = openssl::q_EVP_PKEY_CTX_set1_pbe_pass(pctx, password.data(), password.size());
+//    rvalue = EVP_PKEY_CTX_set1_pbe_pass(pctx, password.data(), password.size());
 //    if (rvalue <= 0) {
 //        qDebug() << "can not set scrypt password.";
 //        return QByteArray();
 //    }
-//    rvalue = openssl::q_EVP_PKEY_CTX_set1_scrypt_salt(pctx, salt.data(), salt.size());
+//    rvalue = EVP_PKEY_CTX_set1_scrypt_salt(pctx, salt.data(), salt.size());
 //    if (rvalue <= 0) {
 //        qDebug() << "can not set scrypt salt.";
 //        return QByteArray();

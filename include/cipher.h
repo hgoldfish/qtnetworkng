@@ -19,13 +19,10 @@ public:
         DES = 5,
         DES2 = 6,
         DES3 = 7,
-        RC2 = 8,
-        RC4 = 9,
-        RC5 = 10,
-        IDEA = 11,
-        Blowfish = 12,
-        CAST5 = 13,
-        Chacha20 = 14,
+        Blowfish = 8,
+        CAST5 = 9,
+        Chacha20 = 10,
+        ChaCha20Poly1305 = 11
     };
     enum Mode
     {

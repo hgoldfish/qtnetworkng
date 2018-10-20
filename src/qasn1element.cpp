@@ -38,8 +38,7 @@
 ****************************************************************************/
 
 
-#include "../include/qasn1element.h"
-
+#include "../include/private/qasn1element.h"
 #include <QtCore/qdatastream.h>
 #include <QtCore/qdatetime.h>
 #include <QtCore/qvector.h>

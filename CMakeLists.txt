@@ -26,8 +26,7 @@ cmake_minimum_required(VERSION 3.1.0 FATAL_ERROR)
 project(qtnetworkng VERSION 0.5.2 LANGUAGES C CXX ASM)
 
 option(QTNG_BUILD_TESTS OFF)
-set (CMAKE_AUTOMOC ON)
-
+set(CMAKE_AUTOMOC ON)
 if(ANDROID)
     find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
     find_package(Qt5Network CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
@@ -75,7 +74,6 @@ set(QTNETWORKNG_INCLUDE
 
 SET(QTNETWORKNG_PRIVATE_INCLUDE
     include/private/data_pack.h
-    include/private/qsystemlibrary_p.h
     include/private/eventloop_p.h
     include/private/coroutine_p.h
     include/private/socket_p.h
@@ -85,7 +83,6 @@ SET(QTNETWORKNG_PRIVATE_INCLUDE
 set(QTCRYPTONG_SRC
     src/ssl.cpp
     src/crypto.cpp
-    src/openssl_symbols.cpp
     src/random.cpp
     src/md.cpp
     src/pkey.cpp
@@ -103,20 +100,17 @@ set(QTCRYPTONG_INCLUDE
     include/cipher.h
     include/pkey.h
     include/certificate.h
-    include/qasn1element.h
 )
 
 set(QTCRYPTONG_PRIVATE_INCLUDE
     include/private/crypto_p.h
-    include/private/openssl_symbols.h
     include/private/qtng_temp.h
-    # include/private/crypto_backend.h
+    include/private/qasn1element.h
 )
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(OS_DEPENDENDED_SRC
         src/socket_win.cpp
-        src/qsystemlibrary.cpp
         src/coroutine_win.cpp
     )
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
@@ -222,7 +216,9 @@ endif()
 # start intergrating libev
 add_definitions(-DQTNETWOKRNG_USE_EV)
 add_subdirectory(ev)
-
+set(LIBRESSL_APPS OFF)
+set(LIBRESSL_TESTS OFF)
+add_subdirectory(libressl)
 add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
                                ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} ${OS_DEPENDENDED_SRC})
 target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -245,7 +241,7 @@ else()
     link_directories(${_qt5Core_install_prefix}/lib/)
 endif()
 
-target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE ev ${OS_EXTRA_LINK})
+target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE ev tls ssl crypto ${OS_EXTRA_LINK})
 
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
@@ -256,10 +252,10 @@ IF(Qt5Test_FOUND AND QTNG_BUILD_TESTS)
     add_executable(test_ssl tests/test_ssl.cpp)
     target_link_libraries(test_ssl PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
 
-    add_executable(test_crypto tests/test_crypto.cpp)
+    add_executable(test_crypto tests/test_crypto.cpp ${TEST_CRYPTO_MOC_FILES})
     target_link_libraries(test_crypto PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
 
-    add_executable(test_coroutines tests/test_coroutines.cpp)
+    add_executable(test_coroutines tests/test_coroutines.cpp ${TEST_COROUTINES_MOC_FILES})
     target_link_libraries(test_coroutines PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
 
     add_executable(sleep_coroutines tests/sleep_coroutines.cpp)

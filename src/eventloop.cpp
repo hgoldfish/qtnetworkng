@@ -226,6 +226,7 @@ void CurrentLoopStorage::clean()
 // 开始写 ScopedWatcher 的实现
 
 ScopedIoWatcher::ScopedIoWatcher(EventLoopCoroutine::EventType event, qintptr fd)
+    :started(false)
 {
     QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
     watcherId = eventLoop->createWatcher(event, fd, new YieldCurrentFunctor());
@@ -235,6 +236,7 @@ void ScopedIoWatcher::start()
 {
     QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
     eventLoop->startWatcher(watcherId);
+    started = true;
     eventLoop->yield();
 }
 
@@ -520,7 +522,7 @@ TimeoutException::TimeoutException()
 
 QString TimeoutException::what() const
 {
-    return QString::fromLatin1("coroutine had set timeout.");
+    return QStringLiteral("coroutine had set timeout.");
 }
 
 void TimeoutException::raise()

@@ -24,8 +24,7 @@ struct IoWatcher: public QtWatcher
     IoWatcher(qintptr fd, EventLoopCoroutine::EventType event, Functor *callback);
     virtual ~IoWatcher();
 
-    QSocketNotifier read;
-    QSocketNotifier write;
+    QSharedPointer<QSocketNotifier> notifier;
     Functor *callback;
     qintptr fd;
     EventLoopCoroutine::EventType event;
@@ -45,12 +44,8 @@ struct TimerWatcher: public QtWatcher
 QtWatcher::~QtWatcher() {}
 
 IoWatcher::IoWatcher(qintptr fd, EventLoopCoroutine::EventType event, Functor *callback)
-    :read(fd, QSocketNotifier::Read), write(fd, QSocketNotifier::Write), callback(callback), fd(fd), event(event)
+    :callback(callback), fd(fd), event(event)
 {
-    read.setEnabled(false);
-    write.setEnabled(false);
-    read.setProperty("parent", QVariant::fromValue(static_cast<void*>(this)));
-    write.setProperty("parent", QVariant::fromValue(static_cast<void*>(this)));
 }
 
 IoWatcher::~IoWatcher()
@@ -150,7 +145,7 @@ EventLoopCoroutinePrivateQt::EventLoopCoroutinePrivateQt(EventLoopCoroutine *q)
 
 EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
 {
-    foreach(QtWatcher *watcher, watchers) {
+    for(QtWatcher *watcher: watchers) {
         delete watcher;
     }
     delete helper;
@@ -179,9 +174,6 @@ void EventLoopCoroutinePrivateQt::handleIoEvent(int socket, QSocketNotifier *n)
 int EventLoopCoroutinePrivateQt::createWatcher(EventLoopCoroutine::EventType event, qintptr fd, Functor *callback)
 {
     IoWatcher *w = new IoWatcher(fd, event, callback);
-
-    QObject::connect(&w->read, SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
-    QObject::connect(&w->write, SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
     watchers.insert(nextWatcherId, w);
     return nextWatcherId++;
 }
@@ -191,10 +183,22 @@ void EventLoopCoroutinePrivateQt::startWatcher(int watcherId)
     IoWatcher *w = dynamic_cast<IoWatcher*>(watchers.value(watcherId));
     if(w) {
         if(w->event & EventLoopCoroutine::Read) {
-            w->read.setEnabled(true);
+            if (w->notifier.isNull()) {
+                w->notifier.reset(new QSocketNotifier(w->fd, QSocketNotifier::Read));
+                w->notifier->setProperty("parent", QVariant::fromValue(static_cast<void*>(w)));
+                QObject::connect(w->notifier.data(), SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
+            } else {
+                w->notifier->setEnabled(true);
+            }
         }
         if(w->event & EventLoopCoroutine::Write) {
-            w->write.setEnabled(true);
+            if (w->notifier.isNull()) {
+                w->notifier.reset(new QSocketNotifier(w->fd, QSocketNotifier::Write));
+                w->notifier->setProperty("parent", QVariant::fromValue(static_cast<void*>(w)));
+                QObject::connect(w->notifier.data(), SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
+            } else {
+                w->notifier->setEnabled(true);
+            }
         }
     }
 }
@@ -203,8 +207,7 @@ void EventLoopCoroutinePrivateQt::stopWatcher(int watcherId)
 {
     IoWatcher *w = dynamic_cast<IoWatcher*>(watchers.value(watcherId));
     if(w) {
-        w->read.setEnabled(false);
-        w->write.setEnabled(false);
+        w->notifier->setEnabled(false);
     }
 }
 
@@ -212,8 +215,6 @@ void EventLoopCoroutinePrivateQt::removeWatcher(int watcherId)
 {
     IoWatcher *w = dynamic_cast<IoWatcher*>(watchers.take(watcherId));
     if(w) {
-        w->read.setEnabled(false);
-        w->write.setEnabled(false);
         delete w;
     }
 }
@@ -249,8 +250,7 @@ void EventLoopCoroutinePrivateQt::triggerIoWatchers(qintptr fd)
     for(QMap<int, QtWatcher*>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
         IoWatcher *w = dynamic_cast<IoWatcher*>(itor.value());
         if(w && w->fd == fd) {
-            w->read.setEnabled(false);
-            w->write.setEnabled(false);
+            w->notifier->setEnabled(false);
             callLater(0, new TriggerIoWatchersArgumentsFunctor(itor.key(), q));
         }
     }

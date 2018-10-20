@@ -1,4 +1,4 @@
-#include "../include/coroutine_p.h"
+#include "../include/private/coroutine_p.h"
 #include <windows.h>
 #include <winbase.h>
 
