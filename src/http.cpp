@@ -317,7 +317,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url)
     quint16 defaultPort = 80;
     if(url.scheme() == QStringLiteral("http")) {
     } else{
-#ifdef QTNG_CRYPTO
+#ifndef QTNG_NO_CRYPTO
         defaultPort = 443;
 #else
         qDebug() << "invalid scheme";
@@ -333,7 +333,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url)
         if(url.scheme() == QStringLiteral("http")) {
             connection = SocketLike::rawSocket(rawSocket);
         } else{
-    #ifdef QTNG_CRYPTO
+    #ifndef QTNG_NO_CRYPTO
             QSharedPointer<SslSocket> ssl(new SslSocket(rawSocket));
             ssl->handshake(false);
             connection = SocketLike::sslSocket(ssl);
@@ -349,7 +349,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url)
         if(url.scheme() == QStringLiteral("http")) {
             connection = SocketLike::rawSocket(rawSocket);
         } else{
-    #ifdef QTNG_CRYPTO
+    #ifndef QTNG_NO_CRYPTO
             connection = SocketLike::sslSocket(QSharedPointer<SslSocket>::create(rawSocket));
     #else
             qDebug() << "invalid scheme";

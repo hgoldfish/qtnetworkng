@@ -36,6 +36,8 @@ public:
     void setStatus(Status status);
     void setFlushWrites(bool flushWrites);
     bool willFlushWrites();
+    void setLengthLimit(quint32 limit);
+    quint32 lengthLimit() const;
 
     MsgPackStream &operator>>(bool &b);
     MsgPackStream &operator>>(quint8 &u8);

@@ -49,6 +49,7 @@ public:
 
     QIODevice *dev;
     MsgPackStream::Status status;
+    quint32 limit;
     bool owndev;
     bool flushWrites;
 
@@ -65,12 +66,12 @@ public:
 };
 
 MsgPackStreamPrivate::MsgPackStreamPrivate()
-    :dev(nullptr), status(MsgPackStream::Ok), owndev(false), flushWrites(false)
+    :dev(nullptr), status(MsgPackStream::Ok), owndev(false), flushWrites(false), limit(std::numeric_limits<quint32>::max())
 {
 }
 
 MsgPackStreamPrivate::MsgPackStreamPrivate(QIODevice *d)
-    :dev(d), status(MsgPackStream::Ok), owndev(false), flushWrites(false)
+    :dev(d), status(MsgPackStream::Ok), owndev(false), flushWrites(false), limit(std::numeric_limits<quint32>::max())
 {
 }
 
@@ -81,11 +82,16 @@ MsgPackStreamPrivate::MsgPackStreamPrivate(QByteArray *a, QIODevice::OpenMode mo
     QBuffer *buf = new QBuffer(a);
     buf->open(mode);
     dev = buf;
+    if (mode == QIODevice::ReadOnly) {
+        limit = a->size();
+    } else {
+        limit = std::numeric_limits<quint32>::max();
+    }
 }
 
 
 MsgPackStreamPrivate::MsgPackStreamPrivate(const QByteArray &a)
-    :status(MsgPackStream::Ok), owndev(true), flushWrites(false)
+    :status(MsgPackStream::Ok), owndev(true), flushWrites(false), limit(a.size())
 {
     QBuffer *buf = new QBuffer();
     buf->setData(a);
@@ -107,6 +113,9 @@ bool MsgPackStreamPrivate::readBytes(char *data, qint64 len)
     }
     if (!dev) {
         status = MsgPackStream::ReadPastEnd;
+        return false;
+    }
+    if (len > limit) {
         return false;
     }
     qint64 total = 0;
@@ -160,6 +169,11 @@ bool MsgPackStreamPrivate::readExtHeader(quint32 &len, quint8 &msgpackType)
         }
         len = _msgpack_load32(p + 1);
     } else {
+        status = MsgPackStream::ReadCorruptData;
+        return false;
+    }
+    if (len > limit) {
+        qDebug() << "read length is too large.";
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
@@ -338,18 +352,25 @@ bool MsgPackStreamPrivate::unpackString(QString &s)
             return false;
         }
         len = _msgpack_load32(p + 1);
+        if (static_cast<int>(len) < 0) {
+            status = MsgPackStream::ReadCorruptData;
+            return false;
+        }
     } else {
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
-    if (static_cast<int>(len) < 0) {
+    if (len > limit) {
+        qDebug() << "read string length is too large.";
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
     QByteArray buf;
-    buf.resize(static_cast<int>(len));
-    if (!readBytes(buf.data(), len)) {
-        return false;
+    if (len > 0) {
+        buf.resize(static_cast<int>(len));
+        if (!readBytes(buf.data(), len)) {
+            return false;
+        }
     }
     s = QString::fromUtf8(buf);
     return true;
@@ -395,9 +416,11 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
     } else if (FirstByte::FIXSTR <= p[0] && p[0] < FirstByte::NIL) {
         quint32 len = p[0] - FirstByte::FIXSTR;
         QByteArray bs;
-        bs.resize(static_cast<int>(len));
-        if (!readBytes(bs.data(), len)) {
-            return false;
+        if (len > 0) {
+            bs.resize(static_cast<int>(len));
+            if (!readBytes(bs.data(), len)) {
+                return false;
+            }
         }
         v = QString::fromUtf8(bs);
     } else if (p[0] == FirstByte::NIL || p[0] == FirstByte::NEVER_USED) {
@@ -411,10 +434,17 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
             return false;
         }
         quint32 len = p[1];
-        QByteArray bs;
-        bs.resize(static_cast<int>(len));
-        if (!readBytes(bs.data(), len)) {
+        if (len > limit) {
+            qDebug() << "read bytearraty length is too large.";
+            status = MsgPackStream::ReadCorruptData;
             return false;
+        }
+        QByteArray bs;
+        if (len > 0) {
+            bs.resize(static_cast<int>(len));
+            if (!readBytes(bs.data(), len)) {
+                return false;
+            }
         }
         v = bs;
     } else if (p[0] == FirstByte::BIN16) {
@@ -422,10 +452,17 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
             return false;
         }
         quint32 len = _msgpack_load16(p + 1);
-        QByteArray bs;
-        bs.resize(static_cast<int>(len));
-        if (!readBytes(bs.data(), len)) {
+        if (len > limit) {
+            qDebug() << "read bytearraty length is too large.";
+            status = MsgPackStream::ReadCorruptData;
             return false;
+        }
+        QByteArray bs;
+        if (len > 0) {
+            bs.resize(static_cast<int>(len));
+            if (!readBytes(bs.data(), len)) {
+                return false;
+            }
         }
         v = bs;
     } else if (p[0] == FirstByte::BIN32) {
@@ -433,14 +470,21 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
             return false;
         }
         quint32 len = _msgpack_load32(p + 1);
-        QByteArray bs;
+        if (len > limit) {
+            qDebug() << "read bytearraty length is too large.";
+            status = MsgPackStream::ReadCorruptData;
+            return false;
+        }
         if (static_cast<int>(len) < 0) {
             status = MsgPackStream::ReadCorruptData;
             return false;
         }
-        bs.resize(static_cast<int>(len));
-        if (!readBytes(bs.data(), len)) {
-            return false;
+        QByteArray bs;
+        if (len > 0) {
+            bs.resize(static_cast<int>(len));
+            if (!readBytes(bs.data(), len)) {
+                return false;
+            }
         }
         v = bs;
     } else if (p[0] == FirstByte::EXT8) {
@@ -450,9 +494,11 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
         quint32 len = p[1];
         MsgPackExtData ext;
         ext.type = p[2];
-        ext.payload.resize(static_cast<int>(len));
-        if (!readBytes(ext.payload.data(), len)) {
-            return false;
+        if (len > 0) {
+            ext.payload.resize(static_cast<int>(len));
+            if (!readBytes(ext.payload.data(), len)) {
+                return false;
+            }
         }
         v.setValue(ext);
     } else if (p[0] == FirstByte::EXT16) {
@@ -460,11 +506,18 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
             return false;
         }
         quint32 len = _msgpack_load16(p + 1);
+        if (len > limit) {
+            qDebug() << "read bytearraty length is too large.";
+            status = MsgPackStream::ReadCorruptData;
+            return false;
+        }
         MsgPackExtData ext;
         ext.type = p[3];
-        ext.payload.resize(static_cast<int>(len));
-        if (!readBytes(ext.payload.data(), len)) {
-            return false;
+        if (len > 0) {
+            ext.payload.resize(static_cast<int>(len));
+            if (!readBytes(ext.payload.data(), len)) {
+                return false;
+            }
         }
         v.setValue(ext);
     } else if (p[0] == FirstByte::EXT32) {
@@ -472,15 +525,22 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
             return false;
         }
         quint32 len = _msgpack_load32(p + 1);
+        if (len > limit) {
+            qDebug() << "read bytearraty length is too large.";
+            status = MsgPackStream::ReadCorruptData;
+            return false;
+        }
         if (static_cast<int>(len) < 0){
             status = MsgPackStream::ReadCorruptData;
             return false;
         }
         MsgPackExtData ext;
         ext.type = p[5];
-        ext.payload.resize(static_cast<int>(len));
-        if (!readBytes(ext.payload.data(), len)) {
-            return false;
+        if (len > 0) {
+            ext.payload.resize(static_cast<int>(len));
+            if (!readBytes(ext.payload.data(), len)) {
+                return false;
+            }
         }
         v.setValue(ext);
     } else if (p[0] == FirstByte::FLOAT32) {
@@ -544,8 +604,8 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
             return false;
         }
         MsgPackExtData ext;
-        ext.payload.resize(static_cast<int>(len));
         ext.type = p[1];
+        ext.payload.resize(static_cast<int>(len));
         if (!readBytes(ext.payload.data(), len)) {
             return false;
         }
@@ -560,10 +620,17 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
             return false;
         }
         quint32 len = p[1];
-        QByteArray buf;
-        buf.resize(static_cast<int>(len));
-        if (!readBytes(buf.data(), len)) {
+        if (len > limit) {
+            qDebug() << "read string length is too large.";
+            status = MsgPackStream::ReadCorruptData;
             return false;
+        }
+        QByteArray buf;
+        if (len > 0) {
+            buf.resize(static_cast<int>(len));
+            if (!readBytes(buf.data(), len)) {
+                return false;
+            }
         }
         v = QString::fromUtf8(buf);
     } else if (p[0] == FirstByte::STR16) {
@@ -571,10 +638,17 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
             return false;
         }
         quint32 len = _msgpack_load16(p + 1);
-        QByteArray buf;
-        buf.resize(static_cast<int>(len));
-        if (!readBytes(buf.data(), len)) {
+        if (len > limit) {
+            qDebug() << "read string length is too large.";
+            status = MsgPackStream::ReadCorruptData;
             return false;
+        }
+        QByteArray buf;
+        if (len > 0) {
+            buf.resize(static_cast<int>(len));
+            if (!readBytes(buf.data(), len)) {
+                return false;
+            }
         }
         v = QString::fromUtf8(buf);
     } else if (p[0] == FirstByte::STR32) {
@@ -582,14 +656,21 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
             return false;
         }
         quint32 len = _msgpack_load32(p + 1);
+        if (len > limit) {
+            qDebug() << "read string length is too large.";
+            status = MsgPackStream::ReadCorruptData;
+            return false;
+        }
         if (static_cast<int>(len) < 0) {
             status = MsgPackStream::ReadCorruptData;
             return false;
         }
         QByteArray buf;
-        buf.resize(static_cast<int>(len));
-        if (!readBytes(buf.data(), len)) {
-            return false;
+        if (len > 0) {
+            buf.resize(static_cast<int>(len));
+            if (!readBytes(buf.data(), len)) {
+                return false;
+            }
         }
         v = QString::fromUtf8(buf);
     } else if (p[0] == FirstByte::ARRAY16) {
@@ -823,6 +904,19 @@ bool MsgPackStream::willFlushWrites()
     return d->flushWrites;
 }
 
+void MsgPackStream::setLengthLimit(quint32 limit)
+{
+    Q_D(MsgPackStream);
+    d->limit = limit;
+}
+
+quint32 MsgPackStream::lengthLimit() const
+{
+    Q_D(const MsgPackStream);
+    return d->limit;
+}
+
+
 MsgPackStream &MsgPackStream::operator>>(bool &b)
 {
     CHECK_STREAM_PRECOND(*this)
@@ -1021,6 +1115,11 @@ MsgPackStream &MsgPackStream::operator>>(QByteArray &array)
         }
     } else {
         d->status = ReadCorruptData;
+        return *this;
+    }
+    if (len > d->limit) {
+        qDebug() << "read bytearray length is too large.";
+        d->status = MsgPackStream::ReadCorruptData;
         return *this;
     }
     array.resize(static_cast<int>(len));
@@ -1361,7 +1460,7 @@ MsgPackStream &MsgPackStream::operator<<(const QVariant &v)
 {
     CHECK_STREAM_PRECOND(*this);
     QVariant::Type t = v.type();
-    if (v.isNull() || !v.isValid()) {
+    if (!v.isValid()) {
         quint8 p[1];
         p[0] = FirstByte::NIL;
         d->writeBytes(p, 1);

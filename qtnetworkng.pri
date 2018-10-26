@@ -19,12 +19,12 @@ SOURCES += \
     $$PWD/src/socks5_proxy.cpp \
     $$PWD/src/eventloop_qt.cpp \
     $$PWD/src/msgpack.cpp
-    
+
 PRIVATE_HEADERS += \
     $$PWD/include/private/coroutine_p.h \
     $$PWD/include/private/http_p.h \
     $$PWD/include/private/socket_p.h
-    
+
 HEADERS += \
     $$PWD/include/config.h \
     $$PWD/include/coroutine.h \
@@ -59,7 +59,7 @@ qtng_crypto {
     PRIVATE_HEADERS += \
         $$PWD/include/private/crypto_p.h \
         $$PWD/include/private/qasn1element.h
-        
+
     HEADERS += $$PWD/include/config.h \
         $$PWD/include/crypto.h \
         $$PWD/include/ssl.h \
@@ -79,8 +79,9 @@ qtng_crypto {
         $$PWD/src/certificate.cpp \
         $$PWD/src/qasn1element.cpp
 
-    DEFINES += QTNG_CRYPTO
     LIBS += -lssl -lcrypto
+} else {
+    DEFINEDS += QTNG_NO_CRYPTO
 }
 
 HEADERS += $$PRIVATE_HEADERS
