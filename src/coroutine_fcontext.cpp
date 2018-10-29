@@ -115,7 +115,6 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
         } else {
             qWarning() << "do not delete running BaseCoroutine:" << q->objectName();
         }
-
     }
     if(exception)
         delete exception;

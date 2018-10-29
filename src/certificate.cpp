@@ -499,9 +499,9 @@ static bool setIssuerInfos(X509 *x, const QMultiMap<Certificate::SubjectInfo, QS
 
     };
     bool success = true;
-    for(QMap<Certificate::SubjectInfo, QByteArray>::const_iterator itor = table.constBegin(); itor != table.constEnd(); ++itor) {
+    for (QMap<Certificate::SubjectInfo, QByteArray>::const_iterator itor = table.constBegin(); itor != table.constEnd(); ++itor) {
         const QStringList &sl = subjectInfoes.values(itor.key());
-        foreach(const QString &s, sl) {
+        for (const QString &s: sl) {
             QByteArray bs = s.toUtf8();
             success = success && X509_NAME_add_entry_by_txt(name, itor.value().data(), MBSTRING_UTF8,
                                                             reinterpret_cast<const unsigned char *>(bs.constData()),
@@ -534,9 +534,9 @@ static bool setSubjectInfos(X509 *x, const QMultiMap<Certificate::SubjectInfo, Q
 
     };
     bool success = true;
-    for(QMap<Certificate::SubjectInfo, QByteArray>::const_iterator itor = table.constBegin(); itor != table.constEnd(); ++itor) {
+    for (QMap<Certificate::SubjectInfo, QByteArray>::const_iterator itor = table.constBegin(); itor != table.constEnd(); ++itor) {
         const QStringList &sl = subjectInfoes.values(itor.key());
-        foreach(const QString &s, sl) {
+        for (const QString &s: sl) {
             QByteArray bs = s.toUtf8();
             success = success && X509_NAME_add_entry_by_txt(name, itor.value().data(), MBSTRING_UTF8,
                                                                        reinterpret_cast<const unsigned char *>(bs.constData()),

@@ -214,7 +214,7 @@ struct TriggerIoWatchersFunctor: public Functor
 
 void EventLoopCoroutinePrivateEv::triggerIoWatchers(qintptr fd)
 {
-    for(QMap<int, EvWatcher*>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
+    for (QMap<int, EvWatcher*>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
         IoWatcher *watcher = dynamic_cast<IoWatcher*>(itor.value());
         if(watcher && watcher->w.fd == fd) {
             ev_io_stop(loop, &watcher->w);
@@ -292,8 +292,8 @@ int EventLoopCoroutinePrivateEv::exitCode()
 
 bool EventLoopCoroutinePrivateEv::runUntil(BaseCoroutine *coroutine)
 {
-    if(!loopCoroutine.isNull()) {
-        QPointer<BaseCoroutine> current = BaseCoroutine::current();
+    QPointer<BaseCoroutine> current = BaseCoroutine::current();
+    if(!loopCoroutine.isNull() && loopCoroutine != current) {
         std::function<BaseCoroutine*(BaseCoroutine*)> here = [current] (BaseCoroutine *arg) -> BaseCoroutine *  {
             if(!current.isNull()) {
                 current->yield();
@@ -303,7 +303,8 @@ bool EventLoopCoroutinePrivateEv::runUntil(BaseCoroutine *coroutine)
         coroutine->finished.addCallback(here);
         loopCoroutine->yield();
     } else {
-        loopCoroutine = BaseCoroutine::current();
+        QPointer<BaseCoroutine> old = loopCoroutine;
+        loopCoroutine = current;
         std::function<BaseCoroutine*(BaseCoroutine*)> exitOneDepth = [this] (BaseCoroutine *arg) -> BaseCoroutine * {
             ev_break(loop, EVBREAK_ONE);
             if(!loopCoroutine.isNull()) {
@@ -313,7 +314,7 @@ bool EventLoopCoroutinePrivateEv::runUntil(BaseCoroutine *coroutine)
         };
         coroutine->finished.addCallback(exitOneDepth);
         ev_run(loop);
-        loopCoroutine.clear();
+        loopCoroutine = old;
     }
     return true;
 }

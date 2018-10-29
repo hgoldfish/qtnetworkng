@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
     qtng::HttpSession session;
     // session.setDebugLevel(2);
 
-    for(int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 100; ++i) {
         qtng::Coroutine *coroutine = new GetNeteaseCoroutine(&session);
         coroutine->setObjectName(QStringLiteral("get_netease_%1").arg(i + 1));
         operations.add(coroutine);

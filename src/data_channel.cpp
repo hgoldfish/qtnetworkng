@@ -232,7 +232,7 @@ DataChannelPrivate::DataChannelPrivate(DataChannelPole pole, DataChannel *parent
 
 DataChannelPrivate::~DataChannelPrivate()
 {
-//    for(int i = 0; i < receivingQueue.getting(); ++i) {
+//    for (int i = 0; i < receivingQueue.getting(); ++i) {
 //        receivingQueue.put(QByteArray());
 //    }
 }
@@ -257,11 +257,11 @@ QString DataChannelPrivate::toString()
 void DataChannelPrivate::close()
 {
     Q_ASSERT(broken); // must be called by other close method.
-    for(int i = 0; i < receivingQueue.getting(); ++i) {
+    for (int i = 0; i < receivingQueue.getting(); ++i) {
         receivingQueue.put(QByteArray());
     }
     goThrough.open();
-    for(QMapIterator<quint32, QWeakPointer<VirtualChannel>> itor(subChannels); itor.hasNext();) {
+    for (QMapIterator<quint32, QWeakPointer<VirtualChannel>> itor(subChannels); itor.hasNext();) {
         const QWeakPointer<VirtualChannel> &subChannel = itor.next().value();
         if(!subChannel.isNull()) {
             subChannel.data()->close();
@@ -607,7 +607,7 @@ void SocketChannelPrivate::cleanSendingPacket(quint32 subChannelNumber, std::fun
             reserved.append(writingPacket);
         }
     }
-    for(const WritingPacket &writingPacket: reserved) {
+    for (const WritingPacket &writingPacket: reserved) {
         sendingQueue.put(writingPacket);
     }
 }

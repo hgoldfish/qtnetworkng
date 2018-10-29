@@ -210,7 +210,7 @@ static QStringList knownHeaders = {
 };
 
 QString normalizeHeaderName(const QString &headerName) {
-    foreach(const QString &goodName, knownHeaders) {
+    for (const QString &goodName: knownHeaders) {
         if(headerName.compare(goodName, Qt::CaseInsensitive) == 0) {
             return goodName;
         }
@@ -220,7 +220,7 @@ QString normalizeHeaderName(const QString &headerName) {
 
 bool HeaderOperationMixin::hasHeader(const QString &headerName) const
 {
-    for(int i = 0; i < headers.size(); ++i) {
+    for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
         if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
             return true;
@@ -231,7 +231,7 @@ bool HeaderOperationMixin::hasHeader(const QString &headerName) const
 
 bool HeaderOperationMixin::removeHeader(const QString &headerName)
 {
-    for(int i = 0; i < headers.size(); ++i) {
+    for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
         if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
             headers.removeAt(i);
@@ -254,7 +254,7 @@ void HeaderOperationMixin::addHeader(const QString &name, const QByteArray &valu
 
 QByteArray HeaderOperationMixin::header(const QString &headerName, const QByteArray &defaultValue) const
 {
-    for(int i = 0; i < headers.size(); ++i) {
+    for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
         if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
             return header.value;
@@ -266,7 +266,7 @@ QByteArray HeaderOperationMixin::header(const QString &headerName, const QByteAr
 QByteArrayList HeaderOperationMixin::multiHeader(const QString &headerName) const
 {
     QByteArrayList l;
-    for(int i = 0; i < headers.size(); ++i) {
+    for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
         if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
             l.append(header.value);
@@ -278,7 +278,7 @@ QByteArrayList HeaderOperationMixin::multiHeader(const QString &headerName) cons
 void HeaderOperationMixin::setHeaders(const QMap<QString, QByteArray> headers)
 {
     this->headers.clear();
-    for(QMap<QString, QByteArray>::const_iterator itor = headers.constBegin(); itor != headers.constEnd(); ++itor) {
+    for (QMap<QString, QByteArray>::const_iterator itor = headers.constBegin(); itor != headers.constEnd(); ++itor) {
         this->headers.append(HttpHeader(normalizeHeaderName(itor.key()), itor.value()));
     }
 }

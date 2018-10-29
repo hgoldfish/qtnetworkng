@@ -333,7 +333,7 @@ bool ConditionPrivate::wait()
 
 void ConditionPrivate::notify(int value)
 {
-    for(int i = 0; i < value && !waiters.isEmpty(); ++i) {
+    for (int i = 0; i < value && !waiters.isEmpty(); ++i) {
         QSharedPointer<Lock> waiter = waiters.takeFirst();
         waiter->release();
     }

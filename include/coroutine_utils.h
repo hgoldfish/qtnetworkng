@@ -194,7 +194,7 @@ public:
     {
         CoroutineGroup operations;
         QSharedPointer<QList<T>> result(new QList<T>());
-        for(int i = 0; i < l.size(); ++i) {
+        for (int i = 0; i < l.size(); ++i) {
             result->append(T());
             S s = l[i];
             operations.spawn([func, s, result, i]{
@@ -208,7 +208,7 @@ public:
     template <typename S>
     static void each(std::function<void(S)> func, const QList<S> &l) {
         CoroutineGroup operations;
-        for(int i = 0; i < l.size(); ++i) {
+        for (int i = 0; i < l.size(); ++i) {
             S s = l[i];
             operations.add(Coroutine::spawn([func, s] {
                 func(s);
@@ -234,6 +234,7 @@ QSharedPointer<Coroutine> CoroutineGroup::spawnWithName(const QString &name, con
             if (replace) {
                 old->kill();
                 coroutines.removeOne(old);
+                old->join();
             } else {
                 return old;
             }
@@ -271,6 +272,7 @@ QSharedPointer<Coroutine> CoroutineGroup::spawnInThreadWithName(const QString &n
             if (replace) {
                 old->kill();
                 coroutines.removeOne(old);
+                old->join();
             } else {
                 return old;
             }

@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
     session.setMaxConnectionsPerServer(0);
 
     QList<int> l;
-    for(int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 100; ++i) {
         l.append(i);
     }
 

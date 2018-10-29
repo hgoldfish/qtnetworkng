@@ -62,7 +62,7 @@ void print_pow2(int i)
 void TestCoroutines::testJoinall()
 {
     CoroutineGroup operations;
-    for(int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 10; ++i) {
         operations.spawn([i] { print_pow2(i); });
     }
     operations.joinall();
@@ -77,11 +77,11 @@ int pow2(int i)
 void TestCoroutines::testMap()
 {
     QList<int> range10;
-    for(int i = 0; i < 10; ++i)
+    for (int i = 0; i < 10; ++i)
         range10.append(i);
 
     QList<int> result = CoroutineGroup::map<int,int>(pow2, range10);
-    for(int i =0; i < result.size(); ++i)
+    for (int i =0; i < result.size(); ++i)
         qDebug() << result[i];
 }
 
@@ -94,7 +94,7 @@ void output(int i)
 void TestCoroutines::testeach()
 {
     QList<int> range10;
-    for(int i = 0; i < 10; ++i)
+    for (int i = 0; i < 10; ++i)
         range10.append(i);
     CoroutineGroup::each<int>(output, range10);
 }

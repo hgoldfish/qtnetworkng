@@ -18,7 +18,7 @@ FormData::FormData()
     const int randomPartLength = 16;
 
     QByteArray randomPart;
-    for(int i=0; i<randomPartLength; ++i) {
+    for (int i=0; i<randomPartLength; ++i) {
        int index = qrand() % possibleCharacters.length();
        char nextChar = possibleCharacters.at(index);
        randomPart.append(nextChar);
@@ -51,7 +51,7 @@ QByteArray formatHeaderParam(const QString &name, const QString &value)
 QByteArray FormData::toByteArray() const
 {
     QByteArray body;
-    for(QMap<QString, QString>::const_iterator itor = query.constBegin(); itor != query.constEnd(); ++itor) {
+    for (QMap<QString, QString>::const_iterator itor = query.constBegin(); itor != query.constEnd(); ++itor) {
         body.append("--");
         body.append(boundary);
         body.append("\r\n");
@@ -61,7 +61,7 @@ QByteArray FormData::toByteArray() const
         body.append(itor.value().toUtf8());
         body.append("\r\n");
     }
-    for(QMap<QString, FormDataFile>::const_iterator itor = files.constBegin(); itor != files.constEnd(); ++itor) {
+    for (QMap<QString, FormDataFile>::const_iterator itor = files.constBegin(); itor != files.constEnd(); ++itor) {
         body.append("--");
         body.append(boundary);
         body.append("\r\n");
@@ -154,7 +154,7 @@ HttpRequest HttpRequest::fromForm(const QUrlQuery &data)
 HttpRequest HttpRequest::fromForm(const QMap<QString, QString> &query)
 {
     QUrlQuery data;
-    for(QMap<QString, QString>::const_iterator itor = query.constBegin(); itor != query.constEnd(); ++itor) {
+    for (QMap<QString, QString>::const_iterator itor = query.constBegin(); itor != query.constEnd(); ++itor) {
         data.addQueryItem(itor.key(), itor.value());
     }
     return fromForm(data);
@@ -217,7 +217,7 @@ struct HeaderSplitter
         QByteArray line;
         bool expectingLineBreak = false;
 
-        for(int i = 0; i < MaxLineLength; ++i) {
+        for (int i = 0; i < MaxLineLength; ++i) {
             if(buf.isEmpty()) {
                 buf = connection->recv(1024);
                 if(buf.isEmpty()) {
@@ -225,7 +225,7 @@ struct HeaderSplitter
                 }
             }
             int j = 0;
-            for(; j < buf.size() && j < MaxLineLength; ++j) {
+            for (; j < buf.size() && j < MaxLineLength; ++j) {
                 char c = buf.at(j);
                 if(c == '\n') {
                     if(!expectingLineBreak) {
@@ -253,7 +253,7 @@ QList<QByteArray> splitBytes(const QByteArray &bs, char sep, int maxSplit = -1)
 {
     QList<QByteArray> tokens;
     QByteArray token;
-    for(int i = 0; i < bs.size(); ++i) {
+    for (int i = 0; i < bs.size(); ++i) {
         char c = bs.at(i);
         if(c == sep && (maxSplit < 0 || tokens.size() < maxSplit)) {
             tokens.append(token);
@@ -376,7 +376,7 @@ void ConnectionPool::removeUnusedConnections()
             return;
         }
         QMap<QUrl, ConnectionPoolItem> newItems;
-        for(QMap<QUrl, ConnectionPoolItem>::const_iterator itor = items.constBegin(); itor != items.constEnd(); ++itor) {
+        for (QMap<QUrl, ConnectionPoolItem>::const_iterator itor = items.constBegin(); itor != items.constEnd(); ++itor) {
             if(itor.value().lastUsed.secsTo(now) < timeToLive) {
                 newItems.insert(itor.key(), itor.value());
             }
@@ -440,7 +440,7 @@ struct ChunkedBlockReader
         }
 
         bool ok = false;
-        for(int i = 0; i < buf.size() && i < MaxLineLength; ++i) {
+        for (int i = 0; i < buf.size() && i < MaxLineLength; ++i) {
             char c = buf.at(i);
             if(c == '\n') {
                 if(!expectingLineBreak) {
@@ -505,7 +505,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     }
     if(!request.query.isEmpty()) {
         QUrlQuery query(url);
-        for(QMap<QString, QString>::const_iterator itor = request.query.constBegin(); itor != request.query.constEnd(); ++itor) {
+        for (QMap<QString, QString>::const_iterator itor = request.query.constBegin(); itor != request.query.constEnd(); ++itor) {
             query.addQueryItem(itor.key(), itor.value());
         }
         url.setQuery(query);
@@ -542,7 +542,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     const QByteArray &commandLine = request.method.toUpper().toUtf8() + QByteArray(" ") +
             resourcePath + QByteArray(" ") + versionBytes + QByteArray("\r\n");
     lines.append(commandLine);
-    for(int i = 0;i < allHeaders.size(); ++i) {
+    for (int i = 0;i < allHeaders.size(); ++i) {
         const HttpHeader &header = allHeaders.at(i);
         lines.append(header.name.toUtf8() + QByteArray(": ") + header.value + QByteArray("\r\n"));
     }
@@ -586,7 +586,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     response.statusText = QString::fromLatin1(commands.at(2));
 
     const int MaxHeaders = 64;
-    for(int i = 0; i < MaxHeaders; ++i) {
+    for (int i = 0; i < MaxHeaders; ++i) {
         QByteArray line = splitter.nextLine();
         if(line.isEmpty()) {
             break;
@@ -603,7 +603,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         }
     }
     if(response.hasHeader(QStringLiteral("Set-Cookie"))) {
-        foreach(const QByteArray &value, response.multiHeader("Set-Cookie")) {
+        for (const QByteArray &value: response.multiHeader("Set-Cookie")) {
             const QList<QNetworkCookie> &cookies = QNetworkCookie::parseCookies(value);
             if(debugLevel > 0 && !cookies.isEmpty()) {
                 qDebug() << "receiving cookie:" << cookies[0].toRawForm();
@@ -709,7 +709,7 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
     if(!request.cookies.isEmpty() && !request.hasHeader(QStringLiteral("Cookies"))) {
         QByteArray result;
         bool first = true;
-        foreach (const QNetworkCookie &cookie, request.cookies) {
+        for (const QNetworkCookie &cookie: request.cookies) {
             if (!first)
                 result += "; ";
             first = false;
@@ -913,7 +913,7 @@ QNetworkCookie HttpSession::cookie(const QUrl &url, const QString &name)
     Q_D(HttpSession);
     const QNetworkCookieJar &jar = d->cookieJar;
     QList<QNetworkCookie> cookies = jar.cookiesForUrl(url);
-    for(int i = 0; i < cookies.size(); ++i) {
+    for (int i = 0; i < cookies.size(); ++i) {
         const QNetworkCookie &cookie = cookies.at(i);
         if(cookie.name() == name) {
             return cookie;

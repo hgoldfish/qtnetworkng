@@ -145,7 +145,7 @@ EventLoopCoroutinePrivateQt::EventLoopCoroutinePrivateQt(EventLoopCoroutine *q)
 
 EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
 {
-    for(QtWatcher *watcher: watchers) {
+    for (QtWatcher *watcher: watchers) {
         delete watcher;
     }
     delete helper;
@@ -247,7 +247,7 @@ void TriggerIoWatchersArgumentsFunctor::operator()()
 void EventLoopCoroutinePrivateQt::triggerIoWatchers(qintptr fd)
 {
     Q_Q(EventLoopCoroutine);
-    for(QMap<int, QtWatcher*>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
+    for (QMap<int, QtWatcher*>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
         IoWatcher *w = dynamic_cast<IoWatcher*>(itor.value());
         if(w && w->fd == fd) {
             w->notifier->setEnabled(false);
@@ -288,7 +288,7 @@ void EventLoopCoroutinePrivateQt::timerEvent(QTimerEvent *event)
 int EventLoopCoroutinePrivateQt::callLater(int msecs, Functor *callback)
 {
     TimerWatcher *w = new TimerWatcher(msecs, true, callback);
-    w->timerId = helper->startTimer(msecs, Qt::CoarseTimer);
+    w->timerId = helper->startTimer(msecs, Qt::PreciseTimer);
     watchers.insert(nextWatcherId, w);
     timers.insert(w->timerId, nextWatcherId);
     return nextWatcherId++;
@@ -326,8 +326,8 @@ int EventLoopCoroutinePrivateQt::exitCode()
 
 bool EventLoopCoroutinePrivateQt::runUntil(BaseCoroutine *coroutine)
 {
-    if(!loopCoroutine.isNull()) {
-        QPointer<BaseCoroutine> current = BaseCoroutine::current();
+    QPointer<BaseCoroutine> current = BaseCoroutine::current();
+    if(!loopCoroutine.isNull() && loopCoroutine != current ) {
         std::function<BaseCoroutine*(BaseCoroutine*)> return_here = [current] (BaseCoroutine *arg) -> BaseCoroutine * {
             if(!current.isNull()) {
                 current->yield();
@@ -337,7 +337,8 @@ bool EventLoopCoroutinePrivateQt::runUntil(BaseCoroutine *coroutine)
         coroutine->finished.addCallback(return_here);
         loopCoroutine->yield();
     } else {
-        loopCoroutine = BaseCoroutine::current();
+        QPointer<BaseCoroutine> old = loopCoroutine;
+        loopCoroutine = current;
         QSharedPointer<QEventLoop> sub(new QEventLoop());
         std::function<BaseCoroutine*(BaseCoroutine*)> shutdown = [this, sub] (BaseCoroutine *arg) -> BaseCoroutine * {
             sub->exit();
@@ -348,7 +349,7 @@ bool EventLoopCoroutinePrivateQt::runUntil(BaseCoroutine *coroutine)
         };
         coroutine->finished.addCallback(shutdown);
         sub->exec();
-        loopCoroutine.clear();
+        loopCoroutine = old;
     }
     return true;
 }

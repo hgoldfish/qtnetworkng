@@ -77,7 +77,7 @@ void Deferred<ARG>::run(const ARG &arg, bool ok)
     ran = true;
     ARG result = arg;
     bool _ok = ok;
-    for(const QPair<Callback, Callback> &item: stack) {
+    for (const QPair<Callback, Callback> &item: stack) {
         try {
             if(_ok) {
                 result = item.first(result);

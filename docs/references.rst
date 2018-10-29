@@ -78,7 +78,7 @@ Here comes an example showing two coroutines output message in turn.
         MyCoroutine(const QString &name)
             : name(name) {}
         void run() override {
-            for(int i = 0; i < 3; ++i) {
+            for (int i = 0; i < 3; ++i) {
                 qDebug() << name << i;
                 // switch to eventloop coroutine, will switch back in 100 ms.
                 msleep(100); 
@@ -405,11 +405,11 @@ Functions in ``CorotuineGroup``.
         {
             QCoreApplication app(argc, argv);
             QList<int> range10;
-            for(int i = 0; i < 10; ++i)
+            for (int i = 0; i < 10; ++i)
                 range10.append(i);
             
             QList<int> result = qtng::CoroutineGroup::map<int,int>(pow2, range10);
-            for(int i =0; i < 10; ++i)
+            for (int i =0; i < 10; ++i)
                 qDebug() << result[i];
             
             return 0;
@@ -434,7 +434,7 @@ Functions in ``CorotuineGroup``.
         {
             QCoreApplication app(argc, argv);
             QList<int> range10;
-            for(int i = 0; i < 10; ++i)
+            for (int i = 0; i < 10; ++i)
                 range10.append(i);
             CoroutineGroup::each<int>(output, range10);
             return 0;
@@ -666,7 +666,7 @@ A `semaphore` is a variable or abstract data type used to control access to a co
         QSharedPointer<Semaphore> semaphore(new Semaphore(5));
         
         CoroutineGroup operations;
-        for(int i = 0; i < 100; ++i) {
+        for (int i = 0; i < 100; ++i) {
             operations.spawn([semaphore]{
                 send_request(semaphore);
             });

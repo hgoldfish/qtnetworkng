@@ -82,7 +82,7 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::Netwo
     }
     bool done = true;
     state = Socket::UnconnectedState;
-    for(int i = 0; i < addresses.size(); ++i) {
+    for (int i = 0; i < addresses.size(); ++i) {
         QHostAddress addr = addresses.at(i);
         if(protocol == Socket::IPv4Protocol && addr.protocol() != QAbstractSocket::IPv4Protocol) {
             continue;

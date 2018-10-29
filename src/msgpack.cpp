@@ -390,7 +390,7 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
     } else if (FirstByte::FIXMAP <= p[0] && p[0] < FirstByte::FIXARRAY) {
         quint32 len = p[0] & 0xf;
         QVariantMap m;
-        for(quint32 i = 0; i < len; ++i) {
+        for (quint32 i = 0; i < len; ++i) {
             QString key;
             QVariant value;
             if (!unpackString(key)) {
@@ -831,7 +831,6 @@ bool MsgPackStreamPrivate::writeExtHeader(quint32 len, quint8 msgpackType)
     }
     return true;
 }
-
 
 
 MsgPackStream::MsgPackStream()
