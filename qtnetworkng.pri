@@ -81,7 +81,7 @@ qtng_crypto {
 
     LIBS += -lssl -lcrypto
 } else {
-    DEFINEDS += QTNG_NO_CRYPTO
+    DEFINES += QTNG_NO_CRYPTO
 }
 
 HEADERS += $$PRIVATE_HEADERS

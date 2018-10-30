@@ -66,12 +66,12 @@ public:
 };
 
 MsgPackStreamPrivate::MsgPackStreamPrivate()
-    :dev(nullptr), status(MsgPackStream::Ok), owndev(false), flushWrites(false), limit(std::numeric_limits<quint32>::max())
+    :dev(nullptr), status(MsgPackStream::Ok), limit(std::numeric_limits<quint32>::max()), owndev(false), flushWrites(false)
 {
 }
 
 MsgPackStreamPrivate::MsgPackStreamPrivate(QIODevice *d)
-    :dev(d), status(MsgPackStream::Ok), owndev(false), flushWrites(false), limit(std::numeric_limits<quint32>::max())
+    :dev(d), status(MsgPackStream::Ok), limit(std::numeric_limits<quint32>::max()), owndev(false), flushWrites(false)
 {
 }
 
@@ -91,7 +91,7 @@ MsgPackStreamPrivate::MsgPackStreamPrivate(QByteArray *a, QIODevice::OpenMode mo
 
 
 MsgPackStreamPrivate::MsgPackStreamPrivate(const QByteArray &a)
-    :status(MsgPackStream::Ok), owndev(true), flushWrites(false), limit(a.size())
+    :status(MsgPackStream::Ok), limit(a.size()), owndev(true), flushWrites(false)
 {
     QBuffer *buf = new QBuffer();
     buf->setData(a);

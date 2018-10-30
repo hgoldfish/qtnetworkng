@@ -250,7 +250,9 @@ void EventLoopCoroutinePrivateQt::triggerIoWatchers(qintptr fd)
     for (QMap<int, QtWatcher*>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
         IoWatcher *w = dynamic_cast<IoWatcher*>(itor.value());
         if(w && w->fd == fd) {
-            w->notifier->setEnabled(false);
+            if (!w->notifier.isNull()) {
+                w->notifier->setEnabled(false);
+            }
             callLater(0, new TriggerIoWatchersArgumentsFunctor(itor.key(), q));
         }
     }
