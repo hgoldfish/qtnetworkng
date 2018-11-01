@@ -26,7 +26,7 @@ public:
     ConnectionPool();
     virtual ~ConnectionPool();
     void recycle(const QUrl &url, QSharedPointer<SocketLike> connection);
-    QSharedPointer<SocketLike> connectionForUrl(const QUrl &url);
+    QSharedPointer<SocketLike> connectionForUrl(const QUrl &url, RequestError **error);
     void removeUnusedConnections();
     QSharedPointer<Socks5Proxy> socks5Proxy() const;
     QSharedPointer<HttpProxy> httpProxy() const;

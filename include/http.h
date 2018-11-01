@@ -60,6 +60,7 @@ enum HttpVersion
     Http2_0,
 };
 
+class HttpRequestPrivate;
 class HttpRequest: public HeaderOperationMixin
 {
 public:
@@ -78,17 +79,27 @@ public:
     HttpRequest();
     virtual ~HttpRequest();
     HttpRequest(const HttpRequest &other);
+    HttpRequest(HttpRequest &&other);
     HttpRequest &operator=(const HttpRequest &other);
 public:
-    QString method;
-    QUrl url;
-    QMap<QString, QString> query;
-    QList<QNetworkCookie> cookies;
-    QByteArray body;
-    int maxBodySize;
-    int maxRedirects;
-    Priority priority;
-    HttpVersion version;
+    QString method() const;
+    void setMethod(const QString &method);
+    QUrl url() const;
+    void setUrl(const QUrl &url);
+    QMap<QString, QString> query() const;
+    void setQuery(const QMap<QString, QString> &query);
+    QList<QNetworkCookie> cookies() const;
+    void setCookies(const QList<QNetworkCookie> &cookies);
+    QByteArray body() const;
+    void setBody(const QByteArray &body);
+    int maxBodySize() const;
+    void setMaxBodySize(int maxBodySize);
+    int maxRedirects() const;
+    void setMaxRedirects(int maxRedirects);
+    Priority priority() const;
+    void setPriority(Priority priority);
+    HttpVersion version() const;
+    void setVersion(HttpVersion version);
 public:
     void setFormData(FormData &formData, const QString &method = QStringLiteral("post"));
     static HttpRequest fromFormData(const FormData &formData);
@@ -97,26 +108,59 @@ public:
     static HttpRequest fromJson(const QJsonDocument &json);
     static HttpRequest fromJson(const QJsonArray &json) { return fromJson(QJsonDocument(json)); }
     static HttpRequest fromJson(const QJsonObject &json) { return fromJson(QJsonDocument(json)); }
+private:
+    QSharedDataPointer<HttpRequestPrivate> d;
+    friend class HttpSessionPrivate;
 };
 
 
+class RequestError
+{
+public:
+    virtual ~RequestError();
+    virtual QString what() const;
+};
+
+
+class HttpResponsePrivate;
 class HttpResponse: public HeaderOperationMixin
 {
 public:
+    HttpResponse();
+    virtual ~HttpResponse();
+    HttpResponse(const HttpResponse& other);
+    HttpResponse(HttpResponse &&other);
+    HttpResponse &operator=(const HttpResponse& other);
+public:
+    QUrl url() const;
+    void setUrl(const QUrl &url);
+    int statusCode() const;
+    void setStatusCode(int statusCode);
+    QString statusText() const;
+    void setStatusText(const QString &statusText);
+    QList<QNetworkCookie> cookies() const;
+    void setCookies(const QList<QNetworkCookie> &cookies);
+    HttpRequest request() const;
+    void setRequest(const HttpRequest &request);
+    QByteArray body();
+    void setBody(const QByteArray &body);
+    qint64 elapsed() const;
+    void setElapsed(qint64 elapsed);
+    QList<HttpResponse> history() const;
+    void setHistory(const QList<HttpResponse> &history);
+    HttpVersion version() const;
+    void setVersion(HttpVersion version);
     QString text();
     QJsonDocument json();
     QString html();
+    bool isOk() const;
 public:
-    QUrl url;
-    int statusCode;
-    QString statusText;
-    QList<QNetworkCookie> cookies;
-    HttpRequest request;
-    QByteArray body;
-    qint64 elapsed;
-    QList<HttpResponse> history;
-    HttpVersion version;
-    bool isOk() { return statusCode >= 200 && statusCode < 300; }
+    QSharedPointer<RequestError> error() const;
+    void setError(QSharedPointer<RequestError> error);
+    void setError(RequestError *error) { setError(QSharedPointer<RequestError>(error)); }
+private:
+    QSharedDataPointer<HttpResponsePrivate> d;
+    friend class HttpSessionPrivate;
 };
 
 
@@ -198,21 +242,16 @@ private:
 };
 
 
-class RequestException
-{
+class HTTPError: public RequestError {
 public:
-    virtual ~RequestException();
+    HTTPError(int statusCode): statusCode(statusCode) {}
     virtual QString what() const;
+public:
+    int statusCode;
 };
 
 
-class HTTPError: public RequestException {
-public:
-    virtual QString what() const;
-};
-
-
-class ConnectionError: public RequestException
+class ConnectionError: public RequestError
 {
 public:
     virtual QString what() const;
@@ -233,7 +272,7 @@ public:
 };
 
 
-class RequestTimeout: public RequestException
+class RequestTimeout: public RequestError
 {
 public:
     virtual QString what() const;
@@ -254,77 +293,77 @@ public:
 };
 
 
-class URLRequired: public RequestException
+class URLRequired: public RequestError
 {
 public:
     virtual QString what() const;
 };
 
 
-class TooManyRedirects: public RequestException
+class TooManyRedirects: public RequestError
 {
 public:
     virtual QString what() const;
 };
 
 
-class MissingSchema: public RequestException
+class MissingSchema: public RequestError
 {
 public:
     virtual QString what() const;
 };
 
 
-class InvalidScheme: public RequestException
+class InvalidScheme: public RequestError
 {
 public:
     virtual QString what() const;
 };
 
 
-class InvalidURL: public RequestException
+class InvalidURL: public RequestError
 {
 public:
     virtual QString what() const;
 };
 
 
-class InvalidHeader: public RequestException
+class InvalidHeader: public RequestError
 {
 public:
     virtual QString what() const;
 };
 
 
-class ChunkedEncodingError: public RequestException
+class ChunkedEncodingError: public RequestError
 {
 public:
     virtual QString what() const;
 };
 
 
-class ContentDecodingError: public RequestException
+class ContentDecodingError: public RequestError
 {
 public:
     virtual QString what() const;
 };
 
 
-class StreamConsumedError: public RequestException
+class StreamConsumedError: public RequestError
 {
 public:
     virtual QString what() const;
 };
 
 
-class RetryError: public RequestException
+class RetryError: public RequestError
 {
 public:
     virtual QString what() const;
 };
 
 
-class UnrewindableBodyError: public RequestException
+class UnrewindableBodyError: public RequestError
 {
 public:
     virtual QString what() const;

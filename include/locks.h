@@ -167,6 +167,7 @@ public:
     ~Queue();
     void setCapacity(int capacity);
     bool put(const T &e);
+    bool returns(const T &e);
     T get();
     bool isEmpty() const;
     bool isFull() const;
@@ -224,6 +225,20 @@ bool Queue<T>::put(const T &e)
         return false;
     }
     queue.enqueue(e);
+    notEmpty.set();
+    if(isFull()) {
+        notFull.clear();
+    }
+    return true;
+}
+
+template<typename T>
+bool Queue<T>::returns(const T &e)
+{
+    if(!notFull.wait()) {
+        return false;
+    }
+    queue.prepend(e);
     notEmpty.set();
     if(isFull()) {
         notFull.clear();
