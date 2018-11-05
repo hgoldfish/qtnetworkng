@@ -294,23 +294,21 @@ bool EventLoopCoroutinePrivateEv::runUntil(BaseCoroutine *coroutine)
 {
     QPointer<BaseCoroutine> current = BaseCoroutine::current();
     if(!loopCoroutine.isNull() && loopCoroutine != current) {
-        std::function<BaseCoroutine*(BaseCoroutine*)> here = [current] (BaseCoroutine *arg) -> BaseCoroutine *  {
+        Deferred<BaseCoroutine*>::Callback here = [current] (BaseCoroutine *arg) {
             if(!current.isNull()) {
                 current->yield();
             }
-            return arg;
         };
         coroutine->finished.addCallback(here);
         loopCoroutine->yield();
     } else {
         QPointer<BaseCoroutine> old = loopCoroutine;
         loopCoroutine = current;
-        std::function<BaseCoroutine*(BaseCoroutine*)> exitOneDepth = [this] (BaseCoroutine *arg) -> BaseCoroutine * {
+        Deferred<BaseCoroutine*>::Callback exitOneDepth = [this] (BaseCoroutine *arg) {
             ev_break(loop, EVBREAK_ONE);
             if(!loopCoroutine.isNull()) {
                 loopCoroutine->yield();
             }
-            return arg;
         };
         coroutine->finished.addCallback(exitOneDepth);
         ev_run(loop);

@@ -4,6 +4,7 @@
 #include <functional>
 #include <QtCore/qlist.h>
 #include <QtCore/qpair.h>
+#include "config.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -11,7 +12,7 @@ template<typename ARG>
 class Deferred
 {
 public:
-    typedef std::function<ARG(const ARG &)> Callback;
+    typedef std::function<void(const ARG &)> Callback;
     Deferred();
 public:
     void addCallbacks(Callback callback, Callback errback);
@@ -53,9 +54,7 @@ void Deferred<ARG>::addCallbacks(Callback callback, Callback errback)
 template<typename ARG>
 void Deferred<ARG>::addCallback(Callback callback)
 {
-    Callback errorback = [] (const ARG &arg) -> ARG {
-        return arg;
-    };
+    Callback errorback = [] (const ARG &) {};
     addCallbacks(callback, errorback);
 }
 
@@ -63,9 +62,7 @@ void Deferred<ARG>::addCallback(Callback callback)
 template<typename ARG>
 void Deferred<ARG>::addErrback(Callback errback)
 {
-    Callback callback = [] (const ARG &arg) -> ARG {
-        return arg;
-    };
+    Callback callback = [] (const ARG &) {};
     addCallbacks(callback, errback);
 }
 
@@ -75,18 +72,16 @@ void Deferred<ARG>::run(const ARG &arg, bool ok)
 {
     originalResult = qMakePair(arg, ok);
     ran = true;
-    ARG result = arg;
     bool _ok = ok;
     for (const QPair<Callback, Callback> &item: stack) {
         try {
             if(_ok) {
-                result = item.first(result);
+                item.first(arg);
             } else {
-                result = item.second(result);
+                item.second(arg);
             }
             _ok = true;
-        } catch (const ARG &e) {
-            result = e;
+        } catch (...) {
             _ok = false;
         }
     }

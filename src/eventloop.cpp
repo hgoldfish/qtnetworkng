@@ -276,9 +276,8 @@ private:
 CoroutinePrivate::CoroutinePrivate(Coroutine *q, QObject *obj, const char *slot)
     :q_ptr(q), obj(obj), slot(slot), callbackId(0)
 {
-    q->finished.addCallback([this] (BaseCoroutine *coroutine) -> BaseCoroutine * {
+    q->finished.addCallback([this] (BaseCoroutine *) {
         setFinishedEvent();
-        return coroutine;
     });
 }
 

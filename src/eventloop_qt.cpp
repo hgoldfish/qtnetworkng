@@ -330,11 +330,10 @@ bool EventLoopCoroutinePrivateQt::runUntil(BaseCoroutine *coroutine)
 {
     QPointer<BaseCoroutine> current = BaseCoroutine::current();
     if(!loopCoroutine.isNull() && loopCoroutine != current ) {
-        std::function<BaseCoroutine*(BaseCoroutine*)> return_here = [current] (BaseCoroutine *arg) -> BaseCoroutine * {
+        Deferred<BaseCoroutine*>::Callback return_here = [current] (BaseCoroutine *) {
             if(!current.isNull()) {
                 current->yield();
             }
-            return arg;
         };
         coroutine->finished.addCallback(return_here);
         loopCoroutine->yield();
@@ -342,12 +341,11 @@ bool EventLoopCoroutinePrivateQt::runUntil(BaseCoroutine *coroutine)
         QPointer<BaseCoroutine> old = loopCoroutine;
         loopCoroutine = current;
         QSharedPointer<QEventLoop> sub(new QEventLoop());
-        std::function<BaseCoroutine*(BaseCoroutine*)> shutdown = [this, sub] (BaseCoroutine *arg) -> BaseCoroutine * {
+        Deferred<BaseCoroutine*>::Callback shutdown = [this, sub] (BaseCoroutine *) {
             sub->exit();
             if(!loopCoroutine.isNull()) {
                 loopCoroutine->yield();
             }
-            return arg;
         };
         coroutine->finished.addCallback(shutdown);
         sub->exec();

@@ -21,13 +21,13 @@ Examples
 Here comes a simple example to get web pages.
 
     #include <QtCore/QCoreApplication>
-    #include "qtnetworkng/qtnetworkng.h"
+    #include "qtnetworkng.h"
     
     int main(int argc, char **argv)
     {
         QCoreApplication app(argc, argv);
         qtng::HttpSession session;
-        qtng::HttpResponse r = session.get("https://news.163.com");
+        qtng::HttpResponse r = session.get("http://example.com/");
         qDebug() << r.html();
         return 0;
     }
@@ -35,13 +35,13 @@ Here comes a simple example to get web pages.
 And another exmaple to make tcp connection.
 
     #include <QtCore/QCoreApplication>
-    #include "qtnetworkng/qtnetworkng.h"
+    #include "qtnetworkng.h"
     
     int main(int argc, char **argv)
     {
         QCoreApplication app(argc, argv);
         qtng::Socket conn;
-        conn.connect("news.163.com", 80);
+        conn.connect("example.com", 80);
         conn.sendall("GET / HTTP/1.0\r\n\r\n");
         qDebug() << conn.recv(1024 * 8);
         return 0;
@@ -69,7 +69,7 @@ A Qt GUI example to fetch web page.
     // main.cpp
     #include <QApplication>
     #include <QTextBrowser>
-    #include "qtnetworkng/qtnetworkng.h"
+    #include "qtnetworkng.h"
 
     using namespace qtng;
 
@@ -79,9 +79,9 @@ A Qt GUI example to fetch web page.
         HtmlWindow()
             :operations(new CoroutineGroup) {
             operations->spawn([this] {
-                qtng::Coroutine::sleep(1);
+                Coroutine::sleep(1);
                 HttpSession session;
-                HttpResponse response = session.get("http://qtng.org/");
+                HttpResponse response = session.get("http://example.org/");
                 if(response.isOk()) {
                     setHtml(response.html());
                 } else {
@@ -156,7 +156,7 @@ Building
 
 1. Clone QtNetworkNg from github as git subrepository.
 2. include `qtnetworkng/qtnetworkng.pri` in your `project.pro` file.
-3. include `qtnetworkng/qtnetworkng.h` in you cpp files.
+3. include `qtnetworkng.h` in you cpp files.
 
 How to Contribute
 -----------------

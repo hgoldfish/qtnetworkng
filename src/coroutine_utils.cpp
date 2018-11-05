@@ -46,12 +46,11 @@ bool CoroutineGroup::add(QSharedPointer<Coroutine> coroutine, const QString &nam
         coroutine->setObjectName(name);
     }
     QPointer<CoroutineGroup> self(this);
-    coroutine->finished.addCallback([self] (BaseCoroutine *coroutine) -> BaseCoroutine * {
+    coroutine->finished.addCallback([self] (BaseCoroutine *coroutine) {
         if (self.isNull()) {
             return coroutine;
         }
         self->deleteCoroutine(coroutine);
-        return coroutine;
     });
     coroutines.append(coroutine);
     return true;
