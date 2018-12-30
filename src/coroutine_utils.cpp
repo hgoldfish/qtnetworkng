@@ -25,6 +25,7 @@ void DeferCallThread::run()
     }
 }
 
+NewThreadCoroutine::~NewThreadCoroutine() {}
 
 CoroutineGroup::CoroutineGroup()
     :QObject()
@@ -48,7 +49,7 @@ bool CoroutineGroup::add(QSharedPointer<Coroutine> coroutine, const QString &nam
     QPointer<CoroutineGroup> self(this);
     coroutine->finished.addCallback([self] (BaseCoroutine *coroutine) {
         if (self.isNull()) {
-            return coroutine;
+            return;
         }
         self->deleteCoroutine(coroutine);
     });

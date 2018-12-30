@@ -3,6 +3,247 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+
+bool toMessage(HttpStatus status, QString *shortMessage, QString *longMessage)
+{
+    switch (status) {
+    case Continue:
+        *shortMessage = QStringLiteral("Continue");
+        if (longMessage) *longMessage = QStringLiteral("Request received, please continue");
+        return true;
+    case SwitchProtocol:
+        *shortMessage = QStringLiteral("Switching Protocols");
+        if (longMessage) *longMessage = QStringLiteral("Switching to new protocol; obey Upgrade header");
+        return true;
+    case Processing:
+        *shortMessage = QStringLiteral("Processing");
+        if (longMessage) *longMessage = QStringLiteral("Processing");
+        return true;
+    case OK:
+        *shortMessage = QStringLiteral("OK");
+        if (longMessage) *longMessage = QStringLiteral("Request fulfilled, document follows");
+        return true;
+    case Created:
+        *shortMessage = QStringLiteral("Created");
+        if (longMessage) *longMessage = QStringLiteral("Document created, URL follows");
+        return true;
+    case Accepted:
+        *shortMessage = QStringLiteral("Accepted");
+        if (longMessage) *longMessage = QStringLiteral("Request accepted, processing continues off-line");
+        return true;
+    case NonAuthoritative:
+        *shortMessage = QStringLiteral("Non-Authoritative Information");
+        if (longMessage) *longMessage = QStringLiteral("Request fulfilled from cache");
+        return true;
+    case NoContent:
+        *shortMessage = QStringLiteral("No Content");
+        if (longMessage) *longMessage = QStringLiteral("Request fulfilled, nothing follows");
+        return true;
+    case ResetContent:
+        *shortMessage = QStringLiteral("Reset Content");
+        *longMessage = QStringLiteral("Clear input form for further input");
+        return true;
+    case PartialContent:
+        *shortMessage = QStringLiteral("Partial Content");
+        *longMessage = QStringLiteral("Partial content follows");
+        return true;
+    case MultiStatus:
+        *shortMessage = QStringLiteral("Multi-Status");
+        if (longMessage) *longMessage = QStringLiteral("Multi-Status");
+        return true;
+    case AlreadyReported:
+        *shortMessage = QStringLiteral("Already Reported");
+        if (longMessage) *longMessage = QStringLiteral("Already Reported");
+        return true;
+    case IMUsed:
+        *shortMessage = QStringLiteral("IM Used");
+        if (longMessage) *longMessage = QStringLiteral("IM Used");
+        return true;
+    case MultipleChoices:
+        *shortMessage = QStringLiteral("Multiple Choices");
+        if (longMessage) *longMessage = QStringLiteral("Object has several resources -- see URI list");
+        return true;
+    case MovedPermanently:
+        *shortMessage = QStringLiteral("Moved Permanently");
+        if (longMessage) *longMessage = QStringLiteral("Object moved permanently -- see URI list");
+        return true;
+    case Found:
+        *shortMessage = QStringLiteral("Found");
+        if (longMessage) *longMessage = QStringLiteral("Object moved temporarily -- see URI list");
+        return true;
+    case SeeOther:
+        *shortMessage = QStringLiteral("See Other");
+        if (longMessage) *longMessage = QStringLiteral("Object moved -- see Method and URL list");
+        return true;
+    case NotModified:
+        *shortMessage = QStringLiteral("Not Modified");
+        if (longMessage) *longMessage = QStringLiteral("Document has not changed since given time");
+        return true;
+    case UseProxy:
+        *shortMessage = QStringLiteral("Use Proxy");
+        if (longMessage) *longMessage = QStringLiteral("You must use proxy specified in Location to access this resource");
+        return true;
+    case TemporaryRedirect:
+        *shortMessage = QStringLiteral("Temporary Redirect");
+        if (longMessage) *longMessage = QStringLiteral("Object moved temporarily -- see URI list");
+        return true;
+    case PermanentRedirect:
+        *shortMessage = QStringLiteral("Permanent Redirect");
+        if (longMessage) *longMessage = QStringLiteral("Object moved temporarily -- see URI list");
+        return true;
+    case BadRequest:
+        *shortMessage = QStringLiteral("Bad Request");
+        if (longMessage) *longMessage = QStringLiteral("Bad request syntax or unsupported method");
+        return true;
+    case Unauthorized:
+        *shortMessage = QStringLiteral("Unauthorized");
+        if (longMessage) *longMessage = QStringLiteral("No permission -- see authorization schemes");
+        return true;
+    case PaymentRequired:
+        *shortMessage = QStringLiteral("Payment Required");
+        if (longMessage) *longMessage = QStringLiteral("No payment -- see charging schemes");
+        return true;
+    case Forbidden:
+        *shortMessage = QStringLiteral("Forbidden");
+        if (longMessage) *longMessage = QStringLiteral("Request forbidden -- authorization will not help");
+        return true;
+    case NotFound:
+        *shortMessage = QStringLiteral("Not Found");
+        if (longMessage) *longMessage = QStringLiteral("Nothing matches the given URI");
+        return true;
+    case MethodNotAllowed:
+        *shortMessage = QStringLiteral("Method Not Allowed");
+        if (longMessage) *longMessage = QStringLiteral("Specified method is invalid for this resource");
+        return true;
+    case NotAcceptable:
+        *shortMessage = QStringLiteral("Not Acceptable");
+        if (longMessage) *longMessage = QStringLiteral("URI not available in preferred format");
+        return true;
+    case ProxyAuthenticationRequired:
+        *shortMessage = QStringLiteral("Proxy Authentication Required");
+        if (longMessage) *longMessage = QStringLiteral("You must authenticate with this proxy before proceeding");
+        return true;
+    case RequestTimeout:
+        *shortMessage = QStringLiteral("Request Timeout");
+        if (longMessage) *longMessage = QStringLiteral("Request timed out; try again later");
+        return true;
+    case Conflict:
+        *shortMessage = QStringLiteral("Conflict");
+        if (longMessage) *longMessage = QStringLiteral("Request conflict");
+        return true;
+    case Gone:
+        *shortMessage = QStringLiteral("Gone");
+        if (longMessage) *longMessage = QStringLiteral("URI no longer exists and has been permanently removed");
+        return true;
+    case LengthRequired:
+        *shortMessage = QStringLiteral("Length Required");
+        if (longMessage) *longMessage = QStringLiteral("Client must specify Content-Length");
+        return true;
+    case PreconditionFailed:
+        *shortMessage = QStringLiteral("Precondition Failed");
+        if (longMessage) *longMessage = QStringLiteral("Precondition in headers is false");
+        return true;
+    case RequestEntityTooLarge:
+        *shortMessage = QStringLiteral("Request Entity Too Large");
+        if (longMessage) *longMessage = QStringLiteral("Entity is too large");
+        return true;
+    case RequestURITooLong:
+        *shortMessage = QStringLiteral("Request-URI Too Long");
+        if (longMessage) *longMessage = QStringLiteral("URI is too long");
+        return true;
+    case UnsupportedMediaType:
+        *shortMessage = QStringLiteral("Unsupported Media Type");
+        if (longMessage) *longMessage = QStringLiteral("Entity body in unsupported format");
+        return true;
+    case RequestedRangeNotSatisfiable:
+        *shortMessage = QStringLiteral("Requested Range Not Satisfiable");
+        if (longMessage) *longMessage = QStringLiteral("Cannot satisfy request range");
+        return true;
+    case ExpectationFailed:
+        *shortMessage = QStringLiteral("Expectation Failed");
+        if (longMessage) *longMessage = QStringLiteral("Expect condition could not be satisfied");
+        return true;
+    case ImaTeaport:
+        *shortMessage = QStringLiteral("I'm A Teapot");
+        if (longMessage) *longMessage = QStringLiteral("Maybe be short and stout");
+        return true;
+    case UnprocessableEntity:
+        *shortMessage = QStringLiteral("Unprocessable Entity");
+        if (longMessage) *longMessage = QStringLiteral("Unprocessable Entity");
+        return true;
+    case Locked:
+        *shortMessage = QStringLiteral("Locked");
+        if (longMessage) *longMessage = QStringLiteral("Locked");
+        return true;
+    case FailedDependency:
+        *shortMessage = QStringLiteral("Failed Dependency");
+        if (longMessage) *longMessage = QStringLiteral("Failed Dependency");
+        return true;
+    case UpgradeRequired:
+        *shortMessage = QStringLiteral("Upgrade Required");
+        if (longMessage) *longMessage = QStringLiteral("Upgrade Required");
+        return true;
+    case PreconditionRequired:
+        *shortMessage = QStringLiteral("Precondition Required");
+        if (longMessage) *longMessage = QStringLiteral("The origin server requires the request to be conditional");
+        return true;
+    case TooManyRequests:
+        *shortMessage = QStringLiteral("Too Many Requests");
+        if (longMessage) *longMessage = QStringLiteral("The user has sent too many requests in a given amount of time (\"rate limiting\"");
+        return true;
+    case RequestHeaderFieldsTooLarge:
+        *shortMessage = QStringLiteral("Request Header Fields Too Large");
+        if (longMessage) *longMessage = QStringLiteral("The server is unwilling to process the request because its header fields are too large");
+        return true;
+    case InternalServerError:
+        *shortMessage = QStringLiteral("Internal Server Error");
+        if (longMessage) *longMessage = QStringLiteral("Server got itself in trouble");
+        return true;
+    case NotImplemented:
+        *shortMessage = QStringLiteral("Not Implemented");
+        if (longMessage) *longMessage = QStringLiteral("Server does not support this operation");
+        return true;
+    case BadGateway:
+        *shortMessage = QStringLiteral("Bad Gateway");
+        if (longMessage) *longMessage = QStringLiteral("Invalid responses from another server/proxy");
+        return true;
+    case ServiceUnavailable:
+        *shortMessage = QStringLiteral("Service Unavailable");
+        if (longMessage) *longMessage = QStringLiteral("The server cannot process the request due to a high load");
+        return true;
+    case GatewayTimeout:
+        *shortMessage = QStringLiteral("Gateway Timeout");
+        if (longMessage) *longMessage = QStringLiteral("The gateway server did not receive a timely response");
+        return true;
+    case HTTPVersionNotSupported:
+        *shortMessage = QStringLiteral("HTTP Version Not Supported");
+        if (longMessage) *longMessage = QStringLiteral("Cannot fulfill request");
+        return true;
+    case VariantAlsoNegotiates:
+        *shortMessage = QStringLiteral("Variant Also Negotiates");
+        if (longMessage) *longMessage = QStringLiteral("Variant Also Negotiates");
+        return true;
+    case InsufficientStorage:
+        *shortMessage = QStringLiteral("Insufficient Storage");
+        if (longMessage) *longMessage = QStringLiteral("Insufficient Storage");
+        return true;
+    case LoopDetected:
+        *shortMessage = QStringLiteral("Loop Detected");
+        if (longMessage) *longMessage = QStringLiteral("Loop Detected");
+        return true;
+    case NotExtended:
+        *shortMessage = QStringLiteral("Not Extended");
+        if (longMessage) *longMessage = QStringLiteral("Not Extended");
+        return true;
+    case NetworkAuthenticationRequired:
+        *shortMessage = QStringLiteral("Network Authentication Required");
+        if (longMessage) *longMessage = QStringLiteral("The client needs to authenticate to gain network access");
+        return true;
+    }
+    return false;
+}
+
+
 void HeaderOperationMixin::setContentLength(qint64 contentLength)
 {
     setHeader(QStringLiteral("Content-Length"), QString::number(contentLength).toLatin1());
@@ -263,6 +504,58 @@ QByteArray HeaderOperationMixin::header(const QString &headerName, const QByteAr
     return defaultValue;
 }
 
+
+QByteArray HeaderOperationMixin::header(KnownHeader knownHeader, const QByteArray &defaultValue) const
+{
+    switch (knownHeader) {
+    case ContentTypeHeader:
+        return header("Content-Type", defaultValue);
+    case ContentLengthHeader:
+        return header("Content-Length", defaultValue);
+    case ContentEncodingHeader:
+        return header("Content-Encoding", defaultValue);
+    case TransferEncodingHeader:
+        return header("Transfer-Encoding", defaultValue);
+    case LocationHeader:
+        return header("Location", defaultValue);
+    case LastModifiedHeader:
+        return header("Last-Modified", defaultValue);
+    case CookieHeader:
+        return header("Cookie", defaultValue);
+    case SetCookieHeader:
+        return header("Set-Cookie", defaultValue);
+    case ContentDispositionHeader:
+        return header("Content-Disposition", defaultValue);
+    case UserAgentHeader:
+        return header("User-Agent", defaultValue);
+    case AcceptHeader:
+        return header("Accept", defaultValue);
+    case AcceptLanguageHeader:
+        return header("Accept-Language", defaultValue);
+    case AcceptEncodingHeader:
+        return header("Accept-Encoding", defaultValue);
+    case PragmaHeader:
+        return header("Pragma", defaultValue);
+    case CacheControlHeader:
+        return header("Cache-Control");
+    case DateHeader:
+        return header("Date", defaultValue);
+    case AllowHeader:
+        return header("Allow", defaultValue);
+    case VaryHeader:
+        return header("Vary", defaultValue);
+    case FrameOptionsHeader:
+        return header("X-Frame-Options", defaultValue);
+    case MIMEVersionHeader:
+        return header("MIME-Version", defaultValue);
+    case ServerHeader:
+        return header("Server", defaultValue);
+    case ConnectionHeader:
+        return header("Connection", defaultValue);
+    }
+    return QByteArray();
+}
+
 QByteArrayList HeaderOperationMixin::multiHeader(const QString &headerName) const
 {
     QByteArrayList l;
@@ -281,6 +574,194 @@ void HeaderOperationMixin::setHeaders(const QMap<QString, QByteArray> headers)
     for (QMap<QString, QByteArray>::const_iterator itor = headers.constBegin(); itor != headers.constEnd(); ++itor) {
         this->headers.append(HttpHeader(normalizeHeaderName(itor.key()), itor.value()));
     }
+}
+
+QByteArray HeaderSplitter::nextLine(HeaderSplitter::Error *error)
+{
+    const int MaxLineLength = 1024 * 64;
+    QByteArray line;
+    bool expectingLineBreak = false;
+
+    for (int i = 0; i < MaxLineLength; ++i) {
+        if (buf.isEmpty()) {
+            buf = connection->recv(1024);
+            if (buf.isEmpty()) {
+                *error = HeaderSplitter::ConnectionError;
+                return QByteArray();
+            }
+        }
+        int j = 0;
+        for (; j < buf.size() && j < MaxLineLength; ++j) {
+            char c = buf.at(j);
+            if (c == '\n') {
+                if(!expectingLineBreak) {
+                    *error = HeaderSplitter::EncodingError;
+                    return QByteArray();
+                }
+                buf.remove(0, j + 1);
+                if (buf.size() > MaxLineLength) {
+                    *error = HeaderSplitter::LineTooLong;
+                    return QByteArray();
+                } else {
+                    *error = HeaderSplitter::NoError;
+                    return line;
+                }
+            } else if (c == '\r') {
+                if(expectingLineBreak) {
+                    *error = HeaderSplitter::EncodingError;
+                    return QByteArray();
+                }
+                expectingLineBreak = true;
+            } else {
+                if (expectingLineBreak) {
+                    *error = HeaderSplitter::EncodingError;
+                    return QByteArray();
+                }
+                line.append(c);
+            }
+        }
+        buf.remove(0, j + 1);
+    }
+    *error = HeaderSplitter::ExhausedMaxLine;
+    return QByteArray();
+}
+
+
+HttpHeader HeaderSplitter::nextHeader(Error *error)
+{
+    const QByteArray &line = nextLine(error);
+    if (*error != HeaderSplitter::NoError) {
+        return HttpHeader();
+    }
+    if (line.isEmpty()) {
+        *error = HeaderSplitter::NoError;
+        return HttpHeader();
+    }
+
+    QByteArrayList headerParts = splitBytes(line, ':', 1);
+    if(headerParts.size() != 2) {
+        *error = HeaderSplitter::EncodingError;
+        return HttpHeader();
+    }
+    QString headerName = QString::fromUtf8(headerParts[0]).trimmed();
+    QByteArray headerValue = headerParts[1].trimmed();
+    *error = HeaderSplitter::NoError;
+    return HttpHeader(headerName, headerValue);
+}
+
+
+QList<HttpHeader> HeaderSplitter::headers(int maxHeaders, Error *error)
+{
+    QList<HttpHeader> headers;
+    for (int i = 0; i < maxHeaders; ++i) {
+        const HttpHeader &header = nextHeader(error);
+        if (header.isValid()) {
+            headers.append(header);
+        } else {
+            if (*error != HeaderSplitter::NoError) {
+                return QList<HttpHeader>();
+            } else {
+                return headers;
+            }
+        }
+    }
+    *error = HeaderSplitter::ExhausedMaxLine;
+    return QList<HttpHeader>();
+}
+
+QList<QByteArray> splitBytes(const QByteArray &bs, char sep, int maxSplit)
+{
+    QList<QByteArray> tokens;
+    QByteArray token;
+    for (int i = 0; i < bs.size(); ++i) {
+        char c = bs.at(i);
+        if(c == sep && (maxSplit < 0 || tokens.size() < maxSplit)) {
+            tokens.append(token);
+            token.clear();
+        } else {
+            token.append(c);
+        }
+    }
+    if(!token.isEmpty()) {
+        tokens.append(token);
+    }
+    return tokens;
+}
+
+
+QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::Error *error)
+{
+    const int MaxLineLength = 6; // ffff\r\n
+    QByteArray numBytes;
+    bool expectingLineBreak = false;
+    if(buf.size() < MaxLineLength) {
+        buf.append(connection->recv(1024 * 8));
+        if(buf.size() < 3) { // 0\r\n
+            *error = ChunkedBlockReader::ChunkedEncodingError;
+            return QByteArray();
+        }
+    }
+
+    bool ok = false;
+    for (int i = 0; i < buf.size() && i < MaxLineLength; ++i) {
+        char c = buf.at(i);
+        if (expectingLineBreak) {
+            if (c == '\n') {
+                buf.remove(0, i + 1);
+                ok = true;
+                break;
+            } else {
+                *error = ChunkedBlockReader::ChunkedEncodingError;
+                return QByteArray();
+            }
+        } else {
+            if (c == '\n') {
+                *error = ChunkedBlockReader::ChunkedEncodingError;
+                return QByteArray();
+            } else if (c == '\r') {
+                expectingLineBreak = true;
+            } else {
+                numBytes.append(c);
+            }
+        }
+    }
+    if(!ok) {
+        *error = ChunkedBlockReader::ChunkedEncodingError;
+        return QByteArray();
+    }
+
+    qint32 bytesToRead = numBytes.toInt(&ok, 16);
+    if(!ok) {
+        if(debugLevel > 0) {
+            qDebug() << "got invalid chunked bytes:" << numBytes;
+        }
+        *error = ChunkedBlockReader::ChunkedEncodingError;
+        return QByteArray();
+    }
+
+    if(bytesToRead > leftBytes || bytesToRead < 0) {
+        *error = ChunkedBlockReader::UnrewindableBodyError;
+        return QByteArray();
+    }
+
+    while(buf.size() < bytesToRead + 2) {
+        const QByteArray t = connection->recv(1024 * 8);
+        if(t.isEmpty()) {
+            *error = ChunkedBlockReader::ConnectionError;
+            return QByteArray();
+        }
+        buf.append(t);
+    }
+
+    const QByteArray &result = buf.mid(0, bytesToRead);
+    buf.remove(0, bytesToRead + 2);
+
+    if(bytesToRead == 0 && !buf.isEmpty() && debugLevel > 0) {
+        qDebug() << "bytesToRead == 0 but some bytes left.";
+    }
+
+    *error = ChunkedBlockReader::NoError;
+    return result;
 }
 
 QTNETWORKNG_NAMESPACE_END

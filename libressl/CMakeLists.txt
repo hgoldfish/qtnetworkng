@@ -8,7 +8,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ${CMAKE_MODULE_PATH})
 include(cmake_export_symbol)
 include(GNUInstallDirs)
 
-project (LibreSSL C)
+# project (LibreSSL C)
 
 enable_testing()
 

@@ -146,12 +146,14 @@ inline void callInThread(const std::function<void ()> &func)
 }
 
 
-struct NewThreadCoroutine:public Coroutine
+class NewThreadCoroutine: public Coroutine
 {
+public:
     NewThreadCoroutine(const std::function<void ()> &func)
         :func(func) {}
+    virtual ~NewThreadCoroutine() override;
     std::function<void ()> func;
-    void run()
+    virtual void run() override
     {
         callInThread(func);
     }

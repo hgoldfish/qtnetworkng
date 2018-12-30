@@ -20,13 +20,12 @@ GetNeteaseCoroutine::GetNeteaseCoroutine(qtng::HttpSession *session)
 void GetNeteaseCoroutine::run()
 {
     qtng::Timeout out(5000);Q_UNUSED(out);
-    try{
-        qtng::HttpResponse response = session->get("https://news.163.com");
+    qtng::HttpResponse response = session->get("https://news.163.com");
+
+    if (response.isOk()) {
         qDebug() << response.html().size();
-    } catch(qtng::RequestException &e) {
-        qDebug() << "got exception: " << e.what();
-    } catch(...) {
-        qDebug() << "got unexpected exception.";
+    } else {
+        qDebug() << response.error()->what();
     }
 }
 

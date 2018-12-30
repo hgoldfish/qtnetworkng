@@ -37,15 +37,11 @@ void TestSsl::testGetBaidu()
 {
     HttpSession session;
     HttpRequest request;
-    request.url = QUrl("https://www.baidu.com/");
+    request.setUrl("https://www.baidu.com/");
     request.addHeader("Connection", "close");
-    try {
-        HttpResponse response = session.send(request);
-        QVERIFY(response.isOk());
-        QVERIFY(!response.html().isEmpty());
-    } catch (const RequestException &e) {
-        qDebug() << e.what();
-    }
+    HttpResponse response = session.send(request);
+    QVERIFY(response.isOk());
+    QVERIFY(!response.html().isEmpty());
 }
 
 //void TestSsl::testSocks5Proxy()
@@ -63,7 +59,7 @@ void TestSsl::testVersion10()
     session.setDefaultVersion(Http1_0);
     HttpResponse response = session.get("https://www.baidu.com/");
     QVERIFY(response.isOk());
-    QVERIFY(response.version == Http1_0);
+    QVERIFY(response.version() == Http1_0);
 }
 
 

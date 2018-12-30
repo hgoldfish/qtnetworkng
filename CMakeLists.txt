@@ -44,7 +44,9 @@ set(QTNETWORKNG_SRC
     src/locks.cpp
     src/coroutine_utils.cpp
     src/http.cpp
+    src/httpd.cpp
     src/socket_utils.cpp
+    src/socket_server.cpp
     src/http_utils.cpp
     src/http_proxy.cpp
     src/socks5_proxy.cpp
@@ -62,7 +64,9 @@ set(QTNETWORKNG_INCLUDE
     include/locks.h
     include/coroutine_utils.h
     include/http.h
+    include/httpd.h
     include/socket_utils.h
+    include/socket_server.h
     include/http_utils.h
     include/http_proxy.h
     include/socks5_proxy.h
@@ -272,4 +276,7 @@ IF(Qt5Test_FOUND AND QTNG_BUILD_TESTS)
 
     add_executable(test_msgpack tests/test_msgpack.cpp)
     target_link_libraries(test_msgpack PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
+
+    add_executable(simple_httpd tests/simple_httpd.cpp)
+    target_link_libraries(simple_httpd PRIVATE Qt5::Core Qt5::Network qtnetworkng)
 endif()

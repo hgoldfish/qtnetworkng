@@ -12,6 +12,7 @@
 #include "http_utils.h"
 #include "socks5_proxy.h"
 #include "msgpack.h"
+#include "httpd.h"
 
 #ifndef QTNG_NO_CRYPTO
 #include "ssl.h"

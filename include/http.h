@@ -52,13 +52,6 @@ public:
     QByteArray boundary;
 };
 
-enum HttpVersion
-{
-    Unknown,
-    Http1_0,
-    Http1_1,
-    Http2_0,
-};
 
 class HttpRequestPrivate;
 class HttpRequest: public HeaderOperationMixin
@@ -86,6 +79,7 @@ public:
     void setMethod(const QString &method);
     QUrl url() const;
     void setUrl(const QUrl &url);
+    void setUrl(const QString &url) {setUrl(QUrl::fromUserInput(url)); }
     QMap<QString, QString> query() const;
     void setQuery(const QMap<QString, QString> &query);
     QList<QNetworkCookie> cookies() const;
@@ -154,6 +148,8 @@ public:
     QJsonDocument json();
     QString html();
     bool isOk() const;
+    bool hasNetworkError() const;
+    bool hasHttpError() const;
 public:
     QSharedPointer<RequestError> error() const;
     void setError(QSharedPointer<RequestError> error);
@@ -320,6 +316,12 @@ public:
     virtual QString what() const;
 };
 
+
+class UnsupportedVersion: public RequestError
+{
+public:
+    virtual QString what() const;
+};
 
 class InvalidURL: public RequestError
 {
