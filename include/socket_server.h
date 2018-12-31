@@ -3,6 +3,9 @@
 
 #include "socket_utils.h"
 #include "coroutine_utils.h"
+#ifndef QTNG_NO_CRYPTO
+#include "ssl.h"
+#endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -28,12 +31,13 @@ protected:
     virtual bool serviceActions();
     virtual QSharedPointer<SocketLike> getRequest();
     virtual bool verifyRequest(QSharedPointer<SocketLike> request);
-    virtual void processRequest(QSharedPointer<SocketLike> request) = 0;
+    virtual void processRequest(QSharedPointer<SocketLike> request);
     virtual void handleError(QSharedPointer<SocketLike> request);
     virtual void shutdownRequest(QSharedPointer<SocketLike> request);
     virtual void closeRequest(QSharedPointer<SocketLike> request);
 protected:
     BaseStreamServerPrivate * const d_ptr;
+    BaseStreamServer(BaseStreamServerPrivate *d);
 private:
     Q_DECLARE_PRIVATE(BaseStreamServer)
 };
@@ -57,19 +61,41 @@ void TcpServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> reques
     handler.run();
 }
 
-class SslStreamServerPrivate;
-class SslStreamServer: public BaseStreamServer
+class BaseSslStreamServerPrivate;
+class BaseSslStreamServer: public BaseStreamServer
 {
 public:
-    SslStreamServer(const QHostAddress &serverAddess, quint16 serverPort);
+    BaseSslStreamServer(const QHostAddress &serverAddess, quint16 serverPort, const SslConfiguration &configuration);
+    BaseSslStreamServer(const QHostAddress &serverAddess, quint16 serverPort);
+public:
+    void setSslConfiguration(const SslConfiguration &configuration);
+    SslConfiguration sslConfiguratino() const;
 protected:
-    virtual bool serverActivate() override;
     virtual QSharedPointer<SocketLike> getRequest() override;
-    virtual bool verifyRequest(QSharedPointer<SocketLike> request) override;
 private:
-    Q_DECLARE_PRIVATE(SslStreamServer)
+    Q_DECLARE_PRIVATE(BaseSslStreamServer)
 };
 
+
+template<typename RequestHandler>
+class SslServer: public BaseSslStreamServer
+{
+public:
+    SslServer(const QHostAddress &serverAddress, quint16 serverPort)
+        :BaseSslStreamServer(serverAddress, serverPort) {}
+    SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
+        :BaseSslStreamServer(serverAddress, serverPort, configuration) {}
+protected:
+    virtual void processRequest(QSharedPointer<SocketLike> request);
+};
+
+
+template<typename RequestHandler>
+void SslServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
+{
+    RequestHandler handler(request, this);
+    handler.run();
+}
 
 class BaseRequestHandler
 {

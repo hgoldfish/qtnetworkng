@@ -458,4 +458,17 @@ QFileInfo SimpleHttpRequestHandler::translatePath(const QString &path)
 }
 
 
+void SimpleHttpServer::processRequest(QSharedPointer<SocketLike> request)
+{
+    SimpleHttpRequestHandler handler(request, this);
+    handler.run();
+}
+
+
+void SimpleHttpsServer::processRequest(QSharedPointer<SocketLike> request)
+{
+    SimpleHttpRequestHandler handler(request, this);
+    handler.run();
+}
+
 QTNETWORKNG_NAMESPACE_END

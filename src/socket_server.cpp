@@ -25,7 +25,14 @@ public:
 };
 
 BaseStreamServer::BaseStreamServer(const QHostAddress &serverAddress, quint16 serverPort)
-    :started(new Event), stopped(new Event), d_ptr(new BaseStreamServerPrivate(serverAddress, serverPort))
+    :started(new Event()), stopped(new Event()), d_ptr(new BaseStreamServerPrivate(serverAddress, serverPort))
+{
+    started->clear();
+    stopped->set();
+}
+
+BaseStreamServer::BaseStreamServer(BaseStreamServerPrivate *d)
+    :started(new Event()), stopped(new Event()), d_ptr(d)
 {
     started->clear();
     stopped->set();
@@ -141,6 +148,11 @@ bool BaseStreamServer::verifyRequest(QSharedPointer<SocketLike>)
     return true;
 }
 
+void BaseStreamServer::processRequest(QSharedPointer<SocketLike>)
+{
+
+}
+
 QSharedPointer<SocketLike> BaseStreamServer::getRequest()
 {
     Q_D(BaseStreamServer);
@@ -164,6 +176,58 @@ void BaseStreamServer::closeRequest(QSharedPointer<SocketLike> request)
 {
     request->close();
 }
+
+
+class BaseSslStreamServerPrivate: public BaseStreamServerPrivate
+{
+public:
+    BaseSslStreamServerPrivate(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
+        :BaseStreamServerPrivate(serverAddress, serverPort), configuration(configuration) {}
+public:
+    SslConfiguration configuration;
+};
+
+
+BaseSslStreamServer::BaseSslStreamServer(const QHostAddress &serverAddess, quint16 serverPort, const SslConfiguration &configuration)
+    :BaseStreamServer (new BaseSslStreamServerPrivate(serverAddess, serverPort, configuration))
+{
+}
+
+BaseSslStreamServer::BaseSslStreamServer(const QHostAddress &serverAddess, quint16 serverPort)
+    :BaseStreamServer (new BaseSslStreamServerPrivate(serverAddess, serverPort, SslConfiguration()))
+{
+    Q_D(BaseSslStreamServer);
+    d->configuration = SslConfiguration::testPurpose("SslServer", "US", "QtNetworkNg");
+}
+
+void BaseSslStreamServer::setSslConfiguration(const SslConfiguration &configuration)
+{
+    Q_D(BaseSslStreamServer);
+    d->configuration = configuration;
+}
+
+SslConfiguration BaseSslStreamServer::sslConfiguratino() const
+{
+    Q_D(const BaseSslStreamServer);
+    return d->configuration;
+}
+
+QSharedPointer<SocketLike> BaseSslStreamServer::getRequest()
+{
+    Q_D(BaseSslStreamServer);
+    Socket *request = d->serverSocket->accept();
+    if (request) {
+        SslSocket *sslSocket = new SslSocket(QSharedPointer<Socket>(request), d->configuration);
+        if (!sslSocket->handshake(true)) {
+            return nullptr;
+        }
+        return SocketLike::sslSocket(sslSocket);
+    } else {
+        return nullptr;
+    }
+}
+
+
 
 BaseRequestHandler::BaseRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server)
     :request(request), server(server)
