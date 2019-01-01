@@ -160,7 +160,7 @@ QSharedPointer<SocketLike> BaseStreamServer::getRequest()
     if (request) {
         return SocketLike::rawSocket(request);
     } else {
-        return nullptr;
+        return QSharedPointer<SocketLike>();
     }
 }
 
@@ -215,15 +215,17 @@ SslConfiguration BaseSslStreamServer::sslConfiguratino() const
 QSharedPointer<SocketLike> BaseSslStreamServer::getRequest()
 {
     Q_D(BaseSslStreamServer);
-    Socket *request = d->serverSocket->accept();
-    if (request) {
-        SslSocket *sslSocket = new SslSocket(QSharedPointer<Socket>(request), d->configuration);
-        if (!sslSocket->handshake(true)) {
-            return nullptr;
+    while(true) {
+        Socket *request = d->serverSocket->accept();
+        if (request) {
+            SslSocket *sslSocket = new SslSocket(QSharedPointer<Socket>(request), d->configuration);
+            if (!sslSocket->handshake(true)) {
+                continue;
+            }
+            return SocketLike::sslSocket(sslSocket);
+        } else {
+            return QSharedPointer<SocketLike>();
         }
-        return SocketLike::sslSocket(sslSocket);
-    } else {
-        return nullptr;
     }
 }
 
