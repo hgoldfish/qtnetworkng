@@ -65,21 +65,7 @@ void TestSsl::testVersion10()
 
 void TestSsl::testServer()
 {
-    PrivateKey key = PrivateKey::generate(PrivateKey::Rsa, 2048);
-    QVERIFY(!key.isNull());
-    QMultiMap<Certificate::SubjectInfo, QString> info;
-    info.insert(Certificate::CommonName, "Goldifsh");
-    info.insert(Certificate::CountryName, "CN");
-    info.insert(Certificate::Organization, "GigaCores");
-    const QDateTime &now = QDateTime::currentDateTime();
-    const Certificate &cert = Certificate::generate(key, MessageDigest::Sha256,
-                                                    293424, now, now.addYears(10), info);
-    QVERIFY(!cert.isNull());
-    QVERIFY(cert.isSelfSigned());
-
-    SslConfiguration config;
-    config.setPrivateKey(key);
-    config.setLocalCertificate(cert);
+    SslConfiguration config = SslConfiguration::testPurpose("Goldfish", "CN", "Example");
     SslSocket server(Socket::AnyIPProtocol, config);
     bool success = server.bind();
     QVERIFY(success);
@@ -102,7 +88,7 @@ void TestSsl::testServer()
         QSharedPointer<SslSocket> request = server.accept();
         QVERIFY(!request.isNull());
         QCOMPARE(request->localCertificate().digest(MessageDigest::Sha256),
-                 cert.digest(MessageDigest::Sha256));
+                 config.localCertificate().digest(MessageDigest::Sha256));
         QByteArray data = request->recv(1024);
         qDebug() << data << request->sslErrors() << request->errorString();
         QVERIFY(data == "fish is here.");

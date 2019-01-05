@@ -46,7 +46,7 @@ T callInEventLoop(std::function<T ()> func)
 }
 
 
-inline void callInEventLoop(std::function<void ()> func)
+inline void callInEventLoop(std::function<void ()> func, int msecs = 0)
 {
     Q_ASSERT(static_cast<BaseCoroutine*>(EventLoopCoroutine::get()) != BaseCoroutine::current());
 
@@ -57,7 +57,7 @@ inline void callInEventLoop(std::function<void ()> func)
         done->set();
     };
 
-    int callbackId = EventLoopCoroutine::get()->callLater(0, new LambdaFunctor(wrapper));
+    int callbackId = EventLoopCoroutine::get()->callLater(msecs, new LambdaFunctor(wrapper));
     try {
         done->wait();
         EventLoopCoroutine::get()->cancelCall(callbackId);
@@ -68,10 +68,10 @@ inline void callInEventLoop(std::function<void ()> func)
 }
 
 
-inline void callInEventLoopAsync(std::function<void ()> func)
+inline void callInEventLoopAsync(std::function<void ()> func, int msecs = 0)
 {
 //    Q_ASSERT(static_cast<QBaseCoroutine*>(EventLoopCoroutine::get()) != QBaseCoroutine::current());
-    EventLoopCoroutine::get()->callLater(0, new LambdaFunctor(func));
+    EventLoopCoroutine::get()->callLater(msecs, new LambdaFunctor(func));
 }
 
 
@@ -230,16 +230,12 @@ QSharedPointer<Coroutine> CoroutineGroup::spawnWithName(const QString &name, con
 {
     QSharedPointer<Coroutine> old = get(name);
     if (!old.isNull()) {
-        if (!old->isRunning()) {
+        if (replace) {
+            old->kill();
             coroutines.removeOne(old);
+            old->join();
         } else {
-            if (replace) {
-                old->kill();
-                coroutines.removeOne(old);
-                old->join();
-            } else {
-                return old;
-            }
+            return old;
         }
     }
     QSharedPointer<Coroutine> coroutine(Coroutine::spawn(func));
@@ -268,16 +264,12 @@ QSharedPointer<Coroutine> CoroutineGroup::spawnInThreadWithName(const QString &n
 {
     QSharedPointer<Coroutine> old = get(name);
     if (!old.isNull()) {
-        if (!old->isRunning()) {
+        if (replace) {
+            old->kill();
             coroutines.removeOne(old);
+            old->join();
         } else {
-            if (replace) {
-                old->kill();
-                coroutines.removeOne(old);
-                old->join();
-            } else {
-                return old;
-            }
+            return old;
         }
     }
     QSharedPointer<Coroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));

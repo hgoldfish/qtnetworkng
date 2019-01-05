@@ -21,6 +21,7 @@ public:
     int requestQueueSize() const;
     void setRequestQueueSize(int requestQueueSize);
     bool serveForever();
+    virtual bool isSecure() const;
 public:
     QSharedPointer<Event> started;
     QSharedPointer<Event> stopped;
@@ -65,11 +66,12 @@ class BaseSslStreamServerPrivate;
 class BaseSslStreamServer: public BaseStreamServer
 {
 public:
-    BaseSslStreamServer(const QHostAddress &serverAddess, quint16 serverPort, const SslConfiguration &configuration);
-    BaseSslStreamServer(const QHostAddress &serverAddess, quint16 serverPort);
+    BaseSslStreamServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
+    BaseSslStreamServer(const QHostAddress &serverAddress, quint16 serverPort);
 public:
     void setSslConfiguration(const SslConfiguration &configuration);
     SslConfiguration sslConfiguratino() const;
+    virtual bool isSecure() const override;
 protected:
     virtual QSharedPointer<SocketLike> getRequest() override;
 private:

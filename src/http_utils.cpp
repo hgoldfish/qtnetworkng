@@ -552,6 +552,8 @@ QByteArray HeaderOperationMixin::header(KnownHeader knownHeader, const QByteArra
         return header("Server", defaultValue);
     case ConnectionHeader:
         return header("Connection", defaultValue);
+    case UpgradeHeader:
+        return header("Upgrade", defaultValue);
     }
     return QByteArray();
 }
@@ -694,12 +696,12 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
     const int MaxLineLength = 6; // ffff\r\n
     QByteArray numBytes;
     bool expectingLineBreak = false;
-    if(buf.size() < MaxLineLength) {
-        buf.append(connection->recv(1024 * 8));
-        if(buf.size() < 3) { // 0\r\n
-            *error = ChunkedBlockReader::ChunkedEncodingError;
-            return QByteArray();
-        }
+    while(buf.size() < MaxLineLength && !buf.contains('\n')) {
+        buf.append(connection->recv(1024 * 8)); // most server send the header at one tcp block.
+    }
+    if(buf.size() < 3) { // 0\r\n
+        *error = ChunkedBlockReader::ChunkedEncodingError;
+        return QByteArray();
     }
 
     bool ok = false;

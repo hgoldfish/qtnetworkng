@@ -347,14 +347,17 @@ void CoroutinePrivate::kill(CoroutineException *e, int msecs)
     Q_Q(Coroutine);
     EventLoopCoroutine *c = EventLoopCoroutine::get();
     if(q->state() == Coroutine::Initialized) {
-        qDebug("coroutine is not started yet, will be starting now. would you check isAlive()?");
+        if (callbackId > 0) {
+            EventLoopCoroutine::get()->cancelCall(callbackId);
+            callbackId = 0;
+        }
+        q->setState(Coroutine::Stopped);
     } else if(q->state() == Coroutine::Stopped || q->state() == Coroutine::Joined) {
-        qWarning("coroutine was dead. do you check isAlive()?");
-        return;
+        qDebug("coroutine was dead. kill() do nothing.");
     } else if(q->state() == Coroutine::Started){
         c->callLater(msecs, new KillCoroutineFunctor(this, e));
     } else {
-        qFatal("invalid state while kiling coroutine.");
+        qWarning("invalid state while kiling coroutine.");
     }
 }
 

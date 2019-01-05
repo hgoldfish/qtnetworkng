@@ -3,9 +3,10 @@
 
 using namespace qtng;
 
-int main()
+int main(int argc, char **argv)
 {
-    SimpleHttpsServer httpd(QHostAddress(QHostAddress::Any), 8000);
+    QCoreApplication app(argc, argv);
+    SimpleHttpServer httpd(QHostAddress(QHostAddress::Any), 8000);
     httpd.serveForever();
     return 0;
 }

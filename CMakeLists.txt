@@ -50,7 +50,6 @@ set(QTNETWORKNG_SRC
     src/http_utils.cpp
     src/http_proxy.cpp
     src/socks5_proxy.cpp
-    src/eventloop_ev.cpp
     src/eventloop_qt.cpp
     src/msgpack.cpp
     src/data_channel.cpp
@@ -217,13 +216,20 @@ else()
     message(FATAL_ERROR ${CMAKE_SYSTEM_NAME} is not supported.)
 endif()
 
-# start intergrating libev
+if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+# intergrate libev
 add_definitions(-DQTNETWOKRNG_USE_EV)
 add_subdirectory(ev)
+set(QTNETWORKNG_EV_SRC src/eventloop_ev.cpp)
+set(QTNETWORKNG_EV_LIB ev)
+endif()
+
+# intergrate libressl
 set(LIBRESSL_APPS OFF)
 set(LIBRESSL_TESTS OFF)
 add_subdirectory(libressl)
-add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
+
+add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_EV_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
                                ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} ${OS_DEPENDENDED_SRC})
 target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -245,7 +251,7 @@ else()
     link_directories(${_qt5Core_install_prefix}/lib/)
 endif()
 
-target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE ev tls ssl crypto ${OS_EXTRA_LINK})
+target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE tls ssl crypto ${QTNETWORKNG_EV_LIB} ${OS_EXTRA_LINK})
 
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)

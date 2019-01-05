@@ -49,7 +49,12 @@ class HttpHeaders: public HeaderOperationMixin {};
 
 bool BaseHttpRequestHandler::parseRequest()
 {
-    HeaderSplitter headerSplitter(request);
+    bool done;
+    const QByteArray &buf = tryToHandleMagicCode(&done);
+    if (done) {
+        return true;
+    }
+    HeaderSplitter headerSplitter(request, buf);
     HeaderSplitter::Error headerSpliiterError;
     QByteArray firstLine = headerSplitter.nextLine(&headerSpliiterError);
     if (firstLine.isEmpty() || headerSpliiterError != HeaderSplitter::NoError) {
@@ -113,9 +118,15 @@ bool BaseHttpRequestHandler::parseRequest()
     } else if (connectionType.toLower() == "keep-alive" && version == Http1_1 && serverVersion == Http1_1) {
         closeConnection = false;
     }
+    body = headerSplitter.buf;
     return true;
 }
 
+QByteArray BaseHttpRequestHandler::tryToHandleMagicCode(bool *done)
+{
+    *done = false;
+    return QByteArray();
+}
 
 void BaseHttpRequestHandler::doMethod()
 {
@@ -277,10 +288,10 @@ void BaseHttpRequestHandler::sendHeader(const QByteArray &name, const QByteArray
 {
     const QByteArray &line = name.trimmed() + ": " + value.trimmed() + "\r\n";
     headerCache.append(line);
-    if (name.trimmed().compare("connection", Qt::CaseInsensitive)) {
-        if (value.trimmed().compare("close", Qt::CaseInsensitive)) {
-            closeConnection = true;
-        } else if (value.trimmed().compare("keep-alive", Qt::CaseInsensitive)) {
+    if (name.trimmed().toLower() == "connection") {
+        if (value.trimmed().toLower() == "close") {
+
+        } else if (value.trimmed().toLower() == "keep-alive") {
             closeConnection = false;
         }
     }
@@ -290,6 +301,7 @@ bool BaseHttpRequestHandler::endHeader()
 {
     headerCache.append("\r\n");
     const QByteArray &data = headerCache.join();
+    headerCache.clear();
     return request->sendall(data);
 }
 
@@ -456,7 +468,6 @@ QFileInfo SimpleHttpRequestHandler::translatePath(const QString &path)
     QString normalPath = l.join("/");
     return QFileInfo(QDir::current(), normalPath);
 }
-
 
 void SimpleHttpServer::processRequest(QSharedPointer<SocketLike> request)
 {

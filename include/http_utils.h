@@ -124,6 +124,7 @@ public:
         FrameOptionsHeader,
         MIMEVersionHeader,
         ConnectionHeader,
+        UpgradeHeader,
     };
 
     void setContentType(const QString &contentType);
@@ -167,6 +168,8 @@ public:
         LineTooLong,
     };
 public:
+    HeaderSplitter(QSharedPointer<SocketLike> connection, const QByteArray &buf)
+        :connection(connection), buf(buf) {}
     HeaderSplitter(QSharedPointer<SocketLike> connection)
         :connection(connection) {}
     QByteArray nextLine(Error *error);

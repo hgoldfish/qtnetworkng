@@ -216,7 +216,7 @@ static inline void qt_socket_getPortAndAddress(SOCKET socketDescriptor, const qt
         if (port)
             WSANtohs(socketDescriptor, sa4->sin_port, port);
     } else {
-        qFatal("qt_socket_getPortAndAddress can only handle AF_INET6 and AF_INET");
+        qWarning("qt_socket_getPortAndAddress can only handle AF_INET6 and AF_INET");
     }
 }
 
@@ -730,7 +730,9 @@ bool SocketPrivate::fetchConnectionParameters()
     memset(&sa, 0, sizeof(sa));
     if (::getsockname(static_cast<SOCKET>(fd), &sa.a, &sockAddrSize) == 0) {
         qt_socket_getPortAndAddress(static_cast<SOCKET>(fd), &sa, &localPort, &localAddress);
-        qDebug() << localPort << localAddress;
+#if defined (SOCKET_DEBUG)
+        qDebug() << "fetch connection parameters" << "localPort=" << localPort << "localAddress=" << localAddress;
+#endif
         // Determine protocol family
         switch (sa.a.sa_family) {
         case AF_INET:
@@ -864,7 +866,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
     }
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     qint32 ret = 0;
-    qint32 bytesToSend = size;
+    qint32 bytesToSend = qMin<qint32>(49152, size);
     while(bytesToSend > 0) {
         if(!isValid()) {
             setError(Socket::SocketAccessError, AccessErrorString);
@@ -879,6 +881,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 
         int socketRet = ::WSASend(static_cast<SOCKET>(fd), &buf, 1, &bytesWritten, flags, nullptr, nullptr);
         ret += bytesWritten;
+        bytesToSend = qMin<qint32>(49152, size - ret);
 
         if (socketRet != SOCKET_ERROR) {
             if (ret == size || !all) {
@@ -887,7 +890,6 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
                 qWarning("sent too much data. there must be something went wrong.");
                 return size;
             } else {
-                bytesToSend = qMin<qint32>(49152, size - ret);
                 continue;
             }
         } else {
@@ -953,7 +955,6 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
                 return -1;
             }
         }
-        bytesToSend = qMin<qint32>(49152, size - ret);
         watcher.start();
     }
     return ret;

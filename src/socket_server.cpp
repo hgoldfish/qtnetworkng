@@ -115,14 +115,15 @@ bool BaseStreamServer::serveForever()
         if (verifyRequest(request)) {
             d->operations->spawn([this, request] {
                 try {
-                    processRequest(request);
+                    processRequest(request); // close request.
                 } catch (CoroutineExitException &) {
-                    // pass
+                    shutdownRequest(request);
+                    closeRequest(request);
                 } catch (...) {
                     handleError(request);
+                    shutdownRequest(request);
+                    closeRequest(request);
                 }
-                shutdownRequest(request);
-                closeRequest(request);
             });
         } else {
             shutdownRequest(request);
@@ -136,6 +137,11 @@ bool BaseStreamServer::serveForever()
     started->clear();
     stopped->set();
     return true;
+}
+
+bool BaseStreamServer::isSecure() const
+{
+    return false;
 }
 
 bool BaseStreamServer::serviceActions()
@@ -188,16 +194,16 @@ public:
 };
 
 
-BaseSslStreamServer::BaseSslStreamServer(const QHostAddress &serverAddess, quint16 serverPort, const SslConfiguration &configuration)
-    :BaseStreamServer (new BaseSslStreamServerPrivate(serverAddess, serverPort, configuration))
+BaseSslStreamServer::BaseSslStreamServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
+    :BaseStreamServer (new BaseSslStreamServerPrivate(serverAddress, serverPort, configuration))
 {
 }
 
-BaseSslStreamServer::BaseSslStreamServer(const QHostAddress &serverAddess, quint16 serverPort)
-    :BaseStreamServer (new BaseSslStreamServerPrivate(serverAddess, serverPort, SslConfiguration()))
+BaseSslStreamServer::BaseSslStreamServer(const QHostAddress &serverAddress, quint16 serverPort)
+    :BaseStreamServer (new BaseSslStreamServerPrivate(serverAddress, serverPort, SslConfiguration()))
 {
     Q_D(BaseSslStreamServer);
-    d->configuration = SslConfiguration::testPurpose("SslServer", "US", "QtNetworkNg");
+    d->configuration = SslConfiguration::testPurpose("SslServer", "CN", "QtNetworkNg");
 }
 
 void BaseSslStreamServer::setSslConfiguration(const SslConfiguration &configuration)
@@ -229,7 +235,10 @@ QSharedPointer<SocketLike> BaseSslStreamServer::getRequest()
     }
 }
 
-
+bool BaseSslStreamServer::isSecure() const
+{
+    return true;
+}
 
 BaseRequestHandler::BaseRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server)
     :request(request), server(server)
@@ -266,7 +275,7 @@ void BaseRequestHandler::handle()
 
 void BaseRequestHandler::finish()
 {
-
+    request->close();
 }
 
 QTNETWORKNG_NAMESPACE_END

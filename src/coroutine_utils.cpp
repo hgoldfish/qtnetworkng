@@ -75,9 +75,7 @@ bool CoroutineGroup::kill(const QString &name, bool join)
         if(found.data() == Coroutine::current()) {
 //            qWarning("killing current coroutine?");
         } else {
-            if(found->isRunning()) {
-                found->kill();
-            }
+            found->kill();
             if(join) {
                 found->join();
                 coroutines.removeOne(found);
@@ -97,10 +95,8 @@ bool CoroutineGroup::killall(bool join)
 //            qWarning() << "will not kill current coroutine while killall() is called:" << BaseCoroutine::current();
             continue;
         }
-        if(coroutine->isRunning()) {
-            coroutine->kill();
-            done = true;
-        }
+        coroutine->kill();
+        done = true;
     }
 
     if(join) {

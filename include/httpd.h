@@ -3,13 +3,12 @@
 #include <QFile>
 #include <QDir>
 #include <QFileInfo>
-#include "config.h"
 #include "socket_server.h"
 #include "http_utils.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-class BaseHttpRequestHandler: public BaseRequestHandler, HeaderOperationMixin
+class BaseHttpRequestHandler: public BaseRequestHandler, public HeaderOperationMixin
 {
 public:
     BaseHttpRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server);
@@ -18,7 +17,8 @@ protected:
     virtual void handleOneRequest();
     virtual bool parseRequest();
     virtual void doMethod();
-    virtual bool sendError(HttpStatus status, const QString &longMessage);
+    virtual QByteArray tryToHandleMagicCode(bool *done);
+    virtual bool sendError(HttpStatus status, const QString &longMessage = QString());
     virtual bool sendResponse(HttpStatus status);
     virtual QString errorMessage(HttpStatus status, const QString &shortMessage, const QString &longMessage);
     virtual QString errorMessageContentType();
@@ -44,6 +44,7 @@ private:
 protected:
     QString method;
     QString path;
+    QByteArray body;
     HttpVersion version;
     HttpVersion serverVersion;
     bool closeConnection;

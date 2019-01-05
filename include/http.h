@@ -94,6 +94,8 @@ public:
     void setPriority(Priority priority);
     HttpVersion version() const;
     void setVersion(HttpVersion version);
+    void setStreamResponse(bool streamResponse);
+    bool streamResponse() const;
 public:
     void setFormData(FormData &formData, const QString &method = QStringLiteral("post"));
     static HttpRequest fromFormData(const FormData &formData);
@@ -136,17 +138,20 @@ public:
     void setCookies(const QList<QNetworkCookie> &cookies);
     HttpRequest request() const;
     void setRequest(const HttpRequest &request);
-    QByteArray body();
-    void setBody(const QByteArray &body);
     qint64 elapsed() const;
     void setElapsed(qint64 elapsed);
     QList<HttpResponse> history() const;
     void setHistory(const QList<HttpResponse> &history);
     HttpVersion version() const;
     void setVersion(HttpVersion version);
+
+    QSharedPointer<SocketLike> takeStream(QByteArray *readBytes);
+    QByteArray body();
+    void setBody(const QByteArray &body);
     QString text();
     QJsonDocument json();
     QString html();
+
     bool isOk() const;
     bool hasNetworkError() const;
     bool hasHttpError() const;

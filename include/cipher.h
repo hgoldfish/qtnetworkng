@@ -55,7 +55,6 @@ public:
                             const QByteArray &salt = QByteArray(), int i = 1); // same as openssl command line.
     QByteArray salt() const;
     QByteArray saltHeader() const; // `openssl enc` generate a header contains salt
-    QPair<QByteArray, QByteArray> parseSalt(const QByteArray &header); // parse salt from `openssl enc` header
     bool setPadding(bool padding);
     int keySize() const;
     int ivSize() const;
@@ -66,6 +65,8 @@ public:
 public:
     QByteArray update(const QByteArray &data) { return addData(data); }
     QByteArray final() { return finalData(); }
+public:
+    static QPair<QByteArray, QByteArray> parseSalt(const QByteArray &header); // parse salt from `openssl enc` header
 private:
     CipherPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Cipher)

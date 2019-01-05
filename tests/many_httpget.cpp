@@ -1,8 +1,9 @@
 #include <QTimer>
 #include <QTime>
+#include <QCoreApplication>
 #include "qtnetworkng.h"
 
-int main(int argc, char *argv[])
+int main(int argc, char **argv)
 {
     qtng::CoroutineGroup operations;
     qtng::HttpSession session;

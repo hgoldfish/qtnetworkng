@@ -153,8 +153,16 @@ EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
 
 void EventLoopCoroutinePrivateQt::run()
 {
-    QEventLoop localLoop;
-    int result = localLoop.exec();
+    int result;
+    if (QCoreApplication::instance()) {
+        QEventLoop localLoop;
+        result = localLoop.exec();
+    } else {
+        int argc = 0;
+        char ** argv = static_cast<char **>(static_cast<void *>(nullptr));
+        QCoreApplication app(argc, argv);
+        result = app.exec();
+    }
     this->qtExitCode = result;
 }
 
@@ -228,7 +236,9 @@ struct TriggerIoWatchersArgumentsFunctor: public Functor
     int watcherId;
     virtual void operator() () override;
 };
+
 TriggerIoWatchersArgumentsFunctor::~TriggerIoWatchersArgumentsFunctor() {}
+
 void TriggerIoWatchersArgumentsFunctor::operator()()
 {
     if(eventloop.isNull()) {
@@ -241,7 +251,6 @@ void TriggerIoWatchersArgumentsFunctor::operator()()
         (*w->callback)();
     }
 }
-
 
 
 void EventLoopCoroutinePrivateQt::triggerIoWatchers(qintptr fd)

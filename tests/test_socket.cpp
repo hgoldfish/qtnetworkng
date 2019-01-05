@@ -1,4 +1,5 @@
 #include <QtCore/qdebug.h>
+#include <QtCore/qcoreapplication.h>
 #include "../qtnetworkng.h"
 
 using namespace qtng;

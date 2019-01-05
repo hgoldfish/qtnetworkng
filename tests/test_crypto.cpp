@@ -231,7 +231,7 @@ void TestCrypto::testCertificate()
     PrivateKey pkey = PrivateKey::generate(PrivateKey::Rsa, 2048);
     const QDateTime &now = QDateTime::currentDateTime();
     QMultiMap<Certificate::SubjectInfo, QString> subjectInfoes = {
-        { Certificate::Organization, QStringLiteral("Gigacores") },
+        { Certificate::Organization, QStringLiteral("Example") },
         { Certificate::CommonName, QStringLiteral("Goldfish") },
         { Certificate::CountryName, QStringLiteral("CN") },
     };
@@ -239,7 +239,7 @@ void TestCrypto::testCertificate()
     QVERIFY(!cert.isNull());
     QVERIFY(qAbs(cert.effectiveDate().msecsTo(now)) < 1000);
     QVERIFY(qAbs(cert.expiryDate().msecsTo(now.addYears(10))) < 1000);
-    QCOMPARE(first(cert.issuerInfo(Certificate::Organization)), QStringLiteral("Gigacores"));
+    QCOMPARE(first(cert.issuerInfo(Certificate::Organization)), QStringLiteral("Example"));
     QCOMPARE(first(cert.issuerInfo(Certificate::CommonName)), QStringLiteral("Goldfish"));
     QCOMPARE(first(cert.issuerInfo(Certificate::CountryName)), QStringLiteral("CN"));
     QVERIFY(cert.isSelfSigned());

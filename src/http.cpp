@@ -97,19 +97,34 @@ public:
     int maxRedirects;
     HttpRequest::Priority priority;
     HttpVersion version;
+    bool streamResponse;
 };
 
 
 HttpRequestPrivate::HttpRequestPrivate()
-    :method("GET"), maxBodySize(1024 * 1024 * 8), maxRedirects(8), priority(HttpRequest::NormalPriority), version(Unknown)
+    :method("GET")
+    , maxBodySize(1024 * 1024 * 8)
+    , maxRedirects(8)
+    , priority(HttpRequest::NormalPriority)
+    , version(Http1_1)
+    , streamResponse(false)
 {}
 
 
 HttpRequestPrivate::~HttpRequestPrivate() {}
 
 HttpRequestPrivate::HttpRequestPrivate(const HttpRequestPrivate &other)
-    :QSharedData(other), method(other.method), url(other.url), query(other.query), cookies(other.cookies), body(other.body),
-      maxBodySize(other.maxBodySize), maxRedirects(other.maxRedirects), priority(other.priority), version(other.version)
+    :QSharedData(other)
+    , method(other.method)
+    , url(other.url)
+    , query(other.query)
+    , cookies(other.cookies)
+    , body(other.body)
+    , maxBodySize(other.maxBodySize)
+    , maxRedirects(other.maxRedirects)
+    , priority(other.priority)
+    , version(other.version)
+    , streamResponse(other.streamResponse)
 {
 }
 
@@ -235,6 +250,16 @@ void HttpRequest::setVersion(HttpVersion version)
     d->version = version;
 }
 
+void HttpRequest::setStreamResponse(bool streamResponse)
+{
+    d->streamResponse = streamResponse;
+}
+
+bool HttpRequest::streamResponse() const
+{
+    return d->streamResponse;
+}
+
 void HttpRequest::setFormData(FormData &formData, const QString &method)
 {
     d->method = method;
@@ -294,7 +319,6 @@ public:
     ~HttpResponsePrivate();
     HttpResponsePrivate(const HttpResponsePrivate &other);
 public:
-    int statusCode;
     QUrl url;
     QString statusText;
     QList<QNetworkCookie> cookies;
@@ -303,21 +327,32 @@ public:
     qint64 elapsed;
     QList<HttpResponse> history;
     QSharedPointer<RequestError> error;
+    QSharedPointer<SocketLike> stream;
+    int statusCode;
     HttpVersion version;
+    bool consumed;
 };
 
 
 HttpResponsePrivate::HttpResponsePrivate()
-    : elapsed(0), version(Http1_1)
+    : elapsed(0), version(Http1_1), consumed(false)
 {}
 
 HttpResponsePrivate::~HttpResponsePrivate() {}
 
 HttpResponsePrivate::HttpResponsePrivate(const HttpResponsePrivate &other)
-    : QSharedData(other), statusCode(other.statusCode), url(other.url), statusText(other.statusText), cookies(other.cookies),
-      request(other.request), body(other.body), elapsed(other.elapsed), history(other.history), version(other.version)
+    : QSharedData(other)
+    , url(other.url)
+    , statusText(other.statusText)
+    , cookies(other.cookies)
+    , request(other.request)
+    , body(other.body)
+    , elapsed(other.elapsed)
+    , history(other.history)
+    , statusCode(other.statusCode)
+    , version(other.version)
+    , consumed(other.consumed)
 {}
-
 
 HttpResponse::HttpResponse()
     :d(new HttpResponsePrivate())
@@ -345,6 +380,7 @@ HttpResponse::HttpResponse(HttpResponse &&other)
 HttpResponse &HttpResponse::operator=(const HttpResponse& other)
 {
     d = other.d;
+    headers = other.headers;
     return *this;
 }
 
@@ -381,7 +417,7 @@ QString HttpResponse::statusText() const
 
 void HttpResponse::setStatusText(const QString &statusText)
 {
-    d->statusText =  statusText;
+    d->statusText = statusText;
 }
 
 
@@ -408,9 +444,129 @@ void HttpResponse::setRequest(const HttpRequest &request)
     d->request = request;
 }
 
+QSharedPointer<SocketLike> HttpResponse::takeStream(QByteArray *readBytes)
+{
+    if (d->consumed) {
+        qWarning() << "the stream is consumed. do you remember to set the streamResponse property of request to true?";
+    }
+    if (readBytes) {
+        *readBytes = d->body;
+    } else {
+        qWarning() << "you should take care the left bytes after parsing header. please pass a non-null byte array to takeStream()";
+    }
+    d->consumed = true;
+    return d->stream;
+}
+
+RequestError *toRequestError(ChunkedBlockReader::Error error)
+{
+    switch (error) {
+    case ChunkedBlockReader::ChunkedEncodingError:
+        return new ChunkedEncodingError();
+    case ChunkedBlockReader::UnrewindableBodyError:
+        return new UnrewindableBodyError();
+    case ChunkedBlockReader::ConnectionError:
+        return new ConnectionError();
+    default:
+        return nullptr;
+    }
+}
 
 QByteArray HttpResponse::body()
 {
+    // special cases.
+    if (d->consumed) {
+        return d->body;
+    }
+    // XXX if not consumed and body is not empty, it must be the from the header splitter.
+    // read it from stream
+    qint32 contentLength = getContentLength();
+    if (contentLength > 0) {
+        if (contentLength > d->request.maxBodySize()) {
+            d->error.reset(new UnrewindableBodyError());
+            d->consumed = true;
+            return QByteArray();
+        } else {
+            if (d->body.size() > contentLength) {
+                qWarning() << "got too much bytes.";
+            } else if (d->body.size() < contentLength){
+                if (d->stream.isNull()) {
+                    d->error.reset(new UnrewindableBodyError());
+                    d->consumed = true;
+                    return QByteArray();
+                }
+                qint32 leftBytes = contentLength - d->body.size();
+                const QByteArray &t = d->stream->recvall(leftBytes);
+                if (t.isEmpty()) {
+                    d->error.reset(new ConnectionError());
+                    d->consumed = true;
+                    return QByteArray();
+                }
+                d->body.append(t);
+            }
+        }
+    } else if (contentLength < 0) { // without `Content-Length` header.
+        if (d->stream.isNull()) {
+            d->error.reset(new UnrewindableBodyError());
+            d->consumed = true;
+            return QByteArray();
+        }
+        const QByteArray &transferEncodingHeader = header(QStringLiteral("Transfer-Encoding"));
+        bool readTrunked = (transferEncodingHeader.toLower() == QByteArray("chunked"));
+        if (readTrunked) {
+            ChunkedBlockReader reader(d->stream, d->body);
+            ChunkedBlockReader::Error readerError;
+//            reader.debugLevel = debugLevel;
+            d->body.clear();
+            RequestError *error = nullptr;
+            while (true) {
+                qint64 leftBytes = d->request.maxBodySize() - d->body.size();
+                const QByteArray &block = reader.nextBlock(leftBytes, &readerError);
+                error = toRequestError(readerError);
+                if (error != nullptr) {
+                    d->error.reset(error);
+                    d->consumed = true;
+                    return QByteArray();
+                }
+                if (block.isEmpty()) {
+                    break;
+                }
+                d->body.append(block);
+            }
+        } else {
+            while (d->body.size() < d->request.maxBodySize()) {
+                const QByteArray &t = d->stream->recv(1024 * 8);
+                if(t.isEmpty()) {
+                    break;
+                }
+                d->body.append(t);
+            }
+        }
+    } else { // nothing to read. empty document.
+        if(!d->body.isEmpty()) {
+            // warning!
+            qWarning() << "the body is not empty but content length is set to 0.";
+        }
+    }
+    const QByteArray &contentEncodingHeader = header("Content-Encoding");
+    if(contentEncodingHeader.toLower() == QByteArray("deflate") && !d->body.isEmpty()) {
+        d->body = qUncompress(d->body);
+        if(d->body.isEmpty()) {
+            d->error.reset(new ContentDecodingError());
+            d->consumed = true;
+            return QByteArray();
+        }
+//    } else if (contentEncodingHeader.toLower() == QByteArray("gzip") && !d->body.isEmpty()) {
+//        d->body = unzip(d->body);
+//        if(d->body.isEmpty()) {
+//            d->error.reset(new ContentDecodingError());
+//            d->consumed = true;
+//            return QByteArray();
+//        }
+    } else if (!contentEncodingHeader.isEmpty()){
+        qWarning() << "unsupported content encoding." << contentEncodingHeader;
+    }
+    d->consumed = true;
     return d->body;
 }
 
@@ -418,6 +574,7 @@ QByteArray HttpResponse::body()
 void HttpResponse::setBody(const QByteArray &body)
 {
     d->body = body;
+    d->consumed = true;
 }
 
 
@@ -458,13 +615,13 @@ void HttpResponse::setVersion(HttpVersion version)
 
 QString HttpResponse::text()
 {
-    return QString::fromUtf8(d->body);
+    return QString::fromUtf8(body());
 }
 
 QJsonDocument HttpResponse::json()
 {
     QJsonParseError error;
-    QJsonDocument jsonDocument = QJsonDocument::fromJson(d->body, &error);
+    QJsonDocument jsonDocument = QJsonDocument::fromJson(body(), &error);
     if(error.error != QJsonParseError::NoError) {
         return QJsonDocument();
     } else {
@@ -475,12 +632,12 @@ QJsonDocument HttpResponse::json()
 QString HttpResponse::html()
 {
     // TODO detect encoding;
-    return QString::fromUtf8(d->body);
+    return QString::fromUtf8(body());
 }
 
 bool HttpResponse::isOk() const
 {
-    return d->error.isNull() && d->statusCode >= 200 && d->statusCode < 300;
+    return d->error.isNull() && d->statusCode < 300;
 }
 
 bool HttpResponse::hasNetworkError() const
@@ -547,7 +704,7 @@ void ConnectionPool::recycle(const QUrl &url, QSharedPointer<SocketLike> connect
         item.semaphore.reset(new Semaphore(maxConnectionsPerServer));
     }
     if(item.connections.size() < maxConnectionsPerServer) {
-        item.connections.insert(connection);
+        item.connections.append(connection);
     }
 }
 
@@ -563,6 +720,15 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, Req
 
     ScopedLock<Semaphore> lock(*item.semaphore);Q_UNUSED(lock);
 
+    QSharedPointer<SocketLike> connection;
+
+    while (!item.connections.isEmpty()) {
+        connection = item.connections.takeFirst();
+        if (connection->isValid()) {
+            return connection;
+        }
+    }
+
     QSharedPointer<Socket> rawSocket;
     quint16 defaultPort = 80;
     if(url.scheme() == QStringLiteral("http")) {
@@ -575,7 +741,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, Req
 #endif
     }
 
-    QSharedPointer<SocketLike> connection;
+
 
     QSharedPointer<Socks5Proxy> socks5Proxy = proxySwitcher->selectSocks5Proxy(url);
     if(socks5Proxy) {
@@ -684,20 +850,6 @@ RequestError *toRequestError(HeaderSplitter::Error error)
     }
 }
 
-RequestError *toRequestError(ChunkedBlockReader::Error error)
-{
-    switch (error) {
-    case ChunkedBlockReader::ChunkedEncodingError:
-        return new ChunkedEncodingError();
-    case ChunkedBlockReader::UnrewindableBodyError:
-        return new UnrewindableBodyError();
-    case ChunkedBlockReader::ConnectionError:
-        return new ConnectionError();
-    default:
-        return nullptr;
-    }
-}
-
 HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 {
     RequestError *error = nullptr;
@@ -782,13 +934,14 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 
     HeaderSplitter headerSplitter(connection);
     HeaderSplitter::Error headerSplitterError;
+
+    // parse first line.
     QByteArray firstLine = headerSplitter.nextLine(&headerSplitterError);
     error = toRequestError(headerSplitterError);
     if (error != nullptr) {
         response.d->error.reset(error);
         return response;
     }
-
     QStringList commands = QString::fromLatin1(firstLine).split(QRegExp("\\s+"));
     if(commands.size() != 3) {
         response.d->error.reset(new InvalidHeader());
@@ -810,6 +963,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     }
     response.d->statusText = commands.at(2);
 
+    // parse headers.
     const int MaxHeaders = 64;
     QList<HttpHeader> headers = headerSplitter.headers(MaxHeaders, &headerSplitterError);
     if (headerSplitterError != HeaderSplitter::NoError) {
@@ -824,6 +978,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         }
     }
 
+    // merge cookies.
     if(response.hasHeader(QStringLiteral("Set-Cookie"))) {
         for (const QByteArray &value: response.multiHeader("Set-Cookie")) {
             const QList<QNetworkCookie> &cookies = QNetworkCookie::parseCookies(value);
@@ -835,75 +990,24 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         cookieJar.setCookiesFromUrl(response.d->cookies, response.d->url);
     }
 
-    if(!headerSplitter.buf.isEmpty()) {
-        response.d->body = headerSplitter.buf;
+    // read body.
+    response.d->body = headerSplitter.buf;
+    response.d->stream = connection;
+    if (!request.streamResponse()) {
+        const QByteArray &body = response.body();
+        if (!response.d->error.isNull()) {
+            return response;
+        }
+        if(debugLevel > 1 && !body.isEmpty()) {
+            qDebug() << "receiving body:" << body;
+        }
+        response.d->stream.clear();
+        recycle(response.d->url, connection);
     }
 
-    qint32 contentLength = response.getContentLength();
-    if (contentLength > 0) {
-        if (contentLength > request.d->maxBodySize) {
-            response.d->error.reset(new UnrewindableBodyError());
-            return response;
-        } else {
-            while (response.d->body.size() < contentLength) {
-                qint32 leftBytes = qMin<qint32>(1024 * 8, contentLength - response.d->body.size());
-                const QByteArray &t = connection->recvall(leftBytes);
-                if (t.isEmpty()) {
-                    qDebug() << "no content!";
-                    response.d->error.reset(new ConnectionError());
-                    return response;
-                }
-                response.d->body.append(t);
-            }
-        }
-    } else if (contentLength < 0) { // without `Content-Length` header.
-        const QByteArray &transferEncodingHeader = response.header(QStringLiteral("Transfer-Encoding"));
-        bool readTrunked = (transferEncodingHeader.toLower() == QByteArray("chunked"));
-        if (readTrunked) {
-            ChunkedBlockReader reader(connection, response.d->body);
-            ChunkedBlockReader::Error readerError;
-            reader.debugLevel = debugLevel;
-            response.d->body.clear();
-            while (true) {
-                qint64 leftBytes = request.d->maxBodySize - response.d->body.size();
-                const QByteArray &block = reader.nextBlock(leftBytes, &readerError);
-                error = toRequestError(readerError);
-                if (error != nullptr) {
-                    response.d->error.reset(error);
-                    return response;
-                }
-                if (block.isEmpty()) {
-                    break;
-                }
-                response.d->body.append(block);
-            }
-        } else {
-            while (response.d->body.size() < request.d->maxBodySize) {
-                const QByteArray &t = connection->recvall(1024 * 8);
-                if(t.isEmpty()) {
-                    break;
-                }
-                response.d->body.append(t);
-            }
-        }
-    } else { // nothing to read. empty document.
-        if(!response.d->body.isEmpty()) {
-            // warning!
-        }
-    }
-    const QByteArray &contentEncodingHeader = response.header("Content-Encoding");
-    if(contentEncodingHeader.toLower() == QByteArray("deflate") && response.d->body.isEmpty()) {
-        response.d->body = qUncompress(response.d->body);
-        if(response.d->body.isEmpty()) {
-            response.d->error.reset(new ContentDecodingError());
-            return response;
-        }
-    }
-    if(debugLevel > 1 && !response.d->body.isEmpty()) {
-        qDebug() << "receiving body:" << response.d->body;
-    }
-    recycle(response.d->url, connection);
-    if (response.d->statusCode < 200 || response.d->statusCode >= 400) {
+//
+    // response.d->statusCode < 200 is not error.
+    if (response.d->statusCode >= 400) {
         response.d->error.reset(new HTTPError(response.d->statusCode));
     }
     return response;

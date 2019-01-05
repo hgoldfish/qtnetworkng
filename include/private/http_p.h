@@ -16,7 +16,7 @@ struct ConnectionPoolItem
 {
     QDateTime lastUsed;
     QSharedPointer<Semaphore> semaphore;
-    QSet<QSharedPointer<SocketLike>> connections;
+    QList<QSharedPointer<SocketLike>> connections;
 };
 
 
