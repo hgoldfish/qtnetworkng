@@ -1,3 +1,4 @@
+#include <string.h>
 #include "../include/socket_utils.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -214,5 +215,121 @@ QSharedPointer<SocketLike> SocketLike::rawSocket(QSharedPointer<Socket> s)
 {
     return QSharedPointer<SocketLikeImpl>::create(s).dynamicCast<SocketLike>();
 }
+
+
+FileLike::~FileLike() {}
+
+class RawFile: public FileLike
+{
+public:
+    RawFile(QSharedPointer<QFile> f)
+        :f(f) {}
+    virtual qint32 read(char *data, qint32 size) override;
+    virtual qint32 readall(char *data, qint32 size) override;
+    virtual qint32 write(char *data, qint32 size) override;
+    virtual qint32 writeall(char *data, qint32 size) override;
+    virtual bool atEnd() override;
+    virtual void close() override;
+private:
+    QSharedPointer<QFile> f;
+};
+
+qint32 RawFile::read(char *data, qint32 size)
+{
+    return f->read(data, size);
+}
+
+qint32 RawFile::readall(char *data, qint32 size)
+{
+    return f->read(data, size);
+}
+
+qint32 RawFile::write(char *data, qint32 size)
+{
+    return f->write(data, size);
+}
+
+qint32 RawFile::writeall(char *data, qint32 size)
+{
+    return f->write(data, size);
+}
+
+bool RawFile::atEnd()
+{
+    return f->atEnd();
+}
+
+void RawFile::close()
+{
+    f->close();
+}
+
+QSharedPointer<FileLike> FileLike::rawFile(QSharedPointer<QFile> f)
+{
+    return QSharedPointer<RawFile>::create(f).dynamicCast<FileLike>();
+}
+
+
+
+class BytesIO: public FileLike
+{
+public:
+    BytesIO(const QByteArray &buf)
+        :buf(buf), pos(0) {}
+    virtual qint32 read(char *data, qint32 size) override;
+    virtual qint32 readall(char *data, qint32 size) override;
+    virtual qint32 write(char *data, qint32 size) override;
+    virtual qint32 writeall(char *data, qint32 size) override;
+    virtual bool atEnd() override;
+    virtual void close() override;
+private:
+    QByteArray buf;
+    qint32 pos;
+};
+
+qint32 BytesIO::read(char *data, qint32 size)
+{
+    qint32 leftBytes = buf.size() - pos;
+    qint32 readBytes = qMin(leftBytes, size);
+    memcpy(data, buf.data() + pos, readBytes);
+    pos += readBytes;
+    return readBytes;
+}
+
+qint32 BytesIO::readall(char *data, qint32 size)
+{
+    return BytesIO::read(data, size);
+}
+
+qint32 BytesIO::write(char *data, qint32 size)
+{
+    if (pos + size > buf.size()) {
+        buf.resize(pos + size);
+    }
+    memcpy(buf.data() + pos, data, size);
+    pos += size;
+    return size;
+}
+
+qint32 BytesIO::writeall(char *data, qint32 size)
+{
+    return BytesIO::write(data, size);
+}
+
+bool BytesIO::atEnd()
+{
+    return pos >= buf.size();
+}
+
+void BytesIO::close()
+{
+
+}
+
+QSharedPointer<FileLike> FileLike::bytes(const QByteArray &data)
+{
+    return QSharedPointer<BytesIO>::create(data).dynamicCast<FileLike>();
+}
+
 
 QTNETWORKNG_NAMESPACE_END

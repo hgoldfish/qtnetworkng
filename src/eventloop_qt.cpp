@@ -153,16 +153,8 @@ EventLoopCoroutinePrivateQt::~EventLoopCoroutinePrivateQt()
 
 void EventLoopCoroutinePrivateQt::run()
 {
-    int result;
-    if (QCoreApplication::instance()) {
-        QEventLoop localLoop;
-        result = localLoop.exec();
-    } else {
-        int argc = 0;
-        char ** argv = static_cast<char **>(static_cast<void *>(nullptr));
-        QCoreApplication app(argc, argv);
-        result = app.exec();
-    }
+    QEventLoop localLoop;
+    int result = localLoop.exec();
     this->qtExitCode = result;
 }
 

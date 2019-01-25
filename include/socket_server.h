@@ -23,6 +23,9 @@ public:
     bool serveForever();
     virtual bool isSecure() const;
 public:
+    quint16 serverPort() const;
+    QHostAddress serverAddress() const;
+public:
     QSharedPointer<Event> started;
     QSharedPointer<Event> stopped;
 protected:

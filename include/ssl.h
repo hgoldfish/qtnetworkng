@@ -223,6 +223,7 @@ private:
     Q_DISABLE_COPY(SslSocket)
 };
 
+QSharedPointer<SslSocket> convertSocketLikeToSslSocket(QSharedPointer<class SocketLike> socket);
 
 QTNETWORKNG_NAMESPACE_END
 

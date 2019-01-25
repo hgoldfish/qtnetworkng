@@ -1002,10 +1002,11 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             qDebug() << "receiving body:" << body;
         }
         response.d->stream.clear();
-        recycle(response.d->url, connection);
+        if (response.d->statusCode == 200 && response.header(HttpResponse::ConnectionHeader).toLower() == "keep-alive") {
+            recycle(response.d->url, connection);
+        }
     }
 
-//
     // response.d->statusCode < 200 is not error.
     if (response.d->statusCode >= 400) {
         response.d->error.reset(new HTTPError(response.d->statusCode));
@@ -1018,7 +1019,7 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
 {
     QList<HttpHeader> allHeaders = request.allHeaders();
 
-    if(!request.hasHeader(QStringLiteral("Connection"))) {
+    if(!request.hasHeader(QStringLiteral("Connection")) && request.version() == Http1_1) {
         allHeaders.prepend(HttpHeader(QStringLiteral("Connection"), QByteArray("keep-alive")));
     }
     if(!request.hasHeader(QStringLiteral("Content-Length")) && !request.d->body.isEmpty()) {
@@ -1229,14 +1230,14 @@ HttpResponse HttpSession::send(HttpRequest &request)
 
     if(request.maxRedirects() > 0) {
         int tries = 0;
-        while(isRedirect(response.statusCode())) {
+        while (isRedirect(response.statusCode())) {
             if(tries > request.maxRedirects()) {
                 response.setError(new TooManyRedirects());
                 return response;
             }
             HttpRequest newRequest;
             if(response.statusCode() == 303 || response.statusCode() == 307) {
-                newRequest = request;
+                newRequest.setMethod(request.method());
             } else {
                 newRequest.setMethod(QStringLiteral("GET")); // not rfc behavior, but many browser do this.
             }

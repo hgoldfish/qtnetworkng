@@ -55,14 +55,19 @@ class SimpleHttpRequestHandler: public BaseHttpRequestHandler
 {
 public:
     SimpleHttpRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server)
-        :BaseHttpRequestHandler(request, server) {}
+        :BaseHttpRequestHandler(request, server), rootDir(QDir::current()) {}
+    SimpleHttpRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server,
+                             const QDir &rootDir)
+        :BaseHttpRequestHandler(request, server), rootDir(rootDir) {}
 protected:
     virtual void doGET() override;
     virtual void doHEAD() override;
-    virtual QSharedPointer<QFile> serveStaticFiles();
-    virtual QSharedPointer<QFile> listDirectory(const QDir &dir, const QString &displayDir);
-    void sendFile(QSharedPointer<QFile> f);
+    virtual QSharedPointer<FileLike> serveStaticFiles();
+    virtual QSharedPointer<FileLike> listDirectory(const QDir &dir, const QString &displayDir);
+    void sendFile(QSharedPointer<FileLike> f);
     QFileInfo translatePath(const QString &path);
+protected:
+    QDir rootDir;
 };
 
 

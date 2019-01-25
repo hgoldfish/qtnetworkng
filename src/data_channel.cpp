@@ -257,6 +257,7 @@ QString DataChannelPrivate::toString()
 void DataChannelPrivate::close()
 {
     Q_ASSERT(broken); // must be called by other close method.
+    // FIXME if close() is called by doReceive(), may cause the queue reports deleting not empty.
     for (int i = 0; i < receivingQueue.getting(); ++i) {
         receivingQueue.put(QByteArray());
     }

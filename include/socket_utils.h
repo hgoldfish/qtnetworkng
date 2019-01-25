@@ -2,6 +2,7 @@
 #define QTNG_SOCKET_UTILS_H
 
 #include <QtCore/qsharedpointer.h>
+#include <QtCore/qfile.h>
 #include "socket.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -54,6 +55,22 @@ public:
 #endif
 };
 
+
+class FileLike
+{
+public:
+    virtual ~FileLike();
+    virtual qint32 read(char *data, qint32 size) = 0;
+    virtual qint32 readall(char *data, qint32 size) = 0;
+    virtual qint32 write(char *data, qint32 size) = 0;
+    virtual qint32 writeall(char *data, qint32 size) = 0;
+    virtual bool atEnd() = 0;
+    virtual void close() = 0;
+public:
+    static QSharedPointer<FileLike> rawFile(QSharedPointer<QFile> f);
+    static QSharedPointer<FileLike> rawFile(QFile *f) { return rawFile(QSharedPointer<QFile>(f)); }
+    static QSharedPointer<FileLike> bytes(const QByteArray &data);
+};
 QTNETWORKNG_NAMESPACE_END
 
 #endif // QTNG_SOCKET_UTILS_H

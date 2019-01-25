@@ -70,6 +70,10 @@ public:
     };
 
     HttpRequest();
+    HttpRequest(const QString &url)
+        :HttpRequest() { setUrl(url); }
+    HttpRequest(const QString &method, const QString &url)
+        :HttpRequest() { setMethod(method); setUrl(url); }
     virtual ~HttpRequest();
     HttpRequest(const HttpRequest &other);
     HttpRequest(HttpRequest &&other);

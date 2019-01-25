@@ -21,6 +21,9 @@ static const QString DEFAULT_ERROR_MESSAGE = "<!DOCTYPE HTML PUBLIC \"-//W3C//DT
 static const QString DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8";
 
 
+//#define DEBUG_HTTP_PROTOCOL 1
+
+
 BaseHttpRequestHandler::BaseHttpRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server)
     :BaseRequestHandler(request, server), version(Http1_1), serverVersion(Http1_1), closeConnection(true)
 {
@@ -29,8 +32,8 @@ BaseHttpRequestHandler::BaseHttpRequestHandler(QSharedPointer<SocketLike> reques
 
 void BaseHttpRequestHandler::handle()
 {
-    closeConnection = true;
     do {
+        closeConnection = true;
         handleOneRequest();
     } while (!closeConnection);
 }
@@ -38,7 +41,6 @@ void BaseHttpRequestHandler::handle()
 void BaseHttpRequestHandler::handleOneRequest()
 {
     if(!parseRequest()) {
-        closeConnection = true;
         return;
     }
     doMethod();
@@ -49,10 +51,10 @@ class HttpHeaders: public HeaderOperationMixin {};
 
 bool BaseHttpRequestHandler::parseRequest()
 {
-    bool done;
+    bool done = false;
     const QByteArray &buf = tryToHandleMagicCode(&done);
     if (done) {
-        return true;
+        return false;
     }
     HeaderSplitter headerSplitter(request, buf);
     HeaderSplitter::Error headerSpliiterError;
@@ -60,6 +62,9 @@ bool BaseHttpRequestHandler::parseRequest()
     if (firstLine.isEmpty() || headerSpliiterError != HeaderSplitter::NoError) {
         return false;
     }
+#ifdef DEBUG_HTTP_PROTOCOL
+    qDebug() << "first line is" << firstLine;
+#endif
 
     const QString &commandLine = QString::fromLatin1(firstLine);
     QStringList words = commandLine.split(QRegExp("\\s+"));
@@ -72,7 +77,6 @@ bool BaseHttpRequestHandler::parseRequest()
         const QString &versionStr = words.at(2);
         if (versionStr == "HTTP/1.0") {
             version = Http1_0;
-            closeConnection = true;
         } else if(versionStr == "HTTP/1.1") {
             version = Http1_1;
             if (serverVersion == Http1_1) {
@@ -86,7 +90,6 @@ bool BaseHttpRequestHandler::parseRequest()
         method = words.at(0);
         path = words.at(1);
         version = Http1_0;
-        closeConnection = true;
     } else if (words.isEmpty()) {
         return false;
     } else {
@@ -112,6 +115,11 @@ bool BaseHttpRequestHandler::parseRequest()
         break;
     }
     setHeaders(headers);
+#ifdef DEBUG_HTTP_PROTOCOL
+    for (const HttpHeader &header: headers) {
+        qDebug() << "header(" << header.name << ") = " << header.value;
+    }
+#endif
     const QByteArray &connectionType = header(ConnectionHeader);
     if (connectionType.toLower() == "close") {
         closeConnection = true;
@@ -334,24 +342,33 @@ void BaseHttpRequestHandler::logError(HttpStatus status, const QString &shortMes
 
 void SimpleHttpRequestHandler::doGET()
 {
-    QSharedPointer<QFile> f = serveStaticFiles();
+    QSharedPointer<FileLike> f = serveStaticFiles();
     if (!f.isNull()) {
         sendFile(f);
+        f->close();
     }
 }
 
 void SimpleHttpRequestHandler::doHEAD()
 {
-    QSharedPointer<QFile> f = serveStaticFiles();
+    QSharedPointer<FileLike> f = serveStaticFiles();
     if (!f.isNull()) {
         f->close();
     }
 }
 
-QSharedPointer<QFile> SimpleHttpRequestHandler::serveStaticFiles()
+QSharedPointer<FileLike> SimpleHttpRequestHandler::serveStaticFiles()
 {
     QUrl url = QUrl::fromEncoded(path.toLatin1());
     QFileInfo fileInfo = translatePath(url.path());
+#ifdef DEBUG_HTTP_PROTOCOL
+    qDebug() << "serve path" << url.path() << fileInfo.absoluteFilePath();
+#endif
+    if (!fileInfo.exists()) {
+        sendError(HttpStatus::NotFound, "File not found");
+        return QSharedPointer<FileLike>();
+    }
+
     if (fileInfo.isDir()) {
         const QString &p = url.toString(QUrl::RemoveQuery | QUrl::RemoveFragment | QUrl::FullyDecoded);
         if (!p.endsWith("/")) {
@@ -359,7 +376,7 @@ QSharedPointer<QFile> SimpleHttpRequestHandler::serveStaticFiles()
             sendResponse(HttpStatus::MovedPermanently);
             sendHeader("Location", url.toEncoded(QUrl::FullyEncoded));
             endHeader();
-            return QSharedPointer<QFile>();
+            return QSharedPointer<FileLike>();
         } else {
             QDir dir(fileInfo.filePath());
             if (dir.exists("index.html")) {
@@ -371,28 +388,48 @@ QSharedPointer<QFile> SimpleHttpRequestHandler::serveStaticFiles()
             }
         }
     }
+
+    QString contentType;
+
+#ifdef Q_OS_ANDROID
+    const QString &ext = fileInfo.completeSuffix().toLower();
+    if (ext == "txt") {
+        contentType = "text/plain";
+    } else if (ext == "html" || ext == "htm") {
+        contentType = "text/html";
+    } else if (ext == "js") {
+        contentType = "application/javascript";
+    } else if (ext == "css") {
+        contentType = "text/css";
+    } else {
+        contentType = "application/octet-stream";
+    }
+#else
     QMimeDatabase db;
     const QMimeType &ctype = db.mimeTypeForFile(fileInfo);
-    QString contentType;
     if (!ctype.isValid()) {
         contentType = "application/octet-stream";
     } else {
         contentType = ctype.name();
     }
+#endif
     QSharedPointer<QFile> f(new QFile(fileInfo.filePath()));
     if (!f->open(QIODevice::ReadOnly)) {
         sendError(HttpStatus::NotFound, "File not found");
-        return QSharedPointer<QFile>();
+        return QSharedPointer<FileLike>();
     }
     sendResponse(HttpStatus::OK);
     sendHeader("Content-Type", contentType.toUtf8());
     sendHeader("Content-Length", QByteArray::number(f->size()));
     sendHeader("Last-Modified", fileInfo.lastModified().toString(Qt::RFC2822Date).toUtf8());
+    if (version == Http1_1 && !closeConnection) {
+        sendHeader("Connection", "keep-alive");
+    }
     endHeader();
-    return f;
+    return FileLike::rawFile(f);
 }
 
-QSharedPointer<QFile> SimpleHttpRequestHandler::listDirectory(const QDir &dir, const QString &displayDir)
+QSharedPointer<FileLike> SimpleHttpRequestHandler::listDirectory(const QDir &dir, const QString &displayDir)
 {
     const QFileInfoList &list = dir.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
     const QString &title = QStringLiteral("Directory listing for ") + displayDir;
@@ -420,20 +457,14 @@ QSharedPointer<QFile> SimpleHttpRequestHandler::listDirectory(const QDir &dir, c
     }
     html.append("</ul>\n<hr>\n</body>\n</html>");
     const QByteArray &data = html.join("\n").toUtf8();
-    QSharedPointer<QFile> f(new QTemporaryFile());
-    if (!f.dynamicCast<QTemporaryFile>()->open()) {
-        return QSharedPointer<QFile>();
-    }
-    f->write(data);
-    f->seek(0);
     sendResponse(HttpStatus::OK);
     sendHeader("Content-Type", "text/html; charset=utf-8");
     sendHeader("Content-Length", QByteArray::number(data.size()));
     endHeader();
-    return f;
+    return FileLike::bytes(data);
 }
 
-void SimpleHttpRequestHandler::sendFile(QSharedPointer<QFile> f)
+void SimpleHttpRequestHandler::sendFile(QSharedPointer<FileLike> f)
 {
     QByteArray buf;
     buf.resize(1024 * 8);
@@ -466,7 +497,7 @@ QFileInfo SimpleHttpRequestHandler::translatePath(const QString &path)
         }
     }
     QString normalPath = l.join("/");
-    return QFileInfo(QDir::current(), normalPath);
+    return QFileInfo(rootDir, normalPath);
 }
 
 void SimpleHttpServer::processRequest(QSharedPointer<SocketLike> request)

@@ -469,7 +469,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
         } else {
             total += r;
             if(all) {
-                continue; 
+                continue;
             } else {
                 return total;
             }
@@ -494,6 +494,9 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
     // TODO UDP socket may send zero length packet
 
     while(sent < size) {
+        if (!isValid()) {
+            return sent;
+        }
         ssize_t w;
         do {
             w = ::send(fd, data + sent, static_cast<size_t>(size - sent), all ? 0 : MSG_MORE);
@@ -653,6 +656,9 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
     int flags = 0;
 #endif
     while(true) {
+        if (!isValid()) {
+            return -1;
+        }
         do {
             sentBytes = ::sendmsg(fd, &msg, flags);
         } while(sentBytes == -1 && error == EINTR);
@@ -904,6 +910,9 @@ Socket *SocketPrivate::accept()
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     while(true) {
+        if (!isValid() || state != Socket::ListeningState) {
+            return nullptr;
+        }
         int acceptedDescriptor = qt_safe_accept(fd, nullptr, nullptr);
         if (acceptedDescriptor == -1) {
             switch (errno) {

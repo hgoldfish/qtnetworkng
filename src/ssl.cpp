@@ -840,7 +840,8 @@ bool SslConnection<Socket>::_handshake()
     while(true) {
         int result = asServer ? SSL_accept(ssl.data()) : SSL_connect(ssl.data());
         if(result <= 0) {
-            switch(SSL_get_error(ssl.data(), result)) {
+            int err = SSL_get_error(ssl.data(), result);
+            switch(err) {
             case SSL_ERROR_WANT_READ:
                 if(!pumpOutgoing()) return false;
                 if(!pumpIncoming()) return false;
@@ -857,6 +858,8 @@ bool SslConnection<Socket>::_handshake()
                 qDebug() << "invalid ssl connection state.";
                 return false;
             case SSL_ERROR_SSL:
+                qDebug() << "protocol error on handshake.";
+                return false;
             default:
                 qDebug() << "handshake error.";
                 return false;
@@ -1554,7 +1557,7 @@ public:
     virtual QByteArray recvall(qint32 size) override;
     virtual qint32 send(const QByteArray &data) override;
     virtual qint32 sendall(const QByteArray &data) override;
-private:
+public:
     QSharedPointer<SslSocket> s;
 };
 
@@ -1721,6 +1724,16 @@ QSharedPointer<SocketLike> SocketLike::sslSocket(QSharedPointer<SslSocket> s)
 QSharedPointer<SocketLike> SocketLike::sslSocket(SslSocket *s)
 {
     return QSharedPointer<SocketLikeImpl>::create(QSharedPointer<SslSocket>(s)).dynamicCast<SocketLike>();
+}
+
+QSharedPointer<SslSocket> convertSocketLikeToSslSocket(QSharedPointer<SocketLike> socket)
+{
+    QSharedPointer<SocketLikeImpl> impl = socket.dynamicCast<SocketLikeImpl>();
+    if (impl.isNull()) {
+        return QSharedPointer<SslSocket>();
+    } else {
+        return impl->s;
+    }
 }
 
 QTNETWORKNG_NAMESPACE_END

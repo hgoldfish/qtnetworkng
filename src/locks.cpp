@@ -319,14 +319,17 @@ bool ConditionPrivate::wait()
         return false;
     waiters.append(waiter);
     try{
-        if(waiter->acquire()) {
+        if (waiter->acquire()) {
             waiter->release();
+            waiters.removeOne(waiter);
             return true;
         } else {
+            waiters.removeOne(waiter);
             return false;
         }
     } catch (...) {
         waiter->release();
+        waiters.removeOne(waiter);
         throw;
     }
 }
@@ -398,7 +401,7 @@ EventPrivate::EventPrivate(Event *q)
 
 EventPrivate::~EventPrivate()
 {
-    if(!flag) {
+    if(!flag && condition.getting() > 0) {
         condition.notifyAll();
     }
 }
@@ -422,7 +425,10 @@ bool EventPrivate::wait(bool blocking)
         return flag;
     } else {
         while(!flag) {
-            condition.wait();
+            if (!condition.wait()) {
+                qDebug() << "event is deleted.";
+                break;
+            }
         }
         return flag;
     }

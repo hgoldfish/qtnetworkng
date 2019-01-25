@@ -1,4 +1,7 @@
+#include <QtCore/qloggingcategory.h>
 #include "../include/socket_server.h"
+
+static Q_LOGGING_CATEGORY(logger, "qtng.socket_server")
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -76,14 +79,21 @@ bool BaseStreamServer::serverBind()
     } else {
         mode = Socket::DefaultForPlatform;
     }
-    return d->serverSocket->bind(d->serverAddress, d->serverPort, mode);
+    bool ok = d->serverSocket->bind(d->serverAddress, d->serverPort, mode);
+    if (!ok) {
+        qCInfo(logger) << "server can not bind to" << d->serverAddress.toString() << ":" << d->serverPort;
+    }
+    return ok;
 }
 
 bool BaseStreamServer::serverActivate()
 {
     Q_D(BaseStreamServer);
-    d->serverSocket->listen(d->requestQueueSize);
-    return true;
+    bool ok = d->serverSocket->listen(d->requestQueueSize);
+    if (!ok) {
+        qCInfo(logger) << "server can not listen to" << d->serverAddress.toString() << ":" << d->serverPort;
+    }
+    return ok;
 }
 
 void BaseStreamServer::serverClose()
@@ -142,6 +152,18 @@ bool BaseStreamServer::serveForever()
 bool BaseStreamServer::isSecure() const
 {
     return false;
+}
+
+quint16 BaseStreamServer::serverPort() const
+{
+    Q_D(const BaseStreamServer);
+    return d->serverPort;
+}
+
+QHostAddress BaseStreamServer::serverAddress() const
+{
+    Q_D(const BaseStreamServer);
+    return d->serverAddress;
 }
 
 bool BaseStreamServer::serviceActions()
@@ -224,7 +246,7 @@ QSharedPointer<SocketLike> BaseSslStreamServer::getRequest()
     while(true) {
         Socket *request = d->serverSocket->accept();
         if (request) {
-            SslSocket *sslSocket = new SslSocket(QSharedPointer<Socket>(request), d->configuration);
+            QSharedPointer<SslSocket> sslSocket(new SslSocket(QSharedPointer<Socket>(request), d->configuration));
             if (!sslSocket->handshake(true)) {
                 continue;
             }
