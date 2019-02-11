@@ -219,6 +219,40 @@ QSharedPointer<SocketLike> SocketLike::rawSocket(QSharedPointer<Socket> s)
 
 FileLike::~FileLike() {}
 
+
+QByteArray FileLike::readall(bool *ok)
+{
+    QByteArray data;
+    qint64 s = size();
+    if (s >= static_cast<qint64>(INT32_MAX)) {
+        if (ok) *ok = false;
+        return data;
+    } else if (s == 0) {
+        return data;
+    } else if (s < 0) {
+        // size() is not supported.
+    } else { // 0 < s < INT32_MAX
+        data.reserve(static_cast<qint32>(s));
+    }
+    char buf[1024 * 8];
+    while (!atEnd()) {
+        qint32 readBytes = read(buf, 1024 * 8);
+        if (readBytes <= 0) {
+            if (ok) *ok = false;
+            return data;
+        }
+        data.append(buf, readBytes);
+    }
+    if (s > 0) {
+        if (data.size() != s) {
+            if (ok) *ok = false;
+            return data;
+        }
+    }
+    if (ok) *ok = true;
+    return data;
+}
+
 class RawFile: public FileLike
 {
 public:
@@ -230,6 +264,7 @@ public:
     virtual qint32 writeall(char *data, qint32 size) override;
     virtual bool atEnd() override;
     virtual void close() override;
+    virtual qint64 size() override;
 private:
     QSharedPointer<QFile> f;
 };
@@ -264,6 +299,11 @@ void RawFile::close()
     f->close();
 }
 
+qint64 RawFile::size()
+{
+    return f->size();
+}
+
 QSharedPointer<FileLike> FileLike::rawFile(QSharedPointer<QFile> f)
 {
     return QSharedPointer<RawFile>::create(f).dynamicCast<FileLike>();
@@ -282,6 +322,7 @@ public:
     virtual qint32 writeall(char *data, qint32 size) override;
     virtual bool atEnd() override;
     virtual void close() override;
+    virtual qint64 size() override;
 private:
     QByteArray buf;
     qint32 pos;
@@ -324,6 +365,11 @@ bool BytesIO::atEnd()
 void BytesIO::close()
 {
 
+}
+
+qint64 BytesIO::size()
+{
+    return buf.size();
 }
 
 QSharedPointer<FileLike> FileLike::bytes(const QByteArray &data)

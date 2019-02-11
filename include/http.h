@@ -34,10 +34,15 @@ public:
     {
         QString newContentType;
         if(contentType.isEmpty()) {
+#ifndef Q_OS_ANDROID
             QMimeDatabase db;
             newContentType = db.mimeTypeForFileNameAndData(filename, data).name();
+#endif
         } else {
             newContentType = contentType;
+        }
+        if (newContentType.isEmpty()) {
+            newContentType = "application/octet-stream";
         }
         files.insert(name, FormDataFile(filename, data, newContentType));
     }

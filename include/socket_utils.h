@@ -66,6 +66,8 @@ public:
     virtual qint32 writeall(char *data, qint32 size) = 0;
     virtual bool atEnd() = 0;
     virtual void close() = 0;
+    virtual qint64 size() = 0;
+    QByteArray readall(bool *ok);
 public:
     static QSharedPointer<FileLike> rawFile(QSharedPointer<QFile> f);
     static QSharedPointer<FileLike> rawFile(QFile *f) { return rawFile(QSharedPointer<QFile>(f)); }
