@@ -106,7 +106,7 @@ public:
     void setStreamResponse(bool streamResponse);
     bool streamResponse() const;
 public:
-    void setFormData(FormData &formData, const QString &method = QStringLiteral("post"));
+    void setFormData(const FormData &formData, const QString &method = QStringLiteral("post"));
     static HttpRequest fromFormData(const FormData &formData);
     static HttpRequest fromForm(const QUrlQuery &data);
     static HttpRequest fromForm(const QMap<QString, QString> &query);

@@ -35,9 +35,9 @@ QByteArray formatHeaderParam(const QString &name, const QString &value)
     }
     QByteArray data;
     if(asciiCodec && asciiCodec->canEncode(value)) {
-        data.append(name.toUtf8());
+        data.append(name.toLatin1());
         data.append("=\"");
-        data.append(value.toUtf8());
+        data.append(value.toLatin1());
         data.append("\"");
         return data;
     } else {
@@ -260,7 +260,7 @@ bool HttpRequest::streamResponse() const
     return d->streamResponse;
 }
 
-void HttpRequest::setFormData(FormData &formData, const QString &method)
+void HttpRequest::setFormData(const FormData &formData, const QString &method)
 {
     d->method = method;
     QString contentType = QString::fromLatin1("multipart/form-data; boundary=%1").arg(QString::fromLatin1(formData.boundary));
@@ -275,10 +275,7 @@ void HttpRequest::setFormData(FormData &formData, const QString &method)
 HttpRequest HttpRequest::fromFormData(const FormData &formData)
 {
     HttpRequest request;
-    request.setMethod("POST");
-    request.setBody(formData.toByteArray());
-    QString contentType = QString::fromLatin1("multipart/form-data; boundary=%1").arg(QString::fromLatin1(formData.boundary));
-    request.setContentType(contentType);
+    request.setFormData(formData, QStringLiteral("POST"));
     return request;
 }
 
