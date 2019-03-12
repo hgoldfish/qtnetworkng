@@ -494,45 +494,44 @@ void Socket::setDnsCache(QSharedPointer<SocketDnsCache> dnsCache)
 class PollPrivate
 {
 public:
-    PollPrivate(Poll * parent);
+    PollPrivate();
     ~PollPrivate();
 public:
     void add(Socket *socket, EventLoopCoroutine::EventType event);
     void remove(Socket *socket);
     Socket *wait(float secs);
 private:
-    Poll * const q_ptr;
     QMap<Socket*, int> watchers;
-    QSet<Socket*> events;
-    Event done;
-    Q_DECLARE_PUBLIC(Poll)
+    QSharedPointer<QSet<Socket*>> events;
+    QSharedPointer<Event> done;
 };
 
 struct PollFunctor: public Functor
 {
-    PollFunctor(Event &done, QSet<Socket*> &events);
+    PollFunctor(QSharedPointer<QSet<Socket*>> events, QSharedPointer<Event> done, Socket *socket);
     virtual void operator()();
-    Event &done;
-    QSet<Socket*> &events;
-    Socket *socket;
+    QSharedPointer<QSet<Socket*>> events;
+    QSharedPointer<Event> done;
+    QPointer<Socket> socket;
 };
 
 
-PollFunctor::PollFunctor(Event &done, QSet<Socket*> &events)
-    :done(done), events(events), socket(nullptr)
+PollFunctor::PollFunctor(QSharedPointer<QSet<Socket*>> events, QSharedPointer<Event> done, Socket *socket)
+    :events(events), done(done), socket(socket)
 {}
 
 
 void PollFunctor::operator ()()
 {
-    if(socket)
-        events.insert(socket);
-    done.set();
+    if(!socket.isNull()) {
+        events->insert(socket.data());
+        done->set();
+    }
 }
 
 
-PollPrivate::PollPrivate(Poll *parent)
-    :q_ptr(parent)
+PollPrivate::PollPrivate()
+    :events(new QSet<Socket*>()), done(new Event())
 {}
 
 
@@ -550,9 +549,8 @@ void PollPrivate::add(Socket *socket, EventLoopCoroutine::EventType event)
     if(watchers.contains(socket)) {
         remove(socket);
     }
-    PollFunctor *callback = new PollFunctor(done, events);
+    PollFunctor *callback = new PollFunctor(events, done, socket);
     int watcherId = EventLoopCoroutine::get()->createWatcher(event, socket->fileno(), callback);
-    callback->socket = socket;
     watchers.insert(socket, watcherId);
 }
 
@@ -569,21 +567,21 @@ void PollPrivate::remove(Socket *socket)
 
 Socket *PollPrivate::wait(float secs)
 {
-    if(!events.isEmpty()) {
-        QMutableSetIterator<Socket*> itor(events);
+    if(!events->isEmpty()) {
+        QMutableSetIterator<Socket*> itor(*events);
         Socket *socket = itor.next();
         itor.remove();
         return socket;
     }
     try {
         Timeout timeout(secs); Q_UNUSED(timeout);
-        done.wait();
+        done->wait();
     } catch(TimeoutException &) {
         return nullptr;
     }
-    if(!events.isEmpty()) {
+    if(!events->isEmpty()) {
         // is there some one hungry?
-        QMutableSetIterator<Socket*> itor(events);
+        QMutableSetIterator<Socket*> itor(*events);
         Socket *socket = itor.next();
         itor.remove();
         return socket;
@@ -594,7 +592,7 @@ Socket *PollPrivate::wait(float secs)
 
 
 Poll::Poll()
-    :d_ptr(new PollPrivate(this))
+    :d_ptr(new PollPrivate())
 {}
 
 
@@ -630,7 +628,6 @@ public:
     SocketDnsCachePrivate()
         :cache(1024)
     {
-
     }
 
     QCache<QString, QList<QHostAddress>> cache;
