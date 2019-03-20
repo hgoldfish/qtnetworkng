@@ -15,6 +15,18 @@ Documents
 
 Visit http://qtng.org/
 
+
+Features
+--------
+
+* General Coroutine with similar API to QThread.
+* `Socket` supports UDP and TCP.
+* `SSLSocket` with similar API to `Socket`.
+* `KcpSocket` implements KCP over UDP.
+* `HttpSession` implements a HTTP 1.0/1.1 client.
+* `HttpServr` implements a static HTTP 1.0/1.1 server, can be used for reversed http proxy.
+* `Cipher`, `MessageDigest`, `PublicKey`, `PrivateKey` wrap complicate LibreSSL C API.
+
 Examples
 --------
 
@@ -126,14 +138,14 @@ You can obtain a copy of LGPL 3.0 license at: https://www.gnu.org/licenses/lgpl-
 Dependencies
 ------------
 
-QtNetworkNg require QtCore, QtNetwork to build, and require OpenSSL lib at runtime if you use the `SslSocket`.
+QtNetworkNg require QtCore, QtNetwork to build. SSL and crypto is supported using embedded LibreSSL.
 
 Qt 5 - https://www.qt.io/download
 
 Supported Platforms
 -----------------------
 
-Linux, Windows, Android and OpenBSD is supported. Macos, iOS is not tested yet.
+Linux, Windows, Android and OpenBSD is supported. Macos, iOS is not tested yet, as I have no mac machines.
 
 QtNetworkNg uses more effective boost::context asm code in arm, arm64, x86, amd64 machines, and uses native ucontext or windows fiber API in other architectures.
 
@@ -141,15 +153,15 @@ QtNetworkNg uses more effective boost::context asm code in arm, arm64, x86, amd6
 TODO List
 ---------
 
-* Support HTTP/2
-* Implements an HTTP 1.0 server.
-* HTTP support gzip.
-* HttpResponse support stream.
-* Support HTTP proxy and cache.
-* Auto detect HTML encoding.
-* Add more OpenSSL functions.
-* Support MacOS and iOS platform.
-* Remove QtNetwork dependence.
+* [ ] Support HTTP/2
+* [*] Implements an HTTP 1.0 server.
+* [ ] HTTP support gzip.
+* [*] HttpResponse support stream.
+* [ ] Support HTTP proxy and cache.
+* [ ] Auto detect HTML encoding.
+* [ ] Add more OpenSSL functions.
+* [ ] Support MacOS and iOS platform.
+* [ ] Remove QtNetwork dependence.
 
 Building
 --------
