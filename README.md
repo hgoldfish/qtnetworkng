@@ -153,15 +153,15 @@ QtNetworkNg uses more effective boost::context asm code in arm, arm64, x86, amd6
 TODO List
 ---------
 
-* [ ] Support HTTP/2
-* [*] Implements an HTTP 1.0 server.
-* [ ] HTTP support gzip.
-* [*] HttpResponse support stream.
-* [ ] Support HTTP proxy and cache.
-* [ ] Auto detect HTML encoding.
-* [ ] Add more OpenSSL functions.
-* [ ] Support MacOS and iOS platform.
-* [ ] Remove QtNetwork dependence.
+[ ] Support HTTP/2
+[*] Implements an HTTP 1.0 server.
+[ ] HTTP support gzip.
+[*] HttpResponse support stream.
+[ ] Support HTTP proxy and cache.
+[ ] Auto detect HTML encoding.
+[ ] Add more OpenSSL functions.
+[ ] Support MacOS and iOS platform.
+[ ] Remove QtNetwork dependence.
 
 Building
 --------
