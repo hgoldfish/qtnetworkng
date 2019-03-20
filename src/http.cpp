@@ -977,7 +977,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 
     // merge cookies.
     if(response.hasHeader(QStringLiteral("Set-Cookie"))) {
-        for (const QByteArray &value: response.multiHeader("Set-Cookie")) {
+        for (const QByteArray &value: response.multiHeader(QStringLiteral("Set-Cookie"))) {
             const QList<QNetworkCookie> &cookies = QNetworkCookie::parseCookies(value);
             if(debugLevel > 0 && !cookies.isEmpty()) {
                 qDebug() << "receiving cookie:" << cookies[0].toRawForm();

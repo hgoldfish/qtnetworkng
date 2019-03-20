@@ -10,6 +10,7 @@ QTNETWORKNG_NAMESPACE_BEGIN
 #ifndef QTNG_NO_CRYPTO
 class SslSocket;
 #endif
+class KcpSocket;
 class SocketLike
 {
 public:
@@ -53,8 +54,12 @@ public:
     static QSharedPointer<SocketLike> sslSocket(QSharedPointer<SslSocket> s);
     static QSharedPointer<SocketLike> sslSocket(SslSocket *s);
 #endif
+    static QSharedPointer<SocketLike> kcpSocket(QSharedPointer<KcpSocket> s);
+    static QSharedPointer<SocketLike> kcpSocket(KcpSocket *s);
 };
 
+
+QSharedPointer<Socket> convertSocketLikeToSocket(QSharedPointer<SocketLike> socket);
 
 class FileLike
 {

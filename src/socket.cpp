@@ -19,8 +19,7 @@ SocketPrivate::SocketPrivate(Socket::NetworkLayerProtocol protocol,
         return;
     if(type == Socket::UdpSocket)
     {
-        if(!setOption(Socket::BroadcastSocketOption, 1))
-        {
+        if(!setOption(Socket::BroadcastSocketOption, 1)) {
 //            setError(Socket::UnsupportedSocketOperationError);
 //            close();
 //            return;
@@ -45,6 +44,9 @@ SocketPrivate::SocketPrivate(qintptr socketDescriptor, Socket *parent)
     type = Socket::TcpSocket;
     state = Socket::ConnectedState;
     fetchConnectionParameters();
+    if (type == Socket::UdpSocket) {
+        state = Socket::UnconnectedState;
+    }
 }
 
 SocketPrivate::~SocketPrivate()
@@ -62,6 +64,10 @@ bool SocketPrivate::bind(quint16 port, Socket::BindMode mode)
 
 bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
 {
+    if (state != Socket::UnconnectedState && state != Socket::BoundState) {
+        return false;
+    }
+    Socket::SocketState oldState = state;
     state = Socket::HostLookupState;
     QList<QHostAddress> addresses;
     QHostAddress t;
@@ -76,12 +82,12 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::Netwo
     }
 
     if(addresses.isEmpty()) {
-        state = Socket::UnconnectedState;
+        state = oldState;
         setError(Socket::HostNotFoundError, QStringLiteral("Host not found."));
         return false;
     }
     bool done = true;
-    state = Socket::UnconnectedState;
+    state = oldState;
     for (int i = 0; i < addresses.size(); ++i) {
         QHostAddress addr = addresses.at(i);
         if(protocol == Socket::IPv4Protocol && addr.protocol() != QAbstractSocket::IPv4Protocol) {
@@ -97,6 +103,7 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::Netwo
     if(error == Socket::NoError) {
         setError(Socket::HostNotFoundError, QStringLiteral("Host not found."));
     }
+    state = oldState;
     return false;
 }
 
@@ -410,11 +417,11 @@ QByteArray Socket::recvall(qint32 size)
 {
     Q_D(Socket);
     QByteArray bs;
-    bs.resize(size);
+    bs.resize(static_cast<int>(size));
 
     qint32 bytes = d->recv(bs.data(), bs.size(), true);
     if(bytes > 0) {
-        bs.resize(bytes);
+        bs.resize(static_cast<int>(bytes));
         return bs;
     }
     return QByteArray();

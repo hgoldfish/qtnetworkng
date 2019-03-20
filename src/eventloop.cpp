@@ -10,7 +10,7 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-Q_GLOBAL_STATIC(CurrentLoopStorage, currentLoopStorage);
+Q_GLOBAL_STATIC(CurrentLoopStorage, currentLoopStorage)
 
 CurrentLoopStorage *currentLoop()
 {
@@ -21,14 +21,17 @@ class CoroutineSpawnHelper: public Coroutine
 {
 public:
     CoroutineSpawnHelper(std::function<void()> f)
-        :f(f){}
+        :f(new std::function<void()>(f)){}
     virtual ~CoroutineSpawnHelper() override;
     virtual void run() override;
 private:
-    std::function<void()> f;
+    QScopedPointer<std::function<void()>> f;
 };
 CoroutineSpawnHelper::~CoroutineSpawnHelper() {}
-void CoroutineSpawnHelper::run() { f(); }
+void CoroutineSpawnHelper::run() {
+    (*f)();
+    f.reset();
+}
 
 Coroutine *Coroutine::spawn(std::function<void()> f)
 {

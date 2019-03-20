@@ -186,7 +186,7 @@ class CipherPrivate
 public:
     CipherPrivate(Cipher::Algorithm algo, Cipher::Mode mode, Cipher::Operation operation);
     ~CipherPrivate();
-    QByteArray addData(const QByteArray &data);
+    QByteArray addData(const char *data, int len);
     QByteArray finalData();
     QPair<QByteArray, QByteArray> bytesToKey(const QByteArray &password,MessageDigest::Algorithm hashAlgo,
                                              const QByteArray &salt, int i);
@@ -210,10 +210,11 @@ public:
     Cipher::Operation operation;
     bool hasError;
     bool inited;
+    bool padding;
 };
 
 CipherPrivate::CipherPrivate(Cipher::Algorithm algo, Cipher::Mode mode, Cipher::Operation operation)
-    :context(nullptr), cipher(nullptr), algo(algo), mode(mode), operation(operation), hasError(false), inited(false)
+    :context(nullptr), cipher(nullptr), algo(algo), mode(mode), operation(operation), hasError(false), inited(false), padding(true)
 {
     initOpenSSL();
     cipher = getOpenSSL_CIPHER(algo, mode);
@@ -239,12 +240,13 @@ CipherPrivate::~CipherPrivate()
 
 bool CipherPrivate::init()
 {
-    if(inited || !context || !cipher || key.isEmpty())
+    if(inited || !context || !cipher || key.isEmpty() || iv.isEmpty() || hasError) {
         return false;
+    }
     int rvalue = EVP_CipherInit_ex(context, cipher, nullptr,
-                                              reinterpret_cast<unsigned char*>(key.data()),
-                                              reinterpret_cast<unsigned char*>(iv.data()),
-                                              operation == Cipher::Decrypt? 0 : 1);
+                                   reinterpret_cast<unsigned char*>(key.data()),
+                                   reinterpret_cast<unsigned char*>(iv.data()),
+                                   operation == Cipher::Decrypt ? 0 : 1);
     if(rvalue) {
         inited = true;
         return true;
@@ -309,16 +311,16 @@ QPair<QByteArray, QByteArray> CipherPrivate::PBKDF2_HMAC(const QByteArray &passw
     return qMakePair(QByteArray(), QByteArray());
 
 }
-QByteArray CipherPrivate::addData(const QByteArray &data)
+QByteArray CipherPrivate::addData(const char *data, int len)
 {
     if(!context || !inited || hasError) {
         return QByteArray();
     }
     QByteArray out;
-    out.resize(data.size() + EVP_MAX_BLOCK_LENGTH);
+    out.resize(len + EVP_MAX_BLOCK_LENGTH);
     int outl = 0;
     int rvalue = EVP_CipherUpdate(context, reinterpret_cast<unsigned char *>(out.data()), &outl,
-                                             reinterpret_cast<const unsigned char *>(data.data()), data.size());
+                                             reinterpret_cast<const unsigned char *>(data), len);
     if(rvalue) {
         out.resize(outl);
         return out;
@@ -394,7 +396,12 @@ bool CipherPrivate::setPadding(bool padding)
         return false;
     }
     int rvalue = EVP_CIPHER_CTX_set_padding(context, padding ? 1 : 0);
-    return rvalue == 1;
+    if (rvalue == 1) {
+        this->padding = padding;
+        return true;
+    } else {
+        return false;
+    }
 }
 
 Cipher::Cipher(Cipher::Algorithm alog, Cipher::Mode mode, Cipher::Operation operation)
@@ -409,10 +416,31 @@ Cipher::~Cipher()
 }
 
 
-QByteArray Cipher::addData(const QByteArray &data)
+Cipher *Cipher::copy(Cipher::Operation operation)
 {
     Q_D(Cipher);
-    return d->addData(data);
+    if (!isValid()) {
+        return nullptr;
+    }
+    Cipher *newOne = new Cipher(d->algo, d->mode, operation);
+    newOne->setKey(d->key);
+    newOne->setInitialVector(d->iv);
+    if (!d->padding) {
+        newOne->setPadding(d->padding);
+    }
+    return newOne;
+}
+
+bool Cipher::isValid() const
+{
+    Q_D(const Cipher);
+    return d->cipher && d->context && !d->hasError && d->inited;
+}
+
+QByteArray Cipher::addData(const char *data, int len)
+{
+    Q_D(Cipher);
+    return d->addData(data, len);
 }
 
 
@@ -487,6 +515,13 @@ bool Cipher::setPadding(bool padding)
 {
     Q_D(Cipher);
     return d->setPadding(padding);
+}
+
+
+bool Cipher::padding() const
+{
+    Q_D(const Cipher);
+    return d->padding;
 }
 
 

@@ -230,8 +230,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
     setPortAndAddress(port, address, &aa, &sockAddrSize);
     state = Socket::ConnectingState;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
-    while(true)
-    {
+    while(true) {
         if(!isValid())
             return false;
         if(state != Socket::ConnectingState)
@@ -240,8 +239,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
         do {
             result = ::connect(fd, &aa.a, sockAddrSize);
         } while(result < 0 && errno == EINTR);
-        if(result >= 0)
-        {
+        if(result >= 0) {
             state = Socket::ConnectedState;
             fetchConnectionParameters();
             return true;
@@ -288,6 +286,9 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
             state = Socket::UnconnectedState;
             return false;
         case EAFNOSUPPORT:
+            setError(Socket::UnsupportedSocketOperationError, UnknownSocketErrorString);
+            state = Socket::UnconnectedState;
+            return false;
         case EBADF:
         case EFAULT:
         case ENOTSOCK:
@@ -309,8 +310,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 
 bool SocketPrivate::close()
 {
-    if(fd > 0)
-    {
+    if(fd > 0) {
         ::close(fd);
         EventLoopCoroutine::get()->triggerIoWatchers(fd);
         fd = -1;
@@ -410,12 +410,14 @@ bool SocketPrivate::fetchConnectionParameters()
     int value = 0;
     socklen_t valueSize = sizeof(int);
     if (::getsockopt(fd, SOL_SOCKET, SO_TYPE, &value, &valueSize) == 0) {
-        if (value == SOCK_STREAM)
+        if (value == SOCK_STREAM) {
             type = Socket::TcpSocket;
-        else if (value == SOCK_DGRAM)
+        } else if (value == SOCK_DGRAM) {
             type = Socket::UdpSocket;
-        else
+            state = Socket::UnconnectedState;
+        } else {
             type = Socket::UnknownSocketType;
+        }
     }
     return true;
 }
@@ -439,7 +441,8 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
         } while(r < 0 && errno == EINTR);
 
         if (r < 0) {
-            switch (errno) {
+            int e = errno;
+            switch (e) {
 #if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
 #endif
@@ -509,8 +512,8 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
                 continue;
             }
         } else if(w < 0) {
-            switch(errno)
-            {
+            int e = errno;
+            switch(e) {
 #if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
 #endif
@@ -587,7 +590,8 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, q
         } while (recvResult == -1 && errno == EINTR);
 
         if (recvResult < 0) {
-            switch (errno) {
+            int e = errno;
+            switch (e) {
 #if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
 #endif
@@ -664,7 +668,8 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
         } while(sentBytes == -1 && error == EINTR);
 
         if(sentBytes < 0) {
-            switch(errno)
+            int e = errno;
+            switch(e)
             {
 #if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
@@ -701,8 +706,8 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
             }
         } else { // sentBytes == 0 || sentBytes > 0
             if (type == Socket::UdpSocket && !localPort && localAddress.isNull()) {
-                    fetchConnectionParameters();
-                }
+                fetchConnectionParameters();
+            }
             return static_cast<qint32>(sentBytes);
         }
         watcher.start();
@@ -915,7 +920,8 @@ Socket *SocketPrivate::accept()
         }
         int acceptedDescriptor = qt_safe_accept(fd, nullptr, nullptr);
         if (acceptedDescriptor == -1) {
-            switch (errno) {
+            int e = errno;
+            switch (e) {
             case EBADF:
             case EOPNOTSUPP:
                 setError(Socket::UnsupportedSocketOperationError, InvalidSocketErrorString);

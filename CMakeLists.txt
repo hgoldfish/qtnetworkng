@@ -53,6 +53,7 @@ set(QTNETWORKNG_SRC
     src/eventloop_qt.cpp
     src/msgpack.cpp
     src/data_channel.cpp
+    src/kcp.cpp
 )
 
 set(QTNETWORKNG_INCLUDE
@@ -73,6 +74,7 @@ set(QTNETWORKNG_INCLUDE
     include/qtnetworkng.h
     include/msgpack.h
     include/data_channel.h
+    include/kcp.h
 )
 
 SET(QTNETWORKNG_PRIVATE_INCLUDE
@@ -109,6 +111,11 @@ set(QTCRYPTONG_PRIVATE_INCLUDE
     include/private/crypto_p.h
     include/private/qtng_temp.h
     include/private/qasn1element.h
+)
+
+set(KCP_SRC
+    src/kcp/ikcp.c
+    src/kcp/ikcp.h
 )
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
@@ -230,8 +237,8 @@ set(LIBRESSL_TESTS OFF)
 add_subdirectory(libressl)
 
 add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_EV_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
-                               ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} ${OS_DEPENDENDED_SRC})
-target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+                               ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} ${KCP_SRC} ${OS_DEPENDENDED_SRC})
+target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 
 # Fix Qt-static cmake BUG
 # https://bugreports.qt.io/browse/QTBUG-38913
@@ -285,4 +292,7 @@ IF(Qt5Test_FOUND AND QTNG_BUILD_TESTS)
 
     add_executable(simple_httpd tests/simple_httpd.cpp)
     target_link_libraries(simple_httpd PRIVATE Qt5::Core Qt5::Network qtnetworkng)
+
+    add_executable(test_kcp tests/test_kcp.cpp)
+    target_link_libraries(test_kcp PRIVATE Qt5::Core Qt5::Network qtnetworkng)
 endif()

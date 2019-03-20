@@ -46,7 +46,7 @@ public:
     virtual QByteArray recvall(qint32 size) override;
     virtual qint32 send(const QByteArray &data) override;
     virtual qint32 sendall(const QByteArray &data) override;
-private:
+public:
     QSharedPointer<Socket> s;
 };
 
@@ -214,6 +214,17 @@ qint32 SocketLikeImpl::sendall(const QByteArray &data)
 QSharedPointer<SocketLike> SocketLike::rawSocket(QSharedPointer<Socket> s)
 {
     return QSharedPointer<SocketLikeImpl>::create(s).dynamicCast<SocketLike>();
+}
+
+
+QSharedPointer<Socket> convertSocketLikeToSocket(QSharedPointer<SocketLike> socket)
+{
+    QSharedPointer<SocketLikeImpl> impl = socket.dynamicCast<SocketLikeImpl>();
+    if (impl.isNull()) {
+        return QSharedPointer<Socket>();
+    } else {
+        return impl->s;
+    }
 }
 
 

@@ -49,6 +49,7 @@ public:
     enum SocketType {
         TcpSocket,
         UdpSocket,
+        KcpSocket,
         UnknownSocketType = -1
     };
     Q_ENUMS(SocketType)

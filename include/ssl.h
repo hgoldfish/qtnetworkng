@@ -144,6 +144,7 @@ QDebug &operator<<(QDebug &debug, const SslError::Error &error);
 
 class Socket;
 class SslSocketPrivate;
+class SocketLike;
 class SslSocket
 {
 public:
@@ -165,6 +166,7 @@ public:
     SslSocket(Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol, const SslConfiguration &config = SslConfiguration());
     SslSocket(qintptr socketDescriptor, const SslConfiguration &config = SslConfiguration());
     SslSocket(QSharedPointer<Socket> rawSocket, const SslConfiguration &config = SslConfiguration());
+    SslSocket(QSharedPointer<SocketLike> rawSocket, const SslConfiguration &config = SslConfiguration());
     virtual ~SslSocket();
 public:
     bool handshake(bool asServer, const QString &verificationPeerName = QString());
@@ -223,7 +225,7 @@ private:
     Q_DISABLE_COPY(SslSocket)
 };
 
-QSharedPointer<SslSocket> convertSocketLikeToSslSocket(QSharedPointer<class SocketLike> socket);
+QSharedPointer<SslSocket> convertSocketLikeToSslSocket(QSharedPointer<SocketLike> socket);
 
 QTNETWORKNG_NAMESPACE_END
 

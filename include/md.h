@@ -26,10 +26,12 @@ public:
     explicit MessageDigest(Algorithm algo);
     virtual ~MessageDigest();
 public:
-    void addData(const QByteArray &data);
+    inline void addData(const QByteArray &data) { addData(data.constData(), data.size()); }
+    void addData(const char *data, int len);
     QByteArray result();
 public:
-    inline void update(const QByteArray &data) { addData(data); }
+    inline void update(const QByteArray &data) { addData(data.constData(), data.size()); }
+    inline void update(const char *data, int len) { addData(data, len); }
     inline QByteArray digest() { return result(); }
     inline QByteArray hexDigest() { return result().toHex(); }
 public:

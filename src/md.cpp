@@ -46,7 +46,7 @@ class MessageDigestPrivate
 public:
     MessageDigestPrivate(MessageDigest::Algorithm algo);
     ~MessageDigestPrivate();
-    void addData(const QByteArray &data);
+    void addData(const char *buf, int len);
     QByteArray result();
     EVP_MD_CTX *context;
     QByteArray finalData;
@@ -87,11 +87,11 @@ MessageDigestPrivate::~MessageDigestPrivate()
     }
 }
 
-void MessageDigestPrivate::addData(const QByteArray &data)
+void MessageDigestPrivate::addData(const char *buf, int len)
 {
     if(hasError)
         return;
-    int rvalue = EVP_DigestUpdate(context, data.data(), static_cast<size_t>(data.size()));
+    int rvalue = EVP_DigestUpdate(context, buf, static_cast<size_t>(len));
     hasError = !rvalue;
 }
 
@@ -128,10 +128,10 @@ MessageDigest::~MessageDigest()
 }
 
 
-void MessageDigest::addData(const QByteArray &data)
+void MessageDigest::addData(const char *data, int len)
 {
     Q_D(MessageDigest);
-    d->addData(data);
+    d->addData(data, len);
 }
 
 

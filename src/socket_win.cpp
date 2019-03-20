@@ -611,10 +611,10 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
                     }
                     tries++;
                 } while (tryAgain && (tries < 2));
+            }
 #if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
                     Q_FALLTHROUGH();
 #endif
-                }
             case WSAEINPROGRESS:
                 break;
             case WSAEADDRINUSE:
@@ -651,6 +651,10 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
                 return false;
             }
             watcher.start();
+        } else {
+            state = Socket::ConnectedState;
+            fetchConnectionParameters();
+            return true;
         }
     }
 }
@@ -658,8 +662,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 
 bool SocketPrivate::close()
 {
-    if(fd > 0)
-    {
+    if(fd > 0) {
         ::closesocket(static_cast<SOCKET>(fd));
         EventLoopCoroutine::get()->triggerIoWatchers(fd);
         fd = -1;
@@ -1086,6 +1089,9 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     while(true) {
+        if (!isValid()) {
+            return -1;
+        }
         int socketRet = ::WSASendTo(static_cast<SOCKET>(fd), &buf, 1, &bytesSent, flags, msg.name, msg.namelen, nullptr, nullptr);
         ret += bytesSent;
 

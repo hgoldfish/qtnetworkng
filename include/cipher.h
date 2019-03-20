@@ -42,7 +42,9 @@ public:
 public:
     Cipher(Algorithm alog, Mode mode, Operation operation);
     virtual ~Cipher();
+    Cipher *copy(Operation operation);
 public:
+    bool isValid() const;
     bool setKey(const QByteArray &key);
     QByteArray key() const;
     bool setInitialVector(const QByteArray &iv);
@@ -56,14 +58,17 @@ public:
     QByteArray salt() const;
     QByteArray saltHeader() const; // `openssl enc` generate a header contains salt
     bool setPadding(bool padding);
+    bool padding() const;
     int keySize() const;
     int ivSize() const;
     int blockSize() const;
 public:
-    QByteArray addData(const QByteArray &data);
+    QByteArray addData(const QByteArray &data) { return addData(data.constData(), data.size()); }
+    QByteArray addData(const char *data, int len);
     QByteArray finalData();
 public:
-    QByteArray update(const QByteArray &data) { return addData(data); }
+    QByteArray update(const QByteArray &data) { return addData(data.constData(), data.size()); }
+    QByteArray update(const char *data, int len) { return addData(data, len); }
     QByteArray final() { return finalData(); }
 public:
     static QPair<QByteArray, QByteArray> parseSalt(const QByteArray &header); // parse salt from `openssl enc` header

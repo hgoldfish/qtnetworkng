@@ -130,11 +130,10 @@ void TestCrypto::testDecrypt()
     encryptedText.append(c1.finalData());
     QVERIFY(!encryptedText.isEmpty());
 
-    Cipher c2(Cipher::Blowfish, Cipher::CBC, Cipher::Decrypt);
-    c2.setPassword("123456", MessageDigest::Sha256, "12345678", 10000);
+    QScopedPointer<Cipher> c2(c1.copy(Cipher::Decrypt));
     QByteArray clearText;
-    clearText.append(c2.addData(encryptedText));
-    clearText.append(c2.finalData());
+    clearText.append(c2->addData(encryptedText));
+    clearText.append(c2->finalData());
 
     QCOMPARE(clearText, QByteArray("fish is here."));
 }
