@@ -227,6 +227,10 @@ private:
 
 QSharedPointer<SslSocket> convertSocketLikeToSslSocket(QSharedPointer<SocketLike> socket);
 
+
+QSharedPointer<SocketLike> encrypted(QSharedPointer<Cipher> cipher, QSharedPointer<SocketLike> socket);
+
+
 QTNETWORKNG_NAMESPACE_END
 
 Q_DECLARE_METATYPE(QList<QTNETWORKNG_NAMESPACE::SslError>)

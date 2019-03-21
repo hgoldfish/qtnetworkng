@@ -5,6 +5,7 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+
 class KcpSocketPrivate;
 class KcpSocket
 {
@@ -24,6 +25,10 @@ public:
     Mode mode() const;
     void setCompression(bool compress);
     bool compression() const;
+    void setWaterline(quint32 waterline);
+    quint32 waterline() const;
+    QSharedPointer<Event> busy;
+    QSharedPointer<Event> notBusy;
 public:
     Socket::SocketError error() const;
     QString errorString() const;
@@ -56,7 +61,7 @@ public:
     qint32 send(const QByteArray &data);
     qint32 sendall(const QByteArray &data);
 private:
-    KcpSocket(KcpSocketPrivate *d);
+    KcpSocket(KcpSocketPrivate *d, const QHostAddress &addr, const quint16 port, KcpSocket::Mode mode);
 private:
     KcpSocketPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(KcpSocket)

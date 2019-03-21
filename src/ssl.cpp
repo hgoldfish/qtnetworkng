@@ -1573,10 +1573,10 @@ qint32 SslSocket::sendall(const QByteArray &data)
 
 namespace {
 
-class SocketLikeImpl: public SocketLike
+class SocketLikeSslImpl: public SocketLike
 {
 public:
-    SocketLikeImpl(QSharedPointer<SslSocket> s);
+    SocketLikeSslImpl(QSharedPointer<SslSocket> s);
 public:
     virtual Socket::SocketError error() const override;
     virtual QString errorString() const override;
@@ -1615,185 +1615,185 @@ public:
 };
 
 
-SocketLikeImpl::SocketLikeImpl(QSharedPointer<SslSocket> s)
+SocketLikeSslImpl::SocketLikeSslImpl(QSharedPointer<SslSocket> s)
     :s(s) {}
 
 
-Socket::SocketError SocketLikeImpl::error() const
+Socket::SocketError SocketLikeSslImpl::error() const
 {
     return s->error();
 }
 
 
-QString SocketLikeImpl::errorString() const
+QString SocketLikeSslImpl::errorString() const
 {
     return s->errorString();
 }
 
 
-bool SocketLikeImpl::isValid() const
+bool SocketLikeSslImpl::isValid() const
 {
     return s->isValid();
 }
 
 
-QHostAddress SocketLikeImpl::localAddress() const
+QHostAddress SocketLikeSslImpl::localAddress() const
 {
     return s->localAddress();
 }
 
 
-quint16 SocketLikeImpl::localPort() const
+quint16 SocketLikeSslImpl::localPort() const
 {
     return s->localPort();
 }
 
 
-QHostAddress SocketLikeImpl::peerAddress() const
+QHostAddress SocketLikeSslImpl::peerAddress() const
 {
     return s->peerAddress();
 }
 
 
-QString SocketLikeImpl::peerName() const
+QString SocketLikeSslImpl::peerName() const
 {
     return s->peerName();
 }
 
 
-quint16 SocketLikeImpl::peerPort() const
+quint16 SocketLikeSslImpl::peerPort() const
 {
     return s->peerPort();
 }
 
 
-qintptr	SocketLikeImpl::fileno() const
+qintptr	SocketLikeSslImpl::fileno() const
 {
     return s->fileno();
 }
 
 
-Socket::SocketType SocketLikeImpl::type() const
+Socket::SocketType SocketLikeSslImpl::type() const
 {
     return s->type();
 }
 
 
-Socket::SocketState SocketLikeImpl::state() const
+Socket::SocketState SocketLikeSslImpl::state() const
 {
     return s->state();
 }
 
 
-Socket::NetworkLayerProtocol SocketLikeImpl::protocol() const
+Socket::NetworkLayerProtocol SocketLikeSslImpl::protocol() const
 {
     return s->protocol();
 }
 
 
-Socket *SocketLikeImpl::acceptRaw()
+Socket *SocketLikeSslImpl::acceptRaw()
 {
     return s->acceptRaw();
 }
 
 
-QSharedPointer<SocketLike> SocketLikeImpl::accept()
+QSharedPointer<SocketLike> SocketLikeSslImpl::accept()
 {
     return SocketLike::sslSocket(s->accept());
 }
 
 
-bool SocketLikeImpl::bind(QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
+bool SocketLikeSslImpl::bind(QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
 {
     return s->bind(address, port, mode);
 }
 
 
-bool SocketLikeImpl::bind(quint16 port, Socket::BindMode mode)
+bool SocketLikeSslImpl::bind(quint16 port, Socket::BindMode mode)
 {
     return s->bind(port, mode);
 }
 
 
-bool SocketLikeImpl::connect(const QHostAddress &addr, quint16 port)
+bool SocketLikeSslImpl::connect(const QHostAddress &addr, quint16 port)
 {
     return s->connect(addr, port);
 }
 
 
-bool SocketLikeImpl::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
+bool SocketLikeSslImpl::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
 {
     return s->connect(hostName, port, protocol);
 }
 
 
-bool SocketLikeImpl::close()
+bool SocketLikeSslImpl::close()
 {
     return s->close();
 }
 
 
-bool SocketLikeImpl::listen(int backlog)
+bool SocketLikeSslImpl::listen(int backlog)
 {
     return s->listen(backlog);
 }
 
 
-bool SocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &value)
+bool SocketLikeSslImpl::setOption(Socket::SocketOption option, const QVariant &value)
 {
     return s->setOption(option, value);
 }
 
 
-QVariant SocketLikeImpl::option(Socket::SocketOption option) const
+QVariant SocketLikeSslImpl::option(Socket::SocketOption option) const
 {
     return s->option(option);
 }
 
 
-qint32 SocketLikeImpl::recv(char *data, qint32 size)
+qint32 SocketLikeSslImpl::recv(char *data, qint32 size)
 {
     return s->recv(data, size);
 }
 
 
-qint32 SocketLikeImpl::recvall(char *data, qint32 size)
+qint32 SocketLikeSslImpl::recvall(char *data, qint32 size)
 {
     return s->recvall(data, size);
 }
 
 
-qint32 SocketLikeImpl::send(const char *data, qint32 size)
+qint32 SocketLikeSslImpl::send(const char *data, qint32 size)
 {
     return s->send(data, size);
 }
 
 
-qint32 SocketLikeImpl::sendall(const char *data, qint32 size)
+qint32 SocketLikeSslImpl::sendall(const char *data, qint32 size)
 {
     return s->sendall(data, size);
 }
 
 
-QByteArray SocketLikeImpl::recv(qint32 size)
+QByteArray SocketLikeSslImpl::recv(qint32 size)
 {
     return s->recv(size);
 }
 
 
-QByteArray SocketLikeImpl::recvall(qint32 size)
+QByteArray SocketLikeSslImpl::recvall(qint32 size)
 {
     return s->recvall(size);
 }
 
 
-qint32 SocketLikeImpl::send(const QByteArray &data)
+qint32 SocketLikeSslImpl::send(const QByteArray &data)
 {
     return s->send(data);
 }
 
 
-qint32 SocketLikeImpl::sendall(const QByteArray &data)
+qint32 SocketLikeSslImpl::sendall(const QByteArray &data)
 {
     return s->sendall(data);
 }
@@ -1804,24 +1804,341 @@ qint32 SocketLikeImpl::sendall(const QByteArray &data)
 
 QSharedPointer<SocketLike> SocketLike::sslSocket(QSharedPointer<SslSocket> s)
 {
-    return QSharedPointer<SocketLikeImpl>::create(s).dynamicCast<SocketLike>();
+    return QSharedPointer<SocketLikeSslImpl>::create(s).dynamicCast<SocketLike>();
 }
 
 
 QSharedPointer<SocketLike> SocketLike::sslSocket(SslSocket *s)
 {
-    return QSharedPointer<SocketLikeImpl>::create(QSharedPointer<SslSocket>(s)).dynamicCast<SocketLike>();
+    return QSharedPointer<SocketLikeSslImpl>::create(QSharedPointer<SslSocket>(s)).dynamicCast<SocketLike>();
 }
 
 
 QSharedPointer<SslSocket> convertSocketLikeToSslSocket(QSharedPointer<SocketLike> socket)
 {
-    QSharedPointer<SocketLikeImpl> impl = socket.dynamicCast<SocketLikeImpl>();
+    QSharedPointer<SocketLikeSslImpl> impl = socket.dynamicCast<SocketLikeSslImpl>();
     if (impl.isNull()) {
         return QSharedPointer<SslSocket>();
     } else {
         return impl->s;
     }
 }
+
+
+namespace {
+
+class EncryptedSocketLike: public SocketLike
+{
+public:
+    EncryptedSocketLike(QSharedPointer<Cipher> cipher, QSharedPointer<SocketLike> s);
+public:
+    virtual Socket::SocketError error() const override;
+    virtual QString errorString() const override;
+    virtual bool isValid() const override;
+    virtual QHostAddress localAddress() const override;
+    virtual quint16 localPort() const override;
+    virtual QHostAddress peerAddress() const override;
+    virtual QString peerName() const override;
+    virtual quint16 peerPort() const override;
+    virtual qintptr	fileno() const override;
+    virtual Socket::SocketType type() const override;
+    virtual Socket::SocketState state() const override;
+    virtual Socket::NetworkLayerProtocol protocol() const override;
+
+    virtual Socket *acceptRaw() override;
+    virtual QSharedPointer<SocketLike> accept() override;
+    virtual bool bind(QHostAddress &address, quint16 port, Socket::BindMode mode) override;
+    virtual bool bind(quint16 port, Socket::BindMode mode) override;
+    virtual bool connect(const QHostAddress &addr, quint16 port) override;
+    virtual bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol) override;
+    virtual bool close() override;
+    virtual bool listen(int backlog) override;
+    virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
+    virtual QVariant option(Socket::SocketOption option) const override;
+
+    qint32 recv(char *data, qint32 size, bool all);
+    qint32 send(const char *data, qint32 size, bool all);
+
+    virtual qint32 recv(char *data, qint32 size) override;
+    virtual qint32 recvall(char *data, qint32 size) override;
+    virtual qint32 send(const char *data, qint32 size) override;
+    virtual qint32 sendall(const char *data, qint32 size) override;
+    virtual QByteArray recv(qint32 size) override;
+    virtual QByteArray recvall(qint32 size) override;
+    virtual qint32 send(const QByteArray &data) override;
+    virtual qint32 sendall(const QByteArray &data) override;
+public:
+    QSharedPointer<Cipher> incomingCipher;
+    QSharedPointer<Cipher> outgoingCipher;
+    QSharedPointer<SocketLike> s;
+};
+
+
+EncryptedSocketLike::EncryptedSocketLike(QSharedPointer<Cipher> cipher, QSharedPointer<SocketLike> s)
+    : incomingCipher(cipher->copy(Cipher::Decrypt)), outgoingCipher(cipher->copy(Cipher::Encrypt)), s(s)
+{
+
+}
+
+
+Socket::SocketError EncryptedSocketLike::error() const
+{
+    return s->error();
+}
+
+
+QString EncryptedSocketLike::errorString() const
+{
+    return s->errorString();
+}
+
+
+bool EncryptedSocketLike::isValid() const
+{
+    return s->isValid();
+}
+
+
+QHostAddress EncryptedSocketLike::localAddress() const
+{
+    return s->localAddress();
+}
+
+
+quint16 EncryptedSocketLike::localPort() const
+{
+    return s->localPort();
+}
+
+
+QHostAddress EncryptedSocketLike::peerAddress() const
+{
+    return s->peerAddress();
+}
+
+
+QString EncryptedSocketLike::peerName() const
+{
+    return s->peerName();
+}
+
+
+quint16 EncryptedSocketLike::peerPort() const
+{
+    return s->peerPort();
+}
+
+
+qintptr	EncryptedSocketLike::fileno() const
+{
+    return s->fileno();
+}
+
+
+Socket::SocketType EncryptedSocketLike::type() const
+{
+    return s->type();
+}
+
+
+Socket::SocketState EncryptedSocketLike::state() const
+{
+    return s->state();
+}
+
+
+Socket::NetworkLayerProtocol EncryptedSocketLike::protocol() const
+{
+    return s->protocol();
+}
+
+
+Socket *EncryptedSocketLike::acceptRaw()
+{
+    return s->acceptRaw();
+}
+
+
+QSharedPointer<SocketLike> EncryptedSocketLike::accept()
+{
+    return s->accept();
+}
+
+
+bool EncryptedSocketLike::bind(QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
+{
+    return s->bind(address, port, mode);
+}
+
+
+bool EncryptedSocketLike::bind(quint16 port, Socket::BindMode mode)
+{
+    return s->bind(port, mode);
+}
+
+
+bool EncryptedSocketLike::connect(const QHostAddress &addr, quint16 port)
+{
+    return s->connect(addr, port);
+}
+
+
+bool EncryptedSocketLike::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
+{
+    return s->connect(hostName, port, protocol);
+}
+
+
+bool EncryptedSocketLike::close()
+{
+    QByteArray encrypted = outgoingCipher->finalData();
+    s->sendall(encrypted);
+    return s->close();
+}
+
+
+bool EncryptedSocketLike::listen(int backlog)
+{
+    return s->listen(backlog);
+}
+
+
+bool EncryptedSocketLike::setOption(Socket::SocketOption option, const QVariant &value)
+{
+    return s->setOption(option, value);
+}
+
+
+QVariant EncryptedSocketLike::option(Socket::SocketOption option) const
+{
+    return s->option(option);
+}
+
+
+qint32 EncryptedSocketLike::recv(char *data, qint32 size, bool all)
+{
+    QByteArray buf(size, Qt::Uninitialized);
+    QByteArray decrypted;
+    decrypted.reserve(size);
+
+    qint32 bs;
+    if (all) {
+        bs = s->recvall(buf.data(), buf.size());
+    } else {
+        bs = s->recv(buf.data(), buf.size());
+    }
+
+    if (bs <= 0) {
+        decrypted = incomingCipher->finalData();
+        if (decrypted.isEmpty()) {
+            return bs;
+        }
+    } else {
+        decrypted = incomingCipher->addData(buf.constData(), bs);
+        if (all && decrypted.size() < size) {  // some bytes is keep by incomingCipher.
+            qint32 len = size - decrypted.size();
+            bs = s->recvall(buf.data(), len);
+            if (bs <= 0) {
+                decrypted.append(incomingCipher->finalData());
+            } else {
+                decrypted.append(incomingCipher->addData(buf.constData(), bs));
+                if (bs < len) {
+                    decrypted.append(incomingCipher->finalData());
+                } else {
+                    Q_ASSERT(decrypted.size() == size);
+                }
+            }
+        }
+    }
+
+    memcpy(data, decrypted.constData(), decrypted.size());
+    return decrypted.size();
+}
+
+
+qint32 EncryptedSocketLike::send(const char *data, qint32 size, bool all)
+{
+    const QByteArray &encrypted = outgoingCipher->addData(data, size);
+    qint32 bs = s->sendall(encrypted);   // only support sendall.
+    if (bs < encrypted.size()) {
+        return -1;
+    } else {
+        return size;
+    }
+}
+
+
+qint32 EncryptedSocketLike::recv(char *data, qint32 size)
+{
+    return recv(data, size, false);
+}
+
+
+qint32 EncryptedSocketLike::recvall(char *data, qint32 size)
+{
+    return recv(data, size, true);
+}
+
+
+qint32 EncryptedSocketLike::send(const char *data, qint32 size)
+{
+    return send(data, size, false);
+}
+
+
+qint32 EncryptedSocketLike::sendall(const char *data, qint32 size)
+{
+    return s->sendall(data, size);
+}
+
+
+QByteArray EncryptedSocketLike::recv(qint32 size)
+{
+    QByteArray buf(size, Qt::Uninitialized);
+    qint32 bs = recv(buf.data(), buf.size(), false);
+    if (bs < 0) {
+        return QByteArray();
+    } else {
+        buf.resize(bs);
+        return buf;
+    }
+}
+
+
+QByteArray EncryptedSocketLike::recvall(qint32 size)
+{
+    QByteArray buf(size, Qt::Uninitialized);
+    qint32 bs = recv(buf.data(), buf.size(), true);
+    if (bs < 0) {
+        return QByteArray();
+    } else {
+        buf.resize(bs);
+        return buf;
+    }
+}
+
+
+qint32 EncryptedSocketLike::send(const QByteArray &data)
+{
+    return send(data.constData(), data.size(), false);
+}
+
+
+qint32 EncryptedSocketLike::sendall(const QByteArray &data)
+{
+    return send(data.constData(), data.size(), true);
+}
+
+}
+
+
+QSharedPointer<SocketLike> encrypted(QSharedPointer<Cipher> cipher, QSharedPointer<SocketLike> socket)
+{
+    if (cipher.isNull() || !cipher->isValid()) {
+        return QSharedPointer<SocketLike>();
+    }
+    return QSharedPointer<SocketLike>(new EncryptedSocketLike(cipher, socket));
+}
+
 
 QTNETWORKNG_NAMESPACE_END

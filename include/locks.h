@@ -166,15 +166,18 @@ public:
     Queue() : Queue(INT_MAX) {}
     ~Queue();
     void setCapacity(int capacity);
-    bool put(const T &e);
-    bool returns(const T &e);
+    bool put(const T &e);      // insert e to the tail of queue.
+    bool returns(const T &e);  // like put() but insert e to the head of queue.
     T get();
     bool isEmpty() const;
     bool isFull() const;
     int capacity() const { return mCapacity; }
     int size() const { return queue.size(); }
     int getting() const { return notEmpty.getting();}
+
     void clear();
+    bool contains(const T &e) const { return queue.contains(e); }
+    bool remove(const T &e);
 private:
     QQueue<T> queue;
     Event notEmpty;
@@ -194,7 +197,7 @@ Queue<T>::Queue(int capacity)
 template<typename T>
 Queue<T>::~Queue()
 {
-    if(queue.size() > 0) {
+    if (queue.size() > 0) {
         qDebug() << "queue is free with element left.";
     }
 }
@@ -203,7 +206,7 @@ template<typename T>
 void Queue<T>::setCapacity(int capacity)
 {
     this->mCapacity = capacity;
-    if(isFull()) {
+    if (isFull()) {
         notFull.clear();
     }
 }
@@ -219,14 +222,32 @@ void Queue<T>::clear()
 
 
 template<typename T>
+bool Queue<T>::remove(const T &e)
+{
+    int n = this->queue.removeAll(e);
+    if (n > 0) {
+        if (isEmpty()) {
+            notEmpty.clear();
+        }
+        if (!isFull()) {
+            notFull.clear();
+        }
+        return true;
+    } else {
+        return false;
+    }
+}
+
+
+template<typename T>
 bool Queue<T>::put(const T &e)
 {
-    if(!notFull.wait()) {
+    if (!notFull.wait()) {
         return false;
     }
     queue.enqueue(e);
     notEmpty.set();
-    if(isFull()) {
+    if (isFull()) {
         notFull.clear();
     }
     return true;
@@ -235,12 +256,12 @@ bool Queue<T>::put(const T &e)
 template<typename T>
 bool Queue<T>::returns(const T &e)
 {
-    if(!notFull.wait()) {
+    if (!notFull.wait()) {
         return false;
     }
     queue.prepend(e);
     notEmpty.set();
-    if(isFull()) {
+    if (isFull()) {
         notFull.clear();
     }
     return true;
@@ -249,13 +270,13 @@ bool Queue<T>::returns(const T &e)
 template<typename T>
 T Queue<T>::get()
 {
-    if(!notEmpty.wait())
+    if (!notEmpty.wait())
         return T();
     const T &e = queue.dequeue();
-    if(isEmpty()) {
+    if (isEmpty()) {
         notEmpty.clear();
     }
-    if(!isFull()) {
+    if (!isFull()) {
         notFull.set();
     }
     return e;

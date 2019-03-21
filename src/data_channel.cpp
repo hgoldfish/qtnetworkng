@@ -118,6 +118,7 @@ public:
 
     // called by the public class DataChannel
     QSharedPointer<VirtualChannel> makeChannel();
+    QSharedPointer<VirtualChannel> takeChannel();
     QSharedPointer<VirtualChannel> getChannel(quint32 channelNumber);
     bool removeChannel(VirtualChannel *channel);
     QByteArray recvPacket();
@@ -144,7 +145,7 @@ public:
     bool broken;
     quint32 nextChannelNumber;
     int maxPacketSize;
-    QSet<quint32> pendingChannels;
+    Queue<quint32> pendingChannels;
     QMap<quint32, QWeakPointer<VirtualChannel>> subChannels;
     Queue<QByteArray> receivingQueue;
     Gate goThrough;
@@ -282,7 +283,24 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannel()
     quint32 channelNumber = nextChannelNumber;
     sendPacketRawAsync(CommandChannelNumber, packMakeChannelRequest(channelNumber));
     QSharedPointer<VirtualChannel> channel(new VirtualChannel(q, DataChannelPole::PositivePole, channelNumber));
-    subChannels.insert(channelNumber,channel);
+    subChannels.insert(channelNumber, channel);
+    return channel;
+}
+
+
+QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel()
+{
+    Q_Q(DataChannel);
+    if (isBroken()) {
+        return QSharedPointer<VirtualChannel>();
+    }
+    quint32 channelNumber = pendingChannels.get();
+    if (!channelNumber) {
+        return QSharedPointer<VirtualChannel>();
+    }
+    QSharedPointer<VirtualChannel> channel(new VirtualChannel(q, DataChannelPole::NegativePole, channelNumber));
+    subChannels.insert(channelNumber, channel);
+    sendPacketRawAsync(CommandChannelNumber, packChannelMadeRequest(channelNumber));
     return channel;
 }
 
@@ -290,7 +308,7 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannel()
 QSharedPointer<VirtualChannel> DataChannelPrivate::getChannel(quint32 channelNumber)
 {
     Q_Q(DataChannel);
-    if(isBroken() || !pendingChannels.contains(channelNumber)) {
+    if (isBroken() || !pendingChannels.contains(channelNumber)) {
         return QSharedPointer<VirtualChannel>();
     }
     QSharedPointer<VirtualChannel> channel(new VirtualChannel(q, DataChannelPole::NegativePole, channelNumber));
@@ -342,7 +360,7 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
         return false;
     }
     if(command == MAKE_CHANNEL_REQUEST) {
-        pendingChannels.insert(channelNumber);
+        pendingChannels.put(channelNumber);
         return true;
     } else if(command == CHANNEL_MADE_REQUEST) {
         if(subChannels.contains(channelNumber)) {
@@ -547,7 +565,7 @@ void SocketChannelPrivate::doReceive()
                 channel.data()->d_func()->handleIncomingPacket(packet);
             }
         } else {
-            qDebug() << "packet is dropped for unknown channel number:" << channelNumber;
+//            qDebug() << "packet is dropped for unknown channel number:" << channelNumber;
         }
     }
 }
@@ -773,21 +791,27 @@ bool VirtualChannelPrivate::sendPacketRawAsync(quint32 channelNumber, const QByt
 }
 
 
-SocketChannel::SocketChannel(const QSharedPointer<Socket> connection, DataChannelPole pole)
+SocketChannel::SocketChannel(QSharedPointer<Socket> connection, DataChannelPole pole)
     :DataChannel(new SocketChannelPrivate(SocketLike::rawSocket(connection), pole, this))
 {
 }
 
 
-#ifdef QTNETWOKRNG_USE_SSL
-SocketChannel::SocketChannel(const QSharedPointer<SslSocket> connection, DataChannelPole pole)
+#ifndef QTNG_NO_CRYPTO
+SocketChannel::SocketChannel(QSharedPointer<SslSocket> connection, DataChannelPole pole)
     :DataChannel(new SocketChannelPrivate(SocketLike::sslSocket(connection), pole, this))
 {
 }
 #endif
 
 
-SocketChannel::SocketChannel(const QSharedPointer<SocketLike> connection, DataChannelPole pole)
+SocketChannel::SocketChannel(QSharedPointer<KcpSocket> connection, DataChannelPole pole)
+    :DataChannel(new SocketChannelPrivate(SocketLike::kcpSocket(connection), pole, this))
+{
+}
+
+
+SocketChannel::SocketChannel(QSharedPointer<SocketLike> connection, DataChannelPole pole)
     :DataChannel(new SocketChannelPrivate(connection, pole, this))
 {
 }
@@ -851,6 +875,13 @@ QSharedPointer<VirtualChannel> DataChannel::makeChannel()
 {
     Q_D(DataChannel);
     return d->makeChannel();
+}
+
+
+QSharedPointer<VirtualChannel> DataChannel::takeChannel()
+{
+    Q_D(DataChannel);
+    return d->takeChannel();
 }
 
 

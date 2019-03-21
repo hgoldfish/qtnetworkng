@@ -65,9 +65,9 @@ To create tcp server.
     CoroutineGroup workers;
     s.bind(QHostAddress::Any, 8000);
     s.listen(100);
-    while(true) {
+    while (true) {
         QSharedPointer<Socket> request(s.accept());
-        if(request.isNull()) {
+        if (request.isNull()) {
             break;
         }
         workers.spawn([request] {
@@ -94,7 +94,7 @@ A Qt GUI example to fetch web page.
                 Coroutine::sleep(1);
                 HttpSession session;
                 HttpResponse response = session.get("http://example.org/");
-                if(response.isOk()) {
+                if (response.isOk()) {
                     setHtml(response.html());
                 } else {
                     setHtml("failed");

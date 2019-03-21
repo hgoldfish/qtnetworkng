@@ -5,7 +5,6 @@
 #include "../include/kcp.h"
 #include "../include/socket_utils.h"
 #include "kcp/ikcp.h"
-
 QTNETWORKNG_NAMESPACE_BEGIN
 
 const char PACKET_TYPE_UNCOMPRESSED_DATA = 0x01;
@@ -14,12 +13,14 @@ const char PACKET_TYPE_CLOSE= 0X03;
 const char PACKET_TYPE_KEEPALIVE = 0x04;
 
 
+class SlaveKcpSocketPrivate;
 class KcpSocketPrivate: public QObject
 {
 public:
-    KcpSocketPrivate();
+    KcpSocketPrivate(KcpSocket *q);
     virtual ~KcpSocketPrivate();
-    static QSharedPointer<KcpSocket> create(KcpSocketPrivate *d) { return QSharedPointer<KcpSocket>(new KcpSocket(d)); }
+    static KcpSocket *create(KcpSocketPrivate *d, const QHostAddress &addr, quint16 port, KcpSocket::Mode mode) { return new KcpSocket(d, addr, port, mode); }
+    static SlaveKcpSocketPrivate *getPrivateHelper(QSharedPointer<KcpSocket> s);
 public:
     virtual Socket::SocketError getError() const = 0;
     virtual QString getErrorString() const = 0;
@@ -53,6 +54,9 @@ public:
     QByteArray makeDataPacket(const char *data, qint32 size);
     QByteArray makeShutdownPacket();
     QByteArray makeKeepalivePacket();
+protected:
+    KcpSocket * const q_ptr;
+    Q_DECLARE_PUBLIC(KcpSocket)
 public:
     QString errorString;
     Socket::SocketState state;
@@ -62,7 +66,7 @@ public:
     QSharedPointer<Event> sendingQueueEmpty;
     QSharedPointer<Event> receivingQueueNotEmpty;
     QByteArray receivingBuffer;
-    const quint32 waterLine;
+    quint32 waterLine;
     const quint64 zeroTimestamp;
     quint64 lastActiveTimestamp;
     quint64 lastKeepaliveTimestamp;
@@ -87,9 +91,9 @@ static inline QString concat(const QHostAddress &addr, quint16 port)
 class MasterKcpSocketPrivate: public KcpSocketPrivate
 {
 public:
-    MasterKcpSocketPrivate(Socket::NetworkLayerProtocol protocol);
-    MasterKcpSocketPrivate(qintptr socketDescriptor);
-    MasterKcpSocketPrivate(QSharedPointer<Socket> rawSocket);
+    MasterKcpSocketPrivate(Socket::NetworkLayerProtocol protocol, KcpSocket *q);
+    MasterKcpSocketPrivate(qintptr socketDescriptor, KcpSocket *q);
+    MasterKcpSocketPrivate(QSharedPointer<Socket> rawSocket, KcpSocket *q);
     ~MasterKcpSocketPrivate();
 public:
     virtual Socket::SocketError getError() const override;
@@ -126,7 +130,7 @@ public:
 class SlaveKcpSocketPrivate: public KcpSocketPrivate
 {
 public:
-    SlaveKcpSocketPrivate(MasterKcpSocketPrivate *parent, const QByteArray &buf, const QHostAddress &addr, quint16 port);
+    SlaveKcpSocketPrivate(MasterKcpSocketPrivate *parent, const QHostAddress &addr, quint16 port, KcpSocket *q);
     ~SlaveKcpSocketPrivate();
 public:
     virtual Socket::SocketError getError() const override;
@@ -152,6 +156,12 @@ public:
 };
 
 
+SlaveKcpSocketPrivate *KcpSocketPrivate::getPrivateHelper(QSharedPointer<KcpSocket> s)
+{
+    return static_cast<SlaveKcpSocketPrivate*>(s->d_ptr);
+}
+
+
 int kcp_callback(const char *buf, int len, ikcpcb *, void *user)
 {
     KcpSocketPrivate *p = static_cast<KcpSocketPrivate*>(user);
@@ -161,8 +171,8 @@ int kcp_callback(const char *buf, int len, ikcpcb *, void *user)
     }
 }
 
-KcpSocketPrivate::KcpSocketPrivate()
-    :state(Socket::UnconnectedState), error(Socket::NoError)
+KcpSocketPrivate::KcpSocketPrivate(KcpSocket *q)
+    : q_ptr(q), state(Socket::UnconnectedState), error(Socket::NoError)
     , sendingQueueNotFull(new Event()), sendingQueueEmpty(new Event()), receivingQueueNotEmpty(new Event())
     , waterLine(32), zeroTimestamp(QDateTime::currentMSecsSinceEpoch()), lastActiveTimestamp(zeroTimestamp)
     , lastKeepaliveTimestamp(zeroTimestamp),tearDownTime(1000 * 30), schedulerId(0), remotePort(0)
@@ -173,6 +183,8 @@ KcpSocketPrivate::KcpSocketPrivate()
     sendingQueueEmpty->set();
     sendingQueueNotFull->set();
     receivingQueueNotEmpty->clear();
+    q->busy->clear();
+    q->notBusy->set();
     setMode(mode);
 }
 
@@ -209,17 +221,6 @@ Socket::SocketType KcpSocketPrivate::type() const
 
 //bool KcpSocketPrivate::close()
 //{
-//    if (state == Socket::ConnectedState) {
-//        ikcp_flush(kcp);
-//        bool ok = sendingQueueEmpty->wait();
-//        Q_UNUSED(ok);
-//        state = Socket::UnconnectedState;
-//    }
-//    if (schedulerId) {
-//        EventLoopCoroutine::get()->cancelCall(schedulerId);
-//        schedulerId = 0;
-//    }
-//    return true;
 //}
 
 void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
@@ -227,7 +228,7 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
     this->mode = mode;
     switch (mode) {
     case KcpSocket::Internet:
-        ikcp_nodelay(kcp, 0, 10, 0, 0);
+        ikcp_nodelay(kcp, 0, 10, 2, 1);
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 1024, 1024);
         break;
@@ -237,7 +238,7 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
         ikcp_wndsize(kcp, 64, 64);
         break;
     case KcpSocket::Loopback:
-        ikcp_nodelay(kcp, 1, 10, 2, 1);
+        ikcp_nodelay(kcp, 1, 5, 1, 1);
         ikcp_setmtu(kcp, 32768);
         ikcp_wndsize(kcp, 32, 32);
         break;
@@ -246,6 +247,10 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
 
 qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
 {
+    if (size <= 0) {
+        return size;
+    }
+
     int count = 0;
     while (count < size) {
         if (state != Socket::ConnectedState) {
@@ -268,9 +273,6 @@ qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
             updateKcp();
         }
     }
-//    while (ikcp_waitsnd(kcp) > 0 && isValid()) {
-//        ikcp_flush(kcp);
-//    }
     int sendingQueueSize = ikcp_waitsnd(kcp);
     if (sendingQueueSize > waterLine * 1.2) {
         sendingQueueNotFull->clear();
@@ -292,11 +294,7 @@ qint32 KcpSocketPrivate::recv(char *data, qint32 size, bool all)
             QByteArray buf(peeksize, Qt::Uninitialized);
             int readBytes = ikcp_recv(kcp, buf.data(), buf.size());
             Q_ASSERT(readBytes == peeksize);
-            if (receivingBuffer.isEmpty()) {
-                receivingBuffer = buf;
-            } else {
-                receivingBuffer.append(buf);
-            }
+            receivingBuffer.append(buf);
         }
         if (!receivingBuffer.isEmpty()) {
             if (!all || receivingBuffer.size() >= size) {
@@ -401,6 +399,7 @@ void KcpSocketPrivate::scheduleUpdate()
 
 void KcpSocketPrivate::updateKcp()
 {
+    Q_Q(KcpSocket);
     const quint64 &now = QDateTime::currentMSecsSinceEpoch();
 
     if (now - lastActiveTimestamp > tearDownTime) {
@@ -424,12 +423,18 @@ void KcpSocketPrivate::updateKcp()
     if (sendingQueueSize <= 0) {
         sendingQueueEmpty->set();
         sendingQueueNotFull->set();
+        q->busy->clear();
+        q->notBusy->set();
     } else {
         sendingQueueEmpty->clear();
         if (sendingQueueSize > waterLine) {
             sendingQueueNotFull->clear();
+            q->busy->set();
+            q->notBusy->clear();
         } else {
             sendingQueueNotFull->set();
+            q->busy->clear();
+            q->notBusy->set();
         }
     }
 
@@ -482,24 +487,21 @@ QByteArray KcpSocketPrivate::makeKeepalivePacket()
 }
 
 
-MasterKcpSocketPrivate::MasterKcpSocketPrivate(Socket::NetworkLayerProtocol protocol)
-    :rawSocket(new Socket(protocol, Socket::UdpSocket))
+MasterKcpSocketPrivate::MasterKcpSocketPrivate(Socket::NetworkLayerProtocol protocol, KcpSocket *q)
+    : KcpSocketPrivate(q), rawSocket(new Socket(protocol, Socket::UdpSocket))
 {
-//    rawSocket->setOption(Socket::SendBufferSizeSocketOption, 1024 * 1024 * 8);
 }
 
 
-MasterKcpSocketPrivate::MasterKcpSocketPrivate(qintptr socketDescriptor)
-    :rawSocket(new Socket(socketDescriptor))
+MasterKcpSocketPrivate::MasterKcpSocketPrivate(qintptr socketDescriptor, KcpSocket *q)
+    : KcpSocketPrivate(q), rawSocket(new Socket(socketDescriptor))
 {
-//    rawSocket->setOption(Socket::SendBufferSizeSocketOption, 1024 * 1024 * 8);
 }
 
 
-MasterKcpSocketPrivate::MasterKcpSocketPrivate(QSharedPointer<Socket> rawSocket)
-    :rawSocket(rawSocket)
+MasterKcpSocketPrivate::MasterKcpSocketPrivate(QSharedPointer<Socket> rawSocket, KcpSocket *q)
+    : KcpSocketPrivate(q), rawSocket(rawSocket)
 {
-//    rawSocket->setOption(Socket::SendBufferSizeSocketOption, 1024 * 1024 * 8);
 }
 
 
@@ -594,6 +596,8 @@ bool MasterKcpSocketPrivate::close(bool force)
     receivingQueueNotEmpty->set();
     sendingQueueEmpty->set();
     sendingQueueNotFull->set();
+    q_func()->notBusy->set();
+    q_func()->busy->set();
     return true;
 }
 
@@ -660,10 +664,11 @@ void MasterKcpSocketPrivate::doAccept()
             }
         } else {
             if (pendingSlaves.size() < pendingSlaves.capacity()) {  // not full.
-                SlaveKcpSocketPrivate *d = new SlaveKcpSocketPrivate(this, buf, addr, port);
-                d->setMode(this->mode);
+                QSharedPointer<KcpSocket> slave(KcpSocketPrivate::create(this, addr, port, this->mode));
+                SlaveKcpSocketPrivate *d = KcpSocketPrivate::getPrivateHelper(slave);
                 receivers.insert(key, d);
-                pendingSlaves.put(KcpSocketPrivate::create(d));
+                pendingSlaves.put(slave);
+                d->handleDatagram(buf);
             }
         }
     }
@@ -742,7 +747,7 @@ qint32 MasterKcpSocketPrivate::rawSend(const char *data, qint32 size)
     while (count < size) {
         qint32 sentBytes = rawSocket->sendto(data + count, size - count,
                                              remoteAddress, remotePort);
-        if (sentBytes < 0) {
+        if (sentBytes <= 0) {
             return count;
         } else {
             count += sentBytes;
@@ -798,13 +803,12 @@ QVariant MasterKcpSocketPrivate::option(Socket::SocketOption option) const
 }
 
 
-SlaveKcpSocketPrivate::SlaveKcpSocketPrivate(MasterKcpSocketPrivate *parent, const QByteArray &buf, const QHostAddress &addr, quint16 port)
-    :parent(parent)
+SlaveKcpSocketPrivate::SlaveKcpSocketPrivate(MasterKcpSocketPrivate *parent, const QHostAddress &addr, quint16 port, KcpSocket *q)
+    :KcpSocketPrivate(q), parent(parent)
 {
     remoteAddress = addr;
     remotePort = port;
     state = Socket::ConnectedState;
-    handleDatagram(buf);
 }
 
 
@@ -903,6 +907,8 @@ bool SlaveKcpSocketPrivate::close(bool force)
     receivingQueueNotEmpty->set();
     sendingQueueEmpty->set();
     sendingQueueNotFull->set();
+    q_func()->notBusy->set();
+    q_func()->busy->set();
     return true;
 }
 
@@ -939,7 +945,7 @@ qint32 SlaveKcpSocketPrivate::rawSend(const char *data, qint32 size)
         int count = 0;
         while (count < size) {
             qint32 sentBytes = parent->rawSocket->sendto(data + count, size - count, remoteAddress, remotePort);
-            if (sentBytes < 0) {
+            if (sentBytes <= 0) {
                 return count;
             } else {
                 count += sentBytes;
@@ -978,27 +984,27 @@ QVariant SlaveKcpSocketPrivate::option(Socket::SocketOption option) const
 
 
 KcpSocket::KcpSocket(Socket::NetworkLayerProtocol protocol)
-    :d_ptr(new MasterKcpSocketPrivate(protocol))
+    : busy(new Event), notBusy(new Event), d_ptr(new MasterKcpSocketPrivate(protocol, this))
 {
 }
 
 
 KcpSocket::KcpSocket(qintptr socketDescriptor)
-    :d_ptr(new MasterKcpSocketPrivate(socketDescriptor))
+    : busy(new Event), notBusy(new Event), d_ptr(new MasterKcpSocketPrivate(socketDescriptor, this))
 {
 
 }
 
 
 KcpSocket::KcpSocket(QSharedPointer<Socket> rawSocket)
-    :d_ptr(new MasterKcpSocketPrivate(rawSocket))
+    : busy(new Event), notBusy(new Event), d_ptr(new MasterKcpSocketPrivate(rawSocket, this))
 {
 
 }
 
 
-KcpSocket::KcpSocket(KcpSocketPrivate *d)
-    :d_ptr(d)
+KcpSocket::KcpSocket(KcpSocketPrivate *parent, const QHostAddress &addr, const quint16 port, KcpSocket::Mode mode)
+    :busy(new Event), notBusy(new Event), d_ptr(new SlaveKcpSocketPrivate(static_cast<MasterKcpSocketPrivate*>(parent), addr, port, this))
 {
 
 }
@@ -1035,6 +1041,20 @@ bool KcpSocket::compression() const
 {
     Q_D(const KcpSocket);
     return d->compression;
+}
+
+
+void KcpSocket::setWaterline(quint32 waterline)
+{
+    Q_D(KcpSocket);
+    d->waterLine = waterline;
+}
+
+
+quint32 KcpSocket::waterline() const
+{
+    Q_D(const KcpSocket);
+    return d->waterLine;
 }
 
 

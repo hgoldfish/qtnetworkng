@@ -45,6 +45,7 @@ public:
     QByteArray recvPacket();
     void close();
     QSharedPointer<VirtualChannel> makeChannel();
+    QSharedPointer<VirtualChannel> takeChannel();
     QSharedPointer<VirtualChannel> getChannel(quint32 channelNumber);
 protected:
     Q_DECLARE_PRIVATE(DataChannel)
@@ -56,11 +57,12 @@ class SocketChannel: public DataChannel
 {
     Q_DISABLE_COPY(SocketChannel)
 public:
-    SocketChannel(const QSharedPointer<Socket> socket, DataChannelPole pole);
-#ifdef QTNETWOKRNG_USE_SSL
-    SocketChannel(const QSharedPointer<SslSocket> socket, DataChannelPole pole);
+    SocketChannel(QSharedPointer<Socket> socket, DataChannelPole pole);
+#ifndef QTNG_NO_CRYPTO
+    SocketChannel(QSharedPointer<SslSocket> socket, DataChannelPole pole);
 #endif
-    SocketChannel(const QSharedPointer<SocketLike> socket, DataChannelPole pole);
+    SocketChannel(QSharedPointer<KcpSocket> socket, DataChannelPole pole);
+    SocketChannel(QSharedPointer<SocketLike> socket, DataChannelPole pole);
 private:
     Q_DECLARE_PRIVATE(SocketChannel)
 };
