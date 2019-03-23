@@ -23,6 +23,7 @@ enum SslProtocol
     TlsV1_1,
     TlsV1_1OrLater,
     TlsV1_2,
+    TlsV1_3,
     TlsV1_2OrLater,
     AnyProtocol,
     TlsV1SslV3,

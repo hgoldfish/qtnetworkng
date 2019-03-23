@@ -55,7 +55,6 @@ SslCipher SslCipherPrivate::from_SSL_CIPHER(const SSL_CIPHER *cipher)
 
         QString protoString = descriptionList.at(1).toString();
         ciph.d->protocolString = protoString;
-        ciph.d->protocol = Ssl::UnknownProtocol;
         if (protoString == QLatin1String("SSLv3")) {
             ciph.d->protocol = Ssl::SslV3;
         } else if (protoString == QLatin1String("SSLv2")) {
@@ -66,6 +65,8 @@ SslCipher SslCipherPrivate::from_SSL_CIPHER(const SSL_CIPHER *cipher)
             ciph.d->protocol = Ssl::TlsV1_1;
         } else if (protoString == QLatin1String("TLSv1.2")) {
             ciph.d->protocol = Ssl::TlsV1_2;
+        } else if (protoString == QLatin1String("TLSv1.3")) {
+            ciph.d->protocol = Ssl::TlsV1_3;
         } else {
             ciph.d->protocol = Ssl::UnknownProtocol;
         }
@@ -1336,6 +1337,8 @@ Socket *SslSocket::acceptRaw()
     QSharedPointer<Socket> s = convertSocketLikeToSocket(d->rawSocket);
     if (!s.isNull()) {
         return s->accept();
+    } else {
+        return nullptr;
     }
 }
 

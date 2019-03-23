@@ -177,6 +177,8 @@ const EVP_CIPHER *getOpenSSL_CIPHER(Cipher::Algorithm algo, Cipher::Mode mode)
 //    case Cipher::ChaCha20Poly1305:
 //        cipher = EVP_chacha20_poly1305();
 //        break;
+    default:
+        break;
     }
     return cipher;
 }

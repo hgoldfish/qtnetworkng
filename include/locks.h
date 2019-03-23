@@ -228,9 +228,13 @@ bool Queue<T>::remove(const T &e)
     if (n > 0) {
         if (isEmpty()) {
             notEmpty.clear();
+        } else {
+            notEmpty.set();
         }
-        if (!isFull()) {
+        if (isFull()) {
             notFull.clear();
+        } else {
+            notFull.set();
         }
         return true;
     } else {

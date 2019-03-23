@@ -77,8 +77,9 @@ bool CoroutineGroup::kill(const QString &name, bool join)
         } else {
             found->kill();
             if(join) {
-                found->join();
+                bool success = found->join();
                 coroutines.removeOne(found);
+                return success;
             }
             return true;
         }
