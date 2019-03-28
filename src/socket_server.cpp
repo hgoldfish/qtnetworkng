@@ -206,6 +206,7 @@ void BaseStreamServer::closeRequest(QSharedPointer<SocketLike> request)
 }
 
 
+#ifndef QTNG_NO_CRYPTO
 class BaseSslStreamServerPrivate: public BaseStreamServerPrivate
 {
 public:
@@ -261,6 +262,8 @@ bool BaseSslStreamServer::isSecure() const
 {
     return true;
 }
+
+#endif
 
 BaseRequestHandler::BaseRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server)
     :request(request), server(server)

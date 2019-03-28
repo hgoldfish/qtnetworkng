@@ -20,7 +20,7 @@ SOURCES += \
     $$PWD/src/eventloop_qt.cpp \
     $$PWD/src/msgpack.cpp \
     $$PWD/src/kcp.cpp \
-    $$PWD/src/kcp/ikcp.cpp
+    $$PWD/src/kcp/ikcp.c
 
 PRIVATE_HEADERS += \
     $$PWD/include/private/coroutine_p.h \

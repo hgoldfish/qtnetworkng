@@ -166,9 +166,11 @@ int kcp_callback(const char *buf, int len, ikcpcb *, void *user)
 {
     KcpSocketPrivate *p = static_cast<KcpSocketPrivate*>(user);
     const QByteArray &packet = p->makeDataPacket(buf, len);
-    if (p->rawSend(packet.data(), packet.size()) != packet.size()) {
+    qint32 sentBytes = p->rawSend(packet.data(), packet.size());
+    if (sentBytes != packet.size()) {
         p->close(true);
     }
+    return sentBytes;
 }
 
 KcpSocketPrivate::KcpSocketPrivate(KcpSocket *q)
@@ -427,7 +429,7 @@ void KcpSocketPrivate::updateKcp()
         q->notBusy->set();
     } else {
         sendingQueueEmpty->clear();
-        if (sendingQueueSize > waterLine) {
+        if (static_cast<quint32>(sendingQueueSize) > waterLine) {
             sendingQueueNotFull->clear();
             q->busy->set();
             q->notBusy->clear();
@@ -913,7 +915,7 @@ bool SlaveKcpSocketPrivate::close(bool force)
 }
 
 
-bool SlaveKcpSocketPrivate::listen(int backlog)
+bool SlaveKcpSocketPrivate::listen(int)
 {
     return false;
 }
@@ -925,13 +927,13 @@ QSharedPointer<KcpSocket> SlaveKcpSocketPrivate::accept()
 }
 
 
-bool SlaveKcpSocketPrivate::connect(const QHostAddress &addr, quint16 port)
+bool SlaveKcpSocketPrivate::connect(const QHostAddress &, quint16)
 {
     return false;
 }
 
 
-bool SlaveKcpSocketPrivate::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
+bool SlaveKcpSocketPrivate::connect(const QString &, quint16 , Socket::NetworkLayerProtocol)
 {
     return false;
 }
@@ -1006,7 +1008,7 @@ KcpSocket::KcpSocket(QSharedPointer<Socket> rawSocket)
 KcpSocket::KcpSocket(KcpSocketPrivate *parent, const QHostAddress &addr, const quint16 port, KcpSocket::Mode mode)
     :busy(new Event), notBusy(new Event), d_ptr(new SlaveKcpSocketPrivate(static_cast<MasterKcpSocketPrivate*>(parent), addr, port, this))
 {
-
+    setMode(mode);
 }
 
 

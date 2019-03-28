@@ -6,7 +6,7 @@
 Welcome to QtNetworkNg's documentation!
 =======================================
 
-QtNetworkNg is a self-contained coroutine-based network toolkit, like boost::asio but uses concepts from QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg requires Qt5 framework. Here comes a simple example to get web pages.
+QtNetworkNg is a coroutine-based network toolkit, like boost::asio but uses concepts from QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg requires Qt5 framework. Here comes a simple example to get web pages.
 
 .. code-block:: c++
     
@@ -17,8 +17,12 @@ QtNetworkNg is a self-contained coroutine-based network toolkit, like boost::asi
     {
         QCoreApplication app(argc, argv);
         qtng::HttpSession session;
-        qtng::HttpResponse r = session.get("https://news.163.com");
-        qDebug() << r.html();
+        qtng::HttpResponse r = session.get("http://www.example.com/");
+        if (r.isOk()) {
+            qDebug() << r.html();
+        } else {
+            qDebug() << "failed.";
+        }
         return 0;
     }
     
@@ -73,28 +77,31 @@ A Qt GUI example to fetch web page.
     class HtmlWindow: public QTextBrowser
     {
     public:
-        HtmlWindow()
-            :operations(new CoroutineGroup)
-        {
-            operations->spawn([this] {
-                Coroutine::sleep(1);
-                HttpSession session;
-                HttpResponse response = session.get("http://qtng.org/");
-                if(response.isOk()) {
-                    setHtml(response.html());
-                } else {
-                    setHtml("failed");
-                }
-            });
-        }
-
-        ~HtmlWindow()
-        {
-            delete operations;
-        }
+        HtmlWindow();
+        virtual ~HtmlWindow() override;
     private:
         CoroutineGroup *operations;
     };
+    
+    HtmlWindow::HtmlWindow()
+        :operations(new CoroutineGroup)
+    {
+        operations->spawn([this] {
+            Coroutine::sleep(1);
+            HttpSession session;
+            HttpResponse response = session.get("http://www.example.com/");
+            if(response.isOk()) {
+                setHtml(response.html());
+            } else {
+                setHtml("failed");
+            }
+        });
+    }
+    
+    HtmlWindow::~HtmlWindow()
+    {
+        delete operations;
+    }
     
     int main(int argc, char **argv)
     {
@@ -104,7 +111,7 @@ A Qt GUI example to fetch web page.
         return startQtLoop(); // Qt GUI application start the eventloop using startQtLoop() instead of app.exec()
     }
 
-And its project file.
+And its qmake project file.
 
 .. code-block:: text
 
@@ -120,10 +127,10 @@ As you can see, networking programming is done with very straightforward API.
 Give it a try (for linux). ::
 
     git clone https://github.com/hgoldfish/qtnetworkng.git
-    cd qtnetworkng/
+    cd qtnetworkng/examples/fetch_web_content/
     qmake-qt5
     make -j4   # mingw32-make -j4
-    ./qtnetworkng
+    ./fetch_web_content
     
 More details please refer to these documents:
 

@@ -3,6 +3,7 @@
 #include <QtCore/qjsondocument.h>
 #include <QtCore/qdatetime.h>
 #include <QtCore/qtextcodec.h>
+#include <QtCore/qendian.h>
 #include "../include/private/http_p.h"
 #include "../include/socks5_proxy.h"
 #ifndef QTNG_NO_CRYPTO
@@ -547,7 +548,18 @@ QByteArray HttpResponse::body()
     }
     const QByteArray &contentEncodingHeader = header("Content-Encoding");
     if(contentEncodingHeader.toLower() == QByteArray("deflate") && !d->body.isEmpty()) {
-        d->body = qUncompress(d->body);
+        uchar header[4];
+#if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
+        qToBigEndian<quint32>(d->body.size(), reinterpret_cast<void*>(header));
+#else
+        qToBigEndian<quint32>(d->body.size(), header);
+#endif
+        QByteArray t; t.reserve(d->body.size() + 4);
+        t.append(reinterpret_cast<const char*>(header), 4);
+        qDebug() << t;
+        t.append(d->body);
+        qDebug() << t;
+        d->body = qUncompress(t);
         if(d->body.isEmpty()) {
             d->error.reset(new ContentDecodingError());
             d->consumed = true;
@@ -1038,9 +1050,9 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
     if(!request.hasHeader(QStringLiteral("Accept-Language"))) {
         allHeaders.append(HttpHeader(QStringLiteral("Accept-Language"), QByteArray("en-US,en;q=0.5")));
     }
-    if(!request.hasHeader(QStringLiteral("Accept-Encoding"))) {
-        allHeaders.append(HttpHeader(QStringLiteral("Accept-Encoding"), QByteArray("deflate")));
-    }
+//    if(!request.hasHeader(QStringLiteral("Accept-Encoding"))) {
+//        allHeaders.append(HttpHeader(QStringLiteral("Accept-Encoding"), QByteArray("deflate")));
+//    }
     if(!request.d->cookies.isEmpty() && !request.hasHeader(QStringLiteral("Cookies"))) {
         QByteArray result;
         bool first = true;

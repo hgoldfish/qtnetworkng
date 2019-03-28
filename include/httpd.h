@@ -80,6 +80,7 @@ protected:
     virtual void processRequest(QSharedPointer<SocketLike> request) override;
 };
 
+#ifndef QTNG_NO_CRYPTO
 
 class SimpleHttpsServer: public BaseSslStreamServer
 {
@@ -92,6 +93,7 @@ protected:
     virtual void processRequest(QSharedPointer<SocketLike> request) override;
 };
 
+#endif
 
 QTNETWORKNG_NAMESPACE_END
 

@@ -180,7 +180,7 @@ Killing coroutine safely is a big advanced feature of coroutine compare to threa
 The ``CoroutineExit`` exception is handled by QtNetworkNg silently.
 
 
-Special Considers for Qt GUI Application
+Special Considerations for Qt GUI Application
 ----------------------------------------
 
 A Qt GUI Application typically use Qt eventloop.

@@ -65,6 +65,7 @@ void TcpServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> reques
     handler.run();
 }
 
+#ifndef QTNG_NO_CRYPTO
 class BaseSslStreamServerPrivate;
 class BaseSslStreamServer: public BaseStreamServer
 {
@@ -101,6 +102,8 @@ void SslServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> reques
     RequestHandler handler(request, this);
     handler.run();
 }
+
+#endif
 
 class BaseRequestHandler
 {

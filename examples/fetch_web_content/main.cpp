@@ -7,32 +7,36 @@ using namespace qtng;
 class HtmlWindow: public QTextBrowser
 {
 public:
-    HtmlWindow()
-        :operations(new CoroutineGroup) {
-        operations->spawn([this] {
-            qtng::Coroutine::sleep(1);
-            HttpSession session;
-            HttpResponse response = session.get("http://qtng.org/");
-            if(response.isOk()) {
-                setHtml(response.html());
-            } else {
-                setHtml("failed");
-            }
-        });
-    }
-
-    ~HtmlWindow() {
-        delete operations;
-    }
+    HtmlWindow();
+    virtual ~HtmlWindow() override;
 private:
     CoroutineGroup *operations;
 };
 
+HtmlWindow::HtmlWindow()
+    :operations(new CoroutineGroup)
+{
+    operations->spawn([this] {
+        Coroutine::sleep(1);
+        HttpSession session;
+        HttpResponse response = session.get("http://www.example.com/");
+        if(response.isOk()) {
+            setHtml(response.html());
+        } else {
+            setHtml("failed");
+        }
+    });
+}
+
+HtmlWindow::~HtmlWindow()
+{
+    delete operations;
+}
 
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
     HtmlWindow w;
     w.show();
-    return startQtLoop();
+    return startQtLoop(); // Qt GUI application start the eventloop using startQtLoop() instead of app.exec()
 }
