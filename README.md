@@ -5,15 +5,15 @@ QtNetworkNg
 Introduction
 ------------
 
-QtNetworkgNg is a self-contained coroutine-based network toolkit, like boost::asio but uses concepts of QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg requires Qt5 framework. For more detail visit:
+QtNetworkgNg is a coroutine-based network toolkit, like boost::asio but uses concepts from QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg requires Qt5 framework. For more detail visit:
 
-[Introduction to QtNetworkNg](http://qtng.org/intro.html)
+[Introduction to QtNetworkNg](https://qtng.org/intro.html)
 
 
 Documents
 ---------
 
-Visit http://qtng.org/
+Visit https://qtng.org/
 
 
 Features
@@ -88,28 +88,32 @@ A Qt GUI example to fetch web page.
     class HtmlWindow: public QTextBrowser
     {
     public:
-        HtmlWindow()
-            :operations(new CoroutineGroup) {
-            operations->spawn([this] {
-                Coroutine::sleep(1);
-                HttpSession session;
-                HttpResponse response = session.get("http://example.org/");
-                if (response.isOk()) {
-                    setHtml(response.html());
-                } else {
-                    setHtml("failed");
-                }
-            });
-        }
-
-        ~HtmlWindow() {
-            delete operations;
-        }
+        HtmlWindow();
+        virtual ~HtmlWindow() override;
     private:
         CoroutineGroup *operations;
     };
-
-
+    
+    HtmlWindow::HtmlWindow()
+        :operations(new CoroutineGroup)
+    {
+        operations->spawn([this] {
+            Coroutine::sleep(1);
+            HttpSession session;
+            HttpResponse response = session.get("http://www.example.com/");
+            if(response.isOk()) {
+                setHtml(response.html());
+            } else {
+                setHtml("failed");
+            }
+        });
+    }
+    
+    HtmlWindow::~HtmlWindow()
+    {
+        delete operations;
+    }
+    
     int main(int argc, char **argv)
     {
         QApplication app(argc, argv);

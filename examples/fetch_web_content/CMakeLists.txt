@@ -1,13 +1,12 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.1.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.1.0 FATAL_ERROR)
+project(fetch_web_content)
 
-PROJECT(fetch_web_content)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-SET(CMAKE_AUTOMOC ON)
-SET(CMAKE_INCLUDE_CURRENT_DIR ON)
+find_package(Qt5Widgets REQUIRED)
 
-FIND_PACKAGE(Qt5Widgets REQUIRED)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../ qtnetworkng)
 
-ADD_SUBDIRECTORY(${CMAKE_CURRENT_SOURCE_DIR}/../../ qtnetworkng)
-
-ADD_EXECUTABLE(fetch_web_content main.cpp)
-TARGET_LINK_LIBRARIES(fetch_web_content Qt5::Widgets qtnetworkng)
+add_executable(fetch_web_content main.cpp)
+target_link_libraries(fetch_web_content Qt5::Widgets qtnetworkng)

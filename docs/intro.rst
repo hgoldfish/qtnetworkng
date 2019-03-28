@@ -7,25 +7,27 @@ QtNetworkNg is a coroutine-based networking programming toolkit, like boost::asi
 Why Coroutines
 --------------
 
-The coroutine-based paradigm is not a new thing, Python, Go, and C# was using coroutines to simplify network programming many years ago. 
+The Coroutine is not a new thing, Python, Go, and C# was using coroutines to simplify network programming many years ago. 
 
-The traditional network programming use threads. `send()/recv()` is blocked, and then the Operating System switch current thread to another ready thread until data arrived. This is very straightforward, and easy for network programming. But threads use heavy resources, thousands of connections may consume many memory. More worst, threads cause data races, data currupt, even crashes.
+The traditional network programming use threads. ``send()/recv()`` is blocked, and then the Operating System switch current thread to another ready thread until data arrived. This is very straightforward, and easy for network programming. But threads use heavy resources, thousands of connections may consume many memory. More worst, threads cause data races, data currupt, even crashes.
 
-Another choice is use callback-based paradigm. Before calling `send()/recv()`, use `select()/poll()/epoll()` to determine data arriving. Although `select()` is blocked, but many connections are handled in one thread. Callback-based paradigm is considered "the new-age goto", hard to understand and read/write code. But it is widely used by C++ programmer for the popularity of boost::asio and other traditional C++ networking programming frameworks.
+Another choice is use callback-based paradigm. Before calling ``send()/recv()``, use ``select()/poll()/epoll()`` to determine data arriving. Although ``select()`` is blocked, but many connections are handled in one thread. Callback-based paradigm is considered "the new-age goto", hard to understand and read/write code. But it is widely used by C++ programmer for the popularity of boost::asio and other traditional C++ networking programming frameworks.
 
-Coroutine-based paradigm is the now and feature of network programming. Coroutine is light-weight thread which has its own stack, not managed by Operating System but QtNetworkNg. Like thread-based paradigm, send()/recv() is blocked, but switch to another coroutine in the same thread unitl data arrived. Many coroutines can be created at low cost. Because there is only one thread, no locks or other synchoronization is needed. The API is straightforward like thread-based paradigm, but avoid the complexities of using threads.
+Coroutine-based paradigm is the now and feature of network programming. Coroutine is light-weight thread which has its own stack, not managed by Operating System but QtNetworkNg. Like thread-based paradigm, ``send()/recv()`` is blocked, but switch to another coroutine in the same thread unitl data arrived. Many coroutines can be created at low cost. Because there is only one thread, no locks or other synchronization is needed. The API is straightforward like thread-based paradigm, but avoid the complexities of using threads.
 
 
 Cross platforms
 ---------------
 
-QtNetworkNg is tested in Linux, Android, Windows, OpenBSD. And support gcc, clang. No dependence except Qt5 is required. If ``SslSocket`` is used, the dynmaic library file of OpenSSL above 1.0.0 is required in runtime. However, QtNetworkNg do not require OpenSSL for building.
+QtNetworkNg is tested in Linux, Android, Windows, OpenBSD. And support gcc, clang, mingw32. No dependence except Qt5 is required. Microsoft Visual C++ is not tested yet.
 
 QtCore, QtNetwork is required to build QtNetworkNg. I am working hard to remove QtNetwork dependence.
 
 The coroutine is implemented using boost::context asm code, and support native posix `ucontext` and windows `fiber` API. Running tests is successful in ARM, ARM64, x86, amd64.
 
-In theory, QtNetworkNg can be ran in macos and ios. But there is nothing I can do before I having macos machine. And mips architecture would be supported.
+In theory, QtNetworkNg can be ran in MacOS and iOS. But there is nothing I can do before I having a MacOS machine. And mips architecture would be supported.
+
+The Qt eventloop can be replaced with libev eventloop, and SSL/cipher functions are enabled if you use cmake. In that case, embeded libev and LibreSSL is used.
 
 
 Use QtNetworkNg in qmake projects
@@ -68,25 +70,29 @@ Edit your ``foo.pro`` to include ``qtnetworkng.pri``, but not ``qtnetworkng.pro`
     SOURCES += main.cpp
     include(qtnetworkng/qtnetworkng.pri)
     
-Edit ``main.cpp`` to run simple test.
+Edit ``main.cpp``.
 
 .. code-block:: c++
     :caption: get web page.
     
-    #include "qtnetworkng/qtnetworkng.h"
     #include <QtCore/QCoreApplication>
+    #include "qtnetworkng/qtnetworkng.h"
     
     using namespace qtng;
     int main(int argc, char **argv)
     {
         QCoreApplication app(argc, argv);
         HttpSession session;
-        HttpResponse resp = session.get("http://news.163.com/");
-        qDebug() << resp.html();
+        HttpResponse resp = session.get("http://www.example.com/");
+        if (resp.isOk()) {
+            qDebug() << resp.html();
+        } else {
+            qDebug() << "failed.";
+        }
         return 0;\
     }
 
-Now you can build QtNetworkNg as usual C++/Qt library.
+Now you can build *foo* as usual Qt/C++ library.
 
 .. code-block:: bash
     :caption: build project
@@ -95,39 +101,42 @@ Now you can build QtNetworkNg as usual C++/Qt library.
     make
     ./foo
 
-Use QtNetworkNg in ordinary cpp projects
-----------------------------------------
+    
+Use QtNetworkNg in cmake projects
+---------------------------------
 
-If you want a traditional cpp library usage, please download QtNetworkNg, build and install it. 
+Clone QtNetworkNg project from github, and create ``main.cpp``:
 
 .. code-block:: bash
 
     git clone https://github.com/hgoldfish/qtnetworkng.git
-    cd qtnetworkng
 
-QtNetworkNg support qmake and cmake, which follow the similar build flow.
+An example of ``CMakeLists.txt``.
+
+.. code-block:: cmake
+
+    cmake_minimum_required(VERSION 3.1.0 FATAL_ERROR)
+    project(foo)
+
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../ qtnetworkng)
+
+    add_executable(foo main.cpp)
+    target_link_libraries(foo qtnetworkng)
+
+
+To build:
 
 .. code-block:: bash
     :caption: build qtnetworkng
     
     mkdir build
     cd build
-    qmake ..   # use full path to qmake if you want another qt version.
+    cmake ..   # use full path to qmake if you want another qt version.
     make
-    make install  # may require `sudo`
     
-The ``qmake`` should be the full path from the correct Qt version, if you have multiple Qt installed.
-
-Edit your foo.pro to link to ``qtnetworkng``. 
-
-.. code-block:: text
-    :caption: second foo.pro
-    
-    # foo.pro
-    QT += core gui widgets
-    TARGET += foo
-    SOURCES += main.cpp
-    LIBS += qtnetworkng
 
 The Coroutine 
 -------------
@@ -230,7 +239,7 @@ This is an example to get content from url.
     private:
         void loadNews() {
             HttpSession session;
-            HttpResponse response = session.get("http://qtng.org/");
+            HttpResponse response = session.get("http://www.example.com/");
             if(response.isOk()) {
                 setHtml(response.html());
             } else {
@@ -255,11 +264,15 @@ The Socket and SslSocket
 
 The main purpose to create QtNetworkNg is to simplify C++ network programming. There are many great networking programming toolkits already, like boost::asio, libco, libgo, poco, QtNetowrk and others. Many of them has complex callback-style API, or just simple coroutine implementations without Object Oriented socket API. 
 
-The ``Socket`` class is a straightforward transliteration of the bsd socket interface to object-oriented interface. It was designed to support any network families but now ipv4 and ipv6 is supported only, because QtNetworkNg is using QHostAddress now.
+The ``Socket`` class is a straightforward transliteration of the bsd socket interface to object-oriented interface. 
 
 ``SslSocket`` has the same interface as ``Socket``, but do ssl handshake after connection established.
 
 ``Socket`` and ``SslSocket`` objects can be converted to ``SocketLike`` objects, which are useful for functions accept both ``Socket`` and ``SslSocket`` parameter.
+
+Note: ``Socket`` was designed to support any network families but now ipv4 and ipv6 is supported only, because QtNetworkNg is using ``QHostAddress`` now.
+
+There is a ``KcpSocket`` implementing KCP over UDP.
 
 
 Create Socket client
@@ -320,7 +333,7 @@ QtNetworkNg provides a HTTP client support http 1.1 and https, can handle socks5
 
 HTTP 2.0 is planned.
 
-Many concepts are inspired by *requests* module of Python.
+The API are inspired by *requests* module of Python.
 
 
 Get url from HTTP server
@@ -334,7 +347,7 @@ QtNetworkNg implement HTTP client in ``HttpSession`` class. To fetch data from o
     qtng::HttpSession session;
     HttpResponse resp = session.get(url);
     
-The ``HttpSession`` accept and store cookies from data, so sessions is persisted among HTTP requests. 
+The ``HttpSession`` accept and store cookies from response, so sessions is persisted among HTTP requests. 
 
 
 Send data to HTTP server
@@ -409,14 +422,14 @@ QtNetworNg support many ciphers, such as AES, Blowfish, and ChaCha20.
 
 
 .. code-block:: c++
-    :caption: encrypt message using aes256_ecb
+    :caption: encrypt message using aes256_cbf
     
-    Cipher ciph(Cihper::AES256, Cipher::ECB);
-    ciph.setPassword("thepassword");
-    ciph.addData("fish");
-    qDebug() << ciph.saltHeader() << ciph.finalData();
+    Cipher ciph(Cihper::AES256, Cipher::CBF, Cipher::Encrypt);
+    ciph.setPassword("thepassword", MessageDigest::Sha256, "salt");
+    QByteArray encrypted = ciph.update("fish");
+    encrypted.append(ciph.final());
 
-``Cipher::setPassword()`` generate initial vector using PBKDF2 method. You should save ``Cipher::saltHeader()`` before save the final data.
+``Cipher::setPassword()`` generate initial vector using PBKDF2 method. You should save ``Cipher::saltHeader()`` before saving the final data.
 
 
 Public Key Algorithm
@@ -428,7 +441,7 @@ QtNetworkNg can generate and manipulate RSA/DSA keys.
     :caption: generate rsa key
 
     PrivateKey key = PrivateKey::generate(PrivateKey::Rsa, 2048);
-    qDebug() << key.sign("fish is here.", MessageDigest::SHA512);
+    qDebug() << key.sign("fish is here.", MessageDigest::SHA256);
     qDebug() << key.save();
     PrivateKey clonedKey = PrivateKey::load(key.save());
 
