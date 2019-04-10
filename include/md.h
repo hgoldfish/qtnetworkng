@@ -36,6 +36,7 @@ public:
     inline QByteArray hexDigest() { return result().toHex(); }
 public:
     static QByteArray hash(const QByteArray &data, Algorithm algo);
+    static QByteArray digest(const QByteArray &data, Algorithm algo);
 private:
     MessageDigestPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(MessageDigest)
@@ -47,6 +48,14 @@ inline QByteArray MessageDigest::hash(const QByteArray &data, Algorithm algo)
     MessageDigest m(algo);
     m.addData(data);
     return m.result().toHex();
+}
+
+
+inline QByteArray MessageDigest::digest(const QByteArray &data, Algorithm algo)
+{
+    MessageDigest m(algo);
+    m.addData(data);
+    return m.result();
 }
 
 QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray &salt,

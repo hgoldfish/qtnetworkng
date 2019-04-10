@@ -63,6 +63,9 @@ public:
 #endif
     SocketChannel(QSharedPointer<KcpSocket> socket, DataChannelPole pole);
     SocketChannel(QSharedPointer<SocketLike> socket, DataChannelPole pole);
+public:
+    void setKeepaliveTimeout(float timeout);
+    float keepaliveTimeout() const;
 private:
     Q_DECLARE_PRIVATE(SocketChannel)
 };

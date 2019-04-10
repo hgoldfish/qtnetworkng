@@ -154,17 +154,18 @@ Linux, Windows, Android and OpenBSD is supported. Macos, iOS is not tested yet, 
 QtNetworkNg uses more effective boost::context asm code in arm, arm64, x86, amd64 machines, and uses native ucontext or windows fiber API in other architectures.
 
 
-TODO List
----------
+Towards 1.0
+-----------
 
-- [ ] Support HTTP/2
+- [ ] Complete reference documents
 - [x] Implements an HTTP 1.0 server.
-- [ ] HTTP support gzip.
+- [ ] HTTP support gzip compression.
 - [x] HttpResponse support stream.
 - [ ] Support HTTP proxy and cache.
-- [ ] Auto detect HTML encoding.
+- [ ] A simple replacement for libev in Windows.
 - [ ] Add more OpenSSL functions.
-- [ ] Support MacOS and iOS platform.
+- [ ] Support verification for https connection.
+- [ ] Support MacOS and iOS platforms.
 - [ ] Remove QtNetwork dependence.
 
 Building

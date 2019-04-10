@@ -49,12 +49,13 @@ public:
     QByteArray key() const;
     bool setInitialVector(const QByteArray &iv);
     QByteArray initialVector() const;
-    bool setPassword(const QByteArray &password,
+    inline QByteArray iv() const { return initialVector(); }
+    bool setPassword(const QByteArray &password, const QByteArray &salt,
                      const MessageDigest::Algorithm hashAlgo = MessageDigest::Sha256,
-                     const QByteArray &salt = QByteArray(), int i = 100000 /* same as django PBKDF2*/);
-    bool setOpensslPassword(const QByteArray &password,
+                     int i = 100000 /* same as django PBKDF2*/);
+    bool setOpensslPassword(const QByteArray &password, const QByteArray &salt,
                             const MessageDigest::Algorithm hashAlgo = MessageDigest::Md5,
-                            const QByteArray &salt = QByteArray(), int i = 1); // same as openssl command line.
+                            int i = 1); // same as openssl command line.
     QByteArray salt() const;
     QByteArray saltHeader() const; // `openssl enc` generate a header contains salt
     bool setPadding(bool padding);

@@ -192,13 +192,11 @@ public:
     QByteArray finalData();
     QPair<QByteArray, QByteArray> bytesToKey(const QByteArray &password,MessageDigest::Algorithm hashAlgo,
                                              const QByteArray &salt, int i);
-    QPair<QByteArray, QByteArray> PBKDF2_HMAC(const QByteArray &password,
-                                              MessageDigest::Algorithm hashAlgo,
-                                              const QByteArray &salt, int i);
-    bool setPassword(const QByteArray &password,const MessageDigest::Algorithm hashAlgo,
-                     const QByteArray &salt, int i);
-    bool setOpensslPassword(const QByteArray &password, const MessageDigest::Algorithm hashAlgo,
-                            const QByteArray &salt, int i);
+    QPair<QByteArray, QByteArray> PBKDF2_HMAC(const QByteArray &password, const QByteArray &salt,
+                                              MessageDigest::Algorithm hashAlgo, int i);
+    bool setPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo, int i);
+    bool setOpensslPassword(const QByteArray &password, const QByteArray &salt,
+                            const MessageDigest::Algorithm hashAlgo, int i);
     bool init();
     bool setPadding(bool padding);
 
@@ -231,6 +229,7 @@ CipherPrivate::CipherPrivate(Cipher::Algorithm algo, Cipher::Mode mode, Cipher::
         hasError = true;
         return;
     }
+    setPadding(true);
 }
 
 CipherPrivate::~CipherPrivate()
@@ -286,9 +285,8 @@ QPair<QByteArray, QByteArray> CipherPrivate::bytesToKey(const QByteArray &passwo
 }
 
 
-QPair<QByteArray, QByteArray> CipherPrivate::PBKDF2_HMAC(const QByteArray &password,
-                                                         MessageDigest::Algorithm hashAlgo,
-                                                         const QByteArray &salt, int i)
+QPair<QByteArray, QByteArray> CipherPrivate::PBKDF2_HMAC(const QByteArray &password, const QByteArray &salt,
+                                                         MessageDigest::Algorithm hashAlgo, int i)
 {
     const EVP_MD *dgst = getOpenSSL_MD(hashAlgo);
     unsigned char key[EVP_MAX_KEY_LENGTH], iv[EVP_MAX_IV_LENGTH];
@@ -350,8 +348,7 @@ QByteArray CipherPrivate::finalData()
     }
 }
 
-bool CipherPrivate::setPassword(const QByteArray &password,const MessageDigest::Algorithm hashAlgo,
-                 const QByteArray &salt, int i)
+bool CipherPrivate::setPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo, int i)
 {
     QByteArray s;
     if(salt.isEmpty()) {
@@ -360,7 +357,7 @@ bool CipherPrivate::setPassword(const QByteArray &password,const MessageDigest::
         s = salt;
     }
     this->salt = s;
-    const QPair<QByteArray, QByteArray> &t = PBKDF2_HMAC(password, hashAlgo, s, i);
+    const QPair<QByteArray, QByteArray> &t = PBKDF2_HMAC(password, s, hashAlgo, i);
     key = t.first;
     iv = t.second;
     if(key.isEmpty()) {
@@ -369,7 +366,7 @@ bool CipherPrivate::setPassword(const QByteArray &password,const MessageDigest::
     return init();
 }
 
-bool CipherPrivate::setOpensslPassword(const QByteArray &password, const MessageDigest::Algorithm hashAlgo, const QByteArray &salt, int i)
+bool CipherPrivate::setOpensslPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo, int i)
 {
     QByteArray s;
     if(salt.isEmpty()) {
@@ -469,17 +466,17 @@ bool Cipher::setKey(const QByteArray &key)
 }
 
 
-bool Cipher::setPassword(const QByteArray &password, const MessageDigest::Algorithm hashAlgo, const QByteArray &salt, int i)
+bool Cipher::setPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo, int i)
 {
     Q_D(Cipher);
-    return d->setPassword(password, hashAlgo, salt, i);
+    return d->setPassword(password, salt, hashAlgo, i);
 }
 
 
-bool Cipher::setOpensslPassword(const QByteArray &password, const MessageDigest::Algorithm hashAlgo, const QByteArray &salt, int i)
+bool Cipher::setOpensslPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo, int i)
 {
     Q_D(Cipher);
-    return d->setOpensslPassword(password, hashAlgo, salt, i);
+    return d->setOpensslPassword(password, salt, hashAlgo, i);
 }
 
 

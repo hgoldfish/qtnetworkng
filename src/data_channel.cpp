@@ -176,7 +176,7 @@ class WritingPacket
 public:
     WritingPacket()
         :channelNumber(0) {}
-    WritingPacket(quint32 channelNumber, const QByteArray &packet, const QSharedPointer<ValueEvent<bool>> &done)
+    WritingPacket(quint32 channelNumber, const QByteArray &packet, QSharedPointer<ValueEvent<bool>> done)
         :packet(packet), done(done), channelNumber(channelNumber) {}
 
     QByteArray packet;
@@ -296,7 +296,9 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannel()
 {
     Q_Q(DataChannel);
     if (isBroken()) {
+#ifdef DEBUG_PROTOCOL
         qDebug() << "the data channel is broken, can not make channel.";
+#endif
         return QSharedPointer<VirtualChannel>();
     }
     nextChannelNumber += qint32(pole);
@@ -389,7 +391,9 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
                 channel.data()->d_func()->notPending.open();
                 return true;
             } else {
+#ifdef DEBUG_PROTOCOL
                 qDebug() << "channel is gone." << channelNumber;
+#endif
                 return false;
             }
         } else {
@@ -415,7 +419,7 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
     } else if (command == KEEPALIVE_REQUEST) {
         return true;
     } else {
-        qDebug() << "unknown command.";
+        qWarning() << "unknown command.";
         return false;
     }
 }
@@ -430,7 +434,7 @@ void DataChannelPrivate::notifyChannelClose(quint32 channelNumber)
 
 SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection, DataChannelPole pole, SocketChannel *parent)
     :DataChannelPrivate(pole, parent), connection(connection), sendingQueue(1024), operations(new CoroutineGroup()),
-      lastActiveTimestamp(QDateTime::currentMSecsSinceEpoch()), lastKeepaliveTimestamp(QDateTime::currentMSecsSinceEpoch()),
+      lastActiveTimestamp(QDateTime::currentMSecsSinceEpoch()), lastKeepaliveTimestamp(lastActiveTimestamp),
       keepaliveTimeout(1000 * 10)
 
 {
@@ -551,19 +555,22 @@ void SocketChannelPrivate::doReceive()
         try {
             QByteArray header = connection->recvall(headerSize);
             if (header.size() != headerSize) {
+#ifdef DEBUG_PROTOCOL
+                qDebug() << "data channel is disconnected:" << header.size();
+#endif
                 return close();
             }
-    #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
             packetSize = qFromBigEndian<quint32>(reinterpret_cast<void*>(header.data()));
             channelNumber = qFromBigEndian<quint32>(reinterpret_cast<void*>(header.data() + sizeof(quint32)));
-    #else
+#else
             packetSize = qFromBigEndian<quint32>(reinterpret_cast<uchar*>(header.data()));
             channelNumber = qFromBigEndian<quint32>(reinterpret_cast<uchar*>(header.data() + sizeof(quint32)));
-    #endif
+#endif
             if (static_cast<int>(packetSize) > maxPacketSize) {
-    #ifdef DEBUG_PROTOCOL
+#ifdef DEBUG_PROTOCOL
                 qDebug() << QStringLiteral("packetSize %1 is larger than %2").arg(packetSize).arg(maxPacketSize);
-    #endif
+#endif
                 return close();
             }
             packet = connection->recvall(packetSize);
@@ -588,13 +595,17 @@ void SocketChannelPrivate::doReceive()
         } else if (subChannels.contains(channelNumber)) {
             QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
             if (channel.isNull()) {
-                qDebug() << "unknown channel number: " << channelNumber;
+#ifdef DEBUG_PROTOCOL
+                qDebug() << "channel is destroyed and data is abondoned: " << channelNumber;
+#endif
                 subChannels.remove(channelNumber);
             } else {
                 channel.data()->d_func()->handleIncomingPacket(packet);
             }
         } else {
-//            qDebug() << "packet is dropped for unknown channel number:" << channelNumber;
+#ifdef DEBUG_PROTOCOL
+            qDebug() << "channel is destroyed and data is abondoned: " << channelNumber;
+#endif
         }
         lastActiveTimestamp = QDateTime::currentMSecsSinceEpoch();
     }
@@ -606,10 +617,10 @@ void SocketChannelPrivate::doKeepalive()
     while (true) {
         Coroutine::sleep(1.0);
         qint64 now = QDateTime::currentMSecsSinceEpoch();
-        if (lastActiveTimestamp - now > keepaliveTimeout) {
+        if (now - lastActiveTimestamp > keepaliveTimeout) {
             return close();
         }
-        if (lastKeepaliveTimestamp - now > (keepaliveTimeout / 2)) {
+        if (now - lastKeepaliveTimestamp > (keepaliveTimeout / 2)) {
             lastKeepaliveTimestamp = now;
             sendPacketRawAsync(CommandChannelNumber, packKeepaliveRequest());
         }
@@ -745,14 +756,18 @@ bool VirtualChannelPrivate::handleIncomingPacket(const QByteArray &packet)
     } else if (subChannels.contains(channelNumber)) {
         QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
         if (channel.isNull()) {
+#ifdef DEBUG_PROTOCOL
             qDebug() << QStringLiteral("found invalid channel number %1 while handle incoming packet.").arg(channelNumber);
+#endif
             subChannels.remove(channelNumber);
             return false;
         }
         channel.data()->d_func()->handleIncomingPacket(payload);
         return true;
     } else {
+#ifdef DEBUG_PROTOCOL
         qDebug() << QStringLiteral("found unknown channel number %1 while handle incoming packet.").arg(channelNumber);
+#endif
         return false;
     }
 
@@ -866,6 +881,20 @@ SocketChannel::SocketChannel(QSharedPointer<KcpSocket> connection, DataChannelPo
 SocketChannel::SocketChannel(QSharedPointer<SocketLike> connection, DataChannelPole pole)
     :DataChannel(new SocketChannelPrivate(connection, pole, this))
 {
+}
+
+
+void SocketChannel::setKeepaliveTimeout(float timeout)
+{
+    Q_D(SocketChannel);
+    d->keepaliveTimeout = static_cast<qint64>(timeout * 1000);
+}
+
+
+float SocketChannel::keepaliveTimeout() const
+{
+    Q_D(const SocketChannel);
+    return static_cast<float>(d->keepaliveTimeout) / 1000;
 }
 
 
