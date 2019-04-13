@@ -229,6 +229,11 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
 {
     this->mode = mode;
     switch (mode) {
+    case KcpSocket::LargeDelayInternet:
+        ikcp_nodelay(kcp, 0, 10, 5, 1);
+        ikcp_setmtu(kcp, 1400);
+        ikcp_wndsize(kcp, 4096, 4096);
+        break;
     case KcpSocket::Internet:
         ikcp_nodelay(kcp, 0, 10, 2, 1);
         ikcp_setmtu(kcp, 1400);

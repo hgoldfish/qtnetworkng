@@ -11,6 +11,7 @@ class KcpSocket
 {
 public:
     enum Mode {
+        LargeDelayInternet,
         Internet,
         Ethernet,
         Loopback,
