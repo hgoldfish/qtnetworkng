@@ -20,7 +20,8 @@ SOURCES += \
     $$PWD/src/eventloop_qt.cpp \
     $$PWD/src/msgpack.cpp \
     $$PWD/src/kcp.cpp \
-    $$PWD/src/kcp/ikcp.c
+    $$PWD/src/kcp/ikcp.c \
+    $$PWD/src/socks5_server.cpp
 
 PRIVATE_HEADERS += \
     $$PWD/include/private/coroutine_p.h \

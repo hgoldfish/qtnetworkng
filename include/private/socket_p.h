@@ -73,7 +73,7 @@ public:
     qint32 sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port);
     bool fetchConnectionParameters();
 private:
-    void setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, QT_SOCKLEN_T *sockAddrSize);
+    void setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, int *sockAddrSize);
     bool createSocket();
 protected:
     Socket *q_ptr;
@@ -93,6 +93,8 @@ private:
     int fd;
 #endif
     QSharedPointer<SocketDnsCache> dnsCache;
+    Lock readLock;
+    Lock writeLock;
 
     Q_DECLARE_PUBLIC(Socket)
 };

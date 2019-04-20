@@ -61,7 +61,7 @@ public:
     bool wait();
     void notify(int value = 1);
     void notifyAll();
-    int getting() const;
+    quint32 getting() const;
 private:
     ConditionPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Condition)
@@ -80,7 +80,7 @@ public:
     void set();
     void clear();
     bool isSet() const;
-    int getting() const;
+    quint32 getting() const;
 private:
     EventPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Event)
@@ -97,7 +97,7 @@ public:
     void set() { event.set(); }
     void clear() { event.clear(); }
     bool isSet() const { return event.isSet(); }
-    int getting() const { return event.getting(); }
+    quint32 getting() const { return event.getting(); }
 public:
     Event event;
     Value value;
@@ -162,18 +162,19 @@ template <typename T>
 class Queue
 {
 public:
-    Queue(int capacity);
+    Queue(quint32 capacity);
     Queue() : Queue(INT_MAX) {}
     ~Queue();
-    void setCapacity(int capacity);
-    bool put(const T &e);      // insert e to the tail of queue.
-    bool returns(const T &e);  // like put() but insert e to the head of queue.
+    void setCapacity(quint32 capacity);
+    bool put(const T &e);          // insert e to the tail of queue.
+    bool putForcedly(const T& e);  // insert e to the tail of queue ignoring capacity.
+    bool returns(const T &e);      // like put() but insert e to the head of queue.
     T get();
     bool isEmpty() const;
     bool isFull() const;
-    int capacity() const { return mCapacity; }
-    int size() const { return queue.size(); }
-    int getting() const { return notEmpty.getting();}
+    quint32 capacity() const { return mCapacity; }
+    quint32 size() const { return queue.size(); }
+    quint32 getting() const { return notEmpty.getting();}
 
     void clear();
     bool contains(const T &e) const { return queue.contains(e); }
@@ -182,12 +183,12 @@ private:
     QQueue<T> queue;
     Event notEmpty;
     Event notFull;
-    int mCapacity;
+    quint32 mCapacity;
     Q_DISABLE_COPY(Queue)
 };
 
 template<typename T>
-Queue<T>::Queue(int capacity)
+Queue<T>::Queue(quint32 capacity)
     :mCapacity(capacity)
 {
     notEmpty.clear();
@@ -197,13 +198,13 @@ Queue<T>::Queue(int capacity)
 template<typename T>
 Queue<T>::~Queue()
 {
-    if (queue.size() > 0) {
-        qDebug() << "queue is free with element left.";
-    }
+//    if (queue.size() > 0) {
+//        qDebug() << "queue is free with element left.";
+//    }
 }
 
 template<typename T>
-void Queue<T>::setCapacity(int capacity)
+void Queue<T>::setCapacity(quint32 capacity)
 {
     this->mCapacity = capacity;
     if (isFull()) {
@@ -256,6 +257,19 @@ bool Queue<T>::put(const T &e)
     }
     return true;
 }
+
+
+template<typename T>
+bool Queue<T>::putForcedly(const T& e)
+{
+    queue.enqueue(e);
+    notEmpty.set();
+    if (isFull()) {
+        notFull.clear();
+    }
+    return true;
+}
+
 
 template<typename T>
 bool Queue<T>::returns(const T &e)

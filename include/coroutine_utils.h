@@ -180,6 +180,7 @@ public:
     bool add(Coroutine *coroutine, const QString &name = QString()) {return add(QSharedPointer<Coroutine>(coroutine), name);}
     bool start(Coroutine *coroutine, const QString &name = QString()) { return add(coroutine->start(), name); }
     QSharedPointer<Coroutine> get(const QString &name);
+    bool has(const QString &name);
     bool kill(const QString &name, bool join = true);
     bool killall(bool join = true);
     bool joinall();

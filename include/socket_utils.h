@@ -7,14 +7,34 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+class StreamLike
+{
+    Q_DISABLE_COPY(StreamLike)
+public:
+    StreamLike();
+    virtual ~StreamLike();
+public:
+    virtual qint32 recv(char *data, qint32 size) = 0;
+    virtual qint32 recvall(char *data, qint32 size) = 0;
+    virtual qint32 send(const char *data, qint32 size) = 0;
+    virtual qint32 sendall(const char *data, qint32 size) = 0;
+    virtual QByteArray recv(qint32 size) = 0;
+    virtual QByteArray recvall(qint32 size) = 0;
+    virtual qint32 send(const QByteArray &data) = 0;
+    virtual qint32 sendall(const QByteArray &data) = 0;
+};
+
+
 #ifndef QTNG_NO_CRYPTO
 class SslSocket;
 #endif
 class KcpSocket;
-class SocketLike
+class SocketLike: public StreamLike
 {
 public:
-    virtual ~SocketLike();
+    SocketLike();
+    virtual ~SocketLike() override;
+public:
     virtual Socket::SocketError error() const = 0;
     virtual QString errorString() const = 0;
     virtual bool isValid() const = 0;
@@ -38,15 +58,6 @@ public:
     virtual bool listen(int backlog) = 0;
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) = 0;
     virtual QVariant option(Socket::SocketOption option) const = 0;
-
-    virtual qint32 recv(char *data, qint32 size) = 0;
-    virtual qint32 recvall(char *data, qint32 size) = 0;
-    virtual qint32 send(const char *data, qint32 size) = 0;
-    virtual qint32 sendall(const char *data, qint32 size) = 0;
-    virtual QByteArray recv(qint32 size) = 0;
-    virtual QByteArray recvall(qint32 size) = 0;
-    virtual qint32 send(const QByteArray &data) = 0;
-    virtual qint32 sendall(const QByteArray &data) = 0;
 public:
     static QSharedPointer<SocketLike> rawSocket(QSharedPointer<Socket> s);
     static QSharedPointer<SocketLike> rawSocket(Socket *s) { return rawSocket(QSharedPointer<Socket>(s)); }
@@ -58,7 +69,12 @@ public:
     static QSharedPointer<SocketLike> kcpSocket(KcpSocket *s);
 };
 
-
+inline QSharedPointer<StreamLike> asStream(QSharedPointer<Socket> s) { return SocketLike::rawSocket(s).dynamicCast<StreamLike>(); }
+inline QSharedPointer<StreamLike> asStream(Socket *s) { return SocketLike::rawSocket(s).dynamicCast<StreamLike>(); }
+inline QSharedPointer<StreamLike> asStream(QSharedPointer<SslSocket> s) { return SocketLike::sslSocket(s).dynamicCast<StreamLike>(); }
+inline QSharedPointer<StreamLike> asStream(SslSocket *s) { return SocketLike::sslSocket(s).dynamicCast<StreamLike>(); }
+inline QSharedPointer<StreamLike> asStream(QSharedPointer<KcpSocket> s) { return SocketLike::kcpSocket(s).dynamicCast<StreamLike>(); }
+inline QSharedPointer<StreamLike> asStream(KcpSocket *s) { return SocketLike::kcpSocket(s).dynamicCast<StreamLike>(); }
 QSharedPointer<Socket> convertSocketLikeToSocket(QSharedPointer<SocketLike> socket);
 
 class FileLike
@@ -78,6 +94,21 @@ public:
     static QSharedPointer<FileLike> rawFile(QFile *f) { return rawFile(QSharedPointer<QFile>(f)); }
     static QSharedPointer<FileLike> bytes(const QByteArray &data);
 };
+
+
+class ExchangerPrivate;
+class Exchanger
+{
+public:
+    Exchanger(QSharedPointer<StreamLike> request, QSharedPointer<StreamLike> forward, quint32 maxBufferSize = 1024 * 1024 * 16, float timeout = 30.0);
+    ~Exchanger();
+public:
+    void exchange();
+public:
+    ExchangerPrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(Exchanger)
+};
+
 QTNETWORKNG_NAMESPACE_END
 
 #endif // QTNG_SOCKET_UTILS_H

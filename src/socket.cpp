@@ -307,6 +307,7 @@ Socket::NetworkLayerProtocol Socket::protocol() const
 Socket *Socket::accept()
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->readLock);
     return d->accept();
 }
 
@@ -325,12 +326,14 @@ bool Socket::bind(quint16 port, Socket::BindMode mode)
 bool Socket::connect(const QHostAddress &host, quint16 port)
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->writeLock);
     return d->connect(host, port);
 }
 
 bool Socket::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->writeLock);
     return d->connect(hostName, port, protocol);
 }
 
@@ -361,18 +364,21 @@ QVariant Socket::option(Socket::SocketOption option) const
 qint32 Socket::recv(char *data, qint32 size)
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->readLock);
     return d->recv(data, size, false);
 }
 
 qint32 Socket::recvall(char *data, qint32 size)
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->readLock);
     return d->recv(data, size, true);
 }
 
 qint32 Socket::send(const char *data, qint32 size)
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->writeLock);
     qint32 bytesSent = d->send(data, size, false);
     if(bytesSent == 0 && !d->isValid()) {
         return -1;
@@ -384,27 +390,29 @@ qint32 Socket::send(const char *data, qint32 size)
 qint32 Socket::sendall(const char *data, qint32 size)
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->writeLock);
     return d->send(data, size, true);
 }
 
 qint32 Socket::recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port)
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->readLock);
     return d->recvfrom(data, size, addr, port);
 }
 
 qint32 Socket::sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->writeLock);
     return d->sendto(data, size, addr, port);
 }
 
 QByteArray Socket::recv(qint32 size)
 {
     Q_D(Socket);
-    QByteArray bs;
-    bs.resize(static_cast<int>(size));
-
+    ScopedLock<Lock> lock(d->readLock);
+    QByteArray bs(size, Qt::Uninitialized);
     qint32 bytes = d->recv(bs.data(), bs.size(), false);
     if(bytes > 0) {
         bs.resize(static_cast<int>(bytes));
@@ -416,9 +424,8 @@ QByteArray Socket::recv(qint32 size)
 QByteArray Socket::recvall(qint32 size)
 {
     Q_D(Socket);
-    QByteArray bs;
-    bs.resize(static_cast<int>(size));
-
+    ScopedLock<Lock> lock(d->readLock);
+    QByteArray bs(size, Qt::Uninitialized);
     qint32 bytes = d->recv(bs.data(), bs.size(), true);
     if(bytes > 0) {
         bs.resize(static_cast<int>(bytes));
@@ -430,6 +437,7 @@ QByteArray Socket::recvall(qint32 size)
 qint32 Socket::send(const QByteArray &data)
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->writeLock);
     qint32 bytesSent = d->send(data.data(), data.size(), false);
     if(bytesSent == 0 && !d->isValid()) {
         return -1;
@@ -441,6 +449,7 @@ qint32 Socket::send(const QByteArray &data)
 qint32 Socket::sendall(const QByteArray &data)
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->writeLock);
     return d->send(data.data(), data.size(), true);
 }
 
@@ -448,11 +457,10 @@ qint32 Socket::sendall(const QByteArray &data)
 QByteArray Socket::recvfrom(qint32 size, QHostAddress *addr, quint16 *port)
 {
     Q_D(Socket);
-    QByteArray bs;
-    bs.resize(size);
+    ScopedLock<Lock> lock(d->readLock);
+    QByteArray bs(size, Qt::Uninitialized);
     qint32 bytes = d->recvfrom(bs.data(), size, addr, port);
-    if(bytes > 0)
-    {
+    if(bytes > 0) {
         bs.resize(bytes);
         return bs;
     }
@@ -462,6 +470,7 @@ QByteArray Socket::recvfrom(qint32 size, QHostAddress *addr, quint16 *port)
 qint32 Socket::sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
 {
     Q_D(Socket);
+    ScopedLock<Lock> lock(d->writeLock);
     return d->sendto(data.data(), data.size(), addr, port);
 }
 

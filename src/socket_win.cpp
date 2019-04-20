@@ -6,6 +6,10 @@
 #include <QtNetwork/qnetworkinterface.h>
 #include "../include/private/socket_p.h"
 
+#ifdef Q_OS_WIN
+    #define QT_SOCKLEN_T int
+    #define QT_SOCKOPTLEN_T int
+#endif
 
 // The following definitions are copied from the MinGW header mswsock.h which
 // was placed in the public domain. The WSASendMsg and WSARecvMsg functions
@@ -325,15 +329,15 @@ inline uint scopeIdFromString(const QString &scopeid)
 
 namespace {
 namespace SetSALen {
-    template <typename T> void set(T *sa, typename QtPrivate::QEnableIf<(&T::sa_len, true), QT_SOCKLEN_T>::Type len)
+    template <typename T> void set(T *sa, typename QtPrivate::QEnableIf<(&T::sa_len, true), int>::Type len)
     { sa->sa_len = len; }
-    template <typename T> void set(T *sin6, typename QtPrivate::QEnableIf<(&T::sin6_len, true), QT_SOCKLEN_T>::Type len)
+    template <typename T> void set(T *sin6, typename QtPrivate::QEnableIf<(&T::sin6_len, true), int>::Type len)
     { sin6->sin6_len = len; }
     template <typename T> void set(T *, ...) {}
 }
 }
 
-void SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, QT_SOCKLEN_T *sockAddrSize)
+void SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, int *sockAddrSize)
 {
     if (address.protocol() == QAbstractSocket::IPv6Protocol
         || address.protocol() == QAbstractSocket::AnyIPProtocol

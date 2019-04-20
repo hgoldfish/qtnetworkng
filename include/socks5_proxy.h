@@ -55,7 +55,7 @@ public:
     Socks5Proxy(const QString &hostName, quint16 port,
                  const QString &user = QString(), const QString &password = QString());
     Socks5Proxy(const Socks5Proxy &other);
-    Socks5Proxy(Socks5Proxy &&other) :d_ptr(0) { qSwap(d_ptr, other.d_ptr); }
+    Socks5Proxy(Socks5Proxy &&other) :d_ptr(nullptr) { qSwap(d_ptr, other.d_ptr); }
     ~Socks5Proxy();
 public:
     QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port);

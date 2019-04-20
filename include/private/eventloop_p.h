@@ -65,9 +65,9 @@ public:
     void stopWatcher(int watcherId);
     void removeWatcher(int watcherId);
     void triggerIoWatchers(qintptr fd);
-    int callLater(int msecs, Functor *callback);  // the ownership of callback is taken
-    void callLaterThreadSafe(int msecs, Functor *callback);  // the ownership of callback is taken
-    int callRepeat(int msecs, Functor *callback);  // the ownership of callback is taken
+    int callLater(quint32 msecs, Functor *callback);  // the ownership of callback is taken
+    void callLaterThreadSafe(quint32 msecs, Functor *callback);  // the ownership of callback is taken
+    int callRepeat(quint32 msecs, Functor *callback);  // the ownership of callback is taken
     void cancelCall(int callbackId);
     int exitCode();
     bool runUntil(BaseCoroutine *coroutine);
@@ -95,7 +95,6 @@ public:
     void start();
 private:
     int watcherId;
-    bool started;
 };
 
 class EventLoopCoroutinePrivate
@@ -110,9 +109,9 @@ public:
     virtual void stopWatcher(int watcherId) = 0;
     virtual void removeWatcher(int watcherId) = 0;
     virtual void triggerIoWatchers(qintptr fd) = 0;
-    virtual int callLater(int msecs, Functor * callback) = 0;
-    virtual void callLaterThreadSafe(int msecs, Functor *callback) = 0;
-    virtual int callRepeat(int msecs, Functor * callback) = 0;
+    virtual int callLater(quint32 msecs, Functor * callback) = 0;
+    virtual void callLaterThreadSafe(quint32 msecs, Functor *callback) = 0;
+    virtual int callRepeat(quint32 msecs, Functor * callback) = 0;
     virtual void cancelCall(int callbackId) = 0;
     virtual int exitCode() = 0;
     virtual bool runUntil(BaseCoroutine *coroutine) = 0;

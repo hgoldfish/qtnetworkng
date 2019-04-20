@@ -122,7 +122,9 @@ void SemaphorePrivate::notifyWaiters(bool force)
             qDebug() << "waiter was deleted.";
             continue;
         }
-        counter -= 1;
+        if (!force) {
+            counter -= 1;
+        }
         waiter->yield();
     }
     notified = 0;
@@ -368,17 +370,20 @@ void Condition::notify(int value)
     d->notify(value);
 }
 
+
 void Condition::notifyAll()
 {
     Q_D(Condition);
     d->notify(d->waiters.size());
 }
 
-int Condition::getting() const
+
+quint32 Condition::getting() const
 {
     Q_D(const Condition);
-    return d->waiters.size();
+    return static_cast<quint32>(d->waiters.size());
 }
+
 
 class EventPrivate
 {
@@ -392,7 +397,7 @@ public:
 private:
     Event * const q_ptr;
     Condition condition;
-    bool flag;
+    volatile bool flag;
     Q_DECLARE_PUBLIC(Event)
 };
 
@@ -420,6 +425,7 @@ void EventPrivate::clear()
 {
     flag = false;
 }
+
 
 bool EventPrivate::wait(bool blocking)
 {
@@ -470,7 +476,7 @@ void Event::clear()
     d->clear();
 }
 
-int Event::getting() const
+quint32 Event::getting() const
 {
     Q_D(const Event);
     return d->condition.getting();

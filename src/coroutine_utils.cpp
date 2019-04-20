@@ -14,10 +14,11 @@ DeferCallThread::DeferCallThread(const std::function<void()> &func, LambdaFuncto
 {
 }
 
+
 void DeferCallThread::run()
 {
     func();
-    if(!eventloop.isNull()) {
+    if (!eventloop.isNull()) {
         eventloop->callLaterThreadSafe(0, yieldCoroutine);
         eventloop->callLaterThreadSafe(100, new DeleteLaterFunctor<DeferCallThread>(this));
     } else {
@@ -25,7 +26,9 @@ void DeferCallThread::run()
     }
 }
 
+
 NewThreadCoroutine::~NewThreadCoroutine() {}
+
 
 CoroutineGroup::CoroutineGroup()
     :QObject()
@@ -33,15 +36,17 @@ CoroutineGroup::CoroutineGroup()
 
 }
 
+
 CoroutineGroup::~CoroutineGroup()
 {
     killall(true);
 }
 
+
 bool CoroutineGroup::add(QSharedPointer<Coroutine> coroutine, const QString &name)
 {
-    if(!name.isEmpty()) {
-        if(!get(name).isNull()) {
+    if (!name.isEmpty()) {
+        if (!get(name).isNull()) {
             return false;
         }
         coroutine->setObjectName(name);
@@ -57,16 +62,31 @@ bool CoroutineGroup::add(QSharedPointer<Coroutine> coroutine, const QString &nam
     return true;
 }
 
+
 QSharedPointer<Coroutine> CoroutineGroup::get(const QString &name)
 {
     QListIterator<QSharedPointer<Coroutine>> itor(coroutines);
-    while(itor.hasNext()) {
+    while (itor.hasNext()) {
         QSharedPointer<Coroutine> coroutine = itor.next();
-        if(coroutine->objectName() == name)
+        if (coroutine->objectName() == name)
             return coroutine;
     }
     return QSharedPointer<Coroutine>();
 }
+
+
+bool CoroutineGroup::has(const QString &name)
+{
+    QListIterator<QSharedPointer<Coroutine>> itor(coroutines);
+    while (itor.hasNext()) {
+        QSharedPointer<Coroutine> coroutine = itor.next();
+        if (coroutine->objectName() == name) {
+            return true;
+        }
+    }
+    return false;
+}
+
 
 bool CoroutineGroup::kill(const QString &name, bool join)
 {
@@ -87,12 +107,13 @@ bool CoroutineGroup::kill(const QString &name, bool join)
     return false;
 }
 
+
 bool CoroutineGroup::killall(bool join)
 {
     bool done = false;
     QList<QSharedPointer<Coroutine>> copy = coroutines;
     for (QSharedPointer<Coroutine> coroutine: copy) {
-        if(coroutine.data() == Coroutine::current()) {
+        if (coroutine.data() == Coroutine::current()) {
 //            qWarning() << "will not kill current coroutine while killall() is called:" << BaseCoroutine::current();
             continue;
         }
@@ -100,10 +121,10 @@ bool CoroutineGroup::killall(bool join)
         done = true;
     }
 
-    if(join) {
+    if (join) {
         copy = coroutines;
         for (QSharedPointer<Coroutine> coroutine: copy) {
-            if(coroutine.data() == Coroutine::current()) {
+            if (coroutine.data() == Coroutine::current()) {
 //                qWarning("will not join current coroutine while killall() is called.");
                 continue;
             }
@@ -114,12 +135,13 @@ bool CoroutineGroup::killall(bool join)
     return done;
 }
 
+
 bool CoroutineGroup::joinall()
 {
     bool hasCoroutines = !coroutines.isEmpty();
     QList<QSharedPointer<Coroutine>> copy = coroutines;
     for (QSharedPointer<Coroutine> coroutine: copy) {
-        if(coroutine == Coroutine::current()) {
+        if (coroutine == Coroutine::current()) {
 //            qDebug("will not kill current coroutine while joinall() is called.");
             continue;
         }
@@ -128,6 +150,7 @@ bool CoroutineGroup::joinall()
     }
     return hasCoroutines;
 }
+
 
 class DeleteCoroutineFunctor: public Functor
 {
@@ -145,7 +168,7 @@ void CoroutineGroup::deleteCoroutine(BaseCoroutine *baseCoroutine)
     Coroutine *coroutine = dynamic_cast<Coroutine*>(baseCoroutine);
     Q_ASSERT(coroutine != nullptr);
     for (QList<QSharedPointer<Coroutine>>::iterator itor = coroutines.begin(); itor != coroutines.end(); ++itor) {
-        if(itor->data() == coroutine) {
+        if (itor->data() == coroutine) {
             DeleteCoroutineFunctor *callback = new DeleteCoroutineFunctor();
             callback->coroutine = *itor;
             EventLoopCoroutine::get()->callLater(0, callback);

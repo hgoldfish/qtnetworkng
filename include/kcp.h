@@ -28,8 +28,9 @@ public:
     bool compression() const;
     void setWaterline(quint32 waterline);
     quint32 waterline() const;
-    QSharedPointer<Event> busy;
-    QSharedPointer<Event> notBusy;
+    quint32 payloadSizeHint() const;
+    Event busy;
+    Event notBusy;
 public:
     Socket::SocketError error() const;
     QString errorString() const;

@@ -31,10 +31,12 @@ public:
     virtual ~DataChannel();
 public:
     QString toString() const;
-    void setMaxPacketSize(int size);
-    int maxPacketSize() const;
-    void setCapacity(int capacity);
-    int capacity();
+    void setMaxPacketSize(quint32 size);
+    quint32 maxPacketSize() const;                      // packet size > maxPacketSize is an error.
+    void setPayloadSizeHint(quint32 payloadSizeHint);
+    quint32 payloadSizeHint() const;                    // should be <= maxPacketSize - headerSize
+    void setCapacity(quint32 packets);                        // should block if there are n packet not read.
+    quint32 capacity() const;                           // so, a data channel may consume `maxPacketSize * capacity` bytes of receiving buffer memory.
     DataChannelPole pole() const;
     void setName(const QString &name);
     QString name() const;
@@ -48,8 +50,8 @@ public:
     QSharedPointer<VirtualChannel> takeChannel();
     QSharedPointer<VirtualChannel> getChannel(quint32 channelNumber);
 protected:
-    Q_DECLARE_PRIVATE(DataChannel)
     DataChannelPrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(DataChannel)
 };
 
 class SocketChannelPrivate;
@@ -83,6 +85,11 @@ private:
     friend class DataChannelPrivate;
     friend class SocketChannelPrivate;
 };
+
+QSharedPointer<StreamLike> asStream(QSharedPointer<DataChannel> channel);
+inline QSharedPointer<StreamLike> asStream(QSharedPointer<SocketChannel> channel) { return asStream(channel.dynamicCast<DataChannel>()); }
+inline QSharedPointer<StreamLike> asStream(QSharedPointer<VirtualChannel> channel) { return asStream(channel.dynamicCast<DataChannel>()); }
+
 
 QTNETWORKNG_NAMESPACE_END
 

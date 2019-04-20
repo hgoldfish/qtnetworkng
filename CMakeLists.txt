@@ -54,6 +54,7 @@ set(QTNETWORKNG_SRC
     src/msgpack.cpp
     src/data_channel.cpp
     src/kcp.cpp
+    src/socks5_server.cpp
 )
 
 set(QTNETWORKNG_INCLUDE
@@ -244,7 +245,8 @@ target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${C
 # https://bugreports.qt.io/browse/QTBUG-38913
 if((EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.so) OR
    (EXISTS ${_qt5Core_install_prefix}/lib64/libQt5Core.so) OR
-   (EXISTS ${_qt5Core_install_prefix}/bin/Qt5Core.dll))
+   (EXISTS ${_qt5Core_install_prefix}/bin/Qt5Core.dll) OR
+   (EXISTS ${_qt5Core_install_lib}/libQt5Core.so))
     message("Shared Qt is detected.")
 else()
     message("Static Qt is detected.")

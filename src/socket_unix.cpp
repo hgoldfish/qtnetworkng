@@ -13,6 +13,28 @@
 # define SOCK_NONBLOCK O_NONBLOCK
 #endif
 
+#ifdef Q_OS_UNIX
+    #ifdef Q_OS_ANDROID
+        #include <unistd.h>
+        #if !defined(__LP64__)
+            #define QT_SOCKLEN_T int32_t
+        #else
+            #define QT_SOCKLEN_T socklen_t
+        #endif
+    #elif defined(Q_OS_OPENBSD)
+        #define QT_SOCKLEN_T __socklen_t
+    #else
+        #include <qplatformdefs.h>
+        #ifndef QT_SOCKLEN_T
+            #if defined(__GLIBC__) && (__GLIBC__ < 2)
+                #define QT_SOCKLEN_T int
+            #else
+                #define QT_SOCKLEN_T socklen_t
+            #endif
+        #endif
+    #endif
+#endif
+
 QTNETWORKNG_NAMESPACE_BEGIN
 
 union qt_sockaddr {
@@ -134,7 +156,7 @@ namespace SetSALen {
 }
 
 
-void SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, QT_SOCKLEN_T *sockAddrSize)
+void SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, int *sockAddrSize)
 {
     if (address.protocol() == QAbstractSocket::IPv6Protocol
         || address.protocol() == QAbstractSocket::AnyIPProtocol
@@ -167,7 +189,9 @@ bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::Bind
         return false;
     qt_sockaddr aa;
     QT_SOCKLEN_T sockAddrSize;
-    setPortAndAddress(port, address, &aa, &sockAddrSize);
+    int t;
+    setPortAndAddress(port, address, &aa, &t);
+    sockAddrSize = static_cast<QT_SOCKLEN_T>(t);
 
     if(mode & Socket::ReuseAddressHint) {
         setOption(Socket::AddressReusable, true);
@@ -227,7 +251,9 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
         return false;
     qt_sockaddr aa;
     QT_SOCKLEN_T sockAddrSize;
-    setPortAndAddress(port, address, &aa, &sockAddrSize);
+    int t;
+    setPortAndAddress(port, address, &aa, &t);
+    sockAddrSize = static_cast<QT_SOCKLEN_T>(t);
     state = Socket::ConnectingState;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     while(true) {
@@ -392,7 +418,7 @@ bool SocketPrivate::fetchConnectionParameters()
     socklen_t optlen = sizeof(ipv6only);
     if (protocol == Socket::IPv6Protocol
         && (localAddress == QHostAddress::AnyIPv4 || localAddress == QHostAddress::AnyIPv6)
-        && !getsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, &optlen )) {
+        && !getsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, reinterpret_cast<char*>(&ipv6only), &optlen )) {
             if (optlen != sizeof(ipv6only))
                 qWarning("unexpected size of IPV6_V6ONLY socket option");
             if (!ipv6only) {
@@ -649,7 +675,9 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
     msg.msg_iovlen = 1;
     msg.msg_name = &aa.a;
 
-    setPortAndAddress(port, addr, &aa, &len);
+    int t;
+    setPortAndAddress(port, addr, &aa, &t);
+    len = static_cast<QT_SOCKLEN_T>(t);
     msg.msg_namelen = len;
 
     ssize_t sentBytes = 0;

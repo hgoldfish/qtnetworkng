@@ -32,12 +32,12 @@ struct IoWatcher: public QtWatcher
 
 struct TimerWatcher: public QtWatcher
 {
-    TimerWatcher(int interval, bool singleshot, Functor *callback);
+    TimerWatcher(quint32 interval, bool singleshot, Functor *callback);
     virtual ~TimerWatcher();
 
     Functor *callback;
     int timerId;
-    int interval;
+    quint32 interval;
     bool singleshot;
 };
 
@@ -53,7 +53,7 @@ IoWatcher::~IoWatcher()
     delete callback;
 }
 
-TimerWatcher::TimerWatcher(int interval, bool singleshot, Functor *callback)
+TimerWatcher::TimerWatcher(quint32 interval, bool singleshot, Functor *callback)
     :callback(callback), interval(interval), singleshot(singleshot)
 {
 }
@@ -80,9 +80,9 @@ public:
     virtual void stopWatcher(int watcherId) override;
     virtual void removeWatcher(int watcherId) override;
     virtual void triggerIoWatchers(qintptr fd) override;
-    virtual int callLater(int msecs, Functor *callback) override;
-    virtual void callLaterThreadSafe(int msecs, Functor *callback) override;
-    virtual int callRepeat(int msecs, Functor *callback) override;
+    virtual int callLater(quint32 msecs, Functor *callback) override;
+    virtual void callLaterThreadSafe(quint32 msecs, Functor *callback) override;
+    virtual int callRepeat(quint32 msecs, Functor *callback) override;
     virtual void cancelCall(int callbackId) override;
     virtual int exitCode() override;
     virtual bool runUntil(BaseCoroutine *coroutine) override;
@@ -123,7 +123,7 @@ public slots:
         parent->timerEvent(event);
     }
 
-    void callLaterThreadSafeStub(int msecs, void* callback)
+    void callLaterThreadSafeStub(quint32 msecs, void* callback)
     {
         parent->callLater(msecs, static_cast<Functor*>(callback));
     }
@@ -187,18 +187,15 @@ void EventLoopCoroutinePrivateQt::startWatcher(int watcherId)
                 w->notifier.reset(new QSocketNotifier(w->fd, QSocketNotifier::Read));
                 w->notifier->setProperty("parent", QVariant::fromValue(static_cast<void*>(w)));
                 QObject::connect(w->notifier.data(), SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
-            } else {
-                w->notifier->setEnabled(true);
             }
-        }
-        if(w->event & EventLoopCoroutine::Write) {
+            w->notifier->setEnabled(true);
+        } else if(w->event & EventLoopCoroutine::Write) {
             if (w->notifier.isNull()) {
                 w->notifier.reset(new QSocketNotifier(w->fd, QSocketNotifier::Write));
                 w->notifier->setProperty("parent", QVariant::fromValue(static_cast<void*>(w)));
                 QObject::connect(w->notifier.data(), SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
-            } else {
-                w->notifier->setEnabled(true);
             }
+            w->notifier->setEnabled(true);
         }
     }
 }
@@ -206,7 +203,7 @@ void EventLoopCoroutinePrivateQt::startWatcher(int watcherId)
 void EventLoopCoroutinePrivateQt::stopWatcher(int watcherId)
 {
     IoWatcher *w = dynamic_cast<IoWatcher*>(watchers.value(watcherId));
-    if(w) {
+    if(w && !w->notifier.isNull()) {
         w->notifier->setEnabled(false);
     }
 }
@@ -288,24 +285,24 @@ void EventLoopCoroutinePrivateQt::timerEvent(QTimerEvent *event)
 }
 
 
-int EventLoopCoroutinePrivateQt::callLater(int msecs, Functor *callback)
+int EventLoopCoroutinePrivateQt::callLater(quint32 msecs, Functor *callback)
 {
     TimerWatcher *w = new TimerWatcher(msecs, true, callback);
-    w->timerId = helper->startTimer(msecs, Qt::PreciseTimer);
+    w->timerId = helper->startTimer(static_cast<int>(msecs), Qt::PreciseTimer);
     watchers.insert(nextWatcherId, w);
     timers.insert(w->timerId, nextWatcherId);
     return nextWatcherId++;
 }
 
-void EventLoopCoroutinePrivateQt::callLaterThreadSafe(int msecs, Functor *callback)
+void EventLoopCoroutinePrivateQt::callLaterThreadSafe(quint32 msecs, Functor *callback)
 {
-    QMetaObject::invokeMethod(this->helper, "callLaterThreadSafeStub", Qt::QueuedConnection, Q_ARG(int, msecs), Q_ARG(void*, callback));
+    QMetaObject::invokeMethod(this->helper, "callLaterThreadSafeStub", Qt::QueuedConnection, Q_ARG(quint32, msecs), Q_ARG(void*, callback));
 }
 
-int EventLoopCoroutinePrivateQt::callRepeat(int msecs, Functor *callback)
+int EventLoopCoroutinePrivateQt::callRepeat(quint32 msecs, Functor *callback)
 {
     TimerWatcher *w = new TimerWatcher(msecs, false, callback);
-    w->timerId = helper->startTimer(msecs);
+    w->timerId = helper->startTimer(static_cast<int>(msecs));
     watchers.insert(nextWatcherId, w);
     timers.insert(w->timerId, nextWatcherId);
     return nextWatcherId++;

@@ -162,7 +162,7 @@ bool BaseCoroutinePrivate::yield()
     if(e) {
         old->d_func()->exception = nullptr;
         if(!dynamic_cast<CoroutineExitException*>(e)) {
-            qDebug() << "got exception with no harm:" << e->what() << old;
+//            qDebug() << "got exception with no harm:" << e->what() << old;
         }
         e->raise();
     }

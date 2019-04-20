@@ -1,18 +1,24 @@
 #include <string.h>
+#include "../include/coroutine_utils.h"
 #include "../include/socket_utils.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-SocketLike::~SocketLike()
-{
-}
+StreamLike::StreamLike() {}
+
+StreamLike::~StreamLike() {}
+
+SocketLike::SocketLike() {}
+
+SocketLike::~SocketLike() {}
+
 
 namespace {
 class SocketLikeImpl: public SocketLike
 {
 public:
     SocketLikeImpl(QSharedPointer<Socket> s);
-    virtual ~SocketLikeImpl();
+    virtual ~SocketLikeImpl() override;
 public:
     virtual Socket::SocketError error() const override;
     virtual QString errorString() const override;
@@ -282,22 +288,26 @@ private:
 
 qint32 RawFile::read(char *data, qint32 size)
 {
-    return f->read(data, size);
+    qint64 len = f->read(data, size);
+    return static_cast<qint32>(len);
 }
 
 qint32 RawFile::readall(char *data, qint32 size)
 {
-    return f->read(data, size);
+    qint64 len = f->read(data, size);
+    return static_cast<qint32>(len);
 }
 
 qint32 RawFile::write(char *data, qint32 size)
 {
-    return f->write(data, size);
+    qint64 len = f->write(data, size);
+    return static_cast<qint32>(len);
 }
 
 qint32 RawFile::writeall(char *data, qint32 size)
 {
-    return f->write(data, size);
+    qint64 len = f->write(data, size);
+    return static_cast<qint32>(len);
 }
 
 bool RawFile::atEnd()
@@ -343,7 +353,7 @@ qint32 BytesIO::read(char *data, qint32 size)
 {
     qint32 leftBytes = buf.size() - pos;
     qint32 readBytes = qMin(leftBytes, size);
-    memcpy(data, buf.data() + pos, readBytes);
+    memcpy(data, buf.data() + pos, static_cast<size_t>(readBytes));
     pos += readBytes;
     return readBytes;
 }
@@ -358,7 +368,7 @@ qint32 BytesIO::write(char *data, qint32 size)
     if (pos + size > buf.size()) {
         buf.resize(pos + size);
     }
-    memcpy(buf.data() + pos, data, size);
+    memcpy(buf.data() + pos, data, static_cast<size_t>(size));
     pos += size;
     return size;
 }
@@ -386,6 +396,191 @@ qint64 BytesIO::size()
 QSharedPointer<FileLike> FileLike::bytes(const QByteArray &data)
 {
     return QSharedPointer<BytesIO>::create(data).dynamicCast<FileLike>();
+}
+
+class ExchangerPrivate
+{
+public:
+    ExchangerPrivate(QSharedPointer<StreamLike> request, QSharedPointer<StreamLike> forward, quint32 maxBufferSize, float timeout);
+    ~ExchangerPrivate();
+public:
+    void receiveOutgoing();
+    void receiveIncoming();
+    void sendOutgoing();
+    void sendIncoming();
+    void in2out();
+    void out2in();
+public:
+    QSharedPointer<StreamLike> request;
+    QSharedPointer<StreamLike> forward;
+    CoroutineGroup *operations;
+    Queue<QByteArray> incoming;
+    Queue<QByteArray> outgoing;
+    float timeout;
+};
+
+#define EXCHANGER_PACKET_SIZE (1024 * 8)
+
+ExchangerPrivate::ExchangerPrivate(QSharedPointer<StreamLike> request, QSharedPointer<StreamLike> forward, quint32 maxBufferSize, float timeout)
+    :request(request), forward(forward), operations(new CoroutineGroup), incoming(maxBufferSize / EXCHANGER_PACKET_SIZE), outgoing(maxBufferSize / EXCHANGER_PACKET_SIZE),  timeout(timeout)
+{}
+
+
+ExchangerPrivate::~ExchangerPrivate()
+{
+    delete operations;
+}
+
+
+void ExchangerPrivate::receiveOutgoing()
+{
+    QByteArray buf(EXCHANGER_PACKET_SIZE, Qt::Uninitialized);
+    while (true) {
+        qint32 len = forward->recv(buf.data(), buf.size());
+        if (len <= 0) {
+            operations->kill("receive_incoming", false);
+            operations->kill("send_outgoing", false);
+            incoming.put(QByteArray());
+            return;
+        }
+        incoming.put(QByteArray(buf.constData(), len));
+    }
+}
+
+
+void ExchangerPrivate::receiveIncoming()
+{
+    QByteArray buf(EXCHANGER_PACKET_SIZE, Qt::Uninitialized);
+    while (true) {
+        qint32 len = request->recv(buf.data(), buf.size());
+        if (len <= 0) {
+            operations->kill("receive_outgoing", false);
+            operations->kill("sending_incoming", false);
+            outgoing.put(QByteArray());
+            return;
+        }
+        outgoing.put(QByteArray(buf.constData(), len));
+    }
+}
+
+void ExchangerPrivate::sendOutgoing()
+{
+    while (true) {
+        QByteArray buf = outgoing.get();
+        if (buf.isEmpty()) {
+            return;
+        } else {
+            while (!outgoing.isEmpty()) {
+                buf.append(outgoing.get());
+            }
+        }
+        qint32 len;
+        try {
+            Timeout timeout(this->timeout); Q_UNUSED(timeout);
+            len = forward->sendall(buf);
+        } catch (TimeoutException &) {
+            len = -1;
+        }
+        if (len != buf.size()) {
+            operations->killall(false);
+            return;
+        }
+    }
+}
+
+void ExchangerPrivate::sendIncoming()
+{
+    while (true) {
+        QByteArray buf = incoming.get();
+        if (buf.isEmpty()) {
+            return;
+        } else {
+            while (!incoming.isEmpty()) {
+                buf.append(incoming.get());
+            }
+        }
+        qint32 len;
+        try {
+            Timeout timeout(this->timeout); Q_UNUSED(timeout);
+            len = request->sendall(buf);
+        } catch (TimeoutException &) {
+            len = -1;
+        }
+        if (len != buf.size()) {
+            operations->killall(false);
+            return;
+        }
+    }
+}
+
+
+void ExchangerPrivate::in2out()
+{
+    QByteArray buf(1024 * 64, Qt::Uninitialized);
+    while (true) {
+        qint32 len = request->recv(buf.data(), buf.size());
+        if (len <= 0) {
+            operations->killall(false);
+            return;
+        }
+        qint32 sentBytes = -1;
+        try {
+            Timeout timeout(this->timeout); Q_UNUSED(timeout);
+            sentBytes = forward->sendall(buf.data(), len);
+        } catch (TimeoutException &) {
+            sentBytes = -1;
+        }
+        if (sentBytes != len) {
+            operations->killall(false);
+            return;
+        }
+    }
+}
+
+void ExchangerPrivate::out2in()
+{
+    QByteArray buf(1024 * 64, Qt::Uninitialized);
+    while (true) {
+        qint32 len = forward->recv(buf.data(), buf.size());
+        if (len <= 0) {
+            operations->killall(false);
+            return;
+        }
+        qint32 sentBytes = -1;
+        try {
+            Timeout timeout(this->timeout); Q_UNUSED(timeout);
+            sentBytes = request->sendall(buf.data(), len);
+        } catch (TimeoutException &) {
+            sentBytes = -1;
+        }
+        if (sentBytes != len) {
+            operations->killall(false);
+            return;
+        }
+    }
+}
+
+Exchanger::Exchanger(QSharedPointer<StreamLike> request, QSharedPointer<StreamLike> forward, quint32 maxBufferSize, float timeout)
+    : d_ptr(new ExchangerPrivate(request, forward, maxBufferSize, timeout))
+{
+
+}
+
+Exchanger::~Exchanger()
+{
+    delete d_ptr;
+}
+
+void Exchanger::exchange()
+{
+    Q_D(Exchanger);
+    d->operations->spawnWithName("receive_outgoing", [d] { d->receiveOutgoing(); });
+    d->operations->spawnWithName("receive_incoming", [d] { d->receiveIncoming(); });
+    d->operations->spawnWithName("send_outgoing", [d] { d->sendOutgoing(); });
+    d->operations->spawnWithName("send_incoming", [d] { d->sendIncoming(); });
+//    d->operations->spawn([d] { d->in2out(); });
+//    d->operations->spawn([d] { d->out2in(); });
+    d->operations->joinall();
 }
 
 

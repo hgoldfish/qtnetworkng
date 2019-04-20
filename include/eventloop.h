@@ -18,18 +18,18 @@ class Coroutine: public BaseCoroutine
 public:
     explicit Coroutine(size_t stackSize = DEFAULT_COROUTINE_STACK_SIZE);
     Coroutine(QObject *obj, const char *slot, size_t stackSize = DEFAULT_COROUTINE_STACK_SIZE);
-    virtual ~Coroutine();
+    virtual ~Coroutine() override;
 public:
     bool isRunning() const;
     bool isFinished() const;
-    Coroutine *start(int msecs = 0);
-    void kill(CoroutineException *e = 0, int msecs = 0);
+    Coroutine *start(quint32 msecs = 0);
+    void kill(CoroutineException *e = nullptr, quint32 msecs = 0);
     void cancelStart();
     bool join();
     virtual void run() override;
     static Coroutine *current();
-    static void msleep(int msecs);
-    static void sleep(float secs) { msleep(secs * 1000); }
+    static void msleep(quint32 msecs);
+    static void sleep(float secs) { msleep(static_cast<quint32>(secs * 1000)); }
     static Coroutine *spawn(std::function<void()> f);
 protected:
     virtual void cleanup() override;
@@ -51,11 +51,12 @@ class Timeout: public QObject
 {
 public:
     Timeout(float secs);
+    Timeout(quint32 msecs, int); // the second parameter is not used.
     ~Timeout();
 public:
     void restart();
 private:
-    float secs;
+    quint32 msecs;
     int timeoutId;
 };
 

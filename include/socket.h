@@ -10,34 +10,10 @@
 #include "private/eventloop_p.h"
 #include "locks.h"
 
-// #include <qplatformdefs.h>
-#ifdef Q_OS_WIN
-    #define QT_SOCKLEN_T int
-    #define QT_SOCKOPTLEN_T int
-#endif
-
-#ifdef Q_OS_UNIX
-    #include <unistd.h>
-    #if defined(__GLIBC__) && (__GLIBC__ < 2)
-        #define QT_SOCKLEN_T            int
-    #else
-        #ifdef Q_OS_ANDROID
-            #if !defined(__LP64__)
-                #define QT_SOCKLEN_T int32_t
-            #else
-                #define QT_SOCKLEN_T socklen_t
-            #endif
-        #elif defined(Q_OS_OPENBSD)
-            #define QT_SOCKLEN_T __socklen_t
-        #else
-            #define QT_SOCKLEN_T socklen_t
-        #endif
-    #endif
-#endif
-
 #ifdef fileno // android define fileno() function as macro
 #undef fileno
 #endif
+
 QTNETWORKNG_NAMESPACE_BEGIN
 
 class SocketPrivate;

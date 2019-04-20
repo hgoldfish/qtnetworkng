@@ -2054,7 +2054,8 @@ qint32 EncryptedSocketLike::recv(char *data, qint32 size, bool all)
         }
     }
 
-    memcpy(data, decrypted.constData(), decrypted.size());
+    Q_ASSERT(decrypted.size() <= size);
+    memcpy(data, decrypted.constData(), static_cast<size_t>(decrypted.size()));
     return decrypted.size();
 }
 
@@ -2091,7 +2092,7 @@ qint32 EncryptedSocketLike::send(const char *data, qint32 size)
 
 qint32 EncryptedSocketLike::sendall(const char *data, qint32 size)
 {
-    return s->sendall(data, size);
+    return send(data, size, true);
 }
 
 

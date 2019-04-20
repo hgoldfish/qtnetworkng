@@ -21,6 +21,8 @@ public:
     int requestQueueSize() const;
     void setRequestQueueSize(int requestQueueSize);
     bool serveForever();
+    bool start();
+    void stop();
     virtual bool isSecure() const;
 public:
     quint16 serverPort() const;
@@ -54,7 +56,7 @@ public:
     TcpServer(const QHostAddress &serverAddress, quint16 serverPort)
         :BaseStreamServer(serverAddress, serverPort) {}
 protected:
-    virtual void processRequest(QSharedPointer<SocketLike> request);
+    virtual void processRequest(QSharedPointer<SocketLike> request) override;
 };
 
 
@@ -64,6 +66,7 @@ void TcpServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> reques
     RequestHandler handler(request, this);
     handler.run();
 }
+
 
 #ifndef QTNG_NO_CRYPTO
 class BaseSslStreamServerPrivate;
@@ -92,7 +95,7 @@ public:
     SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
         :BaseSslStreamServer(serverAddress, serverPort, configuration) {}
 protected:
-    virtual void processRequest(QSharedPointer<SocketLike> request);
+    virtual void processRequest(QSharedPointer<SocketLike> request) override;
 };
 
 
@@ -119,6 +122,26 @@ protected:
 protected:
     QSharedPointer<SocketLike> request;
     BaseStreamServer *server;
+};
+
+
+class Socks5RequestHandlerPrivate;
+class Socks5RequestHandler: public qtng::BaseRequestHandler
+{
+public:
+    Socks5RequestHandler(QSharedPointer<qtng::SocketLike> request, qtng::BaseStreamServer *server);
+    virtual ~Socks5RequestHandler() override;
+protected:
+    virtual void doConnect(const QString &hostName, const QHostAddress &hostAddress, quint16 port);
+    bool sendConnectReply(const QHostAddress &hostAddress, quint16 port);
+    virtual void doFailed();
+    bool sendFailedReply();
+protected:
+    virtual void handle() override;
+//    virtual void logMessage(const QString &hostName, const QHostAddress &hostAddress, const quint16 port);
+private:
+    Socks5RequestHandlerPrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(Socks5RequestHandler)
 };
 
 QTNETWORKNG_NAMESPACE_END
