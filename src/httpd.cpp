@@ -507,10 +507,14 @@ void SimpleHttpServer::processRequest(QSharedPointer<SocketLike> request)
 }
 
 
+#ifndef QTNG_NO_CRYPTO
+
 void SimpleHttpsServer::processRequest(QSharedPointer<SocketLike> request)
 {
     SimpleHttpRequestHandler handler(request, this);
     handler.run();
 }
+
+#endif
 
 QTNETWORKNG_NAMESPACE_END

@@ -21,14 +21,18 @@ SOURCES += \
     $$PWD/src/msgpack.cpp \
     $$PWD/src/kcp.cpp \
     $$PWD/src/kcp/ikcp.c \
+    $$PWD/src/socket_server.cpp \
+    $$PWD/src/httpd.cpp \
     $$PWD/src/socks5_server.cpp
 
+    
 PRIVATE_HEADERS += \
     $$PWD/include/private/coroutine_p.h \
     $$PWD/include/private/http_p.h \
     $$PWD/include/private/socket_p.h
     $$PWD/src/kcp/ikcp.h
 
+    
 HEADERS += \
     $$PWD/include/config.h \
     $$PWD/include/coroutine.h \
@@ -43,8 +47,11 @@ HEADERS += \
     $$PWD/include/socks5_proxy.h \
     $$PWD/include/deferred.h \
     $$PWD/include/msgpack.h \
-    $$PWD/include/kcp.h
+    $$PWD/include/kcp.h \
+    $$PWD/include/socket_server.h \
+    $$PWD/include/httpd.h
 
+    
 windows {
     SOURCES += $$PWD/src/socket_win.cpp
     LIBS += -lws2_32

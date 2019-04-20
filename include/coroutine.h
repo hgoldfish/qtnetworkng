@@ -62,7 +62,7 @@ public:
         Stopped,
         Joined,
     };
-    explicit BaseCoroutine(BaseCoroutine * previous, size_t stackSize = DEFAULT_COROUTINE_STACK_SIZE);
+    explicit BaseCoroutine(BaseCoroutine *previous, size_t stackSize = DEFAULT_COROUTINE_STACK_SIZE);
     virtual ~BaseCoroutine();
 
     virtual void run();

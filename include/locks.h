@@ -309,7 +309,7 @@ inline bool Queue<T>::isEmpty() const
 template<typename T>
 inline bool Queue<T>::isFull() const
 {
-    return mCapacity > 0 && queue.size() >= mCapacity;
+    return mCapacity > 0 && static_cast<quint32>(queue.size()) >= mCapacity;
 }
 
 QTNETWORKNG_NAMESPACE_END
