@@ -71,8 +71,10 @@ public:
 
 inline QSharedPointer<StreamLike> asStream(QSharedPointer<Socket> s) { return SocketLike::rawSocket(s).dynamicCast<StreamLike>(); }
 inline QSharedPointer<StreamLike> asStream(Socket *s) { return SocketLike::rawSocket(s).dynamicCast<StreamLike>(); }
+#ifndef QTNG_NO_CRYPTO
 inline QSharedPointer<StreamLike> asStream(QSharedPointer<SslSocket> s) { return SocketLike::sslSocket(s).dynamicCast<StreamLike>(); }
 inline QSharedPointer<StreamLike> asStream(SslSocket *s) { return SocketLike::sslSocket(s).dynamicCast<StreamLike>(); }
+#endif
 inline QSharedPointer<StreamLike> asStream(QSharedPointer<KcpSocket> s) { return SocketLike::kcpSocket(s).dynamicCast<StreamLike>(); }
 inline QSharedPointer<StreamLike> asStream(KcpSocket *s) { return SocketLike::kcpSocket(s).dynamicCast<StreamLike>(); }
 QSharedPointer<Socket> convertSocketLikeToSocket(QSharedPointer<SocketLike> socket);

@@ -92,7 +92,7 @@ Edit ``main.cpp``.
         return 0;\
     }
 
-Now you can build *foo* as usual Qt/C++ library.
+Now you can build *foo* as usual Qt/C++ project.
 
 .. code-block:: bash
     :caption: build project
@@ -190,7 +190,7 @@ The ``CoroutineExit`` exception is handled by QtNetworkNg silently.
 
 
 Special Considerations for Qt GUI Application
-----------------------------------------
+---------------------------------------------
 
 A Qt GUI Application typically use Qt eventloop.
 
@@ -272,7 +272,7 @@ The ``Socket`` class is a straightforward transliteration of the bsd socket inte
 
 Note: ``Socket`` was designed to support any network families but now ipv4 and ipv6 is supported only, because QtNetworkNg is using ``QHostAddress`` now.
 
-There is a ``KcpSocket`` implementing KCP over UDP.
+There is a ``KcpSocket`` implementing KCP over UDP. It has a simpliar API like ``Socket``, and support turning to ``SocketLike`` too.
 
 
 Create Socket client
