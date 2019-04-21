@@ -89,7 +89,7 @@ Edit ``main.cpp``.
         } else {
             qDebug() << "failed.";
         }
-        return 0;\
+        return 0;
     }
 
 Now you can build *foo* as usual Qt/C++ project.
@@ -121,7 +121,7 @@ An example of ``CMakeLists.txt``.
     set(CMAKE_AUTOMOC ON)
     set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../ qtnetworkng)
+    add_subdirectory(qtnetworkng)
 
     add_executable(foo main.cpp)
     target_link_libraries(foo qtnetworkng)
@@ -134,7 +134,7 @@ To build:
     
     mkdir build
     cd build
-    cmake ..   # use full path to qmake if you want another qt version.
+    cmake ..   # use -DCMAKE_PREFIX_PATH=/usr/local/Qt5.12.2-static-linux-amd64/lib/cmake/ to specify another Qt version.
     make
     
 

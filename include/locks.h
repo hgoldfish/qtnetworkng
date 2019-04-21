@@ -141,19 +141,20 @@ template <typename LockType>
 class ScopedLock
 {
 public:
-    ScopedLock(LockType &lock)
+    ScopedLock(QSharedPointer<LockType> lock)
         :lock(lock), success(false)
     {
-        success = lock.acquire();
+        success = lock->acquire();
     }
     ~ScopedLock()
     {
-        if(success) {
-            lock.release();
+        if(success && !lock.isNull()) {
+            lock.data()->release();
         }
     }
+    bool isSuccess() const { return success; }
 private:
-    LockType & lock;
+    QWeakPointer<LockType> lock;
     bool success;
 };
 

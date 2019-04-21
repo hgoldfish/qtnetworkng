@@ -549,11 +549,7 @@ QByteArray HttpResponse::body()
     const QByteArray &contentEncodingHeader = header("Content-Encoding");
     if(contentEncodingHeader.toLower() == QByteArray("deflate") && !d->body.isEmpty()) {
         uchar header[4];
-#if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
-        qToBigEndian<quint32>(d->body.size(), reinterpret_cast<void*>(header));
-#else
-        qToBigEndian<quint32>(d->body.size(), header);
-#endif
+        qToBigEndian<quint32>(static_cast<quint32>(d->body.size()), header);
         QByteArray t; t.reserve(d->body.size() + 4);
         t.append(reinterpret_cast<const char*>(header), 4);
         qDebug() << t;
@@ -726,8 +722,10 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, Req
     if(item.semaphore.isNull()) {
         item.semaphore.reset(new Semaphore(maxConnectionsPerServer));
     }
-
-    ScopedLock<Semaphore> lock(*item.semaphore);Q_UNUSED(lock);
+    ScopedLock<Semaphore> lock(item.semaphore);
+    if (!lock.isSuccess()) {
+        return QSharedPointer<SocketLike>();
+    }
 
     QSharedPointer<SocketLike> connection;
 

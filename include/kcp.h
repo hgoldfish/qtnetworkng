@@ -13,6 +13,7 @@ public:
     enum Mode {
         LargeDelayInternet,
         Internet,
+        FastInternet,
         Ethernet,
         Loopback,
     };

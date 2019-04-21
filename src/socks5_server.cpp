@@ -244,24 +244,44 @@ void Socks5RequestHandler::doConnect(const QString &hostName, const QHostAddress
 bool Socks5RequestHandler::sendConnectReply(const QHostAddress &hostAddress, quint16 port)
 {
     bool ok;
-    quint32 ipv4 = hostAddress.toIPv4Address(&ok);
-    if (!ok) {
+    if (hostAddress.isNull()) {
         return false;
     }
-    QByteArray reply(10, Qt::Uninitialized);
-    reply[0] = S5_VERSION_5;
-    reply[1] = S5_SUCCESS;
-    reply[2] = 0x00;
-    reply[3] = S5_IP_V4;
+    QByteArray reply;
+    quint32 ipv4 = hostAddress.toIPv4Address(&ok);
+    if (!ok && hostAddress.protocol() == QAbstractSocket::IPv4Protocol) {
+        return false;
+    }
+    if (ok && ipv4) {
+        reply.resize(10);
+        reply[0] = S5_VERSION_5;
+        reply[1] = S5_SUCCESS;
+        reply[2] = 0x00;
+        reply[3] = S5_IP_V4;
+    #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
+        qToBigEndian<quint32>(ipv4, reply.data() + 4);
+        qToBigEndian<quint16>(port, reply.data() + 4 + 4);
+    #else
+        qToBigEndian<quint32>(ipv4, reinterpret_cast<uchar*>(reply.data() + 4));
+        qToBigEndian<quint16>(port, reinterpret_cast<uchar*>(reply.data() + 4 + 4));
+    #endif
+    } else if (hostAddress.protocol() == QAbstractSocket::IPv6Protocol) {
+        reply.resize(22);
+        Q_IPV6ADDR ipv6 = hostAddress.toIPv6Address();
+        reply[0] = S5_VERSION_5;
+        reply[1] = S5_SUCCESS;
+        reply[2] = 0x00;
+        reply[3] = S5_IP_V6;
+        memcpy(reply.data() + 4, reinterpret_cast<char*>(ipv6.c), 16);
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
-    qToBigEndian<quint32>(ipv4, reply.data() + 4);
-    qToBigEndian<quint16>(port, reply.data() + 4 + 4);
+        qToBigEndian<quint16>(port, reply.data() + 4 + 16);
 #else
-    qToBigEndian<quint32>(ipv4, reinterpret_cast<uchar*>(reply.data() + 4));
-    qToBigEndian<quint16>(port, reinterpret_cast<uchar*>(reply.data() + 4 + 4));
+        qToBigEndian<quint16>(port, reinterpret_cast<uchar*>(reply.data() + 4 + 16));
 #endif
+    }
+
     qint32 sentBytes = request->sendall(reply);
-    return sentBytes == 10;
+    return sentBytes == reply.size();
 }
 
 

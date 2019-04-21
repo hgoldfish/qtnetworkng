@@ -346,6 +346,8 @@ bool SocketPrivate::close()
     localPort = 0;
     peerAddress.clear();
     peerPort = 0;
+    readGate->open();
+    writeGate->open();
     return true;
 }
 

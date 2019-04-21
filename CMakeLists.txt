@@ -243,6 +243,8 @@ target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${C
 
 # Fix Qt-static cmake BUG
 # https://bugreports.qt.io/browse/QTBUG-38913
+# FIXME qt 5.13 fix this bug
+# Ubuntu can may fail to build becuase its qt lib is not in /usr/lib64/.
 if((EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.so) OR
    (EXISTS ${_qt5Core_install_prefix}/lib64/libQt5Core.so) OR
    (EXISTS ${_qt5Core_install_prefix}/bin/Qt5Core.dll) OR

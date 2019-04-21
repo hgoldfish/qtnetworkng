@@ -516,7 +516,7 @@ void ExchangerPrivate::sendIncoming()
 
 void ExchangerPrivate::in2out()
 {
-    QByteArray buf(1024 * 64, Qt::Uninitialized);
+    QByteArray buf(EXCHANGER_PACKET_SIZE, Qt::Uninitialized);
     while (true) {
         qint32 len = request->recv(buf.data(), buf.size());
         if (len <= 0) {
@@ -539,7 +539,7 @@ void ExchangerPrivate::in2out()
 
 void ExchangerPrivate::out2in()
 {
-    QByteArray buf(1024 * 64, Qt::Uninitialized);
+    QByteArray buf(EXCHANGER_PACKET_SIZE, Qt::Uninitialized);
     while (true) {
         qint32 len = forward->recv(buf.data(), buf.size());
         if (len <= 0) {
@@ -566,20 +566,22 @@ Exchanger::Exchanger(QSharedPointer<StreamLike> request, QSharedPointer<StreamLi
 
 }
 
+
 Exchanger::~Exchanger()
 {
     delete d_ptr;
 }
 
+
 void Exchanger::exchange()
 {
     Q_D(Exchanger);
-    d->operations->spawnWithName("receive_outgoing", [d] { d->receiveOutgoing(); });
-    d->operations->spawnWithName("receive_incoming", [d] { d->receiveIncoming(); });
-    d->operations->spawnWithName("send_outgoing", [d] { d->sendOutgoing(); });
-    d->operations->spawnWithName("send_incoming", [d] { d->sendIncoming(); });
-//    d->operations->spawn([d] { d->in2out(); });
-//    d->operations->spawn([d] { d->out2in(); });
+//    d->operations->spawnWithName("receive_outgoing", [d] { d->receiveOutgoing(); });
+//    d->operations->spawnWithName("receive_incoming", [d] { d->receiveIncoming(); });
+//    d->operations->spawnWithName("send_outgoing", [d] { d->sendOutgoing(); });
+//    d->operations->spawnWithName("send_incoming", [d] { d->sendIncoming(); });
+    d->operations->spawn([d] { d->in2out(); });
+    d->operations->spawn([d] { d->out2in(); });
     d->operations->joinall();
 }
 

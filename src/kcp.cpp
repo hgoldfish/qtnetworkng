@@ -183,7 +183,7 @@ KcpSocketPrivate::KcpSocketPrivate(KcpSocket *q)
     : q_ptr(q), operations(new CoroutineGroup), state(Socket::UnconnectedState), error(Socket::NoError)
     , sendingQueueNotFull(new Event()), sendingQueueEmpty(new Event()), receivingQueueNotEmpty(new Event())
     , zeroTimestamp(static_cast<quint64>(QDateTime::currentMSecsSinceEpoch())), lastActiveTimestamp(zeroTimestamp)
-    , lastKeepaliveTimestamp(zeroTimestamp),tearDownTime(1000 * 30), waterLine(1024 * 8), remotePort(0)
+    , lastKeepaliveTimestamp(zeroTimestamp),tearDownTime(1000 * 30), waterLine(1024 * 16), remotePort(0)
     , mode(KcpSocket::Internet), compression(false)
 {
     kcp = ikcp_create(0, this);
@@ -237,12 +237,17 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
     this->mode = mode;
     switch (mode) {
     case KcpSocket::LargeDelayInternet:
-        ikcp_nodelay(kcp, 1, 30, 1, 1);
+        ikcp_nodelay(kcp, 0, 40, 4, 1);
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 4096, 4096);
         break;
     case KcpSocket::Internet:
-        ikcp_nodelay(kcp, 1, 10, 1, 1);
+        ikcp_nodelay(kcp, 0, 30, 3, 1);
+        ikcp_setmtu(kcp, 1400);
+        ikcp_wndsize(kcp, 2048, 2048);
+        break;
+    case KcpSocket::FastInternet:
+        ikcp_nodelay(kcp, 0, 20, 2, 1);
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 1024, 1024);
         break;
@@ -252,12 +257,13 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
         ikcp_wndsize(kcp, 64, 64);
         break;
     case KcpSocket::Loopback:
-        ikcp_nodelay(kcp, 1, 5, 5, 0);
+        ikcp_nodelay(kcp, 1, 5, 1, 0);
         ikcp_setmtu(kcp, 32768);
         ikcp_wndsize(kcp, 32, 32);
         break;
     }
 }
+
 
 qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
 {
@@ -325,6 +331,7 @@ qint32 KcpSocketPrivate::recv(char *data, qint32 size, bool all)
     }
 }
 
+
 bool KcpSocketPrivate::handleDatagram(const QByteArray &buf)
 {
     if (buf.isEmpty()) {
@@ -388,6 +395,8 @@ void KcpSocketPrivate::doUpdate()
         }
         quint32 current = static_cast<quint32>(now - zeroTimestamp);  // impossible to overflow.
         ikcp_update(kcp, current);
+        quint32 ts = ikcp_check(kcp, current);
+        quint32 interval = ts - current;
 
         if (now - lastKeepaliveTimestamp > 1000 * 5) {
             const QByteArray &packet = makeKeepalivePacket();
@@ -418,15 +427,11 @@ void KcpSocketPrivate::doUpdate()
             }
         }
 
-        now = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
-        current = static_cast<quint32>(now - zeroTimestamp);  // impossible to overflow.
-        quint32 ts = ikcp_check(kcp, current);
-        quint32 interval = ts - current;
 
         forceToUpdate.close();
         try {
             Timeout timeout(interval, 0); Q_UNUSED(timeout);
-            bool ok = forceToUpdate.goThrough();
+            bool ok = forceToUpdate.wait();
             if (!ok) {
                 return;
             }
@@ -435,6 +440,7 @@ void KcpSocketPrivate::doUpdate()
         }
     }
 }
+
 
 void KcpSocketPrivate::updateKcp()
 {
@@ -506,6 +512,7 @@ MasterKcpSocketPrivate::~MasterKcpSocketPrivate()
 {
     MasterKcpSocketPrivate::close(false);
 }
+
 
 Socket::SocketError MasterKcpSocketPrivate::getError() const
 {
@@ -611,11 +618,10 @@ void MasterKcpSocketPrivate::doReceive()
 {
     QHostAddress addr;
     quint16 port;
-    QByteArray buf;
+    QByteArray buf(1024 * 64, Qt::Uninitialized);
     while (true) {
-        buf.resize(1024 * 64);
-        qint32 bytes = rawSocket->recvfrom(buf.data(), buf.size(), &addr, &port);
-        if (Q_UNLIKELY(bytes < 0 || addr.isNull() || port == 0)) {
+        qint32 len = rawSocket->recvfrom(buf.data(), buf.size(), &addr, &port);
+        if (Q_UNLIKELY(len < 0 || addr.isNull() || port == 0)) {
             MasterKcpSocketPrivate::close(true);
             return;
         }
@@ -624,8 +630,7 @@ void MasterKcpSocketPrivate::doReceive()
 //            qDebug() << "not my packet:" << addr << remoteAddress << port;
 //            continue;
 //        }
-        buf.resize(bytes);
-        if (!handleDatagram(buf)) {
+        if (!handleDatagram(QByteArray(buf.constData(), len))) {
             MasterKcpSocketPrivate::close(true);
             return;
         }
@@ -637,22 +642,18 @@ void MasterKcpSocketPrivate::doAccept()
 {
     QHostAddress addr;
     quint16 port;
-    QByteArray buf;
+    QByteArray buf(1024 * 64, Qt::Uninitialized);
     while (true) {
-        buf.resize(1024 * 64);
-        qint32 bytes = rawSocket->recvfrom(buf.data(), buf.size(), &addr, &port);
-        if (bytes < 0 || addr.isNull() || port == 0) {
+        qint32 len = rawSocket->recvfrom(buf.data(), buf.size(), &addr, &port);
+        if (Q_UNLIKELY(len < 0 || addr.isNull() || port == 0)) {
             MasterKcpSocketPrivate::close(true);
             return;
         }
-        buf.resize(bytes);
         const QString &key = concat(addr, port);
         if (receivers.contains(key)) {
             QPointer<SlaveKcpSocketPrivate> receiver = receivers.value(key);
             if (!receiver.isNull()) {
-                QElapsedTimer t;
-                t.start();
-                if (!receiver->handleDatagram(buf)) {
+                if (!receiver->handleDatagram(QByteArray(buf.constData(), len))) {
                     receivers.remove(key);
                 }
             }
@@ -660,9 +661,10 @@ void MasterKcpSocketPrivate::doAccept()
             if (pendingSlaves.size() < pendingSlaves.capacity()) {  // not full.
                 QSharedPointer<KcpSocket> slave(KcpSocketPrivate::create(this, addr, port, this->mode));
                 SlaveKcpSocketPrivate *d = KcpSocketPrivate::getPrivateHelper(slave);
-                receivers.insert(key, d);
-                pendingSlaves.put(slave);
-                d->handleDatagram(buf);
+                if (d->handleDatagram(QByteArray(buf.constData(), len))) {
+                    receivers.insert(key, d);
+                    pendingSlaves.put(slave);
+                }
             }
         }
     }
@@ -732,18 +734,8 @@ qint32 MasterKcpSocketPrivate::rawSend(const char *data, qint32 size)
 {
     lastKeepaliveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
     startReceivingCoroutine();
-
-    int count = 0;
-    while (count < size) {
-        qint32 sentBytes = rawSocket->sendto(data + count, size - count,
-                                             remoteAddress, remotePort);
-        if (sentBytes <= 0) {
-            return count;
-        } else {
-            count += sentBytes;
-        }
-    }
-    return count;
+    qint32 len = rawSocket->sendto(data, size, remoteAddress, remotePort);
+    return len;
 }
 
 
@@ -932,17 +924,8 @@ qint32 SlaveKcpSocketPrivate::rawSend(const char *data, qint32 size)
         return -1;
     } else {
         lastKeepaliveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
-        // FIXME should send a packet at once.
-        int count = 0;
-        while (count < size) {
-            qint32 sentBytes = parent->rawSocket->sendto(data + count, size - count, remoteAddress, remotePort);
-            if (sentBytes <= 0) {
-                return count;
-            } else {
-                count += sentBytes;
-            }
-        }
-        return count;
+        qint32 len = parent->rawSocket->sendto(data, size, remoteAddress, remotePort);
+        return len;
     }
 }
 

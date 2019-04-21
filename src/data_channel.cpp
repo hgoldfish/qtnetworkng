@@ -7,7 +7,7 @@
 #include "../include/coroutine_utils.h"
 #include "../include/data_channel.h"
 
-#define DEBUG_PROTOCOL
+//#define DEBUG_PROTOCOL
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -426,7 +426,7 @@ void DataChannelPrivate::notifyChannelClose(quint32 channelNumber)
 
 
 SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection, DataChannelPole pole, SocketChannel *parent)
-    :DataChannelPrivate(pole, parent), connection(connection), sendingQueue(1024), operations(new CoroutineGroup()),
+    :DataChannelPrivate(pole, parent), connection(connection), sendingQueue(256), operations(new CoroutineGroup()),
       lastActiveTimestamp(QDateTime::currentMSecsSinceEpoch()), lastKeepaliveTimestamp(lastActiveTimestamp),
       keepaliveTimeout(1000 * 10)
 
@@ -1014,6 +1014,10 @@ void DataChannel::setCapacity(quint32 capacity)
 {
     Q_D(DataChannel);
     d->receivingQueue.setCapacity(capacity);
+//    SocketChannelPrivate *scp = dynamic_cast<SocketChannelPrivate*>(d);
+//    if (scp) {
+//        scp->sendingQueue.setCapacity(capacity);
+//    }
 }
 
 

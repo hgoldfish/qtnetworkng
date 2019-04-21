@@ -10,15 +10,14 @@ QTNETWORKNG_NAMESPACE_BEGIN
 SocketPrivate::SocketPrivate(Socket::NetworkLayerProtocol protocol,
         Socket::SocketType type, Socket *parent)
     :q_ptr(parent), protocol(protocol), type(type), error(Socket::NoError),
-      state(Socket::UnconnectedState)
+      state(Socket::UnconnectedState), readGate(new Gate), writeGate(new Gate)
 {
 #ifdef Q_OS_WIN
     initWinSock();
 #endif
     if(!createSocket())
         return;
-    if(type == Socket::UdpSocket)
-    {
+    if(type == Socket::UdpSocket) {
         if(!setOption(Socket::BroadcastSocketOption, 1)) {
 //            setError(Socket::UnsupportedSocketOperationError);
 //            close();
@@ -29,8 +28,9 @@ SocketPrivate::SocketPrivate(Socket::NetworkLayerProtocol protocol,
     }
 }
 
+
 SocketPrivate::SocketPrivate(qintptr socketDescriptor, Socket *parent)
-    :q_ptr(parent), error(Socket::NoError)
+    :q_ptr(parent), error(Socket::NoError), readGate(new Gate), writeGate(new Gate)
 {
 #ifdef Q_OS_WIN
     initWinSock();
@@ -49,6 +49,7 @@ SocketPrivate::SocketPrivate(qintptr socketDescriptor, Socket *parent)
     }
 }
 
+
 SocketPrivate::~SocketPrivate()
 {
     close();
@@ -57,10 +58,12 @@ SocketPrivate::~SocketPrivate()
 #endif
 }
 
+
 bool SocketPrivate::bind(quint16 port, Socket::BindMode mode)
 {
     return bind(QHostAddress(QHostAddress::Any), port, mode);
 }
+
 
 bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
 {
@@ -71,7 +74,7 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::Netwo
     state = Socket::HostLookupState;
     QList<QHostAddress> addresses;
     QHostAddress t;
-    if(t.setAddress(hostName)) {
+    if (t.setAddress(hostName)) {
         addresses.append(t);
     } else {
         if(dnsCache.isNull()) {
@@ -81,7 +84,7 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::Netwo
         }
     }
 
-    if(addresses.isEmpty()) {
+    if (addresses.isEmpty()) {
         state = oldState;
         setError(Socket::HostNotFoundError, QStringLiteral("Host not found."));
         return false;
@@ -100,18 +103,20 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::Netwo
         if(done)
             return true;
     }
-    if(error == Socket::NoError) {
+    if (error == Socket::NoError) {
         setError(Socket::HostNotFoundError, QStringLiteral("Host not found."));
     }
     state = oldState;
     return false;
 }
 
+
 void SocketPrivate::setError(Socket::SocketError error, const QString &errorString)
 {
     this->error = error;
     this->errorString = errorString;
 }
+
 
 void SocketPrivate::setError(Socket::SocketError error, ErrorString errorString)
 {
@@ -211,10 +216,12 @@ void SocketPrivate::setError(Socket::SocketError error, ErrorString errorString)
     this->errorString = socketErrorString;
 }
 
+
 QString SocketPrivate::getErrorString() const
 {
     return errorString;
 }
+
 
 Socket::Socket(NetworkLayerProtocol protocol, SocketType type)
     :dd_ptr(new SocketPrivate(protocol, type, this))
@@ -222,15 +229,18 @@ Socket::Socket(NetworkLayerProtocol protocol, SocketType type)
 
 }
 
+
 Socket::Socket(qintptr socketDescriptor)
     :dd_ptr(new SocketPrivate(socketDescriptor, this))
 {
 }
 
+
 Socket::~Socket()
 {
     delete dd_ptr;
 }
+
 
 Socket::SocketError Socket::error() const
 {
@@ -238,11 +248,13 @@ Socket::SocketError Socket::error() const
     return d->error;
 }
 
+
 QString Socket::errorString() const
 {
     Q_D(const Socket);
     return d->getErrorString();
 }
+
 
 bool Socket::isValid() const
 {
@@ -250,11 +262,13 @@ bool Socket::isValid() const
     return d->isValid();
 }
 
+
 QHostAddress Socket::localAddress() const
 {
     Q_D(const Socket);
     return d->localAddress;
 }
+
 
 quint16 Socket::localPort() const
 {
@@ -262,16 +276,19 @@ quint16 Socket::localPort() const
     return d->localPort;
 }
 
+
 QHostAddress Socket::peerAddress() const
 {
     Q_D(const Socket);
     return d->peerAddress;
 }
 
+
 QString Socket::peerName() const
 {
     return QString();
 }
+
 
 quint16 Socket::peerPort() const
 {
@@ -279,11 +296,13 @@ quint16 Socket::peerPort() const
     return d->peerPort;
 }
 
+
 qintptr	Socket::fileno() const
 {
     Q_D(const Socket);
     return d->fd;
 }
+
 
 Socket::SocketType Socket::type() const
 {
@@ -291,11 +310,13 @@ Socket::SocketType Socket::type() const
     return d->type;
 }
 
+
 Socket::SocketState Socket::state() const
 {
     Q_D(const Socket);
     return d->state;
 }
+
 
 Socket::NetworkLayerProtocol Socket::protocol() const
 {
@@ -304,12 +325,44 @@ Socket::NetworkLayerProtocol Socket::protocol() const
 }
 
 
+class ScopedGate
+{
+public:
+    ScopedGate(QSharedPointer<Gate> gate)
+        :gate(gate)
+    {
+        if (gate.isNull()) {
+            success = false;
+            return;
+        }
+        success = gate->wait();
+        if (success) {
+            gate->close();
+        }
+    }
+    ~ScopedGate()
+    {
+        if (success && !gate.isNull()) {
+            gate.data()->open();
+        }
+    }
+    bool isSuccess() { return success; }
+private:
+    QWeakPointer<Gate> gate;
+    bool success;
+};
+
+
 Socket *Socket::accept()
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->readLock);
+    ScopedGate gate(d->readGate);
+    if (!gate.isSuccess()) {
+        return nullptr;
+    }
     return d->accept();
 }
+
 
 bool Socket::bind(const QHostAddress &address, quint16 port, Socket::BindMode mode)
 {
@@ -317,25 +370,35 @@ bool Socket::bind(const QHostAddress &address, quint16 port, Socket::BindMode mo
     return d->bind(address, port, mode);
 }
 
+
 bool Socket::bind(quint16 port, Socket::BindMode mode)
 {
     Q_D(Socket);
     return d->bind(port, mode);
 }
 
+
 bool Socket::connect(const QHostAddress &host, quint16 port)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->writeLock);
+    ScopedGate gate(d->writeGate);
+    if (!gate.isSuccess()) {
+        return -1;
+    }
     return d->connect(host, port);
 }
+
 
 bool Socket::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->writeLock);
+    ScopedGate gate(d->writeGate);
+    if (!gate.isSuccess()) {
+        return -1;
+    }
     return d->connect(hostName, port, protocol);
 }
+
 
 bool Socket::close()
 {
@@ -343,11 +406,13 @@ bool Socket::close()
     return d->close();
 }
 
+
 bool Socket::listen(int backlog)
 {
     Q_D(Socket);
     return d->listen(backlog);
 }
+
 
 bool Socket::setOption(Socket::SocketOption option, const QVariant &value)
 {
@@ -355,30 +420,43 @@ bool Socket::setOption(Socket::SocketOption option, const QVariant &value)
     return d->setOption(option, value);
 }
 
+
 QVariant Socket::option(Socket::SocketOption option) const
 {
     Q_D(const Socket);
     return d->option(option);
 }
 
+
 qint32 Socket::recv(char *data, qint32 size)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->readLock);
+    ScopedGate gate(d->readGate);
+    if (!gate.isSuccess()) {
+        return -1;
+    }
     return d->recv(data, size, false);
 }
+
 
 qint32 Socket::recvall(char *data, qint32 size)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->readLock);
+    ScopedGate gate(d->readGate);
+    if (!gate.isSuccess()) {
+        return -1;
+    }
     return d->recv(data, size, true);
 }
+
 
 qint32 Socket::send(const char *data, qint32 size)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->writeLock);
+    ScopedGate gate(d->writeGate);
+    if (!gate.isSuccess()) {
+        return -1;
+    }
     qint32 bytesSent = d->send(data, size, false);
     if(bytesSent == 0 && !d->isValid()) {
         return -1;
@@ -387,31 +465,47 @@ qint32 Socket::send(const char *data, qint32 size)
     }
 }
 
+
 qint32 Socket::sendall(const char *data, qint32 size)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->writeLock);
+    ScopedGate gate(d->writeGate);
+    if (!gate.isSuccess()) {
+        return -1;
+    }
     return d->send(data, size, true);
 }
+
 
 qint32 Socket::recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->readLock);
+    ScopedGate gate(d->readGate);
+    if (!gate.isSuccess()) {
+        return -1;
+    }
     return d->recvfrom(data, size, addr, port);
 }
+
 
 qint32 Socket::sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->writeLock);
+    ScopedGate gate(d->writeGate);
+    if (!gate.isSuccess()) {
+        return -1;
+    }
     return d->sendto(data, size, addr, port);
 }
+
 
 QByteArray Socket::recv(qint32 size)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->readLock);
+    ScopedGate gate(d->readGate);
+    if (!gate.isSuccess()) {
+        return QByteArray();
+    }
     QByteArray bs(size, Qt::Uninitialized);
     qint32 bytes = d->recv(bs.data(), bs.size(), false);
     if(bytes > 0) {
@@ -421,10 +515,14 @@ QByteArray Socket::recv(qint32 size)
     return QByteArray();
 }
 
+
 QByteArray Socket::recvall(qint32 size)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->readLock);
+    ScopedGate gate(d->readGate);
+    if (!gate.isSuccess()) {
+        return QByteArray();
+    }
     QByteArray bs(size, Qt::Uninitialized);
     qint32 bytes = d->recv(bs.data(), bs.size(), true);
     if(bytes > 0) {
@@ -434,10 +532,14 @@ QByteArray Socket::recvall(qint32 size)
     return QByteArray();
 }
 
+
 qint32 Socket::send(const QByteArray &data)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->writeLock);
+    ScopedGate gate(d->writeGate);
+    if (!gate.isSuccess()) {
+        return -1;
+    }
     qint32 bytesSent = d->send(data.data(), data.size(), false);
     if(bytesSent == 0 && !d->isValid()) {
         return -1;
@@ -446,10 +548,14 @@ qint32 Socket::send(const QByteArray &data)
     }
 }
 
+
 qint32 Socket::sendall(const QByteArray &data)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->writeLock);
+    ScopedGate gate(d->writeGate);
+    if (!gate.isSuccess()) {
+        return -1;
+    }
     return d->send(data.data(), data.size(), true);
 }
 
@@ -457,7 +563,10 @@ qint32 Socket::sendall(const QByteArray &data)
 QByteArray Socket::recvfrom(qint32 size, QHostAddress *addr, quint16 *port)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->readLock);
+    ScopedGate gate(d->readGate);
+    if (!gate.isSuccess()) {
+        return QByteArray();
+    }
     QByteArray bs(size, Qt::Uninitialized);
     qint32 bytes = d->recvfrom(bs.data(), size, addr, port);
     if(bytes > 0) {
@@ -467,12 +576,17 @@ QByteArray Socket::recvfrom(qint32 size, QHostAddress *addr, quint16 *port)
     return QByteArray();
 }
 
+
 qint32 Socket::sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
 {
     Q_D(Socket);
-    ScopedLock<Lock> lock(d->writeLock);
+    ScopedGate gate(d->writeGate);
+    if (!gate.isSuccess()) {
+        return -1;
+    }
     return d->sendto(data.data(), data.size(), addr, port);
 }
+
 
 QList<QHostAddress> Socket::resolve(const QString &hostName)
 {
@@ -501,11 +615,13 @@ QList<QHostAddress> Socket::resolve(const QString &hostName)
     return result;
 }
 
+
 void Socket::setDnsCache(QSharedPointer<SocketDnsCache> dnsCache)
 {
     Q_D(Socket);
     d->dnsCache = dnsCache;
 }
+
 
 class PollPrivate
 {
@@ -521,6 +637,7 @@ private:
     QSharedPointer<QSet<Socket*>> events;
     QSharedPointer<Event> done;
 };
+
 
 struct PollFunctor: public Functor
 {
@@ -623,6 +740,7 @@ void Poll::add(Socket *socket, EventLoopCoroutine::EventType event)
     Q_D(Poll);
     d->add(socket, event);
 }
+
 
 void Poll::remove(Socket *socket)
 {

@@ -45,7 +45,7 @@ void SemaphorePrivate::scheduleDelete()
     }
     notifyWaiters(true);
     if(counter != init_value) {
-        qWarning("Semaphore is deleted but caught by some one.");
+//        qWarning("Semaphore is deleted but caught by some one.");
     }
     EventLoopCoroutine::get()->callLater(0, new DeleteLaterFunctor<SemaphorePrivate>(this));
 }
