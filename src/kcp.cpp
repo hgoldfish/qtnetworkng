@@ -179,6 +179,7 @@ int kcp_callback(const char *buf, int len, ikcpcb *, void *user)
             p->errorString = QStringLiteral("can not send udp packet");
             qWarning() << "can not send packet.";
             p->close(true);
+            return -1;
         }
     }
     return sentBytes;
@@ -397,7 +398,8 @@ bool KcpSocketPrivate::handleDatagram(const QByteArray &buf)
 void KcpSocketPrivate::doUpdate()
 {
     Q_Q(KcpSocket);
-    while (true) {
+    // in close(), state is set to Socket::UnconnectedState but error = NoError.
+    while (state == Socket::ConnectedState || error == Socket::NoError) {
         quint64 now = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
         if (now - lastActiveTimestamp > tearDownTime) {
             close(true);
@@ -1019,6 +1021,22 @@ KcpSocket::Mode KcpSocket::mode() const
 }
 
 
+void KcpSocket::setUdpPacketSize(quint32 udpPacketSize)
+{
+    Q_D(const KcpSocket);
+    if (udpPacketSize < 65535) {
+        ikcp_setmtu(d->kcp, static_cast<int>(udpPacketSize));
+    }
+}
+
+
+quint32 KcpSocket::udpPacketSize() const
+{
+    Q_D(const KcpSocket);
+    return d->kcp->mtu;
+}
+
+
 void KcpSocket::setCompression(bool compression)
 {
     Q_D(KcpSocket);
@@ -1033,14 +1051,14 @@ bool KcpSocket::compression() const
 }
 
 
-void KcpSocket::setWaterline(quint32 waterline)
+void KcpSocket::setSendQueueSize(quint32 sendQueueSize)
 {
     Q_D(KcpSocket);
-    d->waterLine = waterline;
+    d->waterLine = sendQueueSize;
 }
 
 
-quint32 KcpSocket::waterline() const
+quint32 KcpSocket::sendQueueSize() const
 {
     Q_D(const KcpSocket);
     return d->waterLine;
@@ -1052,7 +1070,6 @@ quint32 KcpSocket::payloadSizeHint() const
     Q_D(const KcpSocket);
     return d->kcp->mss;
 }
-
 
 
 Socket::SocketError KcpSocket::error() const

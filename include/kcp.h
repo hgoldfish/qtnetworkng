@@ -27,9 +27,11 @@ public:
     Mode mode() const;
     void setCompression(bool compress);
     bool compression() const;
-    void setWaterline(quint32 waterline);
-    quint32 waterline() const;
+    void setSendQueueSize(quint32 sendQueueSize);
+    quint32 sendQueueSize() const;
     quint32 payloadSizeHint() const;
+    void setUdpPacketSize(quint32 udpPacketSize);
+    quint32 udpPacketSize() const;
     Event busy;
     Event notBusy;
 public:
