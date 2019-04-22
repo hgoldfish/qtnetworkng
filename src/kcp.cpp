@@ -167,11 +167,17 @@ SlaveKcpSocketPrivate *KcpSocketPrivate::getPrivateHelper(QSharedPointer<KcpSock
 int kcp_callback(const char *buf, int len, ikcpcb *, void *user)
 {
     KcpSocketPrivate *p = static_cast<KcpSocketPrivate*>(user);
+    if (!p || !buf || len > 65535) {
+        return -1;
+    }
     const QByteArray &packet = p->makeDataPacket(buf, len);
     qint32 sentBytes = -1;
     for (int i = 0; i < 1; ++i) {
         sentBytes = p->rawSend(packet.data(), packet.size());
-        if (sentBytes != packet.size()) {
+        if (sentBytes != packet.size()) {  // but why this happens?
+            p->error = Socket::SocketAccessError;
+            p->errorString = QStringLiteral("can not send udp packet");
+            qWarning() << "can not send packet.";
             p->close(true);
         }
     }
@@ -279,6 +285,8 @@ qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
     int count = 0;
     while (count < size) {
         if (state != Socket::ConnectedState) {
+            error = Socket::SocketAccessError;
+            errorString = QStringLiteral("KcpSocket is not connected.");
             return -1;
         }
         qint32 nextBlockSize = qMin<qint32>(static_cast<qint32>(kcp->mss), size - count);
@@ -305,6 +313,8 @@ qint32 KcpSocketPrivate::recv(char *data, qint32 size, bool all)
 {
     while (true) {
         if (state != Socket::ConnectedState) {
+            error = Socket::SocketAccessError;
+            errorString = QStringLiteral("KcpSocket is not connected.");
             return -1;
         }
         int peeksize = ikcp_peeksize(kcp);
@@ -342,7 +352,7 @@ bool KcpSocketPrivate::handleDatagram(const QByteArray &buf)
     case PACKET_TYPE_COMPRESSED_DATA:
     case PACKET_TYPE_UNCOMPRESSED_DATA:
         if (buf.size() < 3) {
-            qDebug() << "invalid packet. buf.size() < 3";
+            qDebug() << "invalid packet. buf.size() < 3, packet is dropped.";
             return true;
         }
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
@@ -351,7 +361,7 @@ bool KcpSocketPrivate::handleDatagram(const QByteArray &buf)
         dataSize = qFromBigEndian<quint16>(reinterpret_cast<const uchar*>(buf.constData() + 1));
 #endif
         if (dataSize != buf.size() - 3) {
-            qDebug() << "invalid packet. dataSize != buf.size() - 3";
+            qDebug() << "invalid packet. dataSize != buf.size() - 3, packet is dropped.";
             return true;
         }
 
@@ -373,7 +383,7 @@ bool KcpSocketPrivate::handleDatagram(const QByteArray &buf)
         break;
     case PACKET_TYPE_CLOSE:
         close(true);
-        break;
+        return false;
     case PACKET_TYPE_KEEPALIVE:
         lastActiveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
         break;
@@ -394,7 +404,11 @@ void KcpSocketPrivate::doUpdate()
             return;
         }
         quint32 current = static_cast<quint32>(now - zeroTimestamp);  // impossible to overflow.
-        ikcp_update(kcp, current);
+        ikcp_update(kcp, current);   // ikcp_update() call ikcp_flush() and then kcp_callback(), and maybe close(true)
+        if (state != Socket::ConnectedState && error != Socket::NoError) {
+            return;
+        }
+
         quint32 ts = ikcp_check(kcp, current);
         quint32 interval = ts - current;
 
@@ -597,8 +611,6 @@ bool MasterKcpSocketPrivate::close(bool force)
     receivingQueueNotEmpty->set();
     sendingQueueEmpty->set();
     sendingQueueNotFull->set();
-//    q_func()->notBusy->set();
-//    q_func()->busy->set();
     return true;
 }
 
@@ -622,6 +634,8 @@ void MasterKcpSocketPrivate::doReceive()
     while (true) {
         qint32 len = rawSocket->recvfrom(buf.data(), buf.size(), &addr, &port);
         if (Q_UNLIKELY(len < 0 || addr.isNull() || port == 0)) {
+            error = Socket::SocketResourceError;
+            errorString = QStringLiteral("KcpSocket can not receive udp packet.");
             MasterKcpSocketPrivate::close(true);
             return;
         }
@@ -631,7 +645,6 @@ void MasterKcpSocketPrivate::doReceive()
 //            continue;
 //        }
         if (!handleDatagram(QByteArray(buf.constData(), len))) {
-            MasterKcpSocketPrivate::close(true);
             return;
         }
     }
@@ -646,6 +659,8 @@ void MasterKcpSocketPrivate::doAccept()
     while (true) {
         qint32 len = rawSocket->recvfrom(buf.data(), buf.size(), &addr, &port);
         if (Q_UNLIKELY(len < 0 || addr.isNull() || port == 0)) {
+            error = Socket::SocketResourceError;
+            errorString = QStringLiteral("KcpSocket can not receive udp packet.");
             MasterKcpSocketPrivate::close(true);
             return;
         }
