@@ -67,7 +67,8 @@ public:
     QSharedPointer<Event> sendingQueueNotFull;
     QSharedPointer<Event> sendingQueueEmpty;
     QSharedPointer<Event> receivingQueueNotEmpty;
-    Gate forceToUpdate;
+    QSharedPointer<RLock> kcpLock;
+    QSharedPointer<Gate> forceToUpdate;
     QByteArray receivingBuffer;
 
     const quint64 zeroTimestamp;
@@ -189,6 +190,7 @@ int kcp_callback(const char *buf, int len, ikcpcb *, void *user)
 KcpSocketPrivate::KcpSocketPrivate(KcpSocket *q)
     : q_ptr(q), operations(new CoroutineGroup), state(Socket::UnconnectedState), error(Socket::NoError)
     , sendingQueueNotFull(new Event()), sendingQueueEmpty(new Event()), receivingQueueNotEmpty(new Event())
+    , kcpLock(new RLock), forceToUpdate(new Gate)
     , zeroTimestamp(static_cast<quint64>(QDateTime::currentMSecsSinceEpoch())), lastActiveTimestamp(zeroTimestamp)
     , lastKeepaliveTimestamp(zeroTimestamp),tearDownTime(1000 * 30), waterLine(1024 * 16), remotePort(0)
     , mode(KcpSocket::Internet), compression(false)
@@ -290,6 +292,7 @@ qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
             errorString = QStringLiteral("KcpSocket is not connected.");
             return -1;
         }
+        ScopedLock<RLock> l(kcpLock); Q_UNUSED(l);
         qint32 nextBlockSize = qMin<qint32>(static_cast<qint32>(kcp->mss), size - count);
         int result = ikcp_send(kcp, data + count, nextBlockSize);
         if (result < 0) {
@@ -321,6 +324,7 @@ qint32 KcpSocketPrivate::recv(char *data, qint32 size, bool all)
         int peeksize = ikcp_peeksize(kcp);
         if (peeksize > 0) {
             QByteArray buf(peeksize, Qt::Uninitialized);
+            ScopedLock<RLock> l(kcpLock); Q_UNUSED(l);
             int readBytes = ikcp_recv(kcp, buf.data(), buf.size());
             Q_ASSERT(readBytes == peeksize);
             receivingBuffer.append(buf);
@@ -368,9 +372,11 @@ bool KcpSocketPrivate::handleDatagram(const QByteArray &buf)
 
         int result;
         if (buf.at(0) == PACKET_TYPE_UNCOMPRESSED_DATA) {
+            ScopedLock<RLock> l(kcpLock); Q_UNUSED(l);
             result = ikcp_input(kcp, buf.data() + 3, dataSize);
         } else {
             const QByteArray &uncompressed = qUncompress(reinterpret_cast<const uchar*>(buf.data() + 3), dataSize);
+            ScopedLock<RLock> l(kcpLock); Q_UNUSED(l);
             result = ikcp_input(kcp, uncompressed.constData(), uncompressed.size());
         }
         if (result < 0) {
@@ -406,7 +412,10 @@ void KcpSocketPrivate::doUpdate()
             return;
         }
         quint32 current = static_cast<quint32>(now - zeroTimestamp);  // impossible to overflow.
-        ikcp_update(kcp, current);   // ikcp_update() call ikcp_flush() and then kcp_callback(), and maybe close(true)
+        {
+            ScopedLock<RLock> l(kcpLock); Q_UNUSED(l);
+            ikcp_update(kcp, current);   // ikcp_update() call ikcp_flush() and then kcp_callback(), and maybe close(true)
+        }
         if (state != Socket::ConnectedState && error != Socket::NoError) {
             return;
         }
@@ -444,10 +453,10 @@ void KcpSocketPrivate::doUpdate()
         }
 
 
-        forceToUpdate.close();
+        forceToUpdate->close();
         try {
             Timeout timeout(interval, 0); Q_UNUSED(timeout);
-            bool ok = forceToUpdate.wait();
+            bool ok = forceToUpdate->wait();
             if (!ok) {
                 return;
             }
@@ -461,7 +470,7 @@ void KcpSocketPrivate::doUpdate()
 void KcpSocketPrivate::updateKcp()
 {
     QSharedPointer<Coroutine> t = operations->spawnWithName("update_kcp", [this] { doUpdate(); }, false);
-    forceToUpdate.open();
+    forceToUpdate->open();
 }
 
 
