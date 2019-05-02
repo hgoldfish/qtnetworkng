@@ -244,7 +244,7 @@ target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${C
 # Fix Qt-static cmake BUG
 # https://bugreports.qt.io/browse/QTBUG-38913
 # FIXME qt 5.13 fix this bug
-if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a)
+if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a AND NOT EXISTS ${_qt5Core_install_prefix}/bin/Qt5Core.dll)
     message("Static Qt is detected.")
     if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         set(OS_EXTRA_LINK z log qtpcre2)

@@ -336,10 +336,9 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 }
 
 
-
 bool SocketPrivate::close()
 {
-    if(fd > 0) {
+    if (fd > 0) {
         ::close(fd);
         EventLoopCoroutine::get()->triggerIoWatchers(fd);
         fd = -1;
@@ -353,6 +352,7 @@ bool SocketPrivate::close()
     writeGate->open();
     return true;
 }
+
 
 bool SocketPrivate::listen(int backlog)
 {

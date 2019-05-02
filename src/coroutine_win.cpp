@@ -58,11 +58,11 @@ BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *prev
 
 }
 
+
 BaseCoroutinePrivate::~BaseCoroutinePrivate()
 {
     Q_Q(BaseCoroutine);
-    if(currentCoroutine().get() == q)
-    {
+    if(currentCoroutine().get() == q) {
         //TODO 在当前 coroutine 里面把自己给干掉了怎么办？
         qWarning("do not delete one self.");
     }
@@ -76,6 +76,7 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
     if(exception)
         delete exception;
 }
+
 
 bool BaseCoroutinePrivate::initContext()
 {
@@ -94,6 +95,7 @@ bool BaseCoroutinePrivate::initContext()
     return true;
 }
 
+
 bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 {
     Q_Q(BaseCoroutine);
@@ -102,17 +104,17 @@ bool BaseCoroutinePrivate::raise(CoroutineException *exception)
         return false;
     }
 
-    if(this->exception) {
+    if (this->exception) {
         qWarning("coroutine had been killed.");
         return false;
     }
 
-    if(state == BaseCoroutine::Stopped || state == BaseCoroutine::Joined) {
+    if (state == BaseCoroutine::Stopped || state == BaseCoroutine::Joined) {
         qWarning("coroutine is stopped.");
         return false;
     }
 
-    if(exception) {
+    if (exception) {
         this->exception = exception;
     } else {
         this->exception = new CoroutineExitException();
@@ -139,21 +141,20 @@ bool BaseCoroutinePrivate::yield()
         return false;
 
     BaseCoroutine *old = currentCoroutine().get();
-    if(!old || old == q)
+    if (!old || old == q)
         return false;
 
     currentCoroutine().set(q);
-    //qDebug() << "yield from " << old << "to" << q;
     SwitchToFiber(context);
-    if(currentCoroutine().get() != old) { // when coroutine finished, swapcontext auto yield to the previous.
+    if (currentCoroutine().get() != old) { // when coroutine finished, swapcontext auto yield to the previous.
         currentCoroutine().set(old);
     }
     CoroutineException *e = old->d_func()->exception;
-    if(e) {
+    if (e) {
         old->d_func()->exception = nullptr;
-        if(!dynamic_cast<CoroutineExitException*>(e)) {
-            qDebug() << "got exception:" << e->what() << old;
-        }
+//        if(!dynamic_cast<CoroutineExitException*>(e)) {
+//            qDebug() << "got exception:" << e->what() << old;
+//        }
         e->raise();
     }
     return true;
@@ -162,28 +163,28 @@ bool BaseCoroutinePrivate::yield()
 BaseCoroutine* createMainCoroutine()
 {
     BaseCoroutine *main = new BaseCoroutine(nullptr, 0);
-    if(!main)
+    if (!main)
         return nullptr;
     BaseCoroutinePrivate *mainPrivate = main->d_func();
 #if ( _WIN32_WINNT > 0x0600)
-        if ( IsThreadAFiber() ) {
+        if (IsThreadAFiber()) {
             mainPrivate->context = GetCurrentFiber();
         } else {
             mainPrivate->context = ConvertThreadToFiberEx(NULL, 0);
         }
 #else
         mainPrivate->context = ConvertThreadToFiberEx(nullptr, 0);
-        if(Q_UNLIKELY( NULL == mainPrivate->context) ) {
+        if (Q_UNLIKELY(NULL== mainPrivate->context)) {
             DWORD err = GetLastError();
-            if(err == ERROR_ALREADY_FIBER) {
+            if (err == ERROR_ALREADY_FIBER) {
                 mainPrivate->context = GetCurrentFiber();
             }
-            if(reinterpret_cast<LPVOID>(0x1E00) == mainPrivate->context) {
+            if (reinterpret_cast<LPVOID>(0x1E00) == mainPrivate->context) {
                 mainPrivate->context = nullptr;
             }
         }
 #endif
-    if(!mainPrivate->context) {
+    if (!mainPrivate->context) {
         DWORD error = GetLastError();
         qDebug() << QStringLiteral("Coroutine can not malloc new memroy: error is %1").arg(error);
         delete main;

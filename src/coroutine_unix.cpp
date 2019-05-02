@@ -40,25 +40,18 @@ void BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
 {
     coroutine->state = BaseCoroutine::Started;
     coroutine->q_ptr->started.callback(coroutine->q_ptr);
-    try
-    {
+    try {
         coroutine->q_ptr->run();
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
-    }
-    catch(const CoroutineExitException &e)
-    {
+    } catch(const CoroutineExitException &e) {
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
-    }
-    catch(const CoroutineException &e)
-    {
+    } catch(const CoroutineException &e) {
         qDebug() << "got coroutine exception:" << e.what();
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
-    }
-    catch(...)
-    {
+    } catch(...) {
         qWarning() << "coroutine throw a unhandled exception.";
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
@@ -70,11 +63,14 @@ void BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
 
 BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *previous, size_t stackSize)
     :q_ptr(q), previous(previous), stackSize(stackSize), stack(0), state(BaseCoroutine::Initialized),
-      bad(false), exception(0), context(0)
+      bad(false), exception(nullptr), context(nullptr)
 {
     if(stackSize) {
-//        stack = operator new(stackSize);
-        stack = mmap(NULL, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
+#ifdef MAP_GROWSDOWN
+        stack = mmap(nullptr, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
+#else
+        stack = mmap(nullptr, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#endif
         if(!stack) {
             qFatal("Coroutine can not malloc new memroy.");
             bad = true;
@@ -92,13 +88,12 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
     if(state == BaseCoroutine::Started) {
         qWarning() << "deleting running BaseCoroutine" << this;
     }
-    if(stack) {
+    if (stack) {
 //        operator delete(stack);
         munmap(stack, stackSize);
     }
 
-    if(currentCoroutine().get() == q)
-    {
+    if(currentCoroutine().get() == q) {
         //TODO 在当前 coroutine 里面把自己给干掉了怎么办？
         qWarning("do not delete one self.");
     }
@@ -135,9 +130,9 @@ bool BaseCoroutinePrivate::yield()
     CoroutineException *e = old->d_ptr->exception;
     if(e) {
         old->d_func()->exception = 0;
-        if(!dynamic_cast<CoroutineExitException*>(e)) {
-            qDebug() << "got exception:" << e->what() << old;
-        }
+//        if(!dynamic_cast<CoroutineExitException*>(e)) {
+//            qDebug() << "got exception:" << e->what() << old;
+//        }
         e->raise();
     }
     return true;
@@ -210,12 +205,12 @@ BaseCoroutine* createMainCoroutine()
         return 0;
     BaseCoroutinePrivate *mainPrivate = main->d_ptr;
     mainPrivate->context = new ucontext_t;
-    if(!mainPrivate->context) {
+    if (!mainPrivate->context) {
         qFatal("Coroutine can not malloc new memroy.");
         delete main;
         return 0;
     }
-    if(getcontext(mainPrivate->context) < 0) {
+    if (getcontext(mainPrivate->context) < 0) {
         qDebug() << "getcontext() returns error." << errno;
         delete main;
         return 0;

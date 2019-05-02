@@ -65,6 +65,8 @@ public:
     QByteArray recvall(qint32 size);
     qint32 send(const QByteArray &data);
     qint32 sendall(const QByteArray &data);
+
+    void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache);
 private:
     KcpSocket(KcpSocketPrivate *d, const QHostAddress &addr, const quint16 port, KcpSocket::Mode mode);
 private:

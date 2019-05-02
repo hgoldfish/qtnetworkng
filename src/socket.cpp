@@ -785,14 +785,12 @@ QList<QHostAddress> SocketDnsCache::resolve(const QString &hostName)
     if(d->cache.contains(hostName)) {
         return *(d->cache.object(hostName));
     }
-    QList<QHostAddress> *addresses = new QList<QHostAddress>();
-    *addresses = Socket::resolve(hostName);
-    if(addresses->isEmpty()) {
-        delete addresses;
+    const QList<QHostAddress> &addresses = Socket::resolve(hostName);
+    if(addresses.isEmpty()) {
         return QList<QHostAddress>();
     } else {
-        d->cache.insert(hostName, addresses);
-        return *addresses;
+        d->cache.insert(hostName, new QList<QHostAddress>(addresses));
+        return addresses;
     }
 }
 
