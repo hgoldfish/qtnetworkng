@@ -65,7 +65,10 @@ void KcptunClient::handleRequest(QSharedPointer<Socket> request)
         request->close();
         return;
     }
-    Exchanger exchanger(asStream(request), asStream(forward));
+    QSharedPointer<Cipher> cipher(new Cipher(Cipher::AES256, Cipher::CFB, Cipher::Encrypt));
+    cipher->setPassword(configure.password.toUtf8(), "3.1415926535");
+    QSharedPointer<SocketLike> encryptedForward = encrypted(cipher, SocketLike::kcpSocket(forward));
+    Exchanger exchanger(asStream(request), encryptedForward);
     exchanger.exchange();
 }
 
@@ -97,7 +100,7 @@ ParserResult parseArguments(Configure *configure, QString *errorMessage)
                                         QCoreApplication::translate("main", "remote port which runs the kcptun server. default to `8000`."),
                                         "target_port");
     parser.addOption(remotePortOption);
-    
+
 
     if (!parser.parse(QCoreApplication::arguments())) {
         *errorMessage = parser.errorText();
@@ -141,14 +144,14 @@ ParserResult parseArguments(Configure *configure, QString *errorMessage)
             return Failed;
         }
     }
-    
+
     QString remoteAddressStr = parser.value(remoteAddressOption);
     if (remoteAddressStr.isEmpty()) {
         *errorMessage = QCoreApplication::translate("main", "require remote host address.");
     } else {
         configure->remoteAddress = remoteAddressStr;
     }
-    
+
     QString remotePortStr = parser.value(remotePortOption);
     if (remotePortStr.isEmpty()) {
         configure->remotePort = 8000;
@@ -169,7 +172,7 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     app.setApplicationName("kcptun-client");
     app.setApplicationVersion("1.0");
-    
+
     Configure configure;
     QString errorMessage;
     if (parseArguments(&configure, &errorMessage) != Success) {

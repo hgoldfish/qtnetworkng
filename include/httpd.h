@@ -19,7 +19,7 @@ protected:
     virtual void doMethod();
     virtual QByteArray tryToHandleMagicCode(bool *done);
     virtual bool sendError(HttpStatus status, const QString &longMessage = QString());
-    virtual bool sendResponse(HttpStatus status);
+    virtual bool sendResponse(HttpStatus status, const QString &longMessage = QString());
     virtual QString errorMessage(HttpStatus status, const QString &shortMessage, const QString &longMessage);
     virtual QString errorMessageContentType();
     virtual void logRequest(HttpStatus status, int bodySize);

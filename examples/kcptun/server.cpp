@@ -65,7 +65,12 @@ void KcptunServer::handleRequest(QSharedPointer<KcpSocket> request)
         request->close();
         return;
     }
-    Exchanger exchanger(asStream(request), asStream(forward));
+
+    QSharedPointer<Cipher> cipher(new Cipher(Cipher::AES256, Cipher::CFB, Cipher::Encrypt));
+    cipher->setPassword(configure.password.toUtf8(), "3.1415926535");
+    QSharedPointer<SocketLike> encryptedRequest = encrypted(cipher, SocketLike::kcpSocket(request));
+
+    Exchanger exchanger(encryptedRequest, asStream(forward));
     exchanger.exchange();
 }
 
@@ -97,7 +102,7 @@ ParserResult parseArguments(Configure *configure, QString *errorMessage)
                                         QCoreApplication::translate("main", "target port to forward. default to `8085`."),
                                         "target_port");
     parser.addOption(targetPortOption);
-    
+
 
     if (!parser.parse(QCoreApplication::arguments())) {
         *errorMessage = parser.errorText();
@@ -141,14 +146,14 @@ ParserResult parseArguments(Configure *configure, QString *errorMessage)
             return Failed;
         }
     }
-    
+
     QString targetAddressStr = parser.value(targetAddressOption);
     if (targetAddressStr.isEmpty()) {
         configure->targetAddress = "127.0.0.1";
     } else {
         configure->targetAddress = targetAddressStr;
     }
-    
+
     QString targetPortStr = parser.value(targetPortOption);
     if (targetPortStr.isEmpty()) {
         configure->targetPort = 8085;
@@ -169,7 +174,7 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     app.setApplicationName("kcptun-server");
     app.setApplicationVersion("1.0");
-    
+
     Configure configure;
     QString errorMessage;
     if (parseArguments(&configure, &errorMessage) != Success) {

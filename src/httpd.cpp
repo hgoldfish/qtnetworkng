@@ -227,7 +227,7 @@ bool BaseHttpRequestHandler::sendError(HttpStatus status, const QString &message
         longMessage = message;
     }
     logError(status, shortMessage, longMessage);
-    sendCommandLine(status, shortMessage.toLatin1());
+    sendCommandLine(status, shortMessage);
     sendHeader("Connection", "close");
     QByteArray body;
     if (status >= 200 && status != HttpStatus::NoContent && status != HttpStatus::ResetContent && status != HttpStatus::NotModified) {
@@ -246,12 +246,15 @@ bool BaseHttpRequestHandler::sendError(HttpStatus status, const QString &message
 }
 
 
-bool BaseHttpRequestHandler::sendResponse(HttpStatus status)
+bool BaseHttpRequestHandler::sendResponse(HttpStatus status, const QString &message)
 {
     QString shortMessage, longMessage;
     bool ok = toMessage(HttpStatus::OK, &shortMessage, &longMessage);
     if (!ok) {
         shortMessage = longMessage = "???";
+    }
+    if (!message.isEmpty()) {
+        longMessage = message;
     }
     logRequest(status, 0);
     sendCommandLine(status, shortMessage);
@@ -310,7 +313,7 @@ bool BaseHttpRequestHandler::endHeader()
     headerCache.append("\r\n");
     const QByteArray &data = headerCache.join();
     headerCache.clear();
-    return request->sendall(data);
+    return request->sendall(data) == data.size();
 }
 
 
@@ -356,6 +359,7 @@ void SimpleHttpRequestHandler::doHEAD()
         f->close();
     }
 }
+
 
 QSharedPointer<FileLike> SimpleHttpRequestHandler::serveStaticFiles()
 {
@@ -429,6 +433,7 @@ QSharedPointer<FileLike> SimpleHttpRequestHandler::serveStaticFiles()
     return FileLike::rawFile(f);
 }
 
+
 QSharedPointer<FileLike> SimpleHttpRequestHandler::listDirectory(const QDir &dir, const QString &displayDir)
 {
     const QFileInfoList &list = dir.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
@@ -464,10 +469,10 @@ QSharedPointer<FileLike> SimpleHttpRequestHandler::listDirectory(const QDir &dir
     return FileLike::bytes(data);
 }
 
+
 void SimpleHttpRequestHandler::sendFile(QSharedPointer<FileLike> f)
 {
-    QByteArray buf;
-    buf.resize(1024 * 8);
+    QByteArray buf(1024 * 8, Qt::Uninitialized);
     while (!f->atEnd()) {
         qint64 bs = f->read(buf.data(), buf.size());
         if (bs <= 0){
@@ -479,6 +484,7 @@ void SimpleHttpRequestHandler::sendFile(QSharedPointer<FileLike> f)
         }
     }
 }
+
 
 QFileInfo SimpleHttpRequestHandler::translatePath(const QString &path)
 {
@@ -499,6 +505,7 @@ QFileInfo SimpleHttpRequestHandler::translatePath(const QString &path)
     QString normalPath = l.join("/");
     return QFileInfo(rootDir, normalPath);
 }
+
 
 void SimpleHttpServer::processRequest(QSharedPointer<SocketLike> request)
 {

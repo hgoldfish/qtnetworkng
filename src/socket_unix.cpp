@@ -79,7 +79,7 @@ static inline void qt_socket_getPortAndAddress(const qt_sockaddr *s, quint16 *po
         }
         if (port)
             *port = ntohs(s->a6.sin6_port);
-    } else if(s->a.sa_family == AF_INET) {
+    } else if (s->a.sa_family == AF_INET) {
         if (addr) {
             QHostAddress tmpAddress;
             tmpAddress.setAddress(ntohl(s->a4.sin_addr.s_addr));
@@ -97,19 +97,20 @@ bool SocketPrivate::createSocket()
     qt_ignore_sigpipe();
     int flags = SOCK_NONBLOCK ; //| SOCK_CLOEXEC
     int family = AF_INET;
-    if(protocol == Socket::IPv6Protocol || protocol == Socket::AnyIPProtocol) {
+    if (protocol == Socket::IPv6Protocol || protocol == Socket::AnyIPProtocol) {
         family = AF_INET6;
     }
-    if(type == Socket::TcpSocket)
+    if (type == Socket::TcpSocket) {
         flags = SOCK_STREAM | flags;
-    else
+    } else {
         flags = SOCK_DGRAM | flags;
+    }
     fd = socket(family, flags, 0);
-    if(fd < 0 && protocol == Socket::AnyIPProtocol && errno == EAFNOSUPPORT) {
+    if (fd < 0 && protocol == Socket::AnyIPProtocol && errno == EAFNOSUPPORT) {
         fd = socket(AF_INET, flags, 0);
         this->protocol = Socket::IPv4Protocol;
     }
-    if(fd < 0) {
+    if (fd < 0) {
         int ecopy = errno;
         switch(ecopy) {
         case EPROTONOSUPPORT:
@@ -183,10 +184,12 @@ void SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address,
 
 bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::BindMode mode)
 {
-    if(!isValid())
+    if (!isValid())  {
         return false;
-    if(state != Socket::UnconnectedState)
+    }
+    if (state != Socket::UnconnectedState) {
         return false;
+    }
     qt_sockaddr aa;
     QT_SOCKLEN_T sockAddrSize;
     int t;
@@ -207,8 +210,7 @@ bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::Bind
 #endif
 
     int bindResult = ::bind(fd, &aa.a, sockAddrSize);
-    if (bindResult < 0 && errno == EAFNOSUPPORT && address.protocol() == QAbstractSocket::AnyIPProtocol)
-    {
+    if (bindResult < 0 && errno == EAFNOSUPPORT && address.protocol() == QAbstractSocket::AnyIPProtocol) {
         // retry with v4
         aa.a4.sin_family = AF_INET;
         aa.a4.sin_port = htons(port);
@@ -216,8 +218,7 @@ bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::Bind
         sockAddrSize = sizeof(aa.a4);
         bindResult = ::bind(fd, &aa.a, sockAddrSize);
     }
-    if (bindResult < 0)
-    {
+    if (bindResult < 0) {
         switch(errno)
         {
         case EADDRINUSE:
@@ -245,10 +246,12 @@ bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::Bind
 
 bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 {
-    if(!isValid())
+    if (!isValid()) {
         return false;
-    if(state != Socket::UnconnectedState && state != Socket::BoundState && state != Socket::ConnectingState)
+    }
+    if (state != Socket::UnconnectedState && state != Socket::BoundState && state != Socket::ConnectingState) {
         return false;
+    }
     qt_sockaddr aa;
     QT_SOCKLEN_T sockAddrSize;
     int t;
@@ -256,16 +259,16 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
     sockAddrSize = static_cast<QT_SOCKLEN_T>(t);
     state = Socket::ConnectingState;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
-    while(true) {
-        if(!isValid())
+    while (true) {
+        if (!isValid())
             return false;
-        if(state != Socket::ConnectingState)
+        if (state != Socket::ConnectingState)
             return false;
         int result;
         do {
             result = ::connect(fd, &aa.a, sockAddrSize);
         } while(result < 0 && errno == EINTR);
-        if(result >= 0) {
+        if (result >= 0) {
             state = Socket::ConnectedState;
             fetchConnectionParameters();
             return true;
@@ -353,9 +356,9 @@ bool SocketPrivate::close()
 
 bool SocketPrivate::listen(int backlog)
 {
-    if(!isValid())
+    if (!isValid())
         return false;
-    if(state != Socket::BoundState && state != Socket::UnconnectedState)
+    if (state != Socket::BoundState && state != Socket::UnconnectedState)
         return false;
 
     if (::listen(fd, backlog) < 0) {
@@ -453,13 +456,13 @@ bool SocketPrivate::fetchConnectionParameters()
 
 qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 {
-    if(!isValid()) {
+    if (!isValid()) {
         return -1;
     }
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     qint32 total = 0;
-    while(total < size) {
-        if(!isValid()) {
+    while (total < size) {
+        if (!isValid()) {
             setError(Socket::SocketAccessError, AccessErrorString);
             return total == 0 ? -1: total;
         }
@@ -517,14 +520,14 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 
 qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 {
-    if(!isValid()) {
+    if (!isValid()) {
         return 0;
     }
     qint32 sent = 0;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     // TODO UDP socket may send zero length packet
 
-    while(sent < size) {
+    while (sent < size) {
         if (!isValid()) {
             return sent;
         }
@@ -532,7 +535,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
         do {
             w = ::send(fd, data + sent, static_cast<size_t>(size - sent), all ? 0 : MSG_MORE);
         } while(w < 0 && errno == EINTR);
-        if(w > 0) {
+        if (w > 0) {
             if(!all) {
                 return static_cast<qint32>(w);
             } else {
@@ -586,11 +589,11 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 
 qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, quint16 *port)
 {
-    if(!isValid()) {
+    if (!isValid()) {
         return -1;
     }
 
-    if(maxSize <= 0)
+    if (maxSize <= 0)
         return -1;
 
     struct msghdr msg;
@@ -608,8 +611,8 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, q
 
     ssize_t recvResult = 0;
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
-    while(true) {
-        if(!isValid()){
+    while (true) {
+        if (!isValid()){
             setError(Socket::SocketAccessError, AccessErrorString);
             return -1;
         }
@@ -661,7 +664,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, q
 
 qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
 {
-    if(!isValid()) {
+    if (!isValid()) {
         return -1;
     }
     struct msghdr msg;
@@ -838,18 +841,17 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
 
 QVariant SocketPrivate::option(Socket::SocketOption option) const
 {
-    if(!isValid())
+    if (!isValid())
         return QVariant();
 
-    if(option == Socket::BroadcastSocketOption) {
+    if (option == Socket::BroadcastSocketOption) {
         return QVariant(true);
     }
     int n, level;
     int v = -1;
     QT_SOCKLEN_T len = sizeof(v);
     convertToLevelAndOption(option, protocol, &level, &n);
-    if (n != -1 && ::getsockopt(fd, level, n, reinterpret_cast<char*>(&v), &len) != -1)
-    {
+    if (n != -1 && ::getsockopt(fd, level, n, reinterpret_cast<char*>(&v), &len) != -1) {
         return QVariant(v);
     }
     return QVariant();
@@ -858,7 +860,7 @@ QVariant SocketPrivate::option(Socket::SocketOption option) const
 
 bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value)
 {
-    if(!isValid())
+    if (!isValid())
         return false;
 
 //    if(option == Socket::BroadcastSocketOption) {
@@ -868,7 +870,7 @@ bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value
     int n, level;
     bool ok;
     int v = value.toInt(&ok);
-    if(!ok)
+    if (!ok)
         return false;
 
     convertToLevelAndOption(option, protocol, &level, &n);
@@ -888,20 +890,20 @@ bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value
 bool SocketPrivate::setNonblocking()
 {
 #if !defined(Q_OS_VXWORKS)
-        int flags = ::fcntl(fd, F_GETFL, 0);
-        if (flags == -1) {
-            return false;
-        }
-        if (::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-            return false;
-        }
+    int flags = ::fcntl(fd, F_GETFL, 0);
+    if (flags == -1) {
+        return false;
+    }
+    if (::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        return false;
+    }
 #else // Q_OS_VXWORKS
-        int onoff = 1;
-        if (::ioctl(fd, FIONBIO, (int)&onoff) < 0) {
-            return false;
-        }
+    int onoff = 1;
+    if (::ioctl(fd, FIONBIO, (int)&onoff) < 0) {
+        return false;
+    }
 #endif // Q_OS_VXWORKS
-        return true;
+    return true;
 }
 
 // Tru64 redefines accept -> _accept with _XOPEN_SOURCE_EXTENDED
@@ -921,7 +923,7 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrle
 #endif
 
     fd = ::accept(s, addr, addrlen);
-    if (fd == -1)
+    if (fd < 0)
         return -1;
 
     ::fcntl(fd, F_SETFD, FD_CLOEXEC);
@@ -935,16 +937,16 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrle
 
 Socket *SocketPrivate::accept()
 {
-    if(!isValid()) {
+    if (!isValid()) {
         return nullptr;
     }
 
-    if(state != Socket::ListeningState || type != Socket::TcpSocket) {
+    if (state != Socket::ListeningState || type != Socket::TcpSocket) {
         return nullptr;
     }
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
-    while(true) {
+    while (true) {
         if (!isValid() || state != Socket::ListeningState) {
             return nullptr;
         }

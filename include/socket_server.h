@@ -134,8 +134,9 @@ public:
 protected:
     virtual void doConnect(const QString &hostName, const QHostAddress &hostAddress, quint16 port);
     bool sendConnectReply(const QHostAddress &hostAddress, quint16 port);
-    virtual void doFailed();
+    virtual void doFailed(const QString &hostName, const QHostAddress &hostAddress, quint16 port);
     bool sendFailedReply();
+    virtual void log(const QString &hostName, const QHostAddress &hostAddress, quint16 port, bool success);
 protected:
     virtual void handle() override;
 //    virtual void logMessage(const QString &hostName, const QHostAddress &hostAddress, const quint16 port);

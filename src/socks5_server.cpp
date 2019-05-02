@@ -61,6 +61,7 @@ void Socks5RequestHandlerPrivate::handleRequest()
     // parse command.
     const QByteArray &commandHeader = q->request->recvall(2);
     if (commandHeader.size() < 2 || commandHeader.at(0) != S5_VERSION_5){
+        q->log(QString(), QHostAddress(), 0, false);
         return;
     }
 
@@ -69,19 +70,12 @@ void Socks5RequestHandlerPrivate::handleRequest()
     quint16 port;
 
     if (!parseAddress(&hostName, &addr, &port)) {
+        q->log(QString(), QHostAddress(), 0, false);
         return;
     }
 
-    QString message("%1 - %2:%3");
-    message = message.arg(QDateTime::currentDateTime().toString(Qt::ISODate));
-    if (!hostName.isEmpty()) {
-        message = message.arg(hostName).arg(port);
-    } else {
-        message = message.arg(addr.toString()).arg(port);
-    }
-    printf("%s\n", qPrintable(message));
-
     if ((hostName.isEmpty() && addr.isNull()) || port == 0) {
+        q->log(QString(), QHostAddress(), 0, false);
         return;
     }
 
@@ -91,7 +85,7 @@ void Socks5RequestHandlerPrivate::handleRequest()
         break;
     default:
         qDebug() << "unsupported command: " << commandHeader.at(1);
-        q->doFailed();
+        q->doFailed(hostName, addr, port);
         break;
     }
 }
@@ -108,37 +102,31 @@ bool Socks5RequestHandlerPrivate::handshake()
         return false;
     }
     uchar methods = static_cast<uchar>(header.at(1));
+    bool ok = true;
     if (methods == 0) {
-
-    } else if (methods >= 1) {
+        ok = true;
+    } else {
         QByteArray authMethods = q->request->recvall(methods);
         if (authMethods.size() != methods) {
             return false;
         }
-        bool found = false;
-        for (int i = 0; i < methods; ++i) {
-            if (authMethods.at(i) == S5_AUTHMETHOD_NONE) {
-                found = true;
-                break;
-            }
+        if (authMethods.indexOf(static_cast<char>(S5_AUTHMETHOD_NONE)) < 0) {
+            ok = false;
         }
-        if (!found) {
-            qDebug() << "no auth method supported!";
-            return false;
-        }
-    } else {  // do not support auth methods other than none.
-        return false;
     }
-
     QByteArray replyHeader(2, Qt::Uninitialized);
     replyHeader[0] = S5_VERSION_5;
-    replyHeader[1] = S5_AUTHMETHOD_NONE;
+    if (ok) {
+        replyHeader[1] = S5_AUTHMETHOD_NONE;
+    } else {
+        replyHeader[1] = static_cast<char>(S5_AUTHMETHOD_NOTACCEPTABLE);
+    }
     qint32 sentBytes = q->request->sendall(replyHeader);
     if (sentBytes != replyHeader.size()) {
         qDebug() << "can not send reply header.";
         return false;
     }
-    return true;
+    return ok;
 }
 
 
@@ -202,21 +190,27 @@ void Socks5RequestHandlerPrivate::handleConnectCommand(const QString &hostName, 
         bool ok = forward->connect(hostName, port);
         if (!ok) {
             q->sendFailedReply();
+            q->log(hostName, addr, port, false);
             return;
         }
     } else if (!addr.isNull()) {
         bool ok = forward->connect(addr, port);
         if (!ok) {
             q->sendFailedReply();
+            q->log(hostName, addr, port, false);
             return;
         }
     } else {
         q->sendFailedReply();
+        q->log(hostName, addr, port, false);
         return;
     }
     Q_ASSERT(forward->state() == Socket::ConnectedState);
     if (!q->sendConnectReply(forward->peerAddress(), port)) {
+        q->log(hostName, forward->peerAddress(), port, false);
         return;
+    } else {
+        q->log(hostName, forward->peerAddress(), port, true);
     }
     Exchanger exchanger(q->request, asStream(forward));
     exchanger.exchange();
@@ -280,23 +274,43 @@ bool Socks5RequestHandler::sendConnectReply(const QHostAddress &hostAddress, qui
 #endif
     }
 
-    qint32 sentBytes = request->sendall(reply);
-    return sentBytes == reply.size();
+    return request->sendall(reply) == reply.size();
 }
 
 
-void Socks5RequestHandler::doFailed()
+void Socks5RequestHandler::log(const QString &hostName, const QHostAddress &hostAddress, quint16 port, bool success)
 {
+    QString status = success? QStringLiteral("OK"): QStringLiteral("FAIL");
+    const QDateTime &now = QDateTime::currentDateTime();
+    QString message = QStringLiteral("%1 -- %2 CONNECT %3 -> %4:%5 %6")
+            .arg(request->peerAddress().toString())
+            .arg(now.toString(Qt::ISODate))
+            .arg(hostName)
+            .arg(hostAddress.toString())
+            .arg(port)
+            .arg(status);
+    printf("%s\n", qPrintable(message));
+}
 
+
+void Socks5RequestHandler::doFailed(const QString &hostName, const QHostAddress &hostAddress, quint16 port)
+{
+    QByteArray reply(3, Qt::Uninitialized);
+    reply[0] = S5_VERSION_5;
+    reply[1] = S5_R_ERROR_CMD_NOT_SUPPORTED;
+    reply[3] = 0x00;
+    request->sendall(reply);
+    log(hostName, hostAddress, port, false);
 }
 
 
 bool Socks5RequestHandler::sendFailedReply()
 {
-    QByteArray reply(2, Qt::Uninitialized);
+    QByteArray reply(3, Qt::Uninitialized);
     reply[0] = S5_VERSION_5;
     reply[1] = S5_R_ERROR_SOCKS_FAILURE;
-    return request->sendall(reply) == 2;
+    reply[3] = 0x00;
+    return request->sendall(reply) == 3;
 }
 
 
