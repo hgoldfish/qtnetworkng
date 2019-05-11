@@ -52,7 +52,6 @@ SocketPrivate::SocketPrivate(qintptr socketDescriptor, Socket *parent)
 
 SocketPrivate::~SocketPrivate()
 {
-    close();
 #ifdef Q_OS_WIN
     freeWinSock();
 #endif
@@ -238,6 +237,11 @@ Socket::Socket(qintptr socketDescriptor)
 
 Socket::~Socket()
 {
+    Q_D(Socket);
+    d->close();
+    if (d->readGate->isClosed() || d->writeGate->isClosed()) {
+        qWarning() << "socket is deleted while receiving or sending.";
+    }
     delete dd_ptr;
 }
 
@@ -400,10 +404,21 @@ bool Socket::connect(const QString &hostName, quint16 port, Socket::NetworkLayer
 }
 
 
-bool Socket::close()
+void Socket::close()
 {
     Q_D(Socket);
-    return d->close();
+    d->close();
+    d->readGate->wait();
+    d->writeGate->wait();
+}
+
+
+void Socket::abort()
+{
+    Q_D(Socket);
+    d->abort();
+    d->readGate->wait();
+    d->writeGate->wait();
 }
 
 
@@ -631,7 +646,7 @@ public:
 public:
     void add(Socket *socket, EventLoopCoroutine::EventType event);
     void remove(Socket *socket);
-    Socket *wait(float secs);
+    Socket *wait(float secs = 0);
 private:
     QMap<Socket*, int> watchers;
     QSharedPointer<QSet<Socket*>> events;
@@ -706,12 +721,18 @@ Socket *PollPrivate::wait(float secs)
         itor.remove();
         return socket;
     }
-    try {
-        Timeout timeout(secs); Q_UNUSED(timeout);
+    done->clear();
+    if (!qFuzzyIsNull(secs)) {
+        try {
+            Timeout timeout(secs); Q_UNUSED(timeout);
+            done->wait();
+        } catch(TimeoutException &) {
+            return nullptr;
+        }
+    } else {
         done->wait();
-    } catch(TimeoutException &) {
-        return nullptr;
     }
+
     if(!events->isEmpty()) {
         // is there some one hungry?
         QMutableSetIterator<Socket*> itor(*events);

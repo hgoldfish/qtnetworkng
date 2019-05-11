@@ -518,6 +518,12 @@ bool Gate::isOpen() const
     return d->event.isSet();
 }
 
+bool Gate::isClosed() const
+{
+    Q_D(const Gate);
+    return !d->event.isSet();
+}
+
 void Gate::close()
 {
     Q_D(Gate);

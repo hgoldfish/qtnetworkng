@@ -49,6 +49,8 @@ public:
         SocketAddressNotAvailableError,
         UnsupportedSocketOperationError,        /* 10 */
         UnfinishedSocketOperationError,
+
+        // define for proxy and ssl, not used here.
         ProxyAuthenticationRequiredError,
         SslHandshakeFailedError,
         ProxyConnectionRefusedError,
@@ -76,19 +78,19 @@ public:
     };
     Q_ENUMS(SocketState)
     enum SocketOption {
-        BroadcastSocketOption, // SO_BROADCAST
-        AddressReusable,  // SO_REUSEADDR
-        ReceiveOutOfBandData, // SO_OOBINLINE
-        ReceivePacketInformation, // IP_PKTINFO
-        ReceiveHopLimit, // IP_RECVTTL
-        LowDelayOption, // TCP_NODELAY
-        KeepAliveOption, // SO_KEEPALIVE
-        MulticastTtlOption, // IP_MULTICAST_TTL
-        MulticastLoopbackOption, // IP_MULTICAST_LOOPBACK
-        TypeOfServiceOption, //IP_TOS
-        SendBufferSizeSocketOption,    //SO_SNDBUF
-        ReceiveBufferSizeSocketOption,  //SO_RCVBUF
-        MaxStreamsSocketOption, // for sctp
+        BroadcastSocketOption,             // SO_BROADCAST
+        AddressReusable,                   // SO_REUSEADDR
+        ReceiveOutOfBandData,              // SO_OOBINLINE
+        ReceivePacketInformation,          // IP_PKTINFO
+        ReceiveHopLimit,                   // IP_RECVTTL
+        LowDelayOption,                    // TCP_NODELAY
+        KeepAliveOption,                   // SO_KEEPALIVE
+        MulticastTtlOption,                // IP_MULTICAST_TTL
+        MulticastLoopbackOption,           // IP_MULTICAST_LOOPBACK
+        TypeOfServiceOption,               // IP_TOS
+        SendBufferSizeSocketOption,        // SO_SNDBUF
+        ReceiveBufferSizeSocketOption,     // SO_RCVBUF
+        MaxStreamsSocketOption,            // for sctp
         NonBlockingSocketOption,
         BindExclusively
     };
@@ -123,7 +125,8 @@ public:
     bool bind(quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool connect(const QHostAddress &host, quint16 port);
     bool connect(const QString &hostName, quint16 port, NetworkLayerProtocol protocol = AnyIPProtocol);
-    bool close();
+    void close();
+    void abort();
     bool listen(int backlog);
     bool setOption(SocketOption option, const QVariant &value);
     QVariant option(SocketOption option) const;
@@ -144,9 +147,8 @@ public:
 
     static QList<QHostAddress> resolve(const QString &hostName);
     void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache);
-protected:
-    SocketPrivate * const dd_ptr;
 private:
+    SocketPrivate * const dd_ptr;
     Q_DECLARE_PRIVATE_D(dd_ptr, Socket)
     Q_DISABLE_COPY(Socket)
 };

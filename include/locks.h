@@ -131,6 +131,7 @@ public:
     void open();
     void close();
     bool isOpen() const;
+    bool isClosed() const;
 private:
     GatePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Gate)

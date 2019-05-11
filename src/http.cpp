@@ -748,8 +748,6 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, Req
 #endif
     }
 
-
-
     QSharedPointer<Socks5Proxy> socks5Proxy = proxySwitcher->selectSocks5Proxy(url);
     if(socks5Proxy) {
         rawSocket = socks5Proxy->connect(url.host(), static_cast<quint16>(url.port(defaultPort)));

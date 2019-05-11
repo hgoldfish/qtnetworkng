@@ -46,7 +46,7 @@ T callInEventLoop(std::function<T ()> func)
 }
 
 
-inline void callInEventLoop(std::function<void ()> func, int msecs = 0)
+inline void callInEventLoop(std::function<void ()> func, quint32 msecs = 0)
 {
     Q_ASSERT(static_cast<BaseCoroutine*>(EventLoopCoroutine::get()) != BaseCoroutine::current());
 
@@ -68,7 +68,7 @@ inline void callInEventLoop(std::function<void ()> func, int msecs = 0)
 }
 
 
-inline void callInEventLoopAsync(std::function<void ()> func, int msecs = 0)
+inline void callInEventLoopAsync(std::function<void ()> func, quint32 msecs = 0)
 {
 //    Q_ASSERT(static_cast<QBaseCoroutine*>(EventLoopCoroutine::get()) != QBaseCoroutine::current());
     EventLoopCoroutine::get()->callLater(msecs, new LambdaFunctor(func));

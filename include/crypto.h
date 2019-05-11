@@ -1,6 +1,6 @@
 #ifndef QTNG_CRYPTO_H
 #define QTNG_CRYPTO_H
-
+#include <QtCore/qflags.h>
 #include "config.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN

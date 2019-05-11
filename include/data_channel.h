@@ -32,10 +32,10 @@ public:
 public:
     QString toString() const;
     void setMaxPacketSize(quint32 size);
-    quint32 maxPacketSize() const;                      // packet size > maxPacketSize is an error.
-    void setPayloadSizeHint(quint32 payloadSizeHint);
+    quint32 maxPacketSize() const;                      // packet with size > maxPacketSize is an error.
+    void setPayloadSizeHint(quint32 payloadSizeHint);   // usually set to tcp/udp mtu.
     quint32 payloadSizeHint() const;                    // should be <= maxPacketSize - headerSize
-    void setCapacity(quint32 packets);                        // should block if there are n packet not read.
+    void setCapacity(quint32 packets);                  // channel blocked if there are n packets not read.
     quint32 capacity() const;                           // so, a data channel may consume `maxPacketSize * capacity` bytes of receiving buffer memory.
     DataChannelPole pole() const;
     void setName(const QString &name);
@@ -45,7 +45,7 @@ public:
     bool sendPacket(const QByteArray &packet);
     bool sendPacketAsync(const QByteArray &packet);
     QByteArray recvPacket();
-    void close();
+    void abort();
     QSharedPointer<VirtualChannel> makeChannel();
     QSharedPointer<VirtualChannel> takeChannel();
     QSharedPointer<VirtualChannel> getChannel(quint32 channelNumber);

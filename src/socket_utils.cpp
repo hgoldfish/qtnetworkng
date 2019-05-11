@@ -39,7 +39,8 @@ public:
     virtual bool bind(quint16 port, Socket::BindMode mode) override;
     virtual bool connect(const QHostAddress &addr, quint16 port) override;
     virtual bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol) override;
-    virtual bool close() override;
+    virtual void close() override;
+    virtual void abort() override;
     virtual bool listen(int backlog) override;
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
     virtual QVariant option(Socket::SocketOption option) const override;
@@ -155,9 +156,14 @@ bool SocketLikeImpl::connect(const QString &hostName, quint16 port, Socket::Netw
     return s->connect(hostName, port, protocol);
 }
 
-bool SocketLikeImpl::close()
+void SocketLikeImpl::close()
 {
-    return s->close();
+    s->close();
+}
+
+void SocketLikeImpl::abort()
+{
+    s->abort();
 }
 
 bool SocketLikeImpl::listen(int backlog)

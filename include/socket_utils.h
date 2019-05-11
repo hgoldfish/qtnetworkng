@@ -54,7 +54,8 @@ public:
     virtual bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform) = 0;
     virtual bool connect(const QHostAddress &addr, quint16 port) = 0;
     virtual bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol) = 0;
-    virtual bool close() = 0;
+    virtual void close() = 0;
+    virtual void abort() = 0;
     virtual bool listen(int backlog) = 0;
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) = 0;
     virtual QVariant option(Socket::SocketOption option) const = 0;

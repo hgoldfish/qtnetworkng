@@ -206,7 +206,8 @@ public:
     bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
     bool connect(const QHostAddress &addr, quint16 port);
     bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol);
-    bool close();
+    void close();
+    void abort();
     bool listen(int backlog);
     bool setOption(Socket::SocketOption option, const QVariant &value);
     QVariant option(Socket::SocketOption option) const;

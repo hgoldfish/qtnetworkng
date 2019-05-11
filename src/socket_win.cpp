@@ -664,7 +664,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 }
 
 
-bool SocketPrivate::close()
+void SocketPrivate::close()
 {
     if(fd > 0) {
         ::closesocket(static_cast<SOCKET>(fd));
@@ -676,8 +676,22 @@ bool SocketPrivate::close()
     localPort = 0;
     peerAddress.clear();
     peerPort = 0;
-    return true;
 }
+
+void SocketPrivate::abort()
+{
+    if(fd > 0) {
+        ::closesocket(static_cast<SOCKET>(fd));
+        EventLoopCoroutine::get()->triggerIoWatchers(fd);
+        fd = -1;
+    }
+    state = Socket::UnconnectedState;
+    localAddress.clear();
+    localPort = 0;
+    peerAddress.clear();
+    peerPort = 0;
+}
+
 
 bool SocketPrivate::listen(int backlog)
 {

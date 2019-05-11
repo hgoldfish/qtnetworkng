@@ -336,7 +336,24 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 }
 
 
-bool SocketPrivate::close()
+void SocketPrivate::close()
+{
+    if (fd > 0) {
+        // TODO flush socket.
+//        ::shutdown(fd, SHUT_RDWR);
+        ::close(fd);
+        EventLoopCoroutine::get()->triggerIoWatchers(fd);
+        fd = -1;
+    }
+    state = Socket::UnconnectedState;
+    localAddress.clear();
+    localPort = 0;
+    peerAddress.clear();
+    peerPort = 0;
+}
+
+
+void SocketPrivate::abort()
 {
     if (fd > 0) {
         ::close(fd);
@@ -348,9 +365,6 @@ bool SocketPrivate::close()
     localPort = 0;
     peerAddress.clear();
     peerPort = 0;
-    readGate->open();
-    writeGate->open();
-    return true;
 }
 
 
@@ -485,7 +499,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 #endif
                 if(type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
-                    close();
+                    abort();
                 }
                 return total;
             case EBADF:
@@ -493,12 +507,12 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
             case EIO:
             default:
                 setError(Socket::NetworkError, InvalidSocketErrorString);
-                close();
+                abort();
                 return total == 0 ? -1 : total;
             }
         } else if(r == 0 && type == Socket::TcpSocket) {
             setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
-            close();
+            abort();
             return total;
         } else {
             total += r;
@@ -555,7 +569,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
                 break;
             case EACCES:
                 setError(Socket::SocketAccessError, AccessErrorString);
-                close();
+                abort();
                 return sent;
             case EBADF:
             case EFAULT:
@@ -563,7 +577,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
             case ENOTCONN:
             case ENOTSOCK:
                 setError(Socket::UnsupportedSocketOperationError, InvalidSocketErrorString);
-                close();
+                abort();
                 return sent;
             case EMSGSIZE:
             case ENOBUFS:
@@ -573,11 +587,11 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
             case EPIPE:
             case ECONNRESET:
                 setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
-                close();
+                abort();
                 return sent;
             default:
                 setError(Socket::UnknownSocketError, UnknownSocketErrorString);
-                close();
+                abort();
                 return sent;
             }
         }
@@ -636,7 +650,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, q
 #endif
                 if(type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
-                    close();
+                    abort();
                 }
                 return -1;
             case ENOMEM:
@@ -649,7 +663,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, q
             case EFAULT:
             default:
                 setError(Socket::NetworkError, InvalidSocketErrorString);
-                close();
+                abort();
                 return -1;
             }
         } else{
@@ -719,7 +733,7 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
             case ENOTSOCK:
                 if(type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
-                    close();
+                    abort();
                 }
                 return -1;
             case EDESTADDRREQ: // not happen in sendto()
