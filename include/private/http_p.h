@@ -12,8 +12,11 @@ QTNETWORKNG_NAMESPACE_BEGIN
 
 class HttpProxy;
 class Socks5Proxy;
-struct ConnectionPoolItem
+class ConnectionPoolItem
 {
+public:
+    ConnectionPoolItem() {}
+public:
     QDateTime lastUsed;
     QSharedPointer<Semaphore> semaphore;
     QList<QSharedPointer<SocketLike>> connections;

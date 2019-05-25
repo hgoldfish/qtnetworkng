@@ -30,7 +30,7 @@ T callInEventLoop(std::function<T ()> func)
 
     auto wrapper = [result, done, func]() mutable
     {
-        result.reset(func());
+        *result = func();
         done->set();
     };
 

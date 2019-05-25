@@ -690,7 +690,7 @@ static QUrl hostOnly(const QUrl &url)
 }
 
 ConnectionPool::ConnectionPool()
-    :maxConnectionsPerServer(10), timeToLive(60 * 5), operations(new CoroutineGroup), proxySwitcher(new SimpleProxySwitcher)
+    :maxConnectionsPerServer(10), timeToLive(60), operations(new CoroutineGroup), proxySwitcher(new SimpleProxySwitcher)
 {
     operations->spawnWithName("removeUnusedConnections", [this] {removeUnusedConnections();});
 }
@@ -705,10 +705,10 @@ void ConnectionPool::recycle(const QUrl &url, QSharedPointer<SocketLike> connect
     const QUrl &h = hostOnly(url);
     ConnectionPoolItem &item = items[h];
     item.lastUsed = QDateTime::currentDateTimeUtc();
-    if(item.semaphore.isNull()) {
+    if (item.semaphore.isNull()) {
         item.semaphore.reset(new Semaphore(maxConnectionsPerServer));
     }
-    if(item.connections.size() < maxConnectionsPerServer) {
+    if (item.connections.size() < maxConnectionsPerServer) {
         item.connections.append(connection);
     }
 }
@@ -719,7 +719,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, Req
     ConnectionPoolItem &item = items[h];
 
     item.lastUsed = QDateTime::currentDateTimeUtc();
-    if(item.semaphore.isNull()) {
+    if (item.semaphore.isNull()) {
         item.semaphore.reset(new Semaphore(maxConnectionsPerServer));
     }
     ScopedLock<Semaphore> lock(item.semaphore);
@@ -738,8 +738,8 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, Req
 
     QSharedPointer<Socket> rawSocket;
     quint16 defaultPort = 80;
-    if(url.scheme() == QStringLiteral("http")) {
-    } else{
+    if (url.scheme() == QStringLiteral("http")) {
+    } else {
 #ifndef QTNG_NO_CRYPTO
         defaultPort = 443;
 #else
@@ -749,11 +749,11 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, Req
     }
 
     QSharedPointer<Socks5Proxy> socks5Proxy = proxySwitcher->selectSocks5Proxy(url);
-    if(socks5Proxy) {
+    if (socks5Proxy) {
         rawSocket = socks5Proxy->connect(url.host(), static_cast<quint16>(url.port(defaultPort)));
-        if(url.scheme() == QStringLiteral("http")) {
+        if (url.scheme() == QStringLiteral("http")) {
             connection = SocketLike::rawSocket(rawSocket);
-        } else{
+        } else {
     #ifndef QTNG_NO_CRYPTO
             QSharedPointer<SslSocket> ssl(new SslSocket(rawSocket));
             ssl->handshake(false);
@@ -777,7 +777,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, Req
             return QSharedPointer<SocketLike>();
     #endif
         }
-        if(!connection->connect(url.host(), static_cast<quint16>(url.port(defaultPort)))) {
+        if (!connection->connect(url.host(), static_cast<quint16>(url.port(defaultPort)))) {
             *error = new ConnectionError();
             return QSharedPointer<SocketLike>();
         }
@@ -789,16 +789,16 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, Req
 
 void ConnectionPool::removeUnusedConnections()
 {
-    while(true) {
-        const QDateTime &now = QDateTime::currentDateTimeUtc();
+    while (true) {
         try {
             Coroutine::sleep(1);
         } catch (CoroutineException &) {
             return;
         }
+        const QDateTime &now = QDateTime::currentDateTimeUtc();
         QMap<QUrl, ConnectionPoolItem> newItems;
         for (QMap<QUrl, ConnectionPoolItem>::const_iterator itor = items.constBegin(); itor != items.constEnd(); ++itor) {
-            if(itor.value().lastUsed.secsTo(now) < timeToLive) {
+            if (itor.value().lastUsed.secsTo(now) < timeToLive || itor.value().semaphore->isUsed()) {
                 newItems.insert(itor.key(), itor.value());
             }
         }
@@ -809,7 +809,7 @@ void ConnectionPool::removeUnusedConnections()
 
 QSharedPointer<Socks5Proxy> ConnectionPool::socks5Proxy() const
 {
-    if(proxySwitcher->socks5Proxies.size() > 0) {
+    if (proxySwitcher->socks5Proxies.size() > 0) {
         return proxySwitcher->socks5Proxies.at(0);
     }
     return QSharedPointer<Socks5Proxy>();
@@ -818,7 +818,7 @@ QSharedPointer<Socks5Proxy> ConnectionPool::socks5Proxy() const
 
 QSharedPointer<HttpProxy> ConnectionPool::httpProxy() const
 {
-    if(proxySwitcher->httpProxies.size() > 0) {
+    if (proxySwitcher->httpProxies.size() > 0) {
         return proxySwitcher->httpProxies.at(0);
     }
     return QSharedPointer<HttpProxy>();
@@ -863,14 +863,14 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     HttpResponse response;
     response.d->url = url;
     response.d->request = request;
-    if(url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https")) {
+    if (url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https")) {
         if (debugLevel > 0) {
             qDebug() << "invalid scheme" << url.scheme();
         }
         response.d->error.reset(new InvalidScheme());
         return response;
     }
-    if(!request.d->query.isEmpty()) {
+    if (!request.d->query.isEmpty()) {
         QUrlQuery query(url);
         for (QMap<QString, QString>::const_iterator itor = request.d->query.constBegin(); itor != request.d->query.constEnd(); ++itor) {
             query.addQueryItem(itor.key(), itor.value());
@@ -888,13 +888,13 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         return response;
     }
 
-    if(request.d->version == HttpVersion::Unknown) {
+    if (request.d->version == HttpVersion::Unknown) {
         request.d->version = defaultVersion;
     }
     QByteArray versionBytes;
-    if(request.d->version == HttpVersion::Http1_0) {
+    if (request.d->version == HttpVersion::Http1_0) {
         versionBytes = "HTTP/1.0";
-    } else if(request.d->version == HttpVersion::Http1_1) {
+    } else if (request.d->version == HttpVersion::Http1_1) {
         versionBytes = "HTTP/1.1";
 //    } else if(request.d->version == HttpVersion::Http2_0) {
 //        versionBytes = "HTTP/2.0";
@@ -919,7 +919,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         lines.append(header.name.toUtf8() + QByteArray(": ") + header.value + QByteArray("\r\n"));
     }
     lines.append(QByteArray("\r\n"));
-    if(debugLevel > 0) {
+    if (debugLevel > 0) {
         qDebug() << "sending headers:" << lines.join();
     }
     if (!connection->sendall(lines.join())) {
@@ -927,8 +927,8 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         return response;
     }
 
-    if(!request.d->body.isEmpty()) {
-        if(debugLevel > 1) {
+    if (!request.d->body.isEmpty()) {
+        if (debugLevel > 1) {
             qDebug() << "sending body:" << request.d->body;
         }
         if (!connection->sendall(request.d->body)) {
@@ -948,13 +948,13 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         return response;
     }
     QStringList commands = QString::fromLatin1(firstLine).split(QRegExp("\\s+"));
-    if(commands.size() != 3) {
+    if (commands.size() != 3) {
         response.d->error.reset(new InvalidHeader());
         return response;
     }
-    if(commands.at(0) == QStringLiteral("HTTP/1.0")) {
+    if (commands.at(0) == QStringLiteral("HTTP/1.0")) {
         response.d->version = Http1_0;
-    } else if(commands.at(0) == QStringLiteral("HTTP/1.1")) {
+    } else if (commands.at(0) == QStringLiteral("HTTP/1.1")) {
         response.d->version = Http1_1;
     } else {
         response.d->error.reset(new InvalidHeader());
@@ -962,7 +962,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     }
     bool ok;
     response.d->statusCode = commands.at(1).toInt(&ok);
-    if(!ok) {
+    if (!ok) {
         response.d->error.reset(new InvalidHeader());
         return response;
     }
@@ -984,7 +984,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     }
 
     // merge cookies.
-    if(response.hasHeader(QStringLiteral("Set-Cookie"))) {
+    if (response.hasHeader(QStringLiteral("Set-Cookie"))) {
         for (const QByteArray &value: response.multiHeader(QStringLiteral("Set-Cookie"))) {
             const QList<QNetworkCookie> &cookies = QNetworkCookie::parseCookies(value);
             if(debugLevel > 0 && !cookies.isEmpty()) {
@@ -1024,32 +1024,32 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
 {
     QList<HttpHeader> allHeaders = request.allHeaders();
 
-    if(!request.hasHeader(QStringLiteral("Connection")) && request.version() == Http1_1) {
+    if (!request.hasHeader(QStringLiteral("Connection")) && request.version() == Http1_1) {
         allHeaders.prepend(HttpHeader(QStringLiteral("Connection"), QByteArray("keep-alive")));
     }
-    if(!request.hasHeader(QStringLiteral("Content-Length")) && !request.d->body.isEmpty()) {
+    if (!request.hasHeader(QStringLiteral("Content-Length")) && !request.d->body.isEmpty()) {
         allHeaders.prepend(HttpHeader(QStringLiteral("Content-Length"), QByteArray::number(request.d->body.size())));
     }
-    if(!request.hasHeader(QStringLiteral("User-Agent"))) {
+    if (!request.hasHeader(QStringLiteral("User-Agent"))) {
         allHeaders.prepend(HttpHeader(QStringLiteral("User-Agent"), defaultUserAgent.toUtf8()));
     }
-    if(!request.hasHeader(QStringLiteral("Host"))) {
+    if (!request.hasHeader(QStringLiteral("Host"))) {
         QString httpHost = url.host();
         if(url.port() != -1) {
             httpHost += QStringLiteral(":") + QString::number(url.port());
         }
         allHeaders.prepend(HttpHeader(QStringLiteral("Host"), httpHost.toUtf8()));
     }
-    if(!request.hasHeader(QStringLiteral("Accept"))) {
+    if (!request.hasHeader(QStringLiteral("Accept"))) {
         allHeaders.append(HttpHeader(QStringLiteral("Accept"), QByteArray("*/*")));
     }
-    if(!request.hasHeader(QStringLiteral("Accept-Language"))) {
+    if (!request.hasHeader(QStringLiteral("Accept-Language"))) {
         allHeaders.append(HttpHeader(QStringLiteral("Accept-Language"), QByteArray("en-US,en;q=0.5")));
     }
 //    if(!request.hasHeader(QStringLiteral("Accept-Encoding"))) {
 //        allHeaders.append(HttpHeader(QStringLiteral("Accept-Encoding"), QByteArray("deflate")));
 //    }
-    if(!request.d->cookies.isEmpty() && !request.hasHeader(QStringLiteral("Cookies"))) {
+    if (!request.d->cookies.isEmpty() && !request.hasHeader(QStringLiteral("Cookies"))) {
         QByteArray result;
         bool first = true;
         for (const QNetworkCookie &cookie: request.d->cookies) {
@@ -1066,7 +1066,7 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
 void HttpSessionPrivate::mergeCookies(HttpRequest &request, const QUrl &url)
 {
     QList<QNetworkCookie> cookies = cookieJar.cookiesForUrl(url);
-    if(cookies.isEmpty()) {
+    if (cookies.isEmpty()) {
         return;
     }
     cookies.append(request.d->cookies);
@@ -1075,7 +1075,7 @@ void HttpSessionPrivate::mergeCookies(HttpRequest &request, const QUrl &url)
 
 void setProxySwitcher(HttpSession *session, QSharedPointer<BaseProxySwitcher> switcher)
 {
-    if(!switcher.isNull()) {
+    if (!switcher.isNull()) {
         HttpSessionPrivate::getPrivateHelper(session)->proxySwitcher = switcher;
     } else {
         HttpSessionPrivate::getPrivateHelper(session)->proxySwitcher.reset(new SimpleProxySwitcher());
@@ -1233,21 +1233,21 @@ HttpResponse HttpSession::send(HttpRequest &request)
     HttpResponse response = d->send(request);
     QList<HttpResponse> history;
 
-    if(request.maxRedirects() > 0) {
+    if (request.maxRedirects() > 0) {
         int tries = 0;
         while (isRedirect(response.statusCode())) {
-            if(tries > request.maxRedirects()) {
+            if (tries > request.maxRedirects()) {
                 response.setError(new TooManyRedirects());
                 return response;
             }
             HttpRequest newRequest;
-            if(response.statusCode() == 303 || response.statusCode() == 307) {
+            if (response.statusCode() == 303 || response.statusCode() == 307) {
                 newRequest.setMethod(request.method());
             } else {
                 newRequest.setMethod(QStringLiteral("GET")); // not rfc behavior, but many browser do this.
             }
             newRequest.setUrl(request.url().resolved(response.getLocation()));
-            if(!newRequest.url().isValid()) {
+            if (!newRequest.url().isValid()) {
                 response.setError(new InvalidURL());
                 return response;
             }
@@ -1275,7 +1275,7 @@ QNetworkCookie HttpSession::cookie(const QUrl &url, const QString &name)
     QList<QNetworkCookie> cookies = jar.cookiesForUrl(url);
     for (int i = 0; i < cookies.size(); ++i) {
         const QNetworkCookie &cookie = cookies.at(i);
-        if(cookie.name() == name) {
+        if (cookie.name() == name) {
             return cookie;
         }
     }
@@ -1286,7 +1286,7 @@ QNetworkCookie HttpSession::cookie(const QUrl &url, const QString &name)
 void HttpSession::setMaxConnectionsPerServer(int maxConnectionsPerServer)
 {
     Q_D(HttpSession);
-    if(maxConnectionsPerServer <= 0) {
+    if (maxConnectionsPerServer <= 0) {
         maxConnectionsPerServer = INT_MAX;
     }
     d->maxConnectionsPerServer = maxConnectionsPerServer;

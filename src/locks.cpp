@@ -150,6 +150,22 @@ bool Semaphore::acquire(bool blocking)
     return d->acquire(blocking);
 }
 
+
+bool Semaphore::acquire(int value, bool blocking)
+{
+    Q_D(Semaphore);
+    if(!d) {
+        return false;
+    }
+    for (int i = 0; i < value; ++i) {
+        if (!d->acquire(blocking)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
 void Semaphore::release()
 {
     Q_D(Semaphore);
@@ -159,6 +175,17 @@ void Semaphore::release()
     d->release(1);
 }
 
+
+void Semaphore::release(int value)
+{
+    Q_D(Semaphore);
+    if(!d) {
+        return;
+    }
+    d->release(value);
+}
+
+
 bool Semaphore::isLocked() const
 {
     Q_D(const Semaphore);
@@ -166,6 +193,16 @@ bool Semaphore::isLocked() const
         return false;
     }
     return d->counter <= 0;
+}
+
+
+bool Semaphore::isUsed() const
+{
+    Q_D(const Semaphore);
+    if(!d) {
+        return false;
+    }
+    return d->counter < d->init_value;
 }
 
 

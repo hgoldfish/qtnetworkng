@@ -644,27 +644,27 @@ public:
     PollPrivate();
     ~PollPrivate();
 public:
-    void add(Socket *socket, EventLoopCoroutine::EventType event);
-    void remove(Socket *socket);
-    Socket *wait(float secs = 0);
+    void add(QSharedPointer<Socket> socket, EventLoopCoroutine::EventType event);
+    void remove(QSharedPointer<Socket> socket);
+    QSharedPointer<Socket> wait(float secs = 0);
 private:
-    QMap<Socket*, int> watchers;
-    QSharedPointer<QSet<Socket*>> events;
+    QMap<QSharedPointer<Socket>, int> watchers;
+    QSharedPointer<QSet<QSharedPointer<Socket>>> events;
     QSharedPointer<Event> done;
 };
 
 
 struct PollFunctor: public Functor
 {
-    PollFunctor(QSharedPointer<QSet<Socket*>> events, QSharedPointer<Event> done, Socket *socket);
+    PollFunctor(QSharedPointer<QSet<QSharedPointer<Socket>>> events, QSharedPointer<Event> done, QSharedPointer<Socket> socket);
     virtual void operator()();
-    QSharedPointer<QSet<Socket*>> events;
+    QSharedPointer<QSet<QSharedPointer<Socket>>> events;
     QSharedPointer<Event> done;
-    QPointer<Socket> socket;
+    QWeakPointer<Socket> socket;
 };
 
 
-PollFunctor::PollFunctor(QSharedPointer<QSet<Socket*>> events, QSharedPointer<Event> done, Socket *socket)
+PollFunctor::PollFunctor(QSharedPointer<QSet<QSharedPointer<Socket>>> events, QSharedPointer<Event> done, QSharedPointer<Socket> socket)
     :events(events), done(done), socket(socket)
 {}
 
@@ -672,27 +672,27 @@ PollFunctor::PollFunctor(QSharedPointer<QSet<Socket*>> events, QSharedPointer<Ev
 void PollFunctor::operator ()()
 {
     if(!socket.isNull()) {
-        events->insert(socket.data());
+        events->insert(socket.toStrongRef());
         done->set();
     }
 }
 
 
 PollPrivate::PollPrivate()
-    :events(new QSet<Socket*>()), done(new Event())
+    :events(new QSet<QSharedPointer<Socket>>()), done(new Event())
 {}
 
 
 PollPrivate::~PollPrivate()
 {
-    QMapIterator<Socket*, int> itor(watchers);
+    QMapIterator<QSharedPointer<Socket>, int> itor(watchers);
     while(itor.hasNext()) {
         EventLoopCoroutine::get()->removeWatcher(itor.value());
     }
 }
 
 
-void PollPrivate::add(Socket *socket, EventLoopCoroutine::EventType event)
+void PollPrivate::add(QSharedPointer<Socket> socket, EventLoopCoroutine::EventType event)
 {
     if(watchers.contains(socket)) {
         remove(socket);
@@ -703,7 +703,7 @@ void PollPrivate::add(Socket *socket, EventLoopCoroutine::EventType event)
 }
 
 
-void PollPrivate::remove(Socket *socket)
+void PollPrivate::remove(QSharedPointer<Socket> socket)
 {
     int watcherId = watchers.value(socket, 0);
     if(!watcherId)
@@ -713,11 +713,11 @@ void PollPrivate::remove(Socket *socket)
 }
 
 
-Socket *PollPrivate::wait(float secs)
+QSharedPointer<Socket> PollPrivate::wait(float secs)
 {
     if(!events->isEmpty()) {
-        QMutableSetIterator<Socket*> itor(*events);
-        Socket *socket = itor.next();
+        QMutableSetIterator<QSharedPointer<Socket>> itor(*events);
+        QSharedPointer<Socket> socket = itor.next();
         itor.remove();
         return socket;
     }
@@ -727,7 +727,7 @@ Socket *PollPrivate::wait(float secs)
             Timeout timeout(secs); Q_UNUSED(timeout);
             done->wait();
         } catch(TimeoutException &) {
-            return nullptr;
+            return QSharedPointer<Socket>();
         }
     } else {
         done->wait();
@@ -735,12 +735,12 @@ Socket *PollPrivate::wait(float secs)
 
     if(!events->isEmpty()) {
         // is there some one hungry?
-        QMutableSetIterator<Socket*> itor(*events);
-        Socket *socket = itor.next();
+        QMutableSetIterator<QSharedPointer<Socket>> itor(*events);
+        QSharedPointer<Socket> socket = itor.next();
         itor.remove();
         return socket;
     } else {
-        return nullptr;
+        return QSharedPointer<Socket>();
     }
 }
 
@@ -756,21 +756,21 @@ Poll::~Poll()
 }
 
 
-void Poll::add(Socket *socket, EventLoopCoroutine::EventType event)
+void Poll::add(QSharedPointer<Socket> socket, Poll::EventType event)
 {
     Q_D(Poll);
-    d->add(socket, event);
+    d->add(socket, static_cast<EventLoopCoroutine::EventType>(event));
 }
 
 
-void Poll::remove(Socket *socket)
+void Poll::remove(QSharedPointer<Socket> socket)
 {
     Q_D(Poll);
     d->remove(socket);
 }
 
 
-Socket *Poll::wait(float secs)
+QSharedPointer<Socket> Poll::wait(float secs)
 {
     Q_D(Poll);
     return d->wait(secs);

@@ -159,12 +159,19 @@ class PollPrivate;
 class Poll
 {
 public:
+    enum EventType
+    {
+        Read = EventLoopCoroutine::Read,
+        ReadWrite = EventLoopCoroutine::ReadWrite,
+        Write = EventLoopCoroutine::Write,
+    };
+public:
     Poll();
     virtual ~Poll();
 public:
-    void add(Socket *socket, EventLoopCoroutine::EventType event);
-    void remove(Socket *socket);
-    Socket *wait(float msecs = 0.0);
+    void add(QSharedPointer<Socket> socket, EventType event);
+    void remove(QSharedPointer<Socket> socket);
+    QSharedPointer<Socket> wait(float msecs = 0.0);
 private:
     PollPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Poll)

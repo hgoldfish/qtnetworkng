@@ -15,8 +15,11 @@ public:
     virtual ~Semaphore();
 public:
     bool acquire(bool blocking = true);
+    bool acquire(int value, bool blocking = true);
     void release();
+    void release(int value);
     bool isLocked() const;
+    bool isUsed() const;
 private:
     SemaphorePrivate * d_ptr;
     Q_DECLARE_PRIVATE(Semaphore)
@@ -149,7 +152,7 @@ public:
     }
     ~ScopedLock()
     {
-        if(success && !lock.isNull()) {
+        if (success && !lock.isNull()) {
             lock.data()->release();
         }
     }
