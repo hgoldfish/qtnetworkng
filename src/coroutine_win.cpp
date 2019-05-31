@@ -63,7 +63,6 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
 {
     Q_Q(BaseCoroutine);
     if(currentCoroutine().get() == q) {
-        //TODO 在当前 coroutine 里面把自己给干掉了怎么办？
         qWarning("do not delete one self.");
     }
     if(context) {
@@ -170,11 +169,11 @@ BaseCoroutine* createMainCoroutine()
         if (IsThreadAFiber()) {
             mainPrivate->context = GetCurrentFiber();
         } else {
-            mainPrivate->context = ConvertThreadToFiberEx(NULL, 0);
+            mainPrivate->context = ConvertThreadToFiberEx(nullptr, 0);
         }
 #else
         mainPrivate->context = ConvertThreadToFiberEx(nullptr, 0);
-        if (Q_UNLIKELY(NULL== mainPrivate->context)) {
+        if (Q_UNLIKELY(nullptr== mainPrivate->context)) {
             DWORD err = GetLastError();
             if (err == ERROR_ALREADY_FIBER) {
                 mainPrivate->context = GetCurrentFiber();

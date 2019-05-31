@@ -126,7 +126,6 @@ protected:
 };
 
 
-// 开始写 CurrentLoopStorage 的定义
 class CurrentLoopStorage
 {
 public:

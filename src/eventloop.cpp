@@ -68,15 +68,12 @@ void YieldCurrentFunctor::operator ()()
     }
 }
 
-// 开始写 EventLoopCoroutinePrivate 的实现代码。
 
 EventLoopCoroutinePrivate::EventLoopCoroutinePrivate(EventLoopCoroutine *q)
     :q_ptr(q){}
 
 EventLoopCoroutinePrivate::~EventLoopCoroutinePrivate(){}
 
-
-// 开始写 EventLoopCoroutine 的实现代码。
 
 EventLoopCoroutine::EventLoopCoroutine(EventLoopCoroutinePrivate *d, size_t stackSize)
     :BaseCoroutine(BaseCoroutine::current(), stackSize), dd_ptr(d)
@@ -173,7 +170,6 @@ void EventLoopCoroutine::yield()
     return d->yield();
 }
 
-// 开始写 CurrentLoopStorage 的实现
 
 QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::getOrCreate()
 {
@@ -226,8 +222,6 @@ void CurrentLoopStorage::clean()
 }
 
 
-// 开始写 ScopedWatcher 的实现
-
 ScopedIoWatcher::ScopedIoWatcher(EventLoopCoroutine::EventType event, qintptr fd)
 {
     QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
@@ -247,7 +241,6 @@ ScopedIoWatcher::~ScopedIoWatcher()
     eventLoop->removeWatcher(watcherId);
 }
 
-// 开始写 CoroutinePrivate 的定义
 
 class CoroutinePrivate: public QObject
 {
@@ -272,7 +265,6 @@ private:
     friend struct KillCoroutineFunctor;
 };
 
-// 开始写 CoroutinePrivate的实现
 
 CoroutinePrivate::CoroutinePrivate(Coroutine *q, QObject *obj, const char *slot)
     :q_ptr(q), obj(obj), slot(slot), callbackId(0)
@@ -407,7 +399,6 @@ bool CoroutinePrivate::join()
     }
 }
 
-// 开始写 Coroutine 的实现
 
 Coroutine::Coroutine(size_t stackSize)
     :BaseCoroutine(EventLoopCoroutine::get(), stackSize), d_ptr(new CoroutinePrivate(this, nullptr, nullptr))

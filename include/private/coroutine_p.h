@@ -29,7 +29,6 @@ protected:
 
 BaseCoroutine* createMainCoroutine();
 
-// 开始声明 CurrentCoroutineStorage
 
 class CurrentCoroutineStorage
 {

@@ -2,7 +2,9 @@ QT += core network
 
 CONFIG += c++11
 
-QMAKE_CXXFLAGS += -Wno-invalid-offsetof
+!win32-msvc* {
+    QMAKE_CXXFLAGS += -Wno-invalid-offsetof
+}
 
 INCLUDEPATH += $$PWD
 

@@ -387,7 +387,7 @@ bool Socket::connect(const QHostAddress &host, quint16 port)
     Q_D(Socket);
     ScopedGate gate(d->writeGate);
     if (!gate.isSuccess()) {
-        return -1;
+        return false;
     }
     return d->connect(host, port);
 }
@@ -398,7 +398,7 @@ bool Socket::connect(const QString &hostName, quint16 port, Socket::NetworkLayer
     Q_D(Socket);
     ScopedGate gate(d->writeGate);
     if (!gate.isSuccess()) {
-        return -1;
+        return false;
     }
     return d->connect(hostName, port, protocol);
 }

@@ -100,7 +100,6 @@ CurrentCoroutineStorage &currentCoroutine()
 }
 
 
-// 开始实现 QBaseCoroutine::current()
 BaseCoroutine *CurrentCoroutineStorage::get()
 {
     if(storage.hasLocalData())
