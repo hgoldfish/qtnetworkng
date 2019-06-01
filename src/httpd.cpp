@@ -1,5 +1,6 @@
 #include <QMimeDatabase>
 #include <QTemporaryFile>
+#include <stdio.h>
 #include "../include/httpd.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -24,8 +25,8 @@ static const QString DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8";
 //#define DEBUG_HTTP_PROTOCOL 1
 
 
-BaseHttpRequestHandler::BaseHttpRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server)
-    :BaseRequestHandler(request, server), version(Http1_1), serverVersion(Http1_1), closeConnection(true)
+BaseHttpRequestHandler::BaseHttpRequestHandler()
+    :version(Http1_1), serverVersion(Http1_1), closeConnection(false)
 {
 
 }
@@ -332,14 +333,16 @@ QString BaseHttpRequestHandler::dateTimeString()
 void BaseHttpRequestHandler::logRequest(HttpStatus status, int bodySize)
 {
     QString msg = QStringLiteral("%1 %2 %3 %4").arg(method).arg(path).arg(static_cast<int>(status)).arg(bodySize);
-    qDebug() << request->peerAddress().toString() << "--" << QDateTime::currentDateTime().toString(Qt::ISODate) << msg;
+    msg = QStringLiteral("%1 -- %2 %3").arg(request->peerAddress().toString()).arg(QDateTime::currentDateTime().toString(Qt::ISODate)).arg(msg);
+    printf("%s\n", qPrintable(msg));
 }
 
 
 void BaseHttpRequestHandler::logError(HttpStatus status, const QString &shortMessage, const QString &)
 {
     QString msg = QStringLiteral("%1 %2 %3 %4").arg(method).arg(path).arg(static_cast<int>(status)).arg(shortMessage);
-    qDebug() << request->peerAddress().toString() << "--" << QDateTime::currentDateTime().toString(Qt::ISODate) << msg;
+    msg = QStringLiteral("%1 -- %2 %3").arg(request->peerAddress().toString()).arg(QDateTime::currentDateTime().toString(Qt::ISODate)).arg(msg);
+    printf("%s\n", qPrintable(msg));
 }
 
 
@@ -507,21 +510,21 @@ QFileInfo SimpleHttpRequestHandler::translatePath(const QString &path)
 }
 
 
-void SimpleHttpServer::processRequest(QSharedPointer<SocketLike> request)
-{
-    SimpleHttpRequestHandler handler(request, this);
-    handler.run();
-}
+//void SimpleHttpServer::processRequest(QSharedPointer<SocketLike> request)
+//{
+//    SimpleHttpRequestHandler handler(request, this);
+//    handler.run();
+//}
 
 
-#ifndef QTNG_NO_CRYPTO
+//#ifndef QTNG_NO_CRYPTO
 
-void SimpleHttpsServer::processRequest(QSharedPointer<SocketLike> request)
-{
-    SimpleHttpRequestHandler handler(request, this);
-    handler.run();
-}
+//void SimpleHttpsServer::processRequest(QSharedPointer<SocketLike> request)
+//{
+//    SimpleHttpRequestHandler handler(request, this);
+//    handler.run();
+//}
 
-#endif
+//#endif
 
 QTNETWORKNG_NAMESPACE_END

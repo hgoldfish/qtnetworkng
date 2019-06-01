@@ -445,12 +445,12 @@ void HttpResponse::setRequest(const HttpRequest &request)
 QSharedPointer<SocketLike> HttpResponse::takeStream(QByteArray *readBytes)
 {
     if (d->consumed) {
-        qWarning() << "the stream is consumed. do you remember to set the streamResponse property of request to true?";
+//        qWarning() << "the stream is consumed. do you remember to set the streamResponse property of request to true?";
     }
     if (readBytes) {
         *readBytes = d->body;
     } else {
-        qWarning() << "you should take care the left bytes after parsing header. please pass a non-null byte array to takeStream()";
+//        qWarning() << "you should take care the left bytes after parsing header. please pass a non-null byte array to takeStream()";
     }
     d->consumed = true;
     return d->stream;
@@ -495,7 +495,7 @@ QByteArray HttpResponse::body()
                 }
                 qint32 leftBytes = contentLength - d->body.size();
                 const QByteArray &t = d->stream->recvall(leftBytes);
-                if (t.isEmpty()) {
+                if (t.size() != leftBytes) {
                     d->error.reset(new ConnectionError());
                     d->consumed = true;
                     return QByteArray();
@@ -534,7 +534,7 @@ QByteArray HttpResponse::body()
         } else {
             while (d->body.size() < d->request.maxBodySize()) {
                 const QByteArray &t = d->stream->recv(1024 * 8);
-                if(t.isEmpty()) {
+                if (t.isEmpty()) {
                     break;
                 }
                 d->body.append(t);
@@ -546,8 +546,9 @@ QByteArray HttpResponse::body()
             qWarning() << "the body is not empty but content length is set to 0.";
         }
     }
+    // FIXME: not supported yet!
     const QByteArray &contentEncodingHeader = header("Content-Encoding");
-    if(contentEncodingHeader.toLower() == QByteArray("deflate") && !d->body.isEmpty()) {
+    if (contentEncodingHeader.toLower() == QByteArray("deflate") && !d->body.isEmpty()) {
         uchar header[4];
         qToBigEndian<quint32>(static_cast<quint32>(d->body.size()), header);
         QByteArray t; t.reserve(d->body.size() + 4);

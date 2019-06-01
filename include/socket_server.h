@@ -1,6 +1,7 @@
 #ifndef QTNG_SOCKET_SERVER_H
 #define QTNG_SOCKET_SERVER_H
 
+#include "kcp.h"
 #include "socket_utils.h"
 #include "coroutine_utils.h"
 #ifndef QTNG_NO_CRYPTO
@@ -29,6 +30,9 @@ public:
     void stop();                                       // stop serving
     virtual bool isSecure() const;                     // is this ssl?
 public:
+    void setUserData(void *data);
+    void *userData() const;
+public:
     quint16 serverPort() const;
     QHostAddress serverAddress() const;
 public:
@@ -52,6 +56,7 @@ private:
 };
 
 
+template<typename RequestHandler>
 class TcpServer: public BaseStreamServer
 {
 public:
@@ -59,9 +64,28 @@ public:
         :BaseStreamServer(serverAddress, serverPort) {}
 protected:
     virtual QSharedPointer<SocketLike> serverCreate() override;
+    virtual void processRequest(QSharedPointer<SocketLike> request) override;
 };
 
 
+template<typename RequestHandler>
+QSharedPointer<SocketLike> TcpServer<RequestHandler>::serverCreate()
+{
+    return SocketLike::rawSocket(new Socket());
+}
+
+
+template<typename RequestHandler>
+void TcpServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
+{
+    RequestHandler handler;
+    handler.request = request;
+    handler.server = this;
+    handler.run();
+}
+
+
+template<typename RequestHandler>
 class KcpServer: public BaseStreamServer
 {
 public:
@@ -69,16 +93,35 @@ public:
         :BaseStreamServer(serverAddress, serverPort) {}
 protected:
     virtual QSharedPointer<SocketLike> serverCreate() override;
+    virtual void processRequest(QSharedPointer<SocketLike> request) override;
 };
 
 
+template<typename RequestHandler>
+QSharedPointer<SocketLike> KcpServer<RequestHandler>::serverCreate()
+{
+    return SocketLike::kcpSocket(new KcpSocket());
+}
+
+
+template<typename RequestHandler>
+void KcpServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
+{
+    RequestHandler handler;
+    handler.request = request;
+    handler.server = this;
+    handler.run();
+}
+
+
 #ifndef QTNG_NO_CRYPTO
-class SslServerPrivate;
-class SslServer: public BaseStreamServer
+
+class BaseSslServerPrivate;
+class BaseSslServer: public BaseStreamServer
 {
 public:
-    SslServer(const QHostAddress &serverAddress, quint16 serverPort);
-    SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
+    BaseSslServer(const QHostAddress &serverAddress, quint16 serverPort);
+    BaseSslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
 public:
     void setSslConfiguration(const SslConfiguration &configuration);
     SslConfiguration sslConfiguratino() const;
@@ -86,15 +129,39 @@ public:
 protected:
     virtual QSharedPointer<SocketLike> serverCreate() override;
 private:
-    Q_DECLARE_PRIVATE(SslServer)
+    Q_DECLARE_PRIVATE(BaseSslServer)
 };
+
+
+template<typename RequestHandler>
+class SslServer: public BaseSslServer
+{
+public:
+    SslServer(const QHostAddress &serverAddress, quint16 serverPort)
+        :BaseSslServer(serverAddress, serverPort) {}
+    SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
+        :BaseSslServer(serverAddress, serverPort, configuration) {}
+protected:
+    virtual void processRequest(QSharedPointer<SocketLike> request) override;
+};
+
+
+template<typename RequestHandler>
+void SslServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
+{
+    RequestHandler handler;
+    handler.request = request;
+    handler.server = this;
+    handler.run();
+}
+
 #endif
 
 
 class BaseRequestHandler
 {
 public:
-    BaseRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server);
+    BaseRequestHandler();
     virtual ~BaseRequestHandler();
 public:
     void run();
@@ -102,17 +169,25 @@ protected:
     virtual void setup();
     virtual void handle();
     virtual void finish();
-protected:
+    template<typename UserDataType> UserDataType *userData();
+public:
     QSharedPointer<SocketLike> request;
     BaseStreamServer *server;
 };
+
+
+template<typename UserDataType>
+UserDataType *BaseRequestHandler::userData()
+{
+    return static_cast<UserDataType*>(server->userData());
+}
 
 
 class Socks5RequestHandlerPrivate;
 class Socks5RequestHandler: public qtng::BaseRequestHandler
 {
 public:
-    Socks5RequestHandler(QSharedPointer<qtng::SocketLike> request, qtng::BaseStreamServer *server);
+    Socks5RequestHandler();
     virtual ~Socks5RequestHandler() override;
 protected:
     virtual void doConnect(const QString &hostName, const QHostAddress &hostAddress, quint16 port);

@@ -218,8 +218,8 @@ void Socks5RequestHandlerPrivate::handleConnectCommand(const QString &hostName, 
 
 
 
-Socks5RequestHandler::Socks5RequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server)
-    :BaseRequestHandler(request, server), d_ptr(new Socks5RequestHandlerPrivate(this))
+Socks5RequestHandler::Socks5RequestHandler()
+    :BaseRequestHandler(), d_ptr(new Socks5RequestHandlerPrivate(this))
 {
 
 }

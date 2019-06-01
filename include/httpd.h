@@ -11,7 +11,7 @@ QTNETWORKNG_NAMESPACE_BEGIN
 class BaseHttpRequestHandler: public BaseRequestHandler, public HeaderOperationMixin
 {
 public:
-    BaseHttpRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server);
+    BaseHttpRequestHandler();
 protected:
     virtual void handle();
     virtual void handleOneRequest();
@@ -54,11 +54,8 @@ protected:
 class SimpleHttpRequestHandler: public BaseHttpRequestHandler
 {
 public:
-    SimpleHttpRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server)
-        :BaseHttpRequestHandler(request, server), rootDir(QDir::current()) {}
-    SimpleHttpRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server,
-                             const QDir &rootDir)
-        :BaseHttpRequestHandler(request, server), rootDir(rootDir) {}
+    SimpleHttpRequestHandler()
+        :BaseHttpRequestHandler(), rootDir(QDir::current()) {}
 protected:
     virtual void doGET() override;
     virtual void doHEAD() override;
@@ -71,28 +68,10 @@ protected:
 };
 
 
-class SimpleHttpServer: public BaseStreamServer
-{
-public:
-    SimpleHttpServer(const QHostAddress &serverAddress, quint16 serverPort)
-        :BaseStreamServer(serverAddress, serverPort) {}
-protected:
-    virtual void processRequest(QSharedPointer<SocketLike> request) override;
-};
-
+// static http(s) server serving current directory.
+class SimpleHttpServer: public TcpServer<SimpleHttpRequestHandler>{};
 #ifndef QTNG_NO_CRYPTO
-
-class SimpleHttpsServer: public SslServer
-{
-public:
-    SimpleHttpsServer(const QHostAddress &serverAddress, quint16 serverPort)
-        :SslServer(serverAddress, serverPort) {}
-    SimpleHttpsServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
-        :SslServer(serverAddress, serverPort, configuration) {}
-protected:
-    virtual void processRequest(QSharedPointer<SocketLike> request) override;
-};
-
+class SimpleHttpsServer: public SslServer<SimpleHttpRequestHandler> {};
 #endif
 
 QTNETWORKNG_NAMESPACE_END
