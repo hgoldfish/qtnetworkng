@@ -29,7 +29,7 @@ QTNETWORKNG_NAMESPACE_BEGIN
 
 static inline QDateTime unpackDatetime(const QByteArray &bs)
 {
-#if QT_VERSION_CHECK(5, 7, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     quint64 t = qFromBigEndian<quint64>(static_cast<const void*>(bs.constData()));
 #else
     quint64 t = qFromBigEndian<quint64>(static_cast<const uchar*>(bs.constData()));
@@ -1421,7 +1421,7 @@ static QByteArray packDatetime(const QDateTime &dt)
     quint64 t = ((msecs % 1000) * 1000) << 34 | (msecs / 1000);
     QByteArray bs;
     bs.resize(8);
-#if QT_VERSION_CHECK(5, 7, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     qToBigEndian(t, static_cast<void*>(bs.data()));
 #else
     qToBigEndian(t, static_cast<uchar*>(bs.data()));
