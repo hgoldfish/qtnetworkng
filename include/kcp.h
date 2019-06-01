@@ -18,9 +18,9 @@ public:
         Loopback,
     };
 public:
-    KcpSocket(Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol);
-    KcpSocket(qintptr socketDescriptor);
-    KcpSocket(QSharedPointer<Socket> rawSocket);
+    explicit KcpSocket(Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol);
+    explicit KcpSocket(qintptr socketDescriptor);
+    explicit KcpSocket(QSharedPointer<Socket> rawSocket);
     ~KcpSocket();
 public:
     void setMode(Mode mode);

@@ -82,13 +82,13 @@ protected:
 
 #ifndef QTNG_NO_CRYPTO
 
-class SimpleHttpsServer: public BaseSslStreamServer
+class SimpleHttpsServer: public SslServer
 {
 public:
     SimpleHttpsServer(const QHostAddress &serverAddress, quint16 serverPort)
-        :BaseSslStreamServer(serverAddress, serverPort) {}
+        :SslServer(serverAddress, serverPort) {}
     SimpleHttpsServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
-        :BaseSslStreamServer(serverAddress, serverPort, configuration) {}
+        :SslServer(serverAddress, serverPort, configuration) {}
 protected:
     virtual void processRequest(QSharedPointer<SocketLike> request) override;
 };

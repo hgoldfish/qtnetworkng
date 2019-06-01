@@ -11,7 +11,7 @@ class SemaphorePrivate;
 class Semaphore
 {
 public:
-    Semaphore(int value = 1);
+    explicit Semaphore(int value = 1);
     virtual ~Semaphore();
 public:
     bool acquire(bool blocking = true);
@@ -167,7 +167,7 @@ template <typename T>
 class Queue
 {
 public:
-    Queue(quint32 capacity);
+    explicit Queue(quint32 capacity);
     Queue() : Queue(INT_MAX) {}
     ~Queue();
     void setCapacity(quint32 capacity);

@@ -15,15 +15,19 @@ class BaseStreamServer
 public:
     BaseStreamServer(const QHostAddress &serverAddress, quint16 serverPort);
     virtual ~BaseStreamServer();
+protected:
+    // these two virtual functions should be overrided by subclass.
+    virtual QSharedPointer<SocketLike> serverCreate() = 0;
+    virtual void processRequest(QSharedPointer<SocketLike> request);
 public:
-    bool allowReuseAddress() const;
+    bool allowReuseAddress() const;                    // default to true,
     void setAllowReuseAddress(bool b);
-    int requestQueueSize() const;
+    int requestQueueSize() const;                      // default to 100
     void setRequestQueueSize(int requestQueueSize);
-    bool serveForever();
-    bool start();
-    void stop();
-    virtual bool isSecure() const;
+    bool serveForever();                               // serve blocking
+    bool start();                                      // serve in background
+    void stop();                                       // stop serving
+    virtual bool isSecure() const;                     // is this ssl?
 public:
     quint16 serverPort() const;
     QHostAddress serverAddress() const;
@@ -31,13 +35,12 @@ public:
     QSharedPointer<Event> started;
     QSharedPointer<Event> stopped;
 protected:
-    virtual bool serverBind();
-    virtual bool serverActivate();
-    virtual void serverClose();
-    virtual bool serviceActions();
-    virtual QSharedPointer<SocketLike> getRequest();
+    virtual bool serverBind();                          // bind()
+    virtual bool serverActivate();                      // listen()
+    virtual void serverClose();                         // close()
+    virtual bool serviceActions();                      // default to nothing, called before accept next request.
+    virtual QSharedPointer<SocketLike> getRequest();    // accept();
     virtual bool verifyRequest(QSharedPointer<SocketLike> request);
-    virtual void processRequest(QSharedPointer<SocketLike> request);
     virtual void handleError(QSharedPointer<SocketLike> request);
     virtual void shutdownRequest(QSharedPointer<SocketLike> request);
     virtual void closeRequest(QSharedPointer<SocketLike> request);
@@ -49,64 +52,44 @@ private:
 };
 
 
-template<typename RequestHandler>
 class TcpServer: public BaseStreamServer
 {
 public:
     TcpServer(const QHostAddress &serverAddress, quint16 serverPort)
         :BaseStreamServer(serverAddress, serverPort) {}
 protected:
-    virtual void processRequest(QSharedPointer<SocketLike> request) override;
+    virtual QSharedPointer<SocketLike> serverCreate() override;
 };
 
 
-template<typename RequestHandler>
-void TcpServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
+class KcpServer: public BaseStreamServer
 {
-    RequestHandler handler(request, this);
-    handler.run();
-}
+public:
+    KcpServer(const QHostAddress &serverAddress, quint16 serverPort)
+        :BaseStreamServer(serverAddress, serverPort) {}
+protected:
+    virtual QSharedPointer<SocketLike> serverCreate() override;
+};
 
 
 #ifndef QTNG_NO_CRYPTO
-class BaseSslStreamServerPrivate;
-class BaseSslStreamServer: public BaseStreamServer
+class SslServerPrivate;
+class SslServer: public BaseStreamServer
 {
 public:
-    BaseSslStreamServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
-    BaseSslStreamServer(const QHostAddress &serverAddress, quint16 serverPort);
+    SslServer(const QHostAddress &serverAddress, quint16 serverPort);
+    SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
 public:
     void setSslConfiguration(const SslConfiguration &configuration);
     SslConfiguration sslConfiguratino() const;
     virtual bool isSecure() const override;
 protected:
-    virtual QSharedPointer<SocketLike> getRequest() override;
+    virtual QSharedPointer<SocketLike> serverCreate() override;
 private:
-    Q_DECLARE_PRIVATE(BaseSslStreamServer)
+    Q_DECLARE_PRIVATE(SslServer)
 };
-
-
-template<typename RequestHandler>
-class SslServer: public BaseSslStreamServer
-{
-public:
-    SslServer(const QHostAddress &serverAddress, quint16 serverPort)
-        :BaseSslStreamServer(serverAddress, serverPort) {}
-    SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
-        :BaseSslStreamServer(serverAddress, serverPort, configuration) {}
-protected:
-    virtual void processRequest(QSharedPointer<SocketLike> request) override;
-};
-
-
-template<typename RequestHandler>
-void SslServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
-{
-    RequestHandler handler(request, this);
-    handler.run();
-}
-
 #endif
+
 
 class BaseRequestHandler
 {
@@ -139,7 +122,6 @@ protected:
     virtual void log(const QString &hostName, const QHostAddress &hostAddress, quint16 port, bool success);
 protected:
     virtual void handle() override;
-//    virtual void logMessage(const QString &hostName, const QHostAddress &hostAddress, const quint16 port);
 private:
     Socks5RequestHandlerPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Socks5RequestHandler)

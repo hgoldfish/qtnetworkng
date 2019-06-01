@@ -1,5 +1,6 @@
 #include <QtCore/qloggingcategory.h>
 #include "../include/socket_server.h"
+#include "../include/kcp.h"
 
 static Q_LOGGING_CATEGORY(logger, "qtng.socket_server")
 
@@ -9,33 +10,33 @@ class BaseStreamServerPrivate
 {
 public:
     BaseStreamServerPrivate(BaseStreamServer *q, const QHostAddress &serverAddress, quint16 serverPort)
-        :q_ptr(q), serverAddress(serverAddress),
-          serverSocket(new Socket()),
-          operations(new CoroutineGroup),
-          requestQueueSize(100),
-          serverPort(serverPort),
-          allowReuseAddress(true)
+        : operations(new CoroutineGroup)
+        , serverAddress(serverAddress)
+        , requestQueueSize(100)
+        , serverPort(serverPort)
+        , allowReuseAddress(true)
+        , q_ptr(q)
     {}
-
     ~BaseStreamServerPrivate() { delete operations; }
     void serveForever();
     void handleRequest(QSharedPointer<SocketLike> request);
-private:
-    BaseStreamServer * const q_ptr;
-    Q_DECLARE_PUBLIC(BaseStreamServer)
 public:
-    QHostAddress serverAddress;
-    QSharedPointer<Socket> serverSocket;
+    QSharedPointer<SocketLike> serverSocket;
     CoroutineGroup *operations;
+    QHostAddress serverAddress;
     int requestQueueSize;
     quint16 serverPort;
     bool allowReuseAddress;
+private:
+    BaseStreamServer * const q_ptr;
+    Q_DECLARE_PUBLIC(BaseStreamServer)
 };
 
 
 BaseStreamServer::BaseStreamServer(const QHostAddress &serverAddress, quint16 serverPort)
     :started(new Event()), stopped(new Event()), d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
 {
+    Q_D(BaseStreamServer);
     started->clear();
     stopped->set();
 }
@@ -165,6 +166,10 @@ void BaseStreamServerPrivate::handleRequest(QSharedPointer<SocketLike> request)
 bool BaseStreamServer::serveForever()
 {
     Q_D(BaseStreamServer);
+    d->serverSocket = serverCreate();
+    if (d->serverSocket.isNull()) {
+        return false;
+    }
     if (!serverBind()) {
         serverClose();
         return false;
@@ -185,6 +190,10 @@ bool BaseStreamServer::start()
     if (started->isSet() || d->operations->has("serve")) {
         return true;
     }
+    d->serverSocket = serverCreate();
+    if (d->serverSocket.isNull()) {
+        return false;
+    }
     if (!serverBind()) {
         serverClose();
         return false;
@@ -200,7 +209,10 @@ bool BaseStreamServer::start()
 
 void BaseStreamServer::stop()
 {
-    serverClose();
+    Q_D(BaseStreamServer);
+    if (!d->serverSocket.isNull()) {
+        serverClose();
+    }
 }
 
 
@@ -245,12 +257,7 @@ void BaseStreamServer::processRequest(QSharedPointer<SocketLike>)
 QSharedPointer<SocketLike> BaseStreamServer::getRequest()
 {
     Q_D(BaseStreamServer);
-    Socket *request = d->serverSocket->accept();
-    if (request) {
-        return SocketLike::rawSocket(request);
-    } else {
-        return QSharedPointer<SocketLike>();
-    }
+    return d->serverSocket->accept();
 }
 
 
@@ -270,69 +277,72 @@ void BaseStreamServer::closeRequest(QSharedPointer<SocketLike> request)
 }
 
 
+QSharedPointer<SocketLike> TcpServer::serverCreate()
+{
+    return SocketLike::rawSocket(new Socket());
+}
+
+
+QSharedPointer<SocketLike> KcpServer::serverCreate()
+{
+    return SocketLike::kcpSocket(new KcpSocket());
+}
+
+
+
 #ifndef QTNG_NO_CRYPTO
-class BaseSslStreamServerPrivate: public BaseStreamServerPrivate
+
+class SslServerPrivate: public BaseStreamServerPrivate
 {
 public:
-    BaseSslStreamServerPrivate(BaseSslStreamServer *q, const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
+    SslServerPrivate(SslServer *q, const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
         :BaseStreamServerPrivate(q, serverAddress, serverPort), configuration(configuration) {}
 public:
     SslConfiguration configuration;
 };
 
 
-BaseSslStreamServer::BaseSslStreamServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
-    :BaseStreamServer (new BaseSslStreamServerPrivate(this, serverAddress, serverPort, configuration))
+SslServer::SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
+    :BaseStreamServer (new SslServerPrivate(this, serverAddress, serverPort, configuration))
 {
 }
 
 
-BaseSslStreamServer::BaseSslStreamServer(const QHostAddress &serverAddress, quint16 serverPort)
-    :BaseStreamServer (new BaseSslStreamServerPrivate(this, serverAddress, serverPort, SslConfiguration()))
+SslServer::SslServer(const QHostAddress &serverAddress, quint16 serverPort)
+    :BaseStreamServer (new SslServerPrivate(this, serverAddress, serverPort, SslConfiguration()))
 {
-    Q_D(BaseSslStreamServer);
+    Q_D(SslServer);
     d->configuration = SslConfiguration::testPurpose("SslServer", "CN", "QtNetworkNg");
 }
 
 
-void BaseSslStreamServer::setSslConfiguration(const SslConfiguration &configuration)
+void SslServer::setSslConfiguration(const SslConfiguration &configuration)
 {
-    Q_D(BaseSslStreamServer);
+    Q_D(SslServer);
     d->configuration = configuration;
 }
 
 
-SslConfiguration BaseSslStreamServer::sslConfiguratino() const
+SslConfiguration SslServer::sslConfiguratino() const
 {
-    Q_D(const BaseSslStreamServer);
+    Q_D(const SslServer);
     return d->configuration;
 }
 
 
-QSharedPointer<SocketLike> BaseSslStreamServer::getRequest()
-{
-    Q_D(BaseSslStreamServer);
-    while(true) {
-        Socket *request = d->serverSocket->accept();
-        if (request) {
-            QSharedPointer<SslSocket> sslSocket(new SslSocket(QSharedPointer<Socket>(request), d->configuration));
-            if (!sslSocket->handshake(true)) {
-                continue;
-            }
-            return SocketLike::sslSocket(sslSocket);
-        } else {
-            return QSharedPointer<SocketLike>();
-        }
-    }
-}
-
-
-bool BaseSslStreamServer::isSecure() const
+bool SslServer::isSecure() const
 {
     return true;
 }
 
-#endif
+
+QSharedPointer<SocketLike> SslServer::serverCreate()
+{
+    Q_D(SslServer);
+    return SocketLike::sslSocket(QSharedPointer<SslSocket>::create(d->configuration));
+}
+
+#endif  // QTNG_NO_CRYPTO
 
 
 BaseRequestHandler::BaseRequestHandler(QSharedPointer<SocketLike> request, BaseStreamServer *server)

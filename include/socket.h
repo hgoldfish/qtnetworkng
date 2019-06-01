@@ -103,8 +103,8 @@ public:
     };
     Q_DECLARE_FLAGS(BindMode, BindFlag)
 public:
-    Socket(NetworkLayerProtocol protocol = AnyIPProtocol, SocketType type = TcpSocket);
-    Socket(qintptr socketDescriptor);
+    explicit Socket(NetworkLayerProtocol protocol = AnyIPProtocol, SocketType type = TcpSocket);
+    explicit Socket(qintptr socketDescriptor);
     virtual ~Socket();
 public:
     SocketError error() const;

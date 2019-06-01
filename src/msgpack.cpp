@@ -32,7 +32,7 @@ static inline QDateTime unpackDatetime(const QByteArray &bs)
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     quint64 t = qFromBigEndian<quint64>(static_cast<const void*>(bs.constData()));
 #else
-    quint64 t = qFromBigEndian<quint64>(static_cast<const uchar*>(bs.constData()));
+    quint64 t = qFromBigEndian<quint64>(static_cast<const uchar*>(static_cast<const void*>(bs.constData())));
 #endif
     qint64 msecs = (t & 0x00000003ffffffffL) * 1000 + (t >> 34) / 1000;
     return QDateTime::fromMSecsSinceEpoch(msecs);
@@ -1419,12 +1419,11 @@ static QByteArray packDatetime(const QDateTime &dt)
     }
     quint64 msecs = static_cast<quint64>(dt.toMSecsSinceEpoch());
     quint64 t = ((msecs % 1000) * 1000) << 34 | (msecs / 1000);
-    QByteArray bs;
-    bs.resize(8);
+    QByteArray bs(8, Qt::Uninitialized);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     qToBigEndian(t, static_cast<void*>(bs.data()));
 #else
-    qToBigEndian(t, static_cast<uchar*>(bs.data()));
+    qToBigEndian(t, static_cast<uchar*>(static_cast<void*>(bs.data())));
 #endif
     return bs;
 }

@@ -163,7 +163,8 @@ public:
     };
 
 public:
-    SslSocket(Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol, const SslConfiguration &config = SslConfiguration());
+    SslSocket(const SslConfiguration &config = SslConfiguration());
+    SslSocket(Socket::NetworkLayerProtocol protocol, const SslConfiguration &config = SslConfiguration());
     SslSocket(qintptr socketDescriptor, const SslConfiguration &config = SslConfiguration());
     SslSocket(QSharedPointer<Socket> rawSocket, const SslConfiguration &config = SslConfiguration());
     SslSocket(QSharedPointer<SocketLike> rawSocket, const SslConfiguration &config = SslConfiguration());

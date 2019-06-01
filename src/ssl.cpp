@@ -1174,6 +1174,14 @@ bool SslSocketPrivate::isValid() const
     }
 }
 
+SslSocket::SslSocket(const SslConfiguration &config)
+    :d_ptr(new SslSocketPrivate(config))
+{
+    Q_D(SslSocket);
+    d->rawSocket = SocketLike::rawSocket(new Socket());
+    d->asServer = false;
+}
+
 
 SslSocket::SslSocket(Socket::NetworkLayerProtocol protocol, const SslConfiguration &config)
     :d_ptr(new SslSocketPrivate(config))
@@ -1183,6 +1191,7 @@ SslSocket::SslSocket(Socket::NetworkLayerProtocol protocol, const SslConfigurati
     d->asServer = false;
 }
 
+
 SslSocket::SslSocket(qintptr socketDescriptor, const SslConfiguration &config)
     :d_ptr(new SslSocketPrivate(config))
 {
@@ -1190,6 +1199,7 @@ SslSocket::SslSocket(qintptr socketDescriptor, const SslConfiguration &config)
     d->rawSocket = SocketLike::rawSocket(new Socket(socketDescriptor));
     d->asServer = false;
 }
+
 
 SslSocket::SslSocket(QSharedPointer<Socket> rawSocket, const SslConfiguration &config)
     :d_ptr(new SslSocketPrivate(config))
