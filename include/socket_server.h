@@ -166,7 +166,7 @@ public:
 public:
     void run();
 protected:
-    virtual void setup();
+    virtual bool setup();
     virtual void handle();
     virtual void finish();
     template<typename UserDataType> UserDataType *userData();

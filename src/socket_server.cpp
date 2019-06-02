@@ -362,7 +362,9 @@ BaseRequestHandler::~BaseRequestHandler()
 
 void BaseRequestHandler::run()
 {
-    setup();
+    if (!setup()) {
+        return;
+    }
     try {
         handle();
         finish();
@@ -372,9 +374,9 @@ void BaseRequestHandler::run()
 }
 
 
-void BaseRequestHandler::setup()
+bool BaseRequestHandler::setup()
 {
-
+    return true;
 }
 
 

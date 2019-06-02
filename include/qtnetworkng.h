@@ -14,6 +14,7 @@
 #include "msgpack.h"
 #include "httpd.h"
 #include "kcp.h"
+#include "socket_server.h"
 
 #ifndef QTNG_NO_CRYPTO
 #include "ssl.h"
