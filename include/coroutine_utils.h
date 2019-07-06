@@ -220,6 +220,17 @@ public:
         operations.joinall();
     }
 
+    template<typename T, typename S>
+    T apply(std::function<T(S)> func, S s)
+    {
+        QSharedPointer<T> result(new T);
+        QSharedPointer<Coroutine> t = spawn([func, result, s] {
+            (*result) = func(s);
+        });
+        t->join();
+        return *result;
+    }
+
 private:
     void deleteCoroutine(BaseCoroutine *coroutine);
 private:

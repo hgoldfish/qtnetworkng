@@ -690,18 +690,21 @@ static QUrl hostOnly(const QUrl &url)
     return h;
 }
 
+
 ConnectionPool::ConnectionPool()
     :maxConnectionsPerServer(10), timeToLive(60), operations(new CoroutineGroup), proxySwitcher(new SimpleProxySwitcher)
 {
     operations->spawnWithName("removeUnusedConnections", [this] {removeUnusedConnections();});
 }
 
+
 ConnectionPool::~ConnectionPool()
 {
     delete operations;
 }
 
-void ConnectionPool::recycle(const QUrl &url, QSharedPointer<SocketLike> connection)
+
+ConnectionPoolItem &ConnectionPool::getItem(const QUrl &url)
 {
     const QUrl &h = hostOnly(url);
     ConnectionPoolItem &item = items[h];
@@ -709,25 +712,29 @@ void ConnectionPool::recycle(const QUrl &url, QSharedPointer<SocketLike> connect
     if (item.semaphore.isNull()) {
         item.semaphore.reset(new Semaphore(maxConnectionsPerServer));
     }
+    return item;
+}
+
+
+QSharedPointer<Semaphore> ConnectionPool::getSemaphore(const QUrl &url)
+{
+    ConnectionPoolItem &item = getItem(url);
+    return item.semaphore;
+}
+
+
+void ConnectionPool::recycle(const QUrl &url, QSharedPointer<SocketLike> connection)
+{
+    ConnectionPoolItem &item = getItem(url);
     if (item.connections.size() < maxConnectionsPerServer) {
         item.connections.append(connection);
     }
 }
 
+
 QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, RequestError **error)
 {
-    const QUrl &h = hostOnly(url);
-    ConnectionPoolItem &item = items[h];
-
-    item.lastUsed = QDateTime::currentDateTimeUtc();
-    if (item.semaphore.isNull()) {
-        item.semaphore.reset(new Semaphore(maxConnectionsPerServer));
-    }
-    ScopedLock<Semaphore> lock(item.semaphore);
-    if (!lock.isSuccess()) {
-        return QSharedPointer<SocketLike>();
-    }
-
+    ConnectionPoolItem &item = getItem(url);
     QSharedPointer<SocketLike> connection;
 
     while (!item.connections.isEmpty()) {
@@ -801,6 +808,8 @@ void ConnectionPool::removeUnusedConnections()
         for (QMap<QUrl, ConnectionPoolItem>::const_iterator itor = items.constBegin(); itor != items.constEnd(); ++itor) {
             if (itor.value().lastUsed.secsTo(now) < timeToLive || itor.value().semaphore->isUsed()) {
                 newItems.insert(itor.key(), itor.value());
+            } else {
+                qDebug() << "remove connection:" << itor.value().lastUsed;
             }
         }
         items = newItems;
@@ -829,14 +838,18 @@ QSharedPointer<HttpProxy> ConnectionPool::httpProxy() const
 void ConnectionPool::setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy)
 {
     proxySwitcher->socks5Proxies.clear();
-    proxySwitcher->socks5Proxies.append(proxy);
+    if (!proxy.isNull()) {
+        proxySwitcher->socks5Proxies.append(proxy);
+    }
 }
 
 
 void ConnectionPool::setHttpProxy(QSharedPointer<HttpProxy> proxy)
 {
     proxySwitcher->httpProxies.clear();
-    proxySwitcher->httpProxies.append(proxy);
+    if (!proxy.isNull()) {
+        proxySwitcher->httpProxies.append(proxy);
+    }
 }
 
 
@@ -883,6 +896,11 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     mergeCookies(request, url);
     QList<HttpHeader> allHeaders = makeHeaders(request, url);
 
+    ScopedLock<Semaphore> lock(getSemaphore(url));
+    if (!lock.isSuccess()) {
+        response.d->error.reset(new ConnectionError());
+        return response;
+    }
     QSharedPointer<SocketLike> connection = connectionForUrl(url, &error);
     if (error != nullptr) {
         response.d->error.reset(error);

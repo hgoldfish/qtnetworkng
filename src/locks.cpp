@@ -66,7 +66,8 @@ bool SemaphorePrivate::acquire(bool blocking)
         EventLoopCoroutine::get()->yield();
         // if there is no exception, the release() has remove the waiter.
         bool found = waiters.contains(BaseCoroutine::current());
-        Q_ASSERT(!found);  // usually caused by locks running in eventloop.
+        Q_ASSERT_X(!found, "SemaphorePrivate",
+                   "have you forget to start a new coroutine?");  // usually caused by locks running in eventloop.
     } catch(...) {
         // if we caught an exception, the release() must not touch me.
         // the waiter should be remove.

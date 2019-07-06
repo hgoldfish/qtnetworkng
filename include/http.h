@@ -4,6 +4,8 @@
 #include <QtCore/qstring.h>
 #include <QtCore/qmap.h>
 #include <QtCore/qjsondocument.h>
+#include <QtCore/qjsonarray.h>
+#include <QtCore/qjsonobject.h>
 #include <QtCore/qmimedatabase.h>
 #include <QtNetwork/qnetworkcookie.h>
 #include <QtNetwork/qnetworkcookiejar.h>

@@ -28,6 +28,7 @@ class ConnectionPool
 public:
     ConnectionPool();
     virtual ~ConnectionPool();
+    QSharedPointer<Semaphore> getSemaphore(const QUrl &url);
     void recycle(const QUrl &url, QSharedPointer<SocketLike> connection);
     QSharedPointer<SocketLike> connectionForUrl(const QUrl &url, RequestError **error);
     void removeUnusedConnections();
@@ -35,6 +36,8 @@ public:
     QSharedPointer<HttpProxy> httpProxy() const;
     void setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy);
     void setHttpProxy(QSharedPointer<HttpProxy> proxy);
+private:
+    ConnectionPoolItem &getItem(const QUrl &url);
 public:
     QMap<QUrl, ConnectionPoolItem> items;
     int maxConnectionsPerServer;

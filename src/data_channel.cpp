@@ -349,7 +349,9 @@ bool DataChannelPrivate::sendPacket(const QByteArray &packet)
     if (static_cast<quint32>(packet.size()) > maxPacketSize) {
         return false;
     }
-    goThrough.wait();
+    if (!goThrough.wait()) {
+        return false;
+    }
     return sendPacketRaw(DataChannelNumber, packet);
 }
 
