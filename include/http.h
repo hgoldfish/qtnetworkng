@@ -97,6 +97,8 @@ public:
     void setCookies(const QList<QNetworkCookie> &cookies);
     QByteArray body() const;
     void setBody(const QByteArray &body);
+    QString userAgent() const;
+    void setUserAgent(const QString &userAgent);
     int maxBodySize() const;
     void setMaxBodySize(int maxBodySize);
     int maxRedirects() const;
@@ -157,6 +159,7 @@ public:
     void setVersion(HttpVersion version);
 
     QSharedPointer<SocketLike> takeStream(QByteArray *readBytes);
+    QByteArray body() const;
     QByteArray body();
     void setBody(const QByteArray &body);
     QString text();
@@ -186,6 +189,7 @@ private:
 class Socks5Proxy;
 class HttpProxy;
 class HttpSessionPrivate;
+class HttpCacheManager;
 class HttpSession
 {
 public:
@@ -248,9 +252,44 @@ public:
     void setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy);
     QSharedPointer<HttpProxy> httpProxy() const;
     void setHttpProxy(QSharedPointer<HttpProxy> proxy);
+    QSharedPointer<HttpCacheManager> cacheManager() const;
+    void setCacheManager(QSharedPointer<HttpCacheManager> cacheManager);
 private:
     HttpSessionPrivate *d_ptr;
     Q_DECLARE_PRIVATE(HttpSession)
+};
+
+
+class HttpCacheManager
+{
+public:
+    HttpCacheManager();
+    virtual ~HttpCacheManager();
+public:
+    virtual bool addResponse(const HttpResponse &response);
+    virtual bool getResponse(HttpResponse *response);
+protected:
+    virtual bool store(const QString &url, const QByteArray &data);
+    virtual QByteArray load(const QString &url);
+};
+
+
+class HttpMemoryCacheManagerPrivate;
+class HttpMemoryCacheManager: public HttpCacheManager
+{
+public:
+    HttpMemoryCacheManager();
+    virtual ~HttpMemoryCacheManager() override;
+public:
+    float expireTime() const;
+    void setExpireTime(float expireTime);
+protected:
+    QMap<QString, QByteArray> &cache();
+    virtual bool store(const QString &url, const QByteArray &data) override;
+    virtual QByteArray load(const QString &url) override;
+private:
+    HttpMemoryCacheManagerPrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(HttpMemoryCacheManager)
 };
 
 

@@ -10,9 +10,9 @@
 
 #ifndef DEFAULT_COROUTINE_STACK_SIZE
     #ifdef Q_OS_ANDROID
-        #define DEFAULT_COROUTINE_STACK_SIZE 1024 * 256
+        #define DEFAULT_COROUTINE_STACK_SIZE 1024 * 64
     #else
-        #define DEFAULT_COROUTINE_STACK_SIZE 1024 * 1024 * 8
+        #define DEFAULT_COROUTINE_STACK_SIZE 1024 * 256
     #endif
 #endif
 

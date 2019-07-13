@@ -39,7 +39,7 @@ SemaphorePrivate::~SemaphorePrivate()
 
 void SemaphorePrivate::scheduleDelete()
 {
-    if(notified) {
+    if (notified) {
         EventLoopCoroutine::get()->cancelCall(notified);
         notified = 0;
     }

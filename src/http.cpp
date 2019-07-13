@@ -4,6 +4,7 @@
 #include <QtCore/qdatetime.h>
 #include <QtCore/qtextcodec.h>
 #include <QtCore/qendian.h>
+#include <QtCore/qdatastream.h>
 #include "../include/private/http_p.h"
 #include "../include/socks5_proxy.h"
 #ifndef QTNG_NO_CRYPTO
@@ -94,6 +95,7 @@ public:
     QMap<QString, QString> query;
     QList<QNetworkCookie> cookies;
     QByteArray body;
+    QString userAgent;
     int maxBodySize;
     int maxRedirects;
     HttpRequest::Priority priority;
@@ -121,6 +123,7 @@ HttpRequestPrivate::HttpRequestPrivate(const HttpRequestPrivate &other)
     , query(other.query)
     , cookies(other.cookies)
     , body(other.body)
+    , userAgent(other.userAgent)
     , maxBodySize(other.maxBodySize)
     , maxRedirects(other.maxRedirects)
     , priority(other.priority)
@@ -209,6 +212,16 @@ QByteArray HttpRequest::body() const
 void HttpRequest::setBody(const QByteArray &body)
 {
     d->body = body;
+}
+
+QString HttpRequest::userAgent() const
+{
+    return d->userAgent;
+}
+
+void HttpRequest::setUserAgent(const QString &userAgent)
+{
+    d->userAgent = userAgent;
 }
 
 int HttpRequest::maxBodySize() const
@@ -468,6 +481,11 @@ RequestError *toRequestError(ChunkedBlockReader::Error error)
     default:
         return nullptr;
     }
+}
+
+QByteArray HttpResponse::body() const
+{
+    return d->body;
 }
 
 QByteArray HttpResponse::body()
@@ -891,6 +909,13 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         }
         url.setQuery(query);
         request.d->url = url.toString();
+        response.d->url = request.d->url;
+    }
+
+    if (!cacheManager.isNull()) {
+        if (cacheManager->getResponse(&response)) {
+            return response;
+        }
     }
 
     mergeCookies(request, url);
@@ -1034,6 +1059,25 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     // response.d->statusCode < 200 is not error.
     if (response.d->statusCode >= 400) {
         response.d->error.reset(new HTTPError(response.d->statusCode));
+    } else {
+        if (request.method() == "GET"
+                && !cacheManager.isNull()
+                && !request.streamResponse()
+                ) {
+
+            bool doCache = true;
+            const QByteArray &requestHeader = request.header(HttpResponse::CacheControlHeader);
+            if (requestHeader.contains("no-cache") || requestHeader.contains("no-store")) {
+                doCache = false;
+            }
+            const QByteArray &responseHeader = response.header(HttpResponse::CacheControlHeader);
+            if (responseHeader.contains("no-cache") || responseHeader.contains("no-store")) {
+                doCache = false;
+            }
+            if (doCache) {
+                cacheManager->addResponse(response);
+            }
+        }
     }
     return response;
 }
@@ -1050,7 +1094,11 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
         allHeaders.prepend(HttpHeader(QStringLiteral("Content-Length"), QByteArray::number(request.d->body.size())));
     }
     if (!request.hasHeader(QStringLiteral("User-Agent"))) {
-        allHeaders.prepend(HttpHeader(QStringLiteral("User-Agent"), defaultUserAgent.toUtf8()));
+        if (request.userAgent().isEmpty()) {
+            allHeaders.prepend(HttpHeader(QStringLiteral("User-Agent"), defaultUserAgent.toUtf8()));
+        } else {
+            allHeaders.prepend(HttpHeader(QStringLiteral("User-Agent"), request.userAgent().toUtf8()));
+        }
     }
     if (!request.hasHeader(QStringLiteral("Host"))) {
         QString httpHost = url.host();
@@ -1118,8 +1166,8 @@ HttpSession::~HttpSession()
 
 HttpResponse HttpSession::get(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    Q_UNUSED(allowRedirects)
+    Q_UNUSED(verify)
     HttpRequest request;
     request.setMethod(QStringLiteral("GET"));
     request.setUrl(url);
@@ -1130,8 +1178,8 @@ HttpResponse HttpSession::get(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT
 
 HttpResponse HttpSession::head(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    Q_UNUSED(allowRedirects)
+    Q_UNUSED(verify)
     HttpRequest request;
     request.setMethod(QStringLiteral("HEAD"));
     request.setUrl(url);
@@ -1142,8 +1190,8 @@ HttpResponse HttpSession::head(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAUL
 
 HttpResponse HttpSession::options(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    Q_UNUSED(allowRedirects)
+    Q_UNUSED(verify)
     HttpRequest request;
     request.setMethod(QStringLiteral("OPTIONS"));
     request.setUrl(url);
@@ -1154,8 +1202,8 @@ HttpResponse HttpSession::options(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEF
 
 HttpResponse HttpSession::delete_(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    Q_UNUSED(allowRedirects)
+    Q_UNUSED(verify)
     HttpRequest request;
     request.setMethod(QStringLiteral("DELETE"));
     request.setUrl(url);
@@ -1166,8 +1214,8 @@ HttpResponse HttpSession::delete_(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEF
 
 HttpResponse HttpSession::post(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    Q_UNUSED(allowRedirects)
+    Q_UNUSED(verify)
     HttpRequest request;
     request.setMethod(QStringLiteral("POST"));
     request.setUrl(url);
@@ -1179,8 +1227,8 @@ HttpResponse HttpSession::post(const QUrl &url, const QByteArray &body, COMMON_P
 
 HttpResponse HttpSession::put(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    Q_UNUSED(allowRedirects)
+    Q_UNUSED(verify)
     HttpRequest request;
     request.setMethod(QStringLiteral("PUT"));
     request.setUrl(url);
@@ -1192,8 +1240,8 @@ HttpResponse HttpSession::put(const QUrl &url, const QByteArray &body, COMMON_PA
 
 HttpResponse HttpSession::patch(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    Q_UNUSED(allowRedirects)
+    Q_UNUSED(verify)
     HttpRequest request;
     request.setMethod(QStringLiteral("PATCH"));
     request.setUrl(url);
@@ -1378,6 +1426,141 @@ void HttpSession::setHttpProxy(QSharedPointer<HttpProxy> proxy)
     Q_D(HttpSession);
     d->setHttpProxy(proxy);
 }
+
+
+QSharedPointer<HttpCacheManager> HttpSession::cacheManager() const
+{
+    Q_D(const HttpSession);
+    return d->cacheManager;
+}
+
+
+void HttpSession::setCacheManager(QSharedPointer<HttpCacheManager> cacheManager)
+{
+    Q_D(HttpSession);
+    d->cacheManager = cacheManager;
+}
+
+
+HttpCacheManager::HttpCacheManager()
+{
+}
+
+
+HttpCacheManager::~HttpCacheManager()
+{
+}
+
+
+bool HttpCacheManager::addResponse(const HttpResponse &response)
+{
+    const QString &url = response.url().toString();
+    int statusCode = response.statusCode();
+    const QString &statusText = response.statusText();
+    const QList<HttpHeader> headers = response.allHeaders();
+    const QByteArray &body = response.body();
+    QByteArray bs;
+    QDataStream ds(&bs, QIODevice::WriteOnly);
+    ds << statusCode << statusText << headers << body;
+    if (ds.status() != QDataStream::Ok) {
+        return false;
+    }
+    return store(url, bs);
+}
+
+
+bool HttpCacheManager::getResponse(HttpResponse *response)
+{
+    const QString &url = response->url().toString();
+    if (url.isEmpty()) {
+        return false;
+    }
+    const QByteArray &bs = load(url);
+    if (bs.isEmpty()) {
+        return false;
+    }
+    QDataStream ds(bs);
+    int statusCode;
+    QString statusText;
+    QList<HttpHeader> headers;
+    QByteArray body;
+    ds >> statusCode >> statusText >> headers >> body;
+    if (ds.status() != QDataStream::Ok) {
+        return false;
+    }
+    response->setStatusCode(statusCode);
+    response->setStatusText(statusText);
+    response->setHeaders(headers);
+    response->setBody(body);
+    return true;
+}
+
+
+bool HttpCacheManager::store(const QString &, const QByteArray &)
+{
+    return false;
+}
+
+
+QByteArray HttpCacheManager::load(const QString &)
+{
+    return QByteArray();
+}
+
+
+class HttpMemoryCacheManagerPrivate
+{
+public:
+    HttpMemoryCacheManagerPrivate()
+        :expireTime(60 * 60 * 24) // one day
+    {}
+public:
+    QMap<QString, QByteArray> cache;
+    float expireTime;
+};
+
+
+HttpMemoryCacheManager::HttpMemoryCacheManager()
+    :d_ptr(new HttpMemoryCacheManagerPrivate())
+{
+
+}
+
+
+HttpMemoryCacheManager::~HttpMemoryCacheManager()
+{
+    delete d_ptr;
+}
+
+
+float HttpMemoryCacheManager::expireTime() const
+{
+    Q_D(const HttpMemoryCacheManager);
+    return d->expireTime;
+}
+
+
+void HttpMemoryCacheManager::setExpireTime(float expireTime)
+{
+    Q_D(HttpMemoryCacheManager);
+    d->expireTime = expireTime;
+}
+
+
+bool HttpMemoryCacheManager::store(const QString &url, const QByteArray &data)
+{
+    Q_D(HttpMemoryCacheManager);
+    d->cache.insert(url, data);
+    return true;
+}
+
+
+QByteArray HttpMemoryCacheManager::load(const QString &url)
+{
+    Q_D(HttpMemoryCacheManager);
+    return d->cache.value(url);
+}
+
 
 
 RequestError::~RequestError()

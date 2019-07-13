@@ -39,7 +39,7 @@ void CALLBACK BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
     } catch(const CoroutineException &e) {
-        qDebug() << "got coroutine exception:" << e.what();
+//        qDebug() << "got coroutine exception:" << e.what();
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
     } catch(...) {
@@ -82,7 +82,7 @@ bool BaseCoroutinePrivate::initContext()
     if(context)
         return true;
 
-    context = CreateFiberEx(1024*4, stackSize, 0, (PFIBER_START_ROUTINE)BaseCoroutinePrivate::run_stub, this);
+    context = CreateFiberEx(1024 * 4, stackSize, 0, (PFIBER_START_ROUTINE)BaseCoroutinePrivate::run_stub, this);
     if(!context) {
         DWORD error = GetLastError();
         qDebug() << QStringLiteral("can not create fiber: error is %1").arg(error);

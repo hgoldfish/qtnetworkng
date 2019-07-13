@@ -36,8 +36,18 @@ struct DeleteLaterFunctor: public Functor
     {
         delete p;
     }
-    T* const p;
+    T * const p;
 };
+
+
+struct LambdaFunctor: public Functor
+{
+    LambdaFunctor(const std::function<void()> &callback)
+        :callback(callback) {}
+    virtual void operator ()() override;
+    std::function<void()> callback;
+};
+
 
 /*
 #if QT_VERSION < 0x050000

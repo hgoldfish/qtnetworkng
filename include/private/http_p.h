@@ -58,6 +58,7 @@ public:
     HttpResponse send(HttpRequest &req);
 public:
     QNetworkCookieJar cookieJar;
+    QSharedPointer<HttpCacheManager> cacheManager;
     QString defaultUserAgent;
     HttpVersion defaultVersion;
     HttpSession *q_ptr;
@@ -66,6 +67,7 @@ public:
     static inline HttpSessionPrivate *getPrivateHelper(HttpSession *session) {return session->d_ptr; }
     Q_DECLARE_PUBLIC(HttpSession)
 };
+
 
 QTNETWORKNG_NAMESPACE_END
 
