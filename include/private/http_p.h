@@ -42,6 +42,7 @@ public:
     QMap<QUrl, ConnectionPoolItem> items;
     int maxConnectionsPerServer;
     int timeToLive;
+    float defaultConnectionTimeout;
     QSharedPointer<SocketDnsCache> dnsCache;
     CoroutineGroup *operations;
     QSharedPointer<BaseProxySwitcher> proxySwitcher;
