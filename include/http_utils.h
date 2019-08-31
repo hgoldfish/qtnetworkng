@@ -98,6 +98,10 @@ struct HttpHeader {
     QByteArray value;
 };
 
+
+QDataStream &operator >>(QDataStream &ds, HttpHeader &header);
+QDataStream &operator <<(QDataStream &ds, const HttpHeader &header);
+
 class HeaderOperationMixin
 {
 public:
@@ -145,12 +149,14 @@ public:
     QByteArray header(const QString &name, const QByteArray &defaultValue = QByteArray()) const;
     QByteArray header(KnownHeader header, const QByteArray &defaultValue = QByteArray()) const;
     QByteArrayList multiHeader(const QString &name) const;
+    QByteArrayList multiHeader(KnownHeader header) const;
     QList<HttpHeader> allHeaders() const { return headers; }
     void setHeaders(const QMap<QString, QByteArray> headers);
     void setHeaders(const QList<HttpHeader> &headers) { this->headers = headers; }
 
     static QDateTime fromHttpDate(const QByteArray &value);
     static QByteArray toHttpDate(const QDateTime &dt);
+    static QString toString(KnownHeader knownHeader);
 protected:
     QList<HttpHeader> headers;
 };

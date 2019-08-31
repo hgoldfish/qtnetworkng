@@ -4,6 +4,8 @@
 #include <QtCore/qstring.h>
 #include <QtCore/qmap.h>
 #include <QtCore/qjsondocument.h>
+#include <QtCore/qjsonarray.h>
+#include <QtCore/qjsonobject.h>
 #include <QtCore/qmimedatabase.h>
 #include <QtNetwork/qnetworkcookie.h>
 #include <QtNetwork/qnetworkcookiejar.h>
@@ -91,10 +93,13 @@ public:
     void setUrl(const QString &url) {setUrl(QUrl::fromUserInput(url)); }
     QMap<QString, QString> query() const;
     void setQuery(const QMap<QString, QString> &query);
+    void setQuery(const QUrlQuery &query);
     QList<QNetworkCookie> cookies() const;
     void setCookies(const QList<QNetworkCookie> &cookies);
     QByteArray body() const;
     void setBody(const QByteArray &body);
+    QString userAgent() const;
+    void setUserAgent(const QString &userAgent);
     int maxBodySize() const;
     void setMaxBodySize(int maxBodySize);
     int maxRedirects() const;
@@ -105,14 +110,15 @@ public:
     void setVersion(HttpVersion version);
     void setStreamResponse(bool streamResponse);
     bool streamResponse() const;
+    float tiemout() const;
+    void setTimeout(float timeout);
 public:
-    void setFormData(const FormData &formData, const QString &method = QStringLiteral("post"));
-    static HttpRequest fromFormData(const FormData &formData);
-    static HttpRequest fromForm(const QUrlQuery &data);
-    static HttpRequest fromForm(const QMap<QString, QString> &query);
-    static HttpRequest fromJson(const QJsonDocument &json);
-    static HttpRequest fromJson(const QJsonArray &json) { return fromJson(QJsonDocument(json)); }
-    static HttpRequest fromJson(const QJsonObject &json) { return fromJson(QJsonDocument(json)); }
+    void setBody(const FormData &formData);
+    void setBody(const QJsonDocument &json);
+    void setBody(const QJsonObject &json);
+    void setBody(const QJsonArray &json);
+    void setBody(const QMap<QString, QString> form);
+    void setBody(const QUrlQuery &form);
 private:
     QSharedDataPointer<HttpRequestPrivate> d;
     friend class HttpSessionPrivate;
@@ -155,6 +161,7 @@ public:
     void setVersion(HttpVersion version);
 
     QSharedPointer<SocketLike> takeStream(QByteArray *readBytes);
+    QByteArray body() const;
     QByteArray body();
     void setBody(const QByteArray &body);
     QString text();
@@ -174,58 +181,147 @@ private:
 };
 
 
-#define COMMON_PARAMETERS \
-    const QMap<QString, QString> &query = QMap<QString, QString>(), \
-    const QMap<QString, QByteArray> &headers = QMap<QString, QByteArray>(), \
-    bool allowRedirects = true, \
-    bool verify = false
-#define COMMON_PARAMETERS_FORWARD query, headers, allowRedirects, verify
-
 class Socks5Proxy;
 class HttpProxy;
 class HttpSessionPrivate;
+class HttpCacheManager;
 class HttpSession
 {
 public:
     HttpSession();
     virtual ~HttpSession();
 public:
-    HttpResponse get(const QUrl &url, COMMON_PARAMETERS);
-    HttpResponse head(const QUrl &url, COMMON_PARAMETERS);
-    HttpResponse options(const QUrl &url, COMMON_PARAMETERS);
-    HttpResponse delete_(const QUrl &url, COMMON_PARAMETERS);
-    HttpResponse post(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS);
-    HttpResponse put(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS);
-    HttpResponse patch(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS);
-    HttpResponse post(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
-    HttpResponse put(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
-    HttpResponse patch(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS);
+    HttpResponse get(const QUrl &url);
+    HttpResponse get(const QUrl &url, const QMap<QString, QString> &query);
+    HttpResponse get(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse get(const QUrl &url, const QUrlQuery &query);
+    HttpResponse get(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse get(const QString &url);
+    HttpResponse get(const QString &url, const QMap<QString, QString> &query);
+    HttpResponse get(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse get(const QString &url, const QUrlQuery &query);
+    HttpResponse get(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
 
-    HttpResponse post(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
-        {return post(url, QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
-    HttpResponse put(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
-        {return put(url, QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
-    HttpResponse patch(const QUrl &url, const QJsonObject &json, COMMON_PARAMETERS)
-        {return patch(url, QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
+    HttpResponse head(const QUrl &url);
+    HttpResponse head(const QUrl &url, const QMap<QString, QString> &query);
+    HttpResponse head(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse head(const QUrl &url, const QUrlQuery &query);
+    HttpResponse head(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse head(const QString &url);
+    HttpResponse head(const QString &url, const QMap<QString, QString> &query);
+    HttpResponse head(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse head(const QString &url, const QUrlQuery &query);
+    HttpResponse head(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
 
-    HttpResponse get(const QString &url, COMMON_PARAMETERS) { return get(QUrl(url), COMMON_PARAMETERS_FORWARD); }
-    HttpResponse head(const QString &url, COMMON_PARAMETERS) { return head(QUrl(url), COMMON_PARAMETERS_FORWARD); }
-    HttpResponse options(const QString &url, COMMON_PARAMETERS) { return options(QUrl(url), COMMON_PARAMETERS_FORWARD); }
-    HttpResponse delete_(const QString &url, COMMON_PARAMETERS) { return delete_(QUrl(url), COMMON_PARAMETERS_FORWARD); }
-    HttpResponse post(const QString &url, const QByteArray &body, COMMON_PARAMETERS) { return post(QUrl(url), body, COMMON_PARAMETERS_FORWARD); }
-    HttpResponse put(const QString &url, const QByteArray &body, COMMON_PARAMETERS) { return put(QUrl(url),  body, COMMON_PARAMETERS_FORWARD); }
-    HttpResponse patch(const QString &url, const QByteArray &body, COMMON_PARAMETERS) { return patch(QUrl(url),  body, COMMON_PARAMETERS_FORWARD); }
-    HttpResponse post(const QString &url, const QJsonDocument &json, COMMON_PARAMETERS) { return post(QUrl(url),  json, COMMON_PARAMETERS_FORWARD); }
-    HttpResponse put(const QString &url, const QJsonDocument &json, COMMON_PARAMETERS) { return put(QUrl(url),  json, COMMON_PARAMETERS_FORWARD); }
-    HttpResponse patch(const QString &url, const QJsonDocument &json, COMMON_PARAMETERS) { return patch(QUrl(url),  json, COMMON_PARAMETERS_FORWARD); }
 
-    HttpResponse post(const QString &url, const QJsonObject &json, COMMON_PARAMETERS)
-        {return post(QUrl(url), QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
-    HttpResponse put(const QString &url, const QJsonObject &json, COMMON_PARAMETERS)
-        {return put(QUrl(url), QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
-    HttpResponse patch(const QString &url, const QJsonObject &json, COMMON_PARAMETERS)
-        {return patch(QUrl(url), QJsonDocument(json), COMMON_PARAMETERS_FORWARD);}
+    HttpResponse options(const QUrl &url);
+    HttpResponse options(const QUrl &url, const QMap<QString, QString> &query);
+    HttpResponse options(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse options(const QUrl &url, const QUrlQuery &query);
+    HttpResponse options(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse options(const QString &url);
+    HttpResponse options(const QString &url, const QMap<QString, QString> &query);
+    HttpResponse options(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse options(const QString &url, const QUrlQuery &query);
+    HttpResponse options(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
 
+    HttpResponse delete_(const QUrl &url);
+    HttpResponse delete_(const QUrl &url, const QMap<QString, QString> &query);
+    HttpResponse delete_(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse delete_(const QUrl &url, const QUrlQuery &query);
+    HttpResponse delete_(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse delete_(const QString &url);
+    HttpResponse delete_(const QString &url, const QMap<QString, QString> &query);
+    HttpResponse delete_(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse delete_(const QString &url, const QUrlQuery &query);
+    HttpResponse delete_(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+
+    HttpResponse post(const QUrl &url, const QByteArray &body);
+    HttpResponse post(const QUrl &url, const QJsonDocument &body);
+    HttpResponse post(const QUrl &url, const QJsonObject &body);
+    HttpResponse post(const QUrl &url, const QJsonArray &body);
+    HttpResponse post(const QUrl &url, const QMap<QString, QString> &body);
+    HttpResponse post(const QUrl &url, const QUrlQuery &body);
+    HttpResponse post(const QUrl &url, const FormData &body);
+    HttpResponse post(const QUrl &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QUrl &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QUrl &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QUrl &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QUrl &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QString &url, const QByteArray &body);
+    HttpResponse post(const QString &url, const QJsonDocument &body);
+    HttpResponse post(const QString &url, const QJsonObject &body);
+    HttpResponse post(const QString &url, const QJsonArray &body);
+    HttpResponse post(const QString &url, const QMap<QString, QString> &body);
+    HttpResponse post(const QString &url, const QUrlQuery &body);
+    HttpResponse post(const QString &url, const FormData &body);
+    HttpResponse post(const QString &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QString &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QString &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QString &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QString &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QString &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse post(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers);
+
+    HttpResponse patch(const QUrl &url, const QByteArray &body);
+    HttpResponse patch(const QUrl &url, const QJsonDocument &body);
+    HttpResponse patch(const QUrl &url, const QJsonObject &body);
+    HttpResponse patch(const QUrl &url, const QJsonArray &body);
+    HttpResponse patch(const QUrl &url, const QMap<QString, QString> &body);
+    HttpResponse patch(const QUrl &url, const QUrlQuery &body);
+    HttpResponse patch(const QUrl &url, const FormData &body);
+    HttpResponse patch(const QUrl &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QUrl &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QUrl &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QUrl &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QUrl &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QString &url, const QByteArray &body);
+    HttpResponse patch(const QString &url, const QJsonDocument &body);
+    HttpResponse patch(const QString &url, const QJsonObject &body);
+    HttpResponse patch(const QString &url, const QJsonArray &body);
+    HttpResponse patch(const QString &url, const QMap<QString, QString> &body);
+    HttpResponse patch(const QString &url, const QUrlQuery &body);
+    HttpResponse patch(const QString &url, const FormData &body);
+    HttpResponse patch(const QString &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QString &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QString &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QString &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QString &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QString &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers);
+
+    HttpResponse put(const QUrl &url, const QByteArray &body);
+    HttpResponse put(const QUrl &url, const QJsonDocument &body);
+    HttpResponse put(const QUrl &url, const QJsonObject &body);
+    HttpResponse put(const QUrl &url, const QJsonArray &body);
+    HttpResponse put(const QUrl &url, const QMap<QString, QString> &body);
+    HttpResponse put(const QUrl &url, const QUrlQuery &body);
+    HttpResponse put(const QUrl &url, const FormData &body);
+    HttpResponse put(const QUrl &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QUrl &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QUrl &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QUrl &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QUrl &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QString &url, const QByteArray &body);
+    HttpResponse put(const QString &url, const QJsonDocument &body);
+    HttpResponse put(const QString &url, const QJsonObject &body);
+    HttpResponse put(const QString &url, const QJsonArray &body);
+    HttpResponse put(const QString &url, const QMap<QString, QString> &body);
+    HttpResponse put(const QString &url, const QUrlQuery &body);
+    HttpResponse put(const QString &url, const FormData &body);
+    HttpResponse put(const QString &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QString &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QString &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QString &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QString &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QString &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse put(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers);
 
     HttpResponse send(HttpRequest &request);
     QNetworkCookieJar &cookieJar();
@@ -241,14 +337,51 @@ public:
     void setDefaultUserAgent(const QString &userAgent);
     HttpVersion defaultVersion() const;
     void setDefaultVersion(HttpVersion defaultVersion);
+    float defaultConnnectionTimeout() const;
+    void setDefaultConnectionTimeout(float timeout);
 
     QSharedPointer<Socks5Proxy> socks5Proxy() const;
     void setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy);
     QSharedPointer<HttpProxy> httpProxy() const;
     void setHttpProxy(QSharedPointer<HttpProxy> proxy);
+    QSharedPointer<HttpCacheManager> cacheManager() const;
+    void setCacheManager(QSharedPointer<HttpCacheManager> cacheManager);
 private:
     HttpSessionPrivate *d_ptr;
     Q_DECLARE_PRIVATE(HttpSession)
+};
+
+
+class HttpCacheManager
+{
+public:
+    HttpCacheManager();
+    virtual ~HttpCacheManager();
+public:
+    virtual bool addResponse(const HttpResponse &response);
+    virtual bool getResponse(HttpResponse *response);
+protected:
+    virtual bool store(const QString &url, const QByteArray &data);
+    virtual QByteArray load(const QString &url);
+};
+
+
+class HttpMemoryCacheManagerPrivate;
+class HttpMemoryCacheManager: public HttpCacheManager
+{
+public:
+    HttpMemoryCacheManager();
+    virtual ~HttpMemoryCacheManager() override;
+public:
+    float expireTime() const;
+    void setExpireTime(float expireTime);
+protected:
+    QMap<QString, QByteArray> &cache();
+    virtual bool store(const QString &url, const QByteArray &data) override;
+    virtual QByteArray load(const QString &url) override;
+private:
+    HttpMemoryCacheManagerPrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(HttpMemoryCacheManager)
 };
 
 

@@ -9,25 +9,42 @@ void LambdaFunctor::operator ()()
 }
 
 
-DeferCallThread::DeferCallThread(const std::function<void()> &func, LambdaFunctor *yieldCoroutine, EventLoopCoroutine *eventloop)
-:func(func), yieldCoroutine(yieldCoroutine), eventloop(eventloop)
+class MarkDoneFunctor: public Functor
+{
+public:
+    MarkDoneFunctor(const QSharedPointer<Event> &done)
+        :done(done) {}
+    virtual void operator ()() override;
+    QSharedPointer<Event> done;
+};
+
+
+void MarkDoneFunctor::operator ()()
+{
+    done->set();
+}
+
+
+DeferCallThread::DeferCallThread(std::function<void()> makeResult, QSharedPointer<Event> done, EventLoopCoroutine *eventloop)
+    :makeResult(makeResult), done(done), eventloop(eventloop)
 {
 }
 
 
 void DeferCallThread::run()
 {
-    func();
+    makeResult();
     if (!eventloop.isNull()) {
-        eventloop->callLaterThreadSafe(0, yieldCoroutine);
+        eventloop->callLaterThreadSafe(0, new MarkDoneFunctor(done));
         eventloop->callLaterThreadSafe(100, new DeleteLaterFunctor<DeferCallThread>(this));
-    } else {
-        delete yieldCoroutine;
     }
 }
 
 
-NewThreadCoroutine::~NewThreadCoroutine() {}
+void NewThreadCoroutine::run()
+{
+    callInThread(func);
+}
 
 
 CoroutineGroup::CoroutineGroup()
@@ -177,5 +194,61 @@ void CoroutineGroup::deleteCoroutine(BaseCoroutine *baseCoroutine)
         }
     }
 }
+
+
+void ThreadPoolWorkThread::kill()
+{
+    mutex.lock();
+    queue.clear();
+    hasWork.wakeAll();
+    mutex.unlock();
+    wait();
+}
+
+
+void ThreadPoolWorkThread::run()
+{
+    while (true) {
+        mutex.lock();
+        if (queue.isEmpty()) {
+            hasWork.wait(&mutex);
+            if (queue.isEmpty()) {
+                mutex.unlock();
+                return;
+            }
+        }
+        const ThreadPoolWorkItem &item = queue.takeFirst();
+        mutex.unlock();
+        if (item.eventloop.isNull()) {
+            return;
+        }
+        item.makeResult();
+        if (!item.eventloop.isNull()) {
+            item.eventloop->callLaterThreadSafe(0, new MarkDoneFunctor(item.done));
+        }
+    }
+}
+
+
+ThreadPool::ThreadPool(int threads)
+    :operations(new CoroutineGroup())
+{
+    if (threads <= 0) {
+        semaphore.reset(new Semaphore(QThread::idealThreadCount()));
+    } else {
+        semaphore.reset(new Semaphore(threads));
+    }
+}
+
+
+ThreadPool::~ThreadPool()
+{
+    operations->killall();
+    for (QSharedPointer<ThreadPoolWorkThread> thread: threads) {
+        thread->kill();
+    }
+    delete operations;
+}
+
 
 QTNETWORKNG_NAMESPACE_END

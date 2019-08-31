@@ -98,7 +98,7 @@ BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *prev
 #else
         stack = operator new(stackSize);
 #endif
-        if(!stack) {
+        if (!stack) {
             qWarning("Coroutine can not malloc new memroy.");
             bad = true;
         }
@@ -120,7 +120,6 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
         delete exception;
 
     if(currentCoroutine().get() == q) {
-        //TODO 在当前 coroutine 里面把自己给干掉了怎么办？
         qWarning("do not delete one self.");
     }
 

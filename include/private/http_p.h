@@ -28,6 +28,7 @@ class ConnectionPool
 public:
     ConnectionPool();
     virtual ~ConnectionPool();
+    QSharedPointer<Semaphore> getSemaphore(const QUrl &url);
     void recycle(const QUrl &url, QSharedPointer<SocketLike> connection);
     QSharedPointer<SocketLike> connectionForUrl(const QUrl &url, RequestError **error);
     void removeUnusedConnections();
@@ -35,10 +36,13 @@ public:
     QSharedPointer<HttpProxy> httpProxy() const;
     void setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy);
     void setHttpProxy(QSharedPointer<HttpProxy> proxy);
+private:
+    ConnectionPoolItem &getItem(const QUrl &url);
 public:
     QMap<QUrl, ConnectionPoolItem> items;
     int maxConnectionsPerServer;
     int timeToLive;
+    float defaultConnectionTimeout;
     QSharedPointer<SocketDnsCache> dnsCache;
     CoroutineGroup *operations;
     QSharedPointer<BaseProxySwitcher> proxySwitcher;
@@ -55,6 +59,7 @@ public:
     HttpResponse send(HttpRequest &req);
 public:
     QNetworkCookieJar cookieJar;
+    QSharedPointer<HttpCacheManager> cacheManager;
     QString defaultUserAgent;
     HttpVersion defaultVersion;
     HttpSession *q_ptr;
@@ -63,6 +68,7 @@ public:
     static inline HttpSessionPrivate *getPrivateHelper(HttpSession *session) {return session->d_ptr; }
     Q_DECLARE_PUBLIC(HttpSession)
 };
+
 
 QTNETWORKNG_NAMESPACE_END
 

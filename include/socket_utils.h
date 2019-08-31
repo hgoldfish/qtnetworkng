@@ -80,6 +80,7 @@ inline QSharedPointer<StreamLike> asStream(QSharedPointer<KcpSocket> s) { return
 inline QSharedPointer<StreamLike> asStream(KcpSocket *s) { return SocketLike::kcpSocket(s).dynamicCast<StreamLike>(); }
 QSharedPointer<Socket> convertSocketLikeToSocket(QSharedPointer<SocketLike> socket);
 
+
 class FileLike
 {
 public:

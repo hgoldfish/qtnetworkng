@@ -4,7 +4,7 @@
 #include <sys/mman.h>
 #include <QtCore/qdebug.h>
 #include <QtCore/qlist.h>
-#include "../include/coroutine_p.h"
+#include "../include/private/coroutine_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -16,17 +16,17 @@ public:
     BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *previous, size_t stackSize);
     ~BaseCoroutinePrivate();
     bool initContext();
-    bool raise(CoroutineException *exception = 0);
+    bool raise(CoroutineException *exception = nullptr);
     bool yield();
 private:
     BaseCoroutine * const q_ptr;
     BaseCoroutine * previous;
     size_t stackSize;
     void *stack;
-    enum BaseCoroutine::State state;
-    bool bad;
     CoroutineException *exception;
     ucontext_t *context;
+    enum BaseCoroutine::State state;
+    bool bad;
     Q_DECLARE_PUBLIC(BaseCoroutine)
 private:
     static void run_stub(BaseCoroutinePrivate *coroutine);
@@ -44,11 +44,11 @@ void BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
         coroutine->q_ptr->run();
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
-    } catch(const CoroutineExitException &e) {
+    } catch(const CoroutineExitException &) {
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
-    } catch(const CoroutineException &e) {
-        qDebug() << "got coroutine exception:" << e.what();
+    } catch(const CoroutineException &) {
+//        qDebug() << "got coroutine exception:" << e.what();
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
     } catch(...) {
@@ -62,22 +62,19 @@ void BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
 
 
 BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *previous, size_t stackSize)
-    :q_ptr(q), previous(previous), stackSize(stackSize), stack(0), state(BaseCoroutine::Initialized),
-      bad(false), exception(nullptr), context(nullptr)
+    :q_ptr(q), previous(previous), stackSize(stackSize), stack(nullptr),
+      exception(nullptr), context(nullptr), state(BaseCoroutine::Initialized), bad(false)
 {
-    if(stackSize) {
+    if (stackSize) {
 #ifdef MAP_GROWSDOWN
         stack = mmap(nullptr, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
 #else
         stack = mmap(nullptr, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 #endif
-        if(!stack) {
-            qFatal("Coroutine can not malloc new memroy.");
+        if (!stack) {
+            qWarning("Coroutine can not malloc new memroy.");
             bad = true;
-            return;
         }
-    } else {
-        stack = 0;
     }
 }
 
@@ -89,17 +86,15 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
         qWarning() << "deleting running BaseCoroutine" << this;
     }
     if (stack) {
-//        operator delete(stack);
         munmap(stack, stackSize);
     }
 
     if(currentCoroutine().get() == q) {
-        //TODO 在当前 coroutine 里面把自己给干掉了怎么办？
         qWarning("do not delete one self.");
     }
-    if(context)
+    if (context)
         delete context;
-    if(exception)
+    if (exception)
         delete exception;
 }
 
@@ -127,12 +122,9 @@ bool BaseCoroutinePrivate::yield()
     if(currentCoroutine().get() != old) { // when coroutine finished, swapcontext auto yield to the previous.
         currentCoroutine().set(old);
     }
-    CoroutineException *e = old->d_ptr->exception;
+    CoroutineException *e = old->dd_ptr->exception;
     if(e) {
-        old->d_func()->exception = 0;
-//        if(!dynamic_cast<CoroutineExitException*>(e)) {
-//            qDebug() << "got exception:" << e->what() << old;
-//        }
+        old->d_func()->exception = nullptr;
         e->raise();
     }
     return true;
@@ -145,7 +137,7 @@ bool BaseCoroutinePrivate::initContext()
 
     context = new ucontext_t;
     if(!context) {
-        qFatal("Coroutine can not malloc new memroy.");
+        qWarning("Coroutine can not malloc new memroy.");
         bad = true;
         return false;
     }
@@ -157,9 +149,9 @@ bool BaseCoroutinePrivate::initContext()
     context->uc_stack.ss_sp = stack;
     context->uc_stack.ss_size = stackSize;
     if(previous) {
-        context->uc_link = previous->d_ptr->context;
+        context->uc_link = previous->dd_ptr->context;
     } else {
-        context->uc_link = 0;
+        context->uc_link = nullptr;
     }
     makecontext(context, (void(*)(void))run_stub, 1, this);
     return true;
@@ -200,20 +192,20 @@ bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 
 BaseCoroutine* createMainCoroutine()
 {
-    BaseCoroutine *main = new BaseCoroutine(0, 0);
-    if(!main)
-        return 0;
-    BaseCoroutinePrivate *mainPrivate = main->d_ptr;
+    BaseCoroutine *main = new BaseCoroutine(nullptr, 0);
+    if (!main)
+        return nullptr;
+    BaseCoroutinePrivate *mainPrivate = main->dd_ptr;
     mainPrivate->context = new ucontext_t;
     if (!mainPrivate->context) {
-        qFatal("Coroutine can not malloc new memroy.");
+        qWarning("Coroutine can not malloc new memroy.");
         delete main;
-        return 0;
+        return nullptr;
     }
     if (getcontext(mainPrivate->context) < 0) {
         qDebug() << "getcontext() returns error." << errno;
         delete main;
-        return 0;
+        return nullptr;
     }
     mainPrivate->state = BaseCoroutine::Started;
     return main;
@@ -221,14 +213,14 @@ BaseCoroutine* createMainCoroutine()
 
 // 开始实现 QBaseCoroutine
 BaseCoroutine::BaseCoroutine(BaseCoroutine * previous, size_t stackSize)
-    :d_ptr(new BaseCoroutinePrivate(this, previous, stackSize))
+    :dd_ptr(new BaseCoroutinePrivate(this, previous, stackSize))
 {
 
 }
 
 BaseCoroutine::~BaseCoroutine()
 {
-    delete d_ptr;
+    delete dd_ptr;
 }
 
 
@@ -238,17 +230,20 @@ BaseCoroutine::State BaseCoroutine::state() const
     return d->state;
 }
 
+
 void BaseCoroutine::setState(BaseCoroutine::State state)
 {
     Q_D(BaseCoroutine);
     d->state = state;
 }
 
+
 bool BaseCoroutine::raise(CoroutineException *exception)
 {
     Q_D(BaseCoroutine);
     return d->raise(exception);
 }
+
 
 bool BaseCoroutine::yield()
 {

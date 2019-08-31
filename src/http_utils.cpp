@@ -4,6 +4,20 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 
+QDataStream &operator >>(QDataStream &ds, HttpHeader &header)
+{
+    ds >> header.name >> header.value;
+    return ds;
+}
+
+
+QDataStream &operator <<(QDataStream &ds, const HttpHeader &header)
+{
+    ds << header.name << header.value;
+    return ds;
+}
+
+
 bool toMessage(HttpStatus status, QString *shortMessage, QString *longMessage)
 {
     switch (status) {
@@ -450,6 +464,7 @@ static QStringList knownHeaders = {
     QStringLiteral("MIME-Version"),
 };
 
+
 QString normalizeHeaderName(const QString &headerName) {
     for (const QString &goodName: knownHeaders) {
         if(headerName.compare(goodName, Qt::CaseInsensitive) == 0) {
@@ -458,6 +473,7 @@ QString normalizeHeaderName(const QString &headerName) {
     }
     return headerName;
 }
+
 
 bool HeaderOperationMixin::hasHeader(const QString &headerName) const
 {
@@ -469,6 +485,7 @@ bool HeaderOperationMixin::hasHeader(const QString &headerName) const
     }
     return false;
 }
+
 
 bool HeaderOperationMixin::removeHeader(const QString &headerName)
 {
@@ -482,16 +499,19 @@ bool HeaderOperationMixin::removeHeader(const QString &headerName)
     return false;
 }
 
+
 void HeaderOperationMixin::setHeader(const QString &name, const QByteArray &value)
 {
     removeHeader(name);
     addHeader(name, value);
 }
 
+
 void HeaderOperationMixin::addHeader(const QString &name, const QByteArray &value)
 {
     headers.append(HttpHeader(normalizeHeaderName(name), value));
 }
+
 
 QByteArray HeaderOperationMixin::header(const QString &headerName, const QByteArray &defaultValue) const
 {
@@ -505,58 +525,65 @@ QByteArray HeaderOperationMixin::header(const QString &headerName, const QByteAr
 }
 
 
-QByteArray HeaderOperationMixin::header(KnownHeader knownHeader, const QByteArray &defaultValue) const
+inline QString HeaderOperationMixin::toString(KnownHeader knownHeader)
 {
     switch (knownHeader) {
     case ContentTypeHeader:
-        return header("Content-Type", defaultValue);
+        return "Content-Type";
     case ContentLengthHeader:
-        return header("Content-Length", defaultValue);
+        return "Content-Length";
     case ContentEncodingHeader:
-        return header("Content-Encoding", defaultValue);
+        return "Content-Encoding";
     case TransferEncodingHeader:
-        return header("Transfer-Encoding", defaultValue);
+        return "Transfer-Encoding";
     case LocationHeader:
-        return header("Location", defaultValue);
+        return "Location";
     case LastModifiedHeader:
-        return header("Last-Modified", defaultValue);
+        return "Last-Modified";
     case CookieHeader:
-        return header("Cookie", defaultValue);
+        return "Cookie";
     case SetCookieHeader:
-        return header("Set-Cookie", defaultValue);
+        return "Set-Cookie";
     case ContentDispositionHeader:
-        return header("Content-Disposition", defaultValue);
+        return "Content-Disposition";
     case UserAgentHeader:
-        return header("User-Agent", defaultValue);
+        return "User-Agent";
     case AcceptHeader:
-        return header("Accept", defaultValue);
+        return "Accept";
     case AcceptLanguageHeader:
-        return header("Accept-Language", defaultValue);
+        return "Accept-Language";
     case AcceptEncodingHeader:
-        return header("Accept-Encoding", defaultValue);
+        return "Accept-Encoding";
     case PragmaHeader:
-        return header("Pragma", defaultValue);
+        return "Pragma";
     case CacheControlHeader:
-        return header("Cache-Control");
+        return "Cache-Control";
     case DateHeader:
-        return header("Date", defaultValue);
+        return "Date";
     case AllowHeader:
-        return header("Allow", defaultValue);
+        return "Allow";
     case VaryHeader:
-        return header("Vary", defaultValue);
+        return "Vary";
     case FrameOptionsHeader:
-        return header("X-Frame-Options", defaultValue);
+        return "X-Frame-Options";
     case MIMEVersionHeader:
-        return header("MIME-Version", defaultValue);
+        return "MIME-Version";
     case ServerHeader:
-        return header("Server", defaultValue);
+        return "Server";
     case ConnectionHeader:
-        return header("Connection", defaultValue);
+        return "Connection";
     case UpgradeHeader:
-        return header("Upgrade", defaultValue);
+        return "Upgrade";
     }
-    return QByteArray();
+    return QString();
 }
+
+
+QByteArray HeaderOperationMixin::header(KnownHeader knownHeader, const QByteArray &defaultValue) const
+{
+    return header(toString(knownHeader), defaultValue);
+}
+
 
 QByteArrayList HeaderOperationMixin::multiHeader(const QString &headerName) const
 {
@@ -570,6 +597,13 @@ QByteArrayList HeaderOperationMixin::multiHeader(const QString &headerName) cons
     return l;
 }
 
+
+QByteArrayList HeaderOperationMixin::multiHeader(KnownHeader header) const
+{
+    return multiHeader(toString(header));
+}
+
+
 void HeaderOperationMixin::setHeaders(const QMap<QString, QByteArray> headers)
 {
     this->headers.clear();
@@ -577,6 +611,7 @@ void HeaderOperationMixin::setHeaders(const QMap<QString, QByteArray> headers)
         this->headers.append(HttpHeader(normalizeHeaderName(itor.key()), itor.value()));
     }
 }
+
 
 QByteArray HeaderSplitter::nextLine(HeaderSplitter::Error *error)
 {

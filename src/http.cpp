@@ -4,6 +4,7 @@
 #include <QtCore/qdatetime.h>
 #include <QtCore/qtextcodec.h>
 #include <QtCore/qendian.h>
+#include <QtCore/qdatastream.h>
 #include "../include/private/http_p.h"
 #include "../include/socks5_proxy.h"
 #ifndef QTNG_NO_CRYPTO
@@ -91,11 +92,13 @@ public:
 public:
     QString method;
     QUrl url;
-    QMap<QString, QString> query;
+    QUrlQuery query;
     QList<QNetworkCookie> cookies;
     QByteArray body;
+    QString userAgent;
     int maxBodySize;
     int maxRedirects;
+    float timeout;
     HttpRequest::Priority priority;
     HttpVersion version;
     bool streamResponse;
@@ -104,8 +107,9 @@ public:
 
 HttpRequestPrivate::HttpRequestPrivate()
     :method("GET")
-    , maxBodySize(1024 * 1024 * 8)
+    , maxBodySize(0)
     , maxRedirects(8)
+    , timeout(-1.0)
     , priority(HttpRequest::NormalPriority)
     , version(Http1_1)
     , streamResponse(false)
@@ -121,8 +125,10 @@ HttpRequestPrivate::HttpRequestPrivate(const HttpRequestPrivate &other)
     , query(other.query)
     , cookies(other.cookies)
     , body(other.body)
+    , userAgent(other.userAgent)
     , maxBodySize(other.maxBodySize)
     , maxRedirects(other.maxRedirects)
+    , timeout(other.timeout)
     , priority(other.priority)
     , version(other.version)
     , streamResponse(other.streamResponse)
@@ -147,11 +153,13 @@ HttpRequest::HttpRequest(const HttpRequest &other)
     this->headers = other.headers;
 }
 
+
 HttpRequest::HttpRequest(HttpRequest &&other)
 {
     qSwap(d, other.d);
     headers = std::move(other.headers);
 }
+
 
 HttpRequest &HttpRequest::operator=(const HttpRequest &other)
 {
@@ -166,49 +174,83 @@ QString HttpRequest::method() const
     return d->method;
 }
 
+
 void HttpRequest::setMethod(const QString &method)
 {
     d->method = method;
 }
+
 
 QUrl HttpRequest::url() const
 {
     return d->url;
 }
 
+
 void HttpRequest::setUrl(const QUrl &url)
 {
     d->url = url;
 }
 
+
 QMap<QString, QString> HttpRequest::query() const
 {
-    return d->query;
+    QMap<QString, QString> r;
+    for (const QPair<QString, QString> &p: d->query.queryItems()) {
+        r.insert(p.first, p.second);
+    }
+    return r;
 }
+
 
 void HttpRequest::setQuery(const QMap<QString, QString> &query)
 {
+    d->query.clear();
+    for (QMap<QString, QString>::const_iterator itor = query.constBegin(); itor != query.constEnd(); ++itor) {
+        d->query.addQueryItem(itor.key(), itor.value());
+    }
+}
+
+
+void HttpRequest::setQuery(const QUrlQuery &query)
+{
     d->query = query;
 }
+
 
 QList<QNetworkCookie> HttpRequest::cookies() const
 {
     return d->cookies;
 }
 
+
 void HttpRequest::setCookies(const QList<QNetworkCookie> &cookies)
 {
     d->cookies = cookies;
 }
+
 
 QByteArray HttpRequest::body() const
 {
     return d->body;
 }
 
+
 void HttpRequest::setBody(const QByteArray &body)
 {
     d->body = body;
+}
+
+
+QString HttpRequest::userAgent() const
+{
+    return d->userAgent;
+}
+
+
+void HttpRequest::setUserAgent(const QString &userAgent)
+{
+    d->userAgent = userAgent;
 }
 
 int HttpRequest::maxBodySize() const
@@ -261,52 +303,64 @@ bool HttpRequest::streamResponse() const
     return d->streamResponse;
 }
 
-void HttpRequest::setFormData(const FormData &formData, const QString &method)
+float HttpRequest::tiemout() const
 {
-    d->method = method;
+    return d->timeout;
+}
+
+void HttpRequest::setTimeout(float timeout)
+{
+    d->timeout = timeout;
+}
+
+
+void HttpRequest::setBody(const FormData &formData)
+{
     QString contentType = QString::fromLatin1("multipart/form-data; boundary=%1").arg(QString::fromLatin1(formData.boundary));
     setHeader(QStringLiteral("Content-Type"), contentType.toLatin1());
     QString mimeHeader("MIME-Version");
-    if(!hasHeader(mimeHeader)) {
+    if (!hasHeader(mimeHeader)) {
         setHeader(mimeHeader, QByteArray("1.0"));
     }
     d->body = formData.toByteArray();
 }
 
-HttpRequest HttpRequest::fromFormData(const FormData &formData)
+
+void HttpRequest::setBody(const QJsonDocument &json)
 {
-    HttpRequest request;
-    request.setFormData(formData, QStringLiteral("POST"));
-    return request;
+    setHeader(QStringLiteral("Content-Type"), "application/json");
+    d->body = json.toJson();
 }
 
 
-HttpRequest HttpRequest::fromForm(const QUrlQuery &data)
+void HttpRequest::setBody(const QJsonObject &json)
 {
-    HttpRequest request;
-    request.setContentType(QStringLiteral("application/x-www-form-urlencoded"));
-    request.setBody(data.toString(QUrl::FullyEncoded).toUtf8());
-    request.setMethod("POST");
-    return request;
+    setHeader(QStringLiteral("Content-Type"), "application/json");
+    d->body = QJsonDocument(json).toJson();
 }
 
 
-HttpRequest HttpRequest::fromForm(const QMap<QString, QString> &query)
+void HttpRequest::setBody(const QJsonArray &json)
 {
-    QUrlQuery data;
-    for (QMap<QString, QString>::const_iterator itor = query.constBegin(); itor != query.constEnd(); ++itor) {
-        data.addQueryItem(itor.key(), itor.value());
+    setHeader(QStringLiteral("Content-Type"), "application/json");
+    d->body = QJsonDocument(json).toJson();
+}
+
+
+void HttpRequest::setBody(const QMap<QString, QString> form)
+{
+    QUrlQuery query;
+    for (QMap<QString, QString>::const_iterator itor = form.constBegin(); itor != form.constEnd(); ++itor) {
+        query.addQueryItem(itor.key(), itor.value());
     }
-    return fromForm(data);
+    setBody(query);
 }
 
-HttpRequest HttpRequest::fromJson(const QJsonDocument &json)
+
+void HttpRequest::setBody(const QUrlQuery &form)
 {
-    HttpRequest request;
-    request.setContentType("application/json");
-    request.setBody(json.toJson());
-    request.setMethod("POST");
-    return request;
+    setHeader(QStringLiteral("Content-Type"), "application/x-www-form-urlencoded");
+    d->body = form.toString(QUrl::FullyEncoded).toUtf8();
 }
 
 
@@ -470,6 +524,11 @@ RequestError *toRequestError(ChunkedBlockReader::Error error)
     }
 }
 
+QByteArray HttpResponse::body() const
+{
+    return d->body;
+}
+
 QByteArray HttpResponse::body()
 {
     // special cases.
@@ -480,7 +539,7 @@ QByteArray HttpResponse::body()
     // read it from stream
     qint32 contentLength = getContentLength();
     if (contentLength > 0) {
-        if (contentLength > d->request.maxBodySize()) {
+        if (d->request.maxBodySize() > 0 && contentLength > d->request.maxBodySize()) {
             d->error.reset(new UnrewindableBodyError());
             d->consumed = true;
             return QByteArray();
@@ -518,7 +577,12 @@ QByteArray HttpResponse::body()
             d->body.clear();
             RequestError *error = nullptr;
             while (true) {
-                qint64 leftBytes = d->request.maxBodySize() - d->body.size();
+                qint64 leftBytes;
+                if (d->request.maxBodySize() > 0) {
+                    leftBytes = d->request.maxBodySize() - d->body.size();
+                } else {
+                    leftBytes = INT_MAX;
+                }
                 const QByteArray &block = reader.nextBlock(leftBytes, &readerError);
                 error = toRequestError(readerError);
                 if (error != nullptr) {
@@ -532,7 +596,7 @@ QByteArray HttpResponse::body()
                 d->body.append(block);
             }
         } else {
-            while (d->body.size() < d->request.maxBodySize()) {
+            while (d->request.maxBodySize() < 0 || d->body.size() < d->request.maxBodySize()) {
                 const QByteArray &t = d->stream->recv(1024 * 8);
                 if (t.isEmpty()) {
                     break;
@@ -690,18 +754,25 @@ static QUrl hostOnly(const QUrl &url)
     return h;
 }
 
+
 ConnectionPool::ConnectionPool()
-    :maxConnectionsPerServer(10), timeToLive(60), operations(new CoroutineGroup), proxySwitcher(new SimpleProxySwitcher)
+    : maxConnectionsPerServer(10)
+    , timeToLive(60)
+    , defaultConnectionTimeout(10.0)
+    , operations(new CoroutineGroup)
+    , proxySwitcher(new SimpleProxySwitcher)
 {
     operations->spawnWithName("removeUnusedConnections", [this] {removeUnusedConnections();});
 }
+
 
 ConnectionPool::~ConnectionPool()
 {
     delete operations;
 }
 
-void ConnectionPool::recycle(const QUrl &url, QSharedPointer<SocketLike> connection)
+
+ConnectionPoolItem &ConnectionPool::getItem(const QUrl &url)
 {
     const QUrl &h = hostOnly(url);
     ConnectionPoolItem &item = items[h];
@@ -709,25 +780,29 @@ void ConnectionPool::recycle(const QUrl &url, QSharedPointer<SocketLike> connect
     if (item.semaphore.isNull()) {
         item.semaphore.reset(new Semaphore(maxConnectionsPerServer));
     }
+    return item;
+}
+
+
+QSharedPointer<Semaphore> ConnectionPool::getSemaphore(const QUrl &url)
+{
+    ConnectionPoolItem &item = getItem(url);
+    return item.semaphore;
+}
+
+
+void ConnectionPool::recycle(const QUrl &url, QSharedPointer<SocketLike> connection)
+{
+    ConnectionPoolItem &item = getItem(url);
     if (item.connections.size() < maxConnectionsPerServer) {
         item.connections.append(connection);
     }
 }
 
+
 QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, RequestError **error)
 {
-    const QUrl &h = hostOnly(url);
-    ConnectionPoolItem &item = items[h];
-
-    item.lastUsed = QDateTime::currentDateTimeUtc();
-    if (item.semaphore.isNull()) {
-        item.semaphore.reset(new Semaphore(maxConnectionsPerServer));
-    }
-    ScopedLock<Semaphore> lock(item.semaphore);
-    if (!lock.isSuccess()) {
-        return QSharedPointer<SocketLike>();
-    }
-
+    ConnectionPoolItem &item = getItem(url);
     QSharedPointer<SocketLike> connection;
 
     while (!item.connections.isEmpty()) {
@@ -752,6 +827,7 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, Req
     QSharedPointer<Socks5Proxy> socks5Proxy = proxySwitcher->selectSocks5Proxy(url);
     if (socks5Proxy) {
         rawSocket = socks5Proxy->connect(url.host(), static_cast<quint16>(url.port(defaultPort)));
+
         if (url.scheme() == QStringLiteral("http")) {
             connection = SocketLike::rawSocket(rawSocket);
         } else {
@@ -783,7 +859,6 @@ QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, Req
             return QSharedPointer<SocketLike>();
         }
     }
-
     return connection;
 }
 
@@ -792,7 +867,7 @@ void ConnectionPool::removeUnusedConnections()
 {
     while (true) {
         try {
-            Coroutine::sleep(1);
+            Coroutine::sleep(1.0);
         } catch (CoroutineException &) {
             return;
         }
@@ -801,6 +876,8 @@ void ConnectionPool::removeUnusedConnections()
         for (QMap<QUrl, ConnectionPoolItem>::const_iterator itor = items.constBegin(); itor != items.constEnd(); ++itor) {
             if (itor.value().lastUsed.secsTo(now) < timeToLive || itor.value().semaphore->isUsed()) {
                 newItems.insert(itor.key(), itor.value());
+            } else {
+                qDebug() << "remove connection:" << itor.value().lastUsed;
             }
         }
         items = newItems;
@@ -829,14 +906,18 @@ QSharedPointer<HttpProxy> ConnectionPool::httpProxy() const
 void ConnectionPool::setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy)
 {
     proxySwitcher->socks5Proxies.clear();
-    proxySwitcher->socks5Proxies.append(proxy);
+    if (!proxy.isNull()) {
+        proxySwitcher->socks5Proxies.append(proxy);
+    }
 }
 
 
 void ConnectionPool::setHttpProxy(QSharedPointer<HttpProxy> proxy)
 {
     proxySwitcher->httpProxies.clear();
-    proxySwitcher->httpProxies.append(proxy);
+    if (!proxy.isNull()) {
+        proxySwitcher->httpProxies.append(proxy);
+    }
 }
 
 
@@ -873,17 +954,41 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     }
     if (!request.d->query.isEmpty()) {
         QUrlQuery query(url);
-        for (QMap<QString, QString>::const_iterator itor = request.d->query.constBegin(); itor != request.d->query.constEnd(); ++itor) {
-            query.addQueryItem(itor.key(), itor.value());
+        for (const QPair<QString, QString> &p: request.d->query.queryItems()) {
+            query.addQueryItem(p.first, p.second);
         }
         url.setQuery(query);
-        request.d->url = url.toString();
+        response.d->url = url;
+    }
+
+    if (!cacheManager.isNull() && (request.d->method == "GET"
+                                   || request.d->method == "HEAD"
+                                   || request.d->method == "OPTION")) {
+        const QByteArray &cacheControlHeader = request.header(HttpRequest::CacheControlHeader);
+        if (!cacheControlHeader.contains("no-cache")) {
+            if (cacheManager->getResponse(&response)) {
+                return response;
+            }
+        }
     }
 
     mergeCookies(request, url);
     QList<HttpHeader> allHeaders = makeHeaders(request, url);
 
-    QSharedPointer<SocketLike> connection = connectionForUrl(url, &error);
+    ScopedLock<Semaphore> lock(getSemaphore(url));
+    if (!lock.isSuccess()) {
+        response.d->error.reset(new ConnectionError());
+        return response;
+    }
+    QSharedPointer<SocketLike> connection;
+    float timeout = request.d->timeout < 0 ? defaultConnectionTimeout : request.d->timeout;
+    try {
+        Timeout t(timeout);
+        connection = connectionForUrl(url, &error);
+    } catch (TimeoutException &) {
+        response.d->error.reset(new class RequestTimeout());
+        return response;
+    }
     if (error != nullptr) {
         response.d->error.reset(error);
         return response;
@@ -949,7 +1054,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         return response;
     }
     QStringList commands = QString::fromLatin1(firstLine).split(QRegExp("\\s+"));
-    if (commands.size() != 3) {
+    if (commands.size() < 3) {
         response.d->error.reset(new InvalidHeader());
         return response;
     }
@@ -967,7 +1072,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         response.d->error.reset(new InvalidHeader());
         return response;
     }
-    response.d->statusText = commands.at(2);
+    response.d->statusText = commands.mid(2).join(' ');
 
     // parse headers.
     const int MaxHeaders = 64;
@@ -1016,6 +1121,26 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     // response.d->statusCode < 200 is not error.
     if (response.d->statusCode >= 400) {
         response.d->error.reset(new HTTPError(response.d->statusCode));
+    } else {
+        if ((request.method() == "GET"
+             || request.method() == "HEAD"
+             || request.method() == "OPTION")
+                && !cacheManager.isNull()
+                && !request.streamResponse()
+                ) {
+            bool doCache = true;
+            const QByteArray &requestHeader = request.header(HttpResponse::CacheControlHeader);
+            if (requestHeader.contains("no-cache") || requestHeader.contains("no-store")) {
+                doCache = false;
+            }
+            const QByteArray &responseHeader = response.header(HttpResponse::CacheControlHeader);
+            if (responseHeader.contains("no-cache") || responseHeader.contains("no-store")) {
+                doCache = false;
+            }
+            if (doCache) {
+                cacheManager->addResponse(response);
+            }
+        }
     }
     return response;
 }
@@ -1032,7 +1157,11 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
         allHeaders.prepend(HttpHeader(QStringLiteral("Content-Length"), QByteArray::number(request.d->body.size())));
     }
     if (!request.hasHeader(QStringLiteral("User-Agent"))) {
-        allHeaders.prepend(HttpHeader(QStringLiteral("User-Agent"), defaultUserAgent.toUtf8()));
+        if (request.userAgent().isEmpty()) {
+            allHeaders.prepend(HttpHeader(QStringLiteral("User-Agent"), defaultUserAgent.toUtf8()));
+        } else {
+            allHeaders.prepend(HttpHeader(QStringLiteral("User-Agent"), request.userAgent().toUtf8()));
+        }
     }
     if (!request.hasHeader(QStringLiteral("Host"))) {
         QString httpHost = url.host();
@@ -1064,6 +1193,7 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
     return allHeaders;
 }
 
+
 void HttpSessionPrivate::mergeCookies(HttpRequest &request, const QUrl &url)
 {
     QList<QNetworkCookie> cookies = cookieJar.cookiesForUrl(url);
@@ -1074,6 +1204,7 @@ void HttpSessionPrivate::mergeCookies(HttpRequest &request, const QUrl &url)
     request.d->cookies = cookies;
 }
 
+
 void setProxySwitcher(HttpSession *session, QSharedPointer<BaseProxySwitcher> switcher)
 {
     if (!switcher.isNull()) {
@@ -1082,6 +1213,7 @@ void setProxySwitcher(HttpSession *session, QSharedPointer<BaseProxySwitcher> sw
         HttpSessionPrivate::getPrivateHelper(session)->proxySwitcher.reset(new SimpleProxySwitcher());
     }
 }
+
 
 HttpSession::HttpSession()
     :d_ptr(new HttpSessionPrivate(this)) {}
@@ -1092,16 +1224,28 @@ HttpSession::~HttpSession()
     delete d_ptr;
 }
 
-#define COMMON_PARAMETERS_WITHOUT_DEFAULT \
-    const QMap<QString, QString> &query,\
-    const QMap<QString, QByteArray> &headers, \
-    bool allowRedirects, \
-    bool verify \
 
-HttpResponse HttpSession::get(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::get(const QUrl &url)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    HttpRequest request;
+    request.setMethod(QStringLiteral("GET"));
+    request.setUrl(url);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::get(const QUrl &url, const QMap<QString, QString> &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("GET"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::get(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers)
+{
     HttpRequest request;
     request.setMethod(QStringLiteral("GET"));
     request.setUrl(url);
@@ -1110,107 +1254,1263 @@ HttpResponse HttpSession::get(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT
     return send(request);
 }
 
-HttpResponse HttpSession::head(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+
+HttpResponse HttpSession::get(const QUrl &url, const QUrlQuery &query)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    HttpRequest request;
+    request.setMethod(QStringLiteral("GET"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::get(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("GET"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::get(const QString &url)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("GET"));
+    request.setUrl(url);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::get(const QString &url, const QMap<QString, QString> &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("GET"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::get(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("GET"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::get(const QString &url, const QUrlQuery &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("GET"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::get(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("GET"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::head(const QUrl &url)
+{
     HttpRequest request;
     request.setMethod(QStringLiteral("HEAD"));
     request.setUrl(url);
-    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::head(const QUrl &url, const QMap<QString, QString> &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("HEAD"));
+    request.setUrl(url);
     request.setQuery(query);
     return send(request);
 }
 
-HttpResponse HttpSession::options(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+
+HttpResponse HttpSession::head(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    HttpRequest request;
+    request.setMethod(QStringLiteral("HEAD"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::head(const QUrl &url, const QUrlQuery &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("HEAD"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::head(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("HEAD"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::head(const QString &url)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("HEAD"));
+    request.setUrl(url);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::head(const QString &url, const QMap<QString, QString> &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("HEAD"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::head(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("HEAD"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::head(const QString &url, const QUrlQuery &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("HEAD"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::head(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("HEAD"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::options(const QUrl &url)
+{
     HttpRequest request;
     request.setMethod(QStringLiteral("OPTIONS"));
     request.setUrl(url);
-    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::options(const QUrl &url, const QMap<QString, QString> &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("OPTIONS"));
+    request.setUrl(url);
     request.setQuery(query);
     return send(request);
 }
 
-HttpResponse HttpSession::delete_(const QUrl &url, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+
+HttpResponse HttpSession::options(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    HttpRequest request;
+    request.setMethod(QStringLiteral("OPTIONS"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::options(const QUrl &url, const QUrlQuery &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("OPTIONS"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::options(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("OPTIONS"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::options(const QString &url)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("OPTIONS"));
+    request.setUrl(url);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::options(const QString &url, const QMap<QString, QString> &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("OPTIONS"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::options(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("OPTIONS"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::options(const QString &url, const QUrlQuery &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("OPTIONS"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::options(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("OPTIONS"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::delete_(const QUrl &url)
+{
     HttpRequest request;
     request.setMethod(QStringLiteral("DELETE"));
     request.setUrl(url);
-    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::delete_(const QUrl &url, const QMap<QString, QString> &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("DELETE"));
+    request.setUrl(url);
     request.setQuery(query);
     return send(request);
 }
 
-HttpResponse HttpSession::post(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+
+HttpResponse HttpSession::delete_(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    HttpRequest request;
+    request.setMethod(QStringLiteral("DELETE"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::delete_(const QUrl &url, const QUrlQuery &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("DELETE"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+HttpResponse HttpSession::delete_(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("DELETE"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::delete_(const QString &url)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("DELETE"));
+    request.setUrl(url);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::delete_(const QString &url, const QMap<QString, QString> &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("DELETE"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::delete_(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("DELETE"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::delete_(const QString &url, const QUrlQuery &query)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("DELETE"));
+    request.setUrl(url);
+    request.setQuery(query);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::delete_(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("DELETE"));
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QUrl &url, const QByteArray &body)
+{
     HttpRequest request;
     request.setMethod(QStringLiteral("POST"));
     request.setUrl(url);
-    request.setHeaders(headers);
-    request.setQuery(query);
     request.setBody(body);
     return send(request);
 }
 
-HttpResponse HttpSession::put(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+
+HttpResponse HttpSession::post(const QUrl &url, const QJsonDocument &body)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
     HttpRequest request;
-    request.setMethod(QStringLiteral("PUT"));
+    request.setMethod(QStringLiteral("POST"));
     request.setUrl(url);
-    request.setHeaders(headers);
-    request.setQuery(query);
     request.setBody(body);
     return send(request);
 }
 
-HttpResponse HttpSession::patch(const QUrl &url, const QByteArray &body, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+
+HttpResponse HttpSession::post(const QUrl &url, const QJsonObject &body)
 {
-    Q_UNUSED(allowRedirects);
-    Q_UNUSED(verify);
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QUrl &url, const QJsonArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QUrl &url, const QMap<QString, QString> &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QUrl &url, const QUrlQuery &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QUrl &url, const FormData &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QUrl &url, const QByteArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QUrl &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QUrl &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QUrl &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QUrl &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+
+HttpResponse HttpSession::post(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+
+HttpResponse HttpSession::post(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QByteArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QJsonDocument &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QJsonObject &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QJsonArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QMap<QString, QString> &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QUrlQuery &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const FormData &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QByteArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::post(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QUrl &url, const QByteArray &body)
+{
     HttpRequest request;
     request.setMethod(QStringLiteral("PATCH"));
     request.setUrl(url);
-    request.setHeaders(headers);
-    request.setQuery(query);
     request.setBody(body);
     return send(request);
 }
 
 
-HttpResponse HttpSession::post(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::patch(const QUrl &url, const QJsonDocument &body)
 {
-    QByteArray data = json.toJson();
-    QMap<QString, QByteArray> newHeaders(headers);
-    newHeaders.insert("Content-Type", "application/json");
-    return post(url, data, query, newHeaders, allowRedirects, verify);
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);}
+
+
+HttpResponse HttpSession::patch(const QUrl &url, const QJsonObject &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);}
+
+
+HttpResponse HttpSession::patch(const QUrl &url, const QJsonArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);}
+
+
+HttpResponse HttpSession::patch(const QUrl &url, const QMap<QString, QString> &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
 }
 
 
-HttpResponse HttpSession::put(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::patch(const QUrl &url, const QUrlQuery &body)
 {
-    QByteArray data = json.toJson();
-    QMap<QString, QByteArray> newHeaders(headers);
-    newHeaders.insert("Content-Type", "application/json");
-    return put(url, data, query, newHeaders, allowRedirects, verify);
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
 }
 
 
-HttpResponse HttpSession::patch(const QUrl &url, const QJsonDocument &json, COMMON_PARAMETERS_WITHOUT_DEFAULT)
+HttpResponse HttpSession::patch(const QUrl &url, const FormData &body)
 {
-    QByteArray data = json.toJson();
-    QMap<QString, QByteArray> newHeaders(headers);
-    newHeaders.insert("Content-Type", "application/json");
-    return patch(url, data, query, newHeaders, allowRedirects, verify);
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
 }
+
+
+HttpResponse HttpSession::patch(const QUrl &url, const QByteArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QUrl &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QUrl &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QUrl &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QUrl &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QByteArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QJsonDocument &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QJsonObject &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QJsonArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QMap<QString, QString> &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QUrlQuery &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const FormData &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QByteArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::patch(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const QByteArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const QJsonDocument &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const QJsonObject &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const QJsonArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const QMap<QString, QString> &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const QUrlQuery &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const FormData &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const QByteArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+HttpResponse HttpSession::put(const QUrl &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QByteArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QJsonDocument &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QJsonObject &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QJsonArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QMap<QString, QString> &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QUrlQuery &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const FormData &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QByteArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::put(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    request.setHeaders(headers);
+    return send(request);
+}
+
 
 inline bool isRedirect(int httpCode)
 {
@@ -1227,6 +2527,7 @@ inline bool isRedirect(int httpCode)
         return false;
     }
 }
+
 
 HttpResponse HttpSession::send(HttpRequest &request)
 {
@@ -1262,6 +2563,7 @@ HttpResponse HttpSession::send(HttpRequest &request)
     return response;
 }
 
+
 QNetworkCookieJar &HttpSession::cookieJar()
 {
     Q_D(HttpSession);
@@ -1294,6 +2596,7 @@ void HttpSession::setMaxConnectionsPerServer(int maxConnectionsPerServer)
     //TODO update semphores
 }
 
+
 int HttpSession::maxConnectionsPerServer()
 {
     Q_D(HttpSession);
@@ -1307,11 +2610,13 @@ void HttpSession::setDebugLevel(int level)
     d->debugLevel = level;
 }
 
+
 void HttpSession::disableDebug()
 {
     Q_D(HttpSession);
     d->debugLevel = 0;
 }
+
 
 QString HttpSession::defaultUserAgent() const
 {
@@ -1319,11 +2624,13 @@ QString HttpSession::defaultUserAgent() const
     return d->defaultUserAgent;
 }
 
+
 void HttpSession::setDefaultUserAgent(const QString &userAgent)
 {
     Q_D(HttpSession);
     d->defaultUserAgent = userAgent;
 }
+
 
 HttpVersion HttpSession::defaultVersion() const
 {
@@ -1331,11 +2638,27 @@ HttpVersion HttpSession::defaultVersion() const
     return d->defaultVersion;
 }
 
+
 void HttpSession::setDefaultVersion(HttpVersion defaultVersion)
 {
     Q_D(HttpSession);
     d->defaultVersion = defaultVersion;
 }
+
+
+float HttpSession::defaultConnnectionTimeout() const
+{
+    Q_D(const HttpSession);
+    return d->defaultConnectionTimeout;
+}
+
+
+void HttpSession::setDefaultConnectionTimeout(float timeout)
+{
+    Q_D(HttpSession);
+    d->defaultConnectionTimeout = timeout;
+}
+
 
 QSharedPointer<Socks5Proxy> HttpSession::socks5Proxy() const
 {
@@ -1343,11 +2666,13 @@ QSharedPointer<Socks5Proxy> HttpSession::socks5Proxy() const
     return d->socks5Proxy();
 }
 
+
 void HttpSession::setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy)
 {
     Q_D(HttpSession);
     d->setSocks5Proxy(proxy);
 }
+
 
 QSharedPointer<HttpProxy> HttpSession::httpProxy() const
 {
@@ -1355,11 +2680,147 @@ QSharedPointer<HttpProxy> HttpSession::httpProxy() const
     return d->httpProxy();
 }
 
+
 void HttpSession::setHttpProxy(QSharedPointer<HttpProxy> proxy)
 {
     Q_D(HttpSession);
     d->setHttpProxy(proxy);
 }
+
+
+QSharedPointer<HttpCacheManager> HttpSession::cacheManager() const
+{
+    Q_D(const HttpSession);
+    return d->cacheManager;
+}
+
+
+void HttpSession::setCacheManager(QSharedPointer<HttpCacheManager> cacheManager)
+{
+    Q_D(HttpSession);
+    d->cacheManager = cacheManager;
+}
+
+
+HttpCacheManager::HttpCacheManager()
+{
+}
+
+
+HttpCacheManager::~HttpCacheManager()
+{
+}
+
+
+bool HttpCacheManager::addResponse(const HttpResponse &response)
+{
+    const QString &url = response.url().toString();
+    int statusCode = response.statusCode();
+    const QString &statusText = response.statusText();
+    const QList<HttpHeader> headers = response.allHeaders();
+    const QByteArray &body = response.body();
+    QByteArray bs;
+    QDataStream ds(&bs, QIODevice::WriteOnly);
+    ds << statusCode << statusText << headers << body;
+    if (ds.status() != QDataStream::Ok) {
+        return false;
+    }
+    return store(url, bs);
+}
+
+
+bool HttpCacheManager::getResponse(HttpResponse *response)
+{
+    const QString &url = response->url().toString();
+    if (url.isEmpty()) {
+        return false;
+    }
+    const QByteArray &bs = load(url);
+    if (bs.isEmpty()) {
+        return false;
+    }
+    QDataStream ds(bs);
+    int statusCode;
+    QString statusText;
+    QList<HttpHeader> headers;
+    QByteArray body;
+    ds >> statusCode >> statusText >> headers >> body;
+    if (ds.status() != QDataStream::Ok) {
+        return false;
+    }
+    response->setStatusCode(statusCode);
+    response->setStatusText(statusText);
+    response->setHeaders(headers);
+    response->setBody(body);
+    return true;
+}
+
+
+bool HttpCacheManager::store(const QString &, const QByteArray &)
+{
+    return false;
+}
+
+
+QByteArray HttpCacheManager::load(const QString &)
+{
+    return QByteArray();
+}
+
+
+class HttpMemoryCacheManagerPrivate
+{
+public:
+    HttpMemoryCacheManagerPrivate()
+        :expireTime(60 * 60 * 24) // one day
+    {}
+public:
+    QMap<QString, QByteArray> cache;
+    float expireTime;
+};
+
+
+HttpMemoryCacheManager::HttpMemoryCacheManager()
+    :d_ptr(new HttpMemoryCacheManagerPrivate())
+{
+
+}
+
+
+HttpMemoryCacheManager::~HttpMemoryCacheManager()
+{
+    delete d_ptr;
+}
+
+
+float HttpMemoryCacheManager::expireTime() const
+{
+    Q_D(const HttpMemoryCacheManager);
+    return d->expireTime;
+}
+
+
+void HttpMemoryCacheManager::setExpireTime(float expireTime)
+{
+    Q_D(HttpMemoryCacheManager);
+    d->expireTime = expireTime;
+}
+
+
+bool HttpMemoryCacheManager::store(const QString &url, const QByteArray &data)
+{
+    Q_D(HttpMemoryCacheManager);
+    d->cache.insert(url, data);
+    return true;
+}
+
+
+QByteArray HttpMemoryCacheManager::load(const QString &url)
+{
+    Q_D(HttpMemoryCacheManager);
+    return d->cache.value(url);
+}
+
 
 
 RequestError::~RequestError()

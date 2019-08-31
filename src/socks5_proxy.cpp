@@ -309,6 +309,7 @@ static QSharedPointer<Socket> sendConnectRequest(QSharedPointer<Socket> s, const
     return s;
 }
 
+
 QSharedPointer<Socket> Socks5ProxyPrivate::connect(const QString &hostName, quint16 port) const
 {
     QSharedPointer<Socket> s = getControlSocket();
@@ -320,6 +321,7 @@ QSharedPointer<Socket> Socks5ProxyPrivate::connect(const QString &hostName, quin
 
     return sendConnectRequest(s, connectRequest);
 }
+
 
 QSharedPointer<Socket> Socks5ProxyPrivate::connect(const QHostAddress &host, quint16 port) const
 {
@@ -347,10 +349,12 @@ Socks5Proxy::Socks5Proxy()
 {
 }
 
+
 Socks5Proxy::Socks5Proxy(const QString &hostName, quint16 port, const QString &user, const QString &password)
     :d_ptr(new Socks5ProxyPrivate(hostName, port, user, password))
 {
 }
+
 
 Socks5Proxy::Socks5Proxy(const Socks5Proxy &other)
     :d_ptr(new Socks5ProxyPrivate(other.d_ptr->hostName, other.d_ptr->port,
@@ -358,11 +362,13 @@ Socks5Proxy::Socks5Proxy(const Socks5Proxy &other)
 {
 }
 
+
 Socks5Proxy::~Socks5Proxy()
 {
     if(d_ptr)
         delete d_ptr;
 }
+
 
 Socks5Proxy &Socks5Proxy::operator=(const Socks5Proxy &other)
 {
@@ -370,6 +376,7 @@ Socks5Proxy &Socks5Proxy::operator=(const Socks5Proxy &other)
     d_ptr = new Socks5ProxyPrivate(other.hostName(), other.port(), other.user(), other.password());
     return *this;
 }
+
 
 Socks5Proxy &Socks5Proxy::operator=(Socks5Proxy &&other)
 {
@@ -379,11 +386,13 @@ Socks5Proxy &Socks5Proxy::operator=(Socks5Proxy &&other)
     return *this;
 }
 
+
 bool Socks5Proxy::isNull() const
 {
     Q_D(const Socks5Proxy);
     return d->hostName.isEmpty() || d->port == 0;
 }
+
 
 Socks5Proxy::Capabilities Socks5Proxy::capabilities() const
 {
@@ -391,11 +400,13 @@ Socks5Proxy::Capabilities Socks5Proxy::capabilities() const
     return d->capabilities;
 }
 
+
 QString Socks5Proxy::hostName() const
 {
     Q_D(const Socks5Proxy);
     return d->hostName;
 }
+
 
 quint16 Socks5Proxy::port() const
 {
@@ -403,11 +414,13 @@ quint16 Socks5Proxy::port() const
     return d->port;
 }
 
+
 QString Socks5Proxy::user() const
 {
     Q_D(const Socks5Proxy);
     return d->user;
 }
+
 
 QString Socks5Proxy::password() const
 {
@@ -415,11 +428,13 @@ QString Socks5Proxy::password() const
     return d->password;
 }
 
+
 void Socks5Proxy::setCapabilities(Socks5Proxy::Capabilities capabilities)
 {
     Q_D(Socks5Proxy);
     d->capabilities = capabilities;
 }
+
 
 void Socks5Proxy::setHostName(const QString &hostName)
 {
@@ -427,17 +442,27 @@ void Socks5Proxy::setHostName(const QString &hostName)
     d->hostName = hostName;
 }
 
+
+void Socks5Proxy::setPort(quint16 port)
+{
+    Q_D(Socks5Proxy);
+    d->port = port;
+}
+
+
 void Socks5Proxy::setUser(const QString &user)
 {
     Q_D(Socks5Proxy);
     d->user = user;
 }
 
+
 void Socks5Proxy::setPassword(const QString &password)
 {
     Q_D(Socks5Proxy);
     d->password = password;
 }
+
 
 QSharedPointer<Socket> Socks5Proxy::connect(const QString &hostName, quint16 port)
 {

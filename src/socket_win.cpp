@@ -1014,7 +1014,8 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
             setError(Socket::SocketAccessError, AccessErrorString);
             return -1;
         }
-        ret = ::WSARecvFrom(static_cast<SOCKET>(fd), &buf, 1, &bytesRead, &flags, msg.name, &msg.namelen, nullptr, nullptr);
+        ret = ::WSARecvFrom(static_cast<SOCKET>(fd), &buf, 1, &bytesRead, &flags,
+                            msg.name, &msg.namelen, nullptr, nullptr);
 //        if (static_cast<qint32>(bytesRead) < 0) {
 //            qWarning("recv too much data.");
 //            return -1;
@@ -1110,7 +1111,8 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
         if (!isValid()) {
             return -1;
         }
-        int socketRet = ::WSASendTo(static_cast<SOCKET>(fd), &buf, 1, &bytesSent, flags, msg.name, msg.namelen, nullptr, nullptr);
+        int socketRet = ::WSASendTo(static_cast<SOCKET>(fd), &buf, 1, &bytesSent, flags,
+                                    msg.name, msg.namelen, nullptr, nullptr);
         ret += bytesSent;
 
         if (socketRet == SOCKET_ERROR) {
@@ -1227,7 +1229,8 @@ bool SocketPrivate::setNonblocking()
     unsigned long buf = 1;
     unsigned long outBuf;
     DWORD sizeWritten = 0;
-    if (::WSAIoctl(static_cast<SOCKET>(fd), FIONBIO, &buf, sizeof(unsigned long), &outBuf, sizeof(unsigned long), &sizeWritten, 0,0) == SOCKET_ERROR) {
+    if (::WSAIoctl(static_cast<SOCKET>(fd), FIONBIO, &buf, sizeof(unsigned long), &outBuf,
+                   sizeof(unsigned long), &sizeWritten, 0,0) == SOCKET_ERROR) {
         WS_ERROR_DEBUG(WSAGetLastError());
         return false;
     }
