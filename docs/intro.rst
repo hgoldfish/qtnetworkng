@@ -148,7 +148,7 @@ QtNetworkNg is created base on the ``Coroutine``. Make sure QtNetworkNg's networ
     
     void coroutine_entry()
     {
-        Coroutine::sleep(1000); // sleep 1s
+        Coroutine::sleep(1.0); // sleep 1s
         qDebug() << "I am coroutine: " << Coroutine::current().id();
     }
     // I strong recommend using CoroutineGroup.
@@ -393,7 +393,7 @@ Get data from ``HttpResponse``
     qDebug() << resp.text();  // as QString
     qDebug() << resp.json();  // as QJsonDocument
     qDebug() << resp.html();  // as QString
-    qDebug() << resp.body;  // as QByteArray
+    qDebug() << resp.body();  // as QByteArray
 
 
 As crypto library

@@ -111,7 +111,7 @@ HttpRequestPrivate::HttpRequestPrivate()
     , maxRedirects(8)
     , timeout(-1.0)
     , priority(HttpRequest::NormalPriority)
-    , version(Http1_1)
+    , version(Unknown)
     , streamResponse(false)
 {}
 
@@ -193,13 +193,9 @@ void HttpRequest::setUrl(const QUrl &url)
 }
 
 
-QMap<QString, QString> HttpRequest::query() const
+QUrlQuery HttpRequest::query() const
 {
-    QMap<QString, QString> r;
-    for (const QPair<QString, QString> &p: d->query.queryItems()) {
-        r.insert(p.first, p.second);
-    }
-    return r;
+    return d->query;
 }
 
 
@@ -303,7 +299,7 @@ bool HttpRequest::streamResponse() const
     return d->streamResponse;
 }
 
-float HttpRequest::tiemout() const
+float HttpRequest::timeout() const
 {
     return d->timeout;
 }
@@ -2543,8 +2539,17 @@ HttpResponse HttpSession::send(HttpRequest &request)
                 return response;
             }
             HttpRequest newRequest;
+            newRequest.setQuery(request.query());
+            newRequest.setCookies(request.cookies());
+            newRequest.setUserAgent(request.userAgent());
+            newRequest.setMaxBodySize(request.maxBodySize());
+            newRequest.setPriority(request.priority());
+            newRequest.setVersion(request.version());
+            newRequest.setStreamResponse(request.streamResponse());
+            newRequest.setTimeout(request.timeout());
             if (response.statusCode() == 303 || response.statusCode() == 307) {
                 newRequest.setMethod(request.method());
+                newRequest.setBody(request.body());
             } else {
                 newRequest.setMethod(QStringLiteral("GET")); // not rfc behavior, but many browser do this.
             }

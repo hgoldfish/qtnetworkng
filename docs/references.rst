@@ -148,7 +148,7 @@ There are many ways to start new coroutine.
     }
     Coroutine *coroutine = Corotuine::spawn(sendMessage);
     
-* The ``Coroutine::spawn()`` accepts ``std::function<void()>`` functor, so c++11 lambda is accepted either.
+* The ``Coroutine::spawn()`` accepts ``std::function<void()>`` functor, so c++11 lambda is also acceptable.
 
 .. code-block:: c++
     :caption: Example 5: the third method to start coroutine
@@ -257,11 +257,11 @@ The ``BaseCoroutine`` has some rarely used functions. Use them at your own risk.
     
 .. method:: quintptr BaseCoroutine::id() const
 
-    Returns an unique imutable id for the coroutine. Basicly, the id is the pointer of coroutine.
+    Return an unique imutable id for the coroutine. Basicly, the id is the pointer of coroutine.
     
 .. method:: BaseCoroutine *BaseCoroutine::previous() const
 
-    Returns an pointer of ``BaseCoroutine`` which will switch to after this coroutine finished.
+    Return an pointer of ``BaseCoroutine`` which will switch to after this coroutine finished.
     
 .. method:: void BaseCoroutine::setPrevious(BaseCoroutine *previous)
 
@@ -463,7 +463,7 @@ The most significant advantage of QtNetworkNg with respect to `boost::coroutine`
     
     void output(QSharedPointer<RLock> lock, const QString &name)
     {
-        ScopedLock l(*lock);    // acquire lock now, release before function returns. comment out this line and try again later.
+        ScopedLock l(lock);    // acquire lock now, release before function returns. comment out this line and try again later.
         qDebug() << name << 1;
         Coroutine::sleep(1.0);
         qDebug() << name << 2;
@@ -494,7 +494,7 @@ The output is
     "second" 1
     "second" 2
 
-If you comment out the line ``ScopedLock l(*lock);``, the output is:
+If you comment out the line ``ScopedLock l(lock);``, the output is:
 
 .. code-block:: text
     :caption: output without RLock
@@ -508,7 +508,7 @@ If you comment out the line ``ScopedLock l(*lock);``, the output is:
 
     Acquire the lock. If the lock is acquired by other coroutine, and the paremter ``blocking`` is true, block current coroutine until the lock is released by other coroutine. Otherwise this function returns immediately.
     
-    Returns whether the lock is acquired.
+    Return whether the lock is acquired.
     
 .. method:: void release()
 
@@ -533,7 +533,7 @@ An `Event` (also called event semaphore) is a type of synchronization mechanism 
 
     Waiting event. If this ``Event`` is not set, and the parameter ``blocking`` is true, block current coroutine until this event is set. Otherwise returns immediately.
     
-    Returns whether the event is set.
+    Return whether the event is set.
     
 .. method:: void set()
 
@@ -595,7 +595,7 @@ The output is:
     
     Waiting event. If this ``Event`` is not set, and the parameter ``blocking`` is true, block current coroutine until this event is set. Otherwise returns immediately.
     
-    Returns the value sent by other coroutine. If failed, construct a value usning default constructor.
+    Return the value sent by other coroutine. If failed, construct a value usning default constructor.
     
 .. method:: void set()
 
@@ -655,7 +655,7 @@ A `semaphore` is a variable or abstract data type used to control access to a co
 
     void send_request(QSharedPointer<Semaphore> semaphore)
     {
-        ScopedLock<Semaphore> l(*semaphore);
+        ScopedLock<Semaphore> l(semaphore);
         HttpSession session;
         qDebug() << session.get("https://news.163.com").statusCode;
     }
@@ -684,7 +684,7 @@ The last example spawns 100 corotuines, but only 5 coroutines is making request 
 
     Acquire the semaphore. If all resouces are used, and the parameter ``blocking`` is true, blocks current coroutine until any other coroutine release a resource. Otherwise this function returns immediately.
     
-    Returns whether the semaphore is acquired.
+    Return whether the semaphore is acquired.
     
 .. method:: void release()
 
@@ -729,11 +729,11 @@ Get the capacity of this queue.
 
 .. method:: int size() const
 
-Returns how many elements in this queue.
+Return how many elements in this queue.
 
 .. method:: int getting() const
 
-Returns the number of coroutines waiting for elements.
+Return the number of coroutines waiting for elements.
 
 1.5.7 Lock
 ++++++++++
@@ -759,7 +759,7 @@ Wake up all coroutines waiting at this condition.
 
 .. method:: int getting() const
 
-Returns the number of coroutines waiting at this condition.
+Return the number of coroutines waiting at this condition.
 
 1.6 The Internal: How Coroutines Switch
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -801,7 +801,7 @@ These are the member functions of ``Socket`` type.
 
     Bind the socket to ``address`` and ``port``. If the parameter ``port`` is ommited, the Operating System choose an unused random port for you. The chosen port can obtained from ``port()`` function later. The parameter ``mode`` is not used now. 
     
-    This function returns 
+    This function returns true if the port is bound successfully.
 
 .. method:: bool bind(quint16 port = 0, BindMode mode = DefaultForPlatform)
 
@@ -875,183 +875,183 @@ These are the member functions of ``Socket`` type.
     
 .. method:: QVariant option(SocketOption option) const
 
-    Returns the value of the option option.
+    Return the value of the option option.
     
     See also ``setOption()`` for more information.
 
-.. method:: qint64 recv(char *data, qint64 size)
+.. method:: qint32 recv(char *data, qint32 size)
 
-    Receives not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
+    Receive not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
     
-    Returns the size of data received. This function returns `0` if connection is closed.
+    Return the size of data received. This function returns `0` if connection is closed.
     
     If some error occured, function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. method:: qint64 recvall(char *data, qint64 size)
+.. method:: qint32 recvall(char *data, qint32 size)
 
     Receive not more than ``size`` of data from connection. Blocks current coroutine until the size of data equals ``size`` or connection is closed.
     
     This function is similar to ``recv()``, but block current coroutine until all data is received. If you can not be sure the size of data, use ``recv()`` instead. Otherwise that current coroutine might be blocked forever.
     
-    Returns the size of data received. Usually the return value is equals to the parameter ``size``, but might be smaller than ``size`` if the connection is closed. You might consider that is an exception.
+    Return the size of data received. Usually the return value is equals to the parameter ``size``, but might be smaller than ``size`` if the connection is closed. You might consider that is an exception.
     
     If some error occured, this function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. method:: qint64 send(const char *data, qint64 size)
+.. method:: qint32 send(const char *data, qint32 size)
 
     Send ``size`` of ``data`` to remote host. Block current coroutine until some data sent.
     
-    Returns the size of data sent. Usually, the returned value is smaller than the parameter ``size``.
+    Return the size of data sent. Usually, the returned value is smaller than the parameter ``size``.
     
     If some error occured, function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. method:: qint64 sendall(const char *data, qint64 size)
+.. method:: qint32 sendall(const char *data, qint32 size)
 
     Send ``size`` of ``data`` to remote host. Block current coroutine until all data sent or the connection closed.
     
-    Returns the size of data sent. Usually the return value is equals to the parameter ``size``, but might be smaller than ``size`` if the connection is closed. You might consider that is an exception.
+    Return the size of data sent. Usually the return value is equals to the parameter ``size``, but might be smaller than ``size`` if the connection is closed. You might consider that is an exception.
     
     If some error occured, this function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. method:: qint64 recvfrom(char *data, qint64 size, QHostAddress *addr, quint16 *port)
+.. method:: qint32 recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port)
 
-    Receives not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
+    Receive not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
     
     This is used for datagram socket only.
     
-    Returns the size of data received.
+    Return the size of data received.
     
     If some error occured, function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. method:: qint64 sendto(const char *data, qint64 size, const QHostAddress &addr, quint16 port)
+.. method:: qint32 sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
 
     Send ``size`` of ``data`` to remote host specified by ``addr`` and ``port``. Block current coroutine until some data sent.
     
     This is used for datagram socket only.
     
-    Returns the size of data sent. Usually, the returned value is smaller than the parameter ``size``.
+    Return the size of data sent. Usually, the returned value is smaller than the parameter ``size``.
     
     If some error occured, function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. method:: QByteArray recvall(qint64 size)
+.. method:: QByteArray recvall(qint32 size)
 
     Receive not more than ``size`` of data from connection. Blocks current coroutine until the size of data equals ``size`` or connection is closed.
     
     This function is similar to ``recv()``, but block current coroutine until all data is received. If you can not be sure the size of data, use ``recv()`` instead. Otherwise that current coroutine might be blocked forever.
     
-    Returns the data received. Usually the size of returned value is equals to the parameter ``size``, but might be smaller than ``size`` if the connection is closed. You might consider that is an exception.
+    Return the data received. Usually the size of returned value is equals to the parameter ``size``, but might be smaller than ``size`` if the connection is closed. You might consider that is an exception.
     
     If some error occured, this function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
     
-    This function overloads ``recvall(char*, qint64)``;
+    This function overloads ``recvall(char*, qint32)``;
 
-.. method:: QByteArray recv(qint64 size)
+.. method:: QByteArray recv(qint32 size)
 
-    Receives not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
+    Receive not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
     
-    Returns the data received. This function returns empty ``QByteArray`` if connection is closed.
+    Return the data received. This function returns empty ``QByteArray`` if connection is closed.
     
     This function can not indicate whether there is any error occured. If this function returns empty data, use ``error()`` to check error, and ``errorString()`` to get the error message.
     
-    This function overloads ``recv(char*, qint64)``.
+    This function overloads ``recv(char*, qint32)``.
 
-.. method:: qint64 send(const QByteArray &data)
+.. method:: qint32 send(const QByteArray &data)
 
     Send ``data`` to remote host. Block current coroutine until some data sent.
     
-    Returns the size of data sent. Usually, the returned value is smaller than the parameter ``size``.
+    Return the size of data sent. Usually, the returned value is smaller than the parameter ``size``.
     
     If some error occured, this function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
     
-    This function overloads ``send(char*, qint64)``.
+    This function overloads ``send(char*, qint32)``.
 
-.. method:: qint64 sendall(const QByteArray &data)
+.. method:: qint32 sendall(const QByteArray &data)
 
     Send ``data`` to remote host. Block current coroutine until all data sent or the connection closed.
     
-    Returns the size of data sent. Usually the return value is equals to the parameter ``size``, but might be smaller than ``size`` if the connection is closed. You might consider that is an exception.
+    Return the size of data sent. Usually the return value is equals to the parameter ``size``, but might be smaller than ``size`` if the connection is closed. You might consider that is an exception.
     
     If some error occured, this function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
     
-    This function overloads ``sendall(char*, qint64)``.
+    This function overloads ``sendall(char*, qint32)``.
 
-.. method:: QByteArray recvfrom(qint64 size, QHostAddress *addr, quint16 *port)
+.. method:: QByteArray recvfrom(qint32 size, QHostAddress *addr, quint16 *port)
 
-    Receives not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
+    Receive not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
     
     This is used for datagram socket only.
     
-    Returns the data received. This function returns empty ``QByteArray`` if connection is closed.
+    Return the data received. This function returns empty ``QByteArray`` if connection is closed.
     
     This function can not indicate whether there is any error occured. If this function returns empty data, use ``error()`` to check error, and ``errorString()`` to get the error message.
     
-    This function overloads ``recvfrom(char*, qint64, QHostAddress*, quint16*)``.
+    This function overloads ``recvfrom(char*, qint32, QHostAddress*, quint16*)``.
 
-.. method:: qint64 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
+.. method:: qint32 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
 
     Send ``data`` to remote host specified by ``addr`` and ``port``. Block current coroutine until some data sent.
     
     This is used for datagram socket only.
     
-    Returns the size of data sent. Usually, the returned value is smaller than the parameter ``size``.
+    Return the size of data sent. Usually, the returned value is smaller than the parameter ``size``.
     
     If some error occured, function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
 .. method:: SocketError error() const
 
-    Returns the type of error that last occurred.
+    Return the type of error that last occurred.
     
     TODO: A error table.
 
 .. method:: QString errorString() const
     
-    Returns a human-readable description of the last device error that occurred.
+    Return a human-readable description of the last device error that occurred.
     
 .. method:: bool isValid() const
 
-    Returns true if the socket is not closed.
+    Return true if the socket is not closed.
     
 .. method:: QHostAddress localAddress() const
 
-    Returns the host address of the local socket if available; otherwise returns ``QHostAddress::Null``.
+    Return the host address of the local socket if available; otherwise returns ``QHostAddress::Null``.
     
     This is normally the main IP address of the host, but can be ``QHostAddress::LocalHost`` (127.0.0.1) for connections to the local host.
 
 .. method:: quint16 localPort() const
 
-    Returns the host port number (in native byte order) of the local socket if available; otherwise returns `0`.
+    Return the host port number (in native byte order) of the local socket if available; otherwise returns `0`.
     
 .. method:: QHostAddress peerAddress() const
 
-    Returns the address of the connected peer if the socket is in ``ConnectedState``; otherwise returns ``QHostAddress::Null``.
+    Return the address of the connected peer if the socket is in ``ConnectedState``; otherwise returns ``QHostAddress::Null``.
     
 .. method:: QString peerName() const
 
-    Returns the name of the peer as specified by ``connect()``, or an empty ``QString`` if ``connect()`` has not been called.
+    Return the name of the peer as specified by ``connect()``, or an empty ``QString`` if ``connect()`` has not been called.
     
 .. method:: quint16 peerPort() const
 
-    Returns the port of the connected peer if the socket is in ``ConnectedState``; otherwise returns `0`.
+    Return the port of the connected peer if the socket is in ``ConnectedState``; otherwise returns `0`.
     
 .. method:: qintptr fileno() const
 
-    Returns the native socket descriptor of the ``Socket`` object if this is available; otherwise returns `-1`.
+    Return the native socket descriptor of the ``Socket`` object if this is available; otherwise returns `-1`.
     
     The socket descriptor is not available when ``Socket`` is in ``UnconnectedState``.
 
 .. method:: SocketType type() const
 
-    Returns the socket type (TCP, UDP, or other).
+    Return the socket type (TCP, UDP, or other).
 
 .. method:: SocketState state() const
 
-    Returns the state of the socket.
+    Return the state of the socket.
     
     TODO: a state table.
 
 .. method:: NetworkLayerProtocol protocol() const
 
-    Returns the protocol of the socket.
+    Return the protocol of the socket.
 
 .. method:: static QList<QHostAddress> resolve(const QString &hostName)
 
@@ -1088,19 +1088,19 @@ In addition, there are many function provided for obtain information from SslSoc
 
 .. method:: Certificate localCertificate() const
 
-    Returns the the topest certificate of local peer.
+    Return the the topest certificate of local peer.
     
     Usually this function returns the same certificate as ``SslConfiguration::localCertificate()``.
 
 .. method:: QList<Certificate> localCertificateChain() const
 
-    Returns the certificate chain of local peer.
+    Return the certificate chain of local peer.
     
     Usually this function returns the same certificate as ``SslConfiguration::localCertificate()`` and ``localCertificateChain``, plus some CA certificates from ``SslConfiguration::caCertificates``.
 
 .. method:: QByteArray nextNegotiatedProtocol() const
 
-    Returns the next negotiated protocol used by the ssl connection.
+    Return the next negotiated protocol used by the ssl connection.
     
     `The Application-Layer Protocol Negotiation` is needed by HTTP/2.
     
@@ -1108,27 +1108,27 @@ In addition, there are many function provided for obtain information from SslSoc
 
 .. method:: NextProtocolNegotiationStatus nextProtocolNegotiationStatus() const
 
-    Returns the status of the next protocol negotiation.
+    Return the status of the next protocol negotiation.
 
 .. method:: SslMode mode() const
 
-    Returns the mode the ssl connection. (Server or client)
+    Return the mode the ssl connection. (Server or client)
 
 .. method:: Certificate peerCertificate() const
 
-    Returns the topest certificate of remote peer.
+    Return the topest certificate of remote peer.
 
 .. method:: QList<Certificate> peerCertificateChain() const
 
-    Returns the certificate chain of remote peer.
+    Return the certificate chain of remote peer.
     
 .. method:: int peerVerifyDepth() const
 
-    Returns the depth of verification. If the certificate chain of remote peer is longer than depth, the verification is failed.
+    Return the depth of verification. If the certificate chain of remote peer is longer than depth, the verification is failed.
 
 .. method:: Ssl::PeerVerifyMode peerVerifyMode() const
 
-    Returns the mode of verification.
+    Return the mode of verification.
     
     +----------------------+--------------------------------------------------------------------------------------+
     | PeerVerifyMode       | Description                                                                          |
@@ -1152,11 +1152,11 @@ In addition, there are many function provided for obtain information from SslSoc
 
 .. method:: QString peerVerifyName() const
 
-    Returns the name of remote peer.
+    Return the name of remote peer.
 
 .. method:: PrivateKey privateKey() const
 
-    Returns the private key used by this connection.
+    Return the private key used by this connection.
     
     This function returns the same private key to ``SslConfiguration::privateKey()``.
 
@@ -1168,15 +1168,15 @@ In addition, there are many function provided for obtain information from SslSoc
 
 .. method:: Ssl::SslProtocol sslProtocol() const
 
-    Returns the ssl protocol used by this connection.
+    Return the ssl protocol used by this connection.
 
 .. method:: SslConfiguration sslConfiguration() const
 
-    Returns the configuration used by this connection.
+    Return the configuration used by this connection.
 
 .. method:: QList<SslError> sslErrors() const
 
-    Returns the errors occured while handshaking and communication.
+    Return the errors occured while handshaking and communication.
 
 .. method:: void setSslConfiguration(const SslConfiguration &configuration)
 
@@ -1205,7 +1205,7 @@ The second constructor use the ``hostName`` and ``port`` to create a valid Socks
 
     Use this function to connect to ``remoteHost`` at ``port`` via this proxy.
     
-    Returns new ``Socket`` connect to ``remoteHost`` if success, otherwise returns an zero pointer.
+    Return new ``Socket`` connect to ``remoteHost`` if success, otherwise returns an zero pointer.
     
     This function block current coroutine until the connection is made, or failed.
     
@@ -1215,7 +1215,7 @@ The second constructor use the ``hostName`` and ``port`` to create a valid Socks
 
     Connect to ``remoteHost`` at ``port`` via this proxy.
     
-    Returns new ``Socket`` connect to ``remoteHost`` if success, otherwise returns an zero pointer.
+    Return new ``Socket`` connect to ``remoteHost`` if success, otherwise returns an zero pointer.
     
     This function block current coroutine until the connection is made, or failed.
     
@@ -1225,7 +1225,7 @@ The second constructor use the ``hostName`` and ``port`` to create a valid Socks
 
     Tell the Socks5 proxy to Listen at ``port``.
     
-    Returns a ``SocketLike`` object if success, otherwise returns zero pointer.
+    Return a ``SocketLike`` object if success, otherwise returns zero pointer.
     
     You can call ``SocketLike::accept()`` to obtain new requests to that ``port``.
     
@@ -1235,27 +1235,27 @@ The second constructor use the ``hostName`` and ``port`` to create a valid Socks
     
 .. method:: bool isNull() const
     
-    Returns true if there is no ``hostName`` or ``port`` of proxy server is provided.
+    Return true if there is no ``hostName`` or ``port`` of proxy server is provided.
     
 .. method:: Capabilities capabilities() const
 
-    Returns the capabilities of proxy server.
+    Return the capabilities of proxy server.
     
 .. method:: QString hostName() const
 
-    Returns the ``hostName`` of proxy server.
+    Return the ``hostName`` of proxy server.
     
 .. method:: quint16 port() const;
 
-    Returns the ``port`` of proxy server.
+    Return the ``port`` of proxy server.
     
 .. method:: QString user() const
 
-    Returns the ``user`` used for autherication of proxy server.
+    Return the ``user`` used for autherication of proxy server.
     
 .. method:: QString password() const
 
-    Returns the ``password`` used for autherication of proxy server.
+    Return the ``password`` used for autherication of proxy server.
     
 .. method:: void setCapabilities(QFlags<Capability> capabilities)
 
@@ -1285,14 +1285,633 @@ Not implmented yet.
 3. Http Client
 --------------
 
+``HttpSession`` is a HTTP 1.0/1.1 client with automatical cookie management and automatical redirection. ``HttpSession::send()`` is the core function, which sends request to web server, then parses the response. Other than these, ``HttpSession`` provides many shortcut function, such as ``get()``, ``post()``, ``head()``, etc. Those functions help you to make http request in one line code.
+
+``HttpSession`` can use Socks5 proxy which is default to none. However the support for HTTP proxy has not been implemented yet.
+
+Cookies are parsed and stored using ``HttpSession::cookieJar()``. All response can be stored using ``HttpSession::cacheManager()`` which default to none. QtNetworkNg provides a ``HttpMemoryCacheManager`` which stores all cacheable responses in memory.
+
+.. code-block:: c++
+    :caption: examples to send http request
+    
+    HttpSession session;
+    
+    // use send()
+    HttpRequest request;
+    request.setUrl("https://qtng.org/");
+    request.setMethod("GET");
+    request.setTimeout(10.0f);
+    HttpResponse response = session.send(request);
+    qDebug() << response.statusCode() << request.statusText() << response.isOk() << response.body().size();
+
+    // use shortcuts
+    HttpResponse response = session.get("https://qtng.org/");
+    qDebug() << response.statusCode() << request.statusText() << response.isOk() << response.body().size();
+    
+    QMap<QString, QString> query;
+    query.insert("username", "panda");
+    query.insert("password", "xoxoxoxox");
+    HttpResponse response = session.post("https://qtng.org/login/", query);
+    qDebug() << response.statusCode() << request.statusText() << response.isOk() << response.body().size();
+    
+    // use cache cache manager
+    session.setCacheManager(QSharedPointer<HttpCacheManager>::create());
+
+The ``HttpRequest`` provides a number of functions for fine-grained control of requests to the web server. The most used functions are ``setMethod()``, ``setUrl()``, ``setBody()``, ``setTimeout()``. 
+
+The ``HttpResponse`` provides functions to parse HTTP response. If some error occured, such as connection timout, HTTP 500 error, and others, ``HttpResonse::isOk()`` returns false. So, always check it before use ``HttpResonse``. The detail of errors is ``HttpResonse::error()``.
+
+There is a special function ``HttpRequest::setStreamResponse()`` which indicate that ``HttpResponse`` do not parse the response body. Then, you can take the HTTP connection as plain Socket using ``HttpResponse::takeStream()``.
+
+
 3.1 HttpSession
 ^^^^^^^^^^^^^^^
+
+.. method:: HttpResponse send(HttpRequest &request)
+
+    Send http request to web server, and parses the response.
+    
+.. method:: QNetworkCookieJar &cookieJar()
+
+    Return the cookie manager.
+    
+    Note: the setter ``setCookieJar(...)`` has not been implemented yet.
+    
+.. method:: QNetworkCookie cookie(const QUrl &url, const QString &name)
+
+    Return the specified cookie of ``url``.
+    
+    Cookies are always associated with a URL. So you should provide two parameters ``url`` and ``name`` together.
+    
+.. method:: void setMaxConnectionsPerServer(int maxConnectionsPerServer)
+
+    Set the max connections per server to connect. The default value is 10, means that if you make more than 10 requests to a web server, some requests would be blocked untils the first 10 requests finished.
+    
+    If ``maxConnectionsPerServer`` less than 0, ``HttpSession`` omit the limit.
+    
+.. method:: int maxConnectionsPerServer()
+
+    Return the current max connections per server to connect.
+    
+.. method:: void setDebugLevel(int level)
+
+    If debug level is more than 0, ``HttpSession`` will print the digest sent to or received from web server.
+    
+    If debug level is more than 1, ``HttpSession`` will print the full content sent to or received from web server, especially the full response body. This can lead to a lot of screen scrolling.
+    
+.. method:: void disableDebug()
+
+    Disable printing debug information.
+    
+.. method:: void setDefaultUserAgent(const QString &userAgent)
+
+    Set the default user agent string.
+    
+    The default value is "Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0", which is my favourite browser.
+    
+.. method:: QString defaultUserAgent() const
+
+    Return the default user agent string.
+    
+    Each individual ``HttpRequest`` can set its own user agent string using ``HttpRequest::setUserAgent()``
+    
+.. method:: HttpVersion defaultVersion() const
+
+    Return the default HTTP version to use.
+    
+    The default value is Http 1.1
+    
+    Each individual ``HttpRequest`` can set its own http version using ``HttpRequest::setVersion()``
+    
+.. method:: HttpVersion defaultVersion() const
+
+    Return the default http version.
+    
+.. method:: void setDefaultConnectionTimeout(float timeout)
+
+    Set the default connection timeout, which default to 10 seconds.
+    
+    This limit only apply before connection established. If the ``HttpSession`` can not connect to web server, a ``ConnectTimeout`` error is set to ``HttpResponse``.
+    
+    Each individual ``HttpRequest`` can set its own timeout.
+    
+.. method:: float defaultConnnectionTimeout() const
+
+    Return the default connection timeout. 
+    
+.. method:: void setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy)
+
+    Set the SOCKS5 proxy.
+    
+.. method:: QSharedPointer<Socks5Proxy> socks5Proxy() const
+
+    Return the SOCKS5 proxy.
+    
+.. method:: void setCacheManager(QSharedPointer<HttpCacheManager> cacheManager)
+
+    Set the cache manager.
+    
+.. method:: QSharedPointer<HttpCacheManager> cacheManager() const
+
+    Return the cache manager.
+    
+.. method:: HttpResponse get(const QString &url)
+
+    Send HTTP request to web server using GET method.
+    
+    There are many similar functions:
+
+    .. code-block:: c++
+    
+        HttpResponse get(const QUrl &url);
+        HttpResponse get(const QUrl &url, const QMap<QString, QString> &query);
+        HttpResponse get(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse get(const QUrl &url, const QUrlQuery &query);
+        HttpResponse get(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse get(const QString &url);
+        HttpResponse get(const QString &url, const QMap<QString, QString> &query);
+        HttpResponse get(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse get(const QString &url, const QUrlQuery &query);
+        HttpResponse get(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+        
+        HttpResponse head(const QUrl &url);
+        HttpResponse head(const QUrl &url, const QMap<QString, QString> &query);
+        HttpResponse head(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse head(const QUrl &url, const QUrlQuery &query);
+        HttpResponse head(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse head(const QString &url);
+        HttpResponse head(const QString &url, const QMap<QString, QString> &query);
+        HttpResponse head(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse head(const QString &url, const QUrlQuery &query);
+        HttpResponse head(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+
+        HttpResponse options(const QUrl &url);
+        HttpResponse options(const QUrl &url, const QMap<QString, QString> &query);
+        HttpResponse options(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse options(const QUrl &url, const QUrlQuery &query);
+        HttpResponse options(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse options(const QString &url);
+        HttpResponse options(const QString &url, const QMap<QString, QString> &query);
+        HttpResponse options(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse options(const QString &url, const QUrlQuery &query);
+        HttpResponse options(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+
+        HttpResponse delete_(const QUrl &url);
+        HttpResponse delete_(const QUrl &url, const QMap<QString, QString> &query);
+        HttpResponse delete_(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse delete_(const QUrl &url, const QUrlQuery &query);
+        HttpResponse delete_(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse delete_(const QString &url);
+        HttpResponse delete_(const QString &url, const QMap<QString, QString> &query);
+        HttpResponse delete_(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+        HttpResponse delete_(const QString &url, const QUrlQuery &query);
+        HttpResponse delete_(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+        
+.. method:: HttpResponse post(const QString &url, const QByteArray &body)
+
+    Send HTTP request to web server using POST method.
+    
+    There are many similar functions:
+    
+    .. code-block:: c++
+    
+        HttpResponse post(const QUrl &url, const QByteArray &body);
+        HttpResponse post(const QUrl &url, const QJsonDocument &body);
+        HttpResponse post(const QUrl &url, const QJsonObject &body);
+        HttpResponse post(const QUrl &url, const QJsonArray &body);
+        HttpResponse post(const QUrl &url, const QMap<QString, QString> &body);
+        HttpResponse post(const QUrl &url, const QUrlQuery &body);
+        HttpResponse post(const QUrl &url, const FormData &body);
+        HttpResponse post(const QUrl &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QUrl &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QUrl &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QUrl &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QUrl &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QString &url, const QByteArray &body);
+        HttpResponse post(const QString &url, const QJsonDocument &body);
+        HttpResponse post(const QString &url, const QJsonObject &body);
+        HttpResponse post(const QString &url, const QJsonArray &body);
+        HttpResponse post(const QString &url, const QMap<QString, QString> &body);
+        HttpResponse post(const QString &url, const QUrlQuery &body);
+        HttpResponse post(const QString &url, const FormData &body);
+        HttpResponse post(const QString &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QString &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QString &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QString &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QString &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QString &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse post(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers);
+
+        HttpResponse patch(const QUrl &url, const QByteArray &body);
+        HttpResponse patch(const QUrl &url, const QJsonDocument &body);
+        HttpResponse patch(const QUrl &url, const QJsonObject &body);
+        HttpResponse patch(const QUrl &url, const QJsonArray &body);
+        HttpResponse patch(const QUrl &url, const QMap<QString, QString> &body);
+        HttpResponse patch(const QUrl &url, const QUrlQuery &body);
+        HttpResponse patch(const QUrl &url, const FormData &body);
+        HttpResponse patch(const QUrl &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QUrl &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QUrl &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QUrl &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QUrl &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QString &url, const QByteArray &body);
+        HttpResponse patch(const QString &url, const QJsonDocument &body);
+        HttpResponse patch(const QString &url, const QJsonObject &body);
+        HttpResponse patch(const QString &url, const QJsonArray &body);
+        HttpResponse patch(const QString &url, const QMap<QString, QString> &body);
+        HttpResponse patch(const QString &url, const QUrlQuery &body);
+        HttpResponse patch(const QString &url, const FormData &body);
+        HttpResponse patch(const QString &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QString &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QString &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QString &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QString &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QString &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse patch(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers);
+
+        HttpResponse put(const QUrl &url, const QByteArray &body);
+        HttpResponse put(const QUrl &url, const QJsonDocument &body);
+        HttpResponse put(const QUrl &url, const QJsonObject &body);
+        HttpResponse put(const QUrl &url, const QJsonArray &body);
+        HttpResponse put(const QUrl &url, const QMap<QString, QString> &body);
+        HttpResponse put(const QUrl &url, const QUrlQuery &body);
+        HttpResponse put(const QUrl &url, const FormData &body);
+        HttpResponse put(const QUrl &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QUrl &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QUrl &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QUrl &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QUrl &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QString &url, const QByteArray &body);
+        HttpResponse put(const QString &url, const QJsonDocument &body);
+        HttpResponse put(const QString &url, const QJsonObject &body);
+        HttpResponse put(const QString &url, const QJsonArray &body);
+        HttpResponse put(const QString &url, const QMap<QString, QString> &body);
+        HttpResponse put(const QString &url, const QUrlQuery &body);
+        HttpResponse put(const QString &url, const FormData &body);
+        HttpResponse put(const QString &url, const QByteArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QString &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QString &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QString &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QString &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QString &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
+        HttpResponse put(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers);
+
 
 3.2 HttpResponse
 ^^^^^^^^^^^^^^^^
 
+.. method:: QUrl url() const
+
+    Return the url of response. In most cases, it is the url of request. If there are redirections, it is the url of last response.
+
+.. method:: void setUrl(const QUrl &url)
+
+    Set the url of response. This function is called by ``HttpSession``.
+    
+.. method:: int statusCode() const
+
+    Return the status code of response, such as 200 for success, 404 for not found, and 500 for internal error of server.
+    
+.. method:: void setStatusCode(int statusCode)
+
+    Set the status code of response. This function is called by ``HttpSession``.
+    
+.. method:: QString statusText() const
+
+    Return the status text of response, such as ``OK`` for success, ``Not Found`` or ``Bad Gateway`` for failed.
+
+.. method:: void setStatusText(const QString &statusText)
+
+    Set the status text of response. This function is called by ``HttpSession``.
+    
+.. method:: QList<QNetworkCookie> cookies() const
+
+    Return the cookies of repsonse.
+    
+.. method:: void setCookies(const QList<QNetworkCookie> &cookies)
+
+    Set the cookies of response. This function is called by ``HttpSession``.
+    
+.. method:: HttpRequest request() const
+
+    Return the request sent to server. In most cases, it is the request you sent. If there are redirections, it is the new request made by ``HttpSession``.
+    
+.. method:: qint64 elapsed() const
+
+    The elapsed time in milliseconds, which started from ``HttpSession`` getting request, end at error occured or finished parsing.
+    
+.. method:: void setElapsed(qint64 elapsed)
+
+    Set the elapsed time. This function is called by ``HttpSession``.
+    
+.. method:: QList<HttpResponse> history() const
+
+    The previous responses. In most cases, it is an empty list. If there are redirections, it is not empty.
+    
+.. method:: void setHistory(const QList<HttpResponse> &history)
+
+    Set the previous response. This function is called by ``HttpSession``.
+    
+.. method:: HttpVersion version() const
+
+    Return the HTTP version of response. The value can be HTTP 1.0 or HTTP 1.1.
+    
+    Note: HTTP 2.0 is not supported yet.
+    
+.. method:: void setVersion(HttpVersion version)
+
+    Set the HTTP version of response. This function is called by ``HttpSession``.
+    
+.. method:: QByteArray body() const
+
+    Return the content of response as ``QByteArray``.
+    
+.. method:: QJsonDocument json();
+
+    Return the content of response as ``QJsonDocument``.
+    
+.. method:: QString text()
+
+    Return the content of response as UTF-8 string.
+    
+.. method:: QString html()
+
+    Return the content of response as string. The encoding is detected from HTTP header and HTML document.
+
+    Note: This function has not been implemented and is currently equivalent to text.
+    
+.. method:: bool isOk() const
+
+    Return false if some error occured.
+    
+    Note: This function should always be called first before using other functions.
+
+.. method:: bool hasNetworkError() const
+
+    Return true if some network error occured.
+    
+.. method:: bool hasHttpError() const
+
+    Return true if an HTTP error occured.
+
+.. method:: QSharedPointer<RequestError> error() const
+
+    Return the error.
+    
+.. method:: void setError(QSharedPointer<RequestError> error)
+
+    Set the error. This function is called by ``HttpSession``.
+
+.. method:: QSharedPointer<SocketLike> takeStream(QByteArray *readBytes)
+
+    In most cases, ``HttpSession`` returns ``HttpResponse`` only if it read all headers and content from server. But you can set ``HttpRequest::streamResponse()`` to ``true``, ``HttpSession`` will return ``HttpResonse`` immediately after reading the HTTP headers.
+    
+    ``takeStream()`` returns the http connection.
+
 3.3 HttpRequest
 ^^^^^^^^^^^^^^^
+
+.. method:: QString method() const
+
+    Return the method of request.
+    
+.. method:: void setMethod(const QString &method)
+
+    Set the method of request. Can be ``GET``, ``POST``, ``PUT``, etc. 
+    
+.. method:: QUrl url() const
+
+    Return the url of request.
+    
+.. method:: void setUrl(const QUrl &url)
+
+    Set the url of request.
+    
+.. method:: void setUrl(const QString &url)
+
+    Set the url of request.
+    
+.. method:: QUrlQuery query() const
+
+    Return the query string of request.
+    
+.. method:: void setQuery(const QMap<QString, QString> &query)
+
+    Set the query string of request.
+    
+.. method:: void setQuery(const QUrlQuery &query)
+
+    Set the query string of request.
+    
+.. method:: QList<QNetworkCookie> cookies() const
+
+    Set the cookies of request.
+    
+.. method:: void setCookies(const QList<QNetworkCookie> &cookies)
+
+    Set the cookies of request.
+    
+.. method:: QByteArray body() const
+
+    Return the body of request.
+    
+.. method:: void setBody(const QByteArray &body)
+
+    Set the body of request.
+    
+    There are serveral variant functions:
+    
+    .. code-block:: c++
+        
+        void setBody(const FormData &formData);
+        void setBody(const QJsonDocument &json);
+        void setBody(const QJsonObject &json);
+        void setBody(const QJsonArray &json);
+        void setBody(const QMap<QString, QString> form);
+        void setBody(const QUrlQuery &form);
+
+.. method:: QString userAgent() const
+
+    Return the user agent string of request.
+    
+.. method:: void setUserAgent(const QString &userAgent)
+
+    Set the user agent string of request.
+    
+.. method:: int maxBodySize() const
+
+    Return the max body size of response.
+    
+    Note: this limit apply to response, not request. If server returns a response larger that this size, ``HttpSession`` will report an ``UnrewindableBodyError`` error.
+    
+.. method:: void setMaxBodySize(int maxBodySize)
+
+    Set the max body size of response.
+    
+    Note: see ``maxBodySize()``.
+    
+.. method:: int maxRedirects() const
+
+    Return the max redirections allow. Set to 0 will disable HTTP redirection.
+    
+    Note: When this limit is exceeded, ``HttpSession`` will report an ``TooManyRedirects`` error.
+    
+.. method:: void setMaxRedirects(int maxRedirects)
+
+    Set the max redirections allow.
+    
+    Note: see ``maxRedirects()``.
+    
+.. method:: HttpVersion version() const
+
+    Return the HTTP version of request. Default to ``Unkown``, means that ``HttpSession::defaultVersion()`` is used instead.
+    
+    Note:: ``HttpSession::defaultVersion()`` is default to HTTP 1.1
+    
+.. method:: void setVersion(HttpVersion version)
+
+    Set the HTTP version of request. 
+    
+    Note:: see ``version()``.
+    
+.. method:: bool streamResponse() const
+
+    If true, indicate that ``HttpResponse`` is returned without reading HTTP content.
+    
+    Note: see ``HttpResponse::takeStream()``.
+    
+.. method:: void setStreamResponse(bool streamResponse)
+
+    Set true to let ``HttpSession`` return ``HttpResponse`` without reading HTTP content.
+    
+    Note: see ``HttpResponse::takeStream()``.
+    
+.. method:: float tiemout() const
+
+    Return the connection timeout.
+    
+    Note: this restriction only apply in connecting phase. You could use ``qtng::Timeout`` to manage the timeout over the entire request.
+    
+.. method:: void setTimeout(float timeout);
+
+    Set the connection timeut.
+    
+    Note: see ``timeout()``.
+    
+
+3.4 FormData
+^^^^^^^^^^^^
+
+``FormData`` is the HTTP form for POST. It is needed for uploading files.
+
+Note: see ``void HttpRequest::setBody(const FormData &formData)``.
+
+.. method:: void addFile(const QString &name, const QString &filename, const QByteArray &data, const QString &contentType = QString())
+    
+    Add a file to the field in ``name`` of form.
+    
+.. method:: void addQuery(const QString &key, const QString &value)
+
+    Set the field in ``name`` of form to ``value``.
+
+
+3.4 HTTP errors
+^^^^^^^^^^^^^^^
+
+Before using the ``HttpResponse``, you should check ``HttpResonse::isOk()``. If the function returns false,  the response is bad. At this point, ``HttpResponse::error()`` returns an instance of following types:
+
+* RequestError
+
+    All error is request error.
+
+* HTTPError
+
+    Web server returns an HTTP error. The error code is ``HTTPError::statusCode``.
+
+* ConnectionError
+
+    Connection is broken while reading or sending data.
+
+* ProxyError
+
+    Can not connect to web server through proxy.
+
+* SSLError
+
+    Can not make SSL connection, handshake failed.
+
+* RequestTimeout
+
+    Timeout while reading or sending data.
+
+    ``RequestTimeout`` is also a ``ConnectionError``.
+
+* ConnectTimeout
+
+    Timeout while conneting to server.
+
+    ``ConnectTimeout`` is also a ``ConnectionError`` and a ``RequestTimeout``.
+
+* ReadTimeout
+
+    Timeout while reading.
+
+    ``ReadTimeout`` is also a ``RequestTimeout``.
+
+* URLRequired
+
+    There is not url in request.
+
+* TooManyRedirects
+
+    Web server return too many redirection responses.
+
+* MissingSchema
+
+    The url of request misses schema.
+
+    Note: ``HttpSession`` only supports ``http`` and ``https``.
+
+* InvalidScheme
+
+    The url of request has an unsupported schema other than ``http`` and ``https``.
+
+* UnsupportedVersion
+
+    The HTTP version is not supported.
+
+    Note: ``HttpSession`` only supports HTTP 1.0 and 1.1.
+
+* InvalidURL
+
+    The url of request is invalid.
+
+* InvalidHeader
+
+    The server returns invalid header.
+
+* ChunkedEncodingError
+
+    The server returns bad chuncked encoding body.
+
+* ContentDecodingError
+
+    Can not decode the body of response.
+
+* StreamConsumedError
+
+    The stream is consumed while reading body.
+
+* UnrewindableBodyError
+
+    The body is too large.
+
 
 4. Http Server
 --------------

@@ -91,7 +91,7 @@ public:
     QUrl url() const;
     void setUrl(const QUrl &url);
     void setUrl(const QString &url) {setUrl(QUrl::fromUserInput(url)); }
-    QMap<QString, QString> query() const;
+    QUrlQuery query() const;
     void setQuery(const QMap<QString, QString> &query);
     void setQuery(const QUrlQuery &query);
     QList<QNetworkCookie> cookies() const;
@@ -110,7 +110,7 @@ public:
     void setVersion(HttpVersion version);
     void setStreamResponse(bool streamResponse);
     bool streamResponse() const;
-    float tiemout() const;
+    float timeout() const;
     void setTimeout(float timeout);
 public:
     void setBody(const FormData &formData);

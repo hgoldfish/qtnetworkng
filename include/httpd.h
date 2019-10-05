@@ -56,6 +56,8 @@ class SimpleHttpRequestHandler: public BaseHttpRequestHandler
 public:
     SimpleHttpRequestHandler()
         :BaseHttpRequestHandler(), rootDir(QDir::current()) {}
+public:
+    void setRootDir(const QDir &rootDir) { this->rootDir = rootDir; }
 protected:
     virtual void doGET() override;
     virtual void doHEAD() override;
