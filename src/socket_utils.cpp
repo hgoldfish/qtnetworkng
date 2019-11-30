@@ -4,13 +4,27 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-StreamLike::StreamLike() {}
-
-StreamLike::~StreamLike() {}
-
 SocketLike::SocketLike() {}
 
 SocketLike::~SocketLike() {}
+
+
+qint32 SocketLike::read(char *data, qint32 size)
+{
+    return recvall(data, size);
+}
+
+
+qint32 SocketLike::write(char *data, qint32 size)
+{
+    return sendall(data, size);
+}
+
+
+qint64 SocketLike::size()
+{
+    return -1;
+}
 
 
 namespace {
@@ -18,7 +32,6 @@ class SocketLikeImpl: public SocketLike
 {
 public:
     SocketLikeImpl(QSharedPointer<Socket> s);
-    virtual ~SocketLikeImpl() override;
 public:
     virtual Socket::SocketError error() const override;
     virtual QString errorString() const override;
@@ -57,73 +70,83 @@ public:
     QSharedPointer<Socket> s;
 };
 
+
 SocketLikeImpl::SocketLikeImpl(QSharedPointer<Socket> s)
-    :s(s) {}
+    :s(s)
+{}
 
-
-SocketLikeImpl::~SocketLikeImpl()
-{
-}
 
 Socket::SocketError SocketLikeImpl::error() const
 {
     return s->error();
 }
 
+
 QString SocketLikeImpl::errorString() const
 {
     return s->errorString();
 }
+
 
 bool SocketLikeImpl::isValid() const
 {
     return s->isValid();
 }
 
+
 QHostAddress SocketLikeImpl::localAddress() const
 {
     return s->localAddress();
 }
+
 
 quint16 SocketLikeImpl::localPort() const
 {
     return s->localPort();
 }
 
+
 QHostAddress SocketLikeImpl::peerAddress() const
 {
     return s->peerAddress();
 }
+
 
 QString SocketLikeImpl::peerName() const
 {
     return s->peerName();
 }
 
+
 quint16 SocketLikeImpl::peerPort() const
 {
     return s->peerPort();
 }
+
 
 qintptr	SocketLikeImpl::fileno() const
 {
     return s->fileno();
 }
 
+
 Socket::SocketType SocketLikeImpl::type() const
 {
     return s->type();
 }
+
 
 Socket::SocketState SocketLikeImpl::state() const
 {
     return s->state();
 }
 
+
 Socket::NetworkLayerProtocol SocketLikeImpl::protocol() const
 {
     return s->protocol();
 }
+
 
 Socket *SocketLikeImpl::acceptRaw()
 {
@@ -133,97 +156,116 @@ Socket *SocketLikeImpl::acceptRaw()
 
 QSharedPointer<SocketLike> SocketLikeImpl::accept()
 {
-    return SocketLike::rawSocket(s->accept());
+    return asSocketLike(s->accept());
 }
+
 
 bool SocketLikeImpl::bind(QHostAddress &address, quint16 port, Socket::BindMode mode)
 {
     return s->bind(address, port, mode);
 }
 
+
 bool SocketLikeImpl::bind(quint16 port, Socket::BindMode mode)
 {
     return s->bind(port, mode);
 }
+
 
 bool SocketLikeImpl::connect(const QHostAddress &addr, quint16 port)
 {
     return s->connect(addr, port);
 }
 
+
 bool SocketLikeImpl::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
 {
     return s->connect(hostName, port, protocol);
 }
+
 
 void SocketLikeImpl::close()
 {
     s->close();
 }
 
+
 void SocketLikeImpl::abort()
 {
     s->abort();
 }
+
 
 bool SocketLikeImpl::listen(int backlog)
 {
     return s->listen(backlog);
 }
 
+
 bool SocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &value)
 {
     return s->setOption(option, value);
 }
+
 
 QVariant SocketLikeImpl::option(Socket::SocketOption option) const
 {
     return s->option(option);
 }
 
+
 qint32 SocketLikeImpl::recv(char *data, qint32 size)
 {
     return s->recv(data, size);
 }
+
 
 qint32 SocketLikeImpl::recvall(char *data, qint32 size)
 {
     return s->recvall(data, size);
 }
 
+
 qint32 SocketLikeImpl::send(const char *data, qint32 size)
 {
     return s->send(data, size);
 }
+
 
 qint32 SocketLikeImpl::sendall(const char *data, qint32 size)
 {
     return s->sendall(data, size);
 }
 
+
 QByteArray SocketLikeImpl::recv(qint32 size)
 {
     return s->recv(size);
 }
+
 
 QByteArray SocketLikeImpl::recvall(qint32 size)
 {
     return s->recvall(size);
 }
 
+
 qint32 SocketLikeImpl::send(const QByteArray &data)
 {
     return s->send(data);
 }
+
 
 qint32 SocketLikeImpl::sendall(const QByteArray &data)
 {
     return s->sendall(data);
 }
 
+
 } //anonymous namespace
 
-QSharedPointer<SocketLike> SocketLike::rawSocket(QSharedPointer<Socket> s)
+
+QSharedPointer<SocketLike> asSocketLike(QSharedPointer<Socket> s)
 {
     return QSharedPointer<SocketLikeImpl>::create(s).dynamicCast<SocketLike>();
 }
@@ -240,174 +282,11 @@ QSharedPointer<Socket> convertSocketLikeToSocket(QSharedPointer<SocketLike> sock
 }
 
 
-FileLike::~FileLike() {}
-
-
-QByteArray FileLike::readall(bool *ok)
-{
-    QByteArray data;
-    qint64 s = size();
-    if (s >= static_cast<qint64>(INT32_MAX)) {
-        if (ok) *ok = false;
-        return data;
-    } else if (s == 0) {
-        return data;
-    } else if (s < 0) {
-        // size() is not supported.
-    } else { // 0 < s < INT32_MAX
-        data.reserve(static_cast<qint32>(s));
-    }
-    char buf[1024 * 8];
-    while (!atEnd()) {
-        qint32 readBytes = read(buf, 1024 * 8);
-        if (readBytes <= 0) {
-            if (ok) *ok = false;
-            return data;
-        }
-        data.append(buf, readBytes);
-    }
-    if (s > 0) {
-        if (data.size() != s) {
-            if (ok) *ok = false;
-            return data;
-        }
-    }
-    if (ok) *ok = true;
-    return data;
-}
-
-class RawFile: public FileLike
-{
-public:
-    RawFile(QSharedPointer<QFile> f)
-        :f(f) {}
-    virtual qint32 read(char *data, qint32 size) override;
-    virtual qint32 readall(char *data, qint32 size) override;
-    virtual qint32 write(char *data, qint32 size) override;
-    virtual qint32 writeall(char *data, qint32 size) override;
-    virtual bool atEnd() override;
-    virtual void close() override;
-    virtual qint64 size() override;
-private:
-    QSharedPointer<QFile> f;
-};
-
-qint32 RawFile::read(char *data, qint32 size)
-{
-    qint64 len = f->read(data, size);
-    return static_cast<qint32>(len);
-}
-
-qint32 RawFile::readall(char *data, qint32 size)
-{
-    qint64 len = f->read(data, size);
-    return static_cast<qint32>(len);
-}
-
-qint32 RawFile::write(char *data, qint32 size)
-{
-    qint64 len = f->write(data, size);
-    return static_cast<qint32>(len);
-}
-
-qint32 RawFile::writeall(char *data, qint32 size)
-{
-    qint64 len = f->write(data, size);
-    return static_cast<qint32>(len);
-}
-
-bool RawFile::atEnd()
-{
-    return f->atEnd();
-}
-
-void RawFile::close()
-{
-    f->close();
-}
-
-qint64 RawFile::size()
-{
-    return f->size();
-}
-
-QSharedPointer<FileLike> FileLike::rawFile(QSharedPointer<QFile> f)
-{
-    return QSharedPointer<RawFile>::create(f).dynamicCast<FileLike>();
-}
-
-
-
-class BytesIO: public FileLike
-{
-public:
-    BytesIO(const QByteArray &buf)
-        :buf(buf), pos(0) {}
-    virtual qint32 read(char *data, qint32 size) override;
-    virtual qint32 readall(char *data, qint32 size) override;
-    virtual qint32 write(char *data, qint32 size) override;
-    virtual qint32 writeall(char *data, qint32 size) override;
-    virtual bool atEnd() override;
-    virtual void close() override;
-    virtual qint64 size() override;
-private:
-    QByteArray buf;
-    qint32 pos;
-};
-
-qint32 BytesIO::read(char *data, qint32 size)
-{
-    qint32 leftBytes = buf.size() - pos;
-    qint32 readBytes = qMin(leftBytes, size);
-    memcpy(data, buf.data() + pos, static_cast<size_t>(readBytes));
-    pos += readBytes;
-    return readBytes;
-}
-
-qint32 BytesIO::readall(char *data, qint32 size)
-{
-    return BytesIO::read(data, size);
-}
-
-qint32 BytesIO::write(char *data, qint32 size)
-{
-    if (pos + size > buf.size()) {
-        buf.resize(pos + size);
-    }
-    memcpy(buf.data() + pos, data, static_cast<size_t>(size));
-    pos += size;
-    return size;
-}
-
-qint32 BytesIO::writeall(char *data, qint32 size)
-{
-    return BytesIO::write(data, size);
-}
-
-bool BytesIO::atEnd()
-{
-    return pos >= buf.size();
-}
-
-void BytesIO::close()
-{
-
-}
-
-qint64 BytesIO::size()
-{
-    return buf.size();
-}
-
-QSharedPointer<FileLike> FileLike::bytes(const QByteArray &data)
-{
-    return QSharedPointer<BytesIO>::create(data).dynamicCast<FileLike>();
-}
-
 class ExchangerPrivate
 {
 public:
-    ExchangerPrivate(QSharedPointer<StreamLike> request, QSharedPointer<StreamLike> forward, quint32 maxBufferSize, float timeout);
+    ExchangerPrivate(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward,
+                     quint32 maxBufferSize, float timeout);
     ~ExchangerPrivate();
 public:
     void receiveOutgoing();
@@ -417,18 +296,26 @@ public:
     void in2out();
     void out2in();
 public:
-    QSharedPointer<StreamLike> request;
-    QSharedPointer<StreamLike> forward;
+    QSharedPointer<SocketLike> request;
+    QSharedPointer<SocketLike> forward;
     CoroutineGroup *operations;
     Queue<QByteArray> incoming;
     Queue<QByteArray> outgoing;
     float timeout;
 };
 
+
 #define EXCHANGER_PACKET_SIZE (1024 * 8)
 
-ExchangerPrivate::ExchangerPrivate(QSharedPointer<StreamLike> request, QSharedPointer<StreamLike> forward, quint32 maxBufferSize, float timeout)
-    :request(request), forward(forward), operations(new CoroutineGroup), incoming(maxBufferSize / EXCHANGER_PACKET_SIZE), outgoing(maxBufferSize / EXCHANGER_PACKET_SIZE),  timeout(timeout)
+
+ExchangerPrivate::ExchangerPrivate(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward,
+                                   quint32 maxBufferSize, float timeout)
+    : request(request)
+    , forward(forward)
+    , operations(new CoroutineGroup)
+    , incoming(maxBufferSize / EXCHANGER_PACKET_SIZE)
+    , outgoing(maxBufferSize / EXCHANGER_PACKET_SIZE)
+    , timeout(timeout)
 {}
 
 
@@ -543,6 +430,7 @@ void ExchangerPrivate::in2out()
     }
 }
 
+
 void ExchangerPrivate::out2in()
 {
     QByteArray buf(EXCHANGER_PACKET_SIZE, Qt::Uninitialized);
@@ -566,7 +454,8 @@ void ExchangerPrivate::out2in()
     }
 }
 
-Exchanger::Exchanger(QSharedPointer<StreamLike> request, QSharedPointer<StreamLike> forward, quint32 maxBufferSize, float timeout)
+
+Exchanger::Exchanger(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward, quint32 maxBufferSize, float timeout)
     : d_ptr(new ExchangerPrivate(request, forward, maxBufferSize, timeout))
 {
 

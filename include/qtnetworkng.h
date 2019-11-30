@@ -25,6 +25,10 @@
 #include "certificate.h"
 #endif
 
+#ifdef QTNG_HAVE_ZLIB
+#include "gzip.h"
+#endif
+
 #include "data_channel.h"
 
 #endif // QTNG_QTNETWORKNG_H

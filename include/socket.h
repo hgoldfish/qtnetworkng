@@ -25,7 +25,9 @@ public:
     enum SocketType {
         TcpSocket,
         UdpSocket,
+        // define for other XXXSocket types. not used here.
         KcpSocket,
+        LocalSocket,
         UnknownSocketType = -1
     };
     Q_ENUMS(SocketType)
@@ -42,24 +44,24 @@ public:
         HostNotFoundError,
         SocketAccessError,
         SocketResourceError,
-        SocketTimeoutError,                     /* 5 */
+        SocketTimeoutError,
         DatagramTooLargeError,
         NetworkError,
         AddressInUseError,
         SocketAddressNotAvailableError,
-        UnsupportedSocketOperationError,        /* 10 */
+        UnsupportedSocketOperationError,
         UnfinishedSocketOperationError,
 
         // define for proxy and ssl, not used here.
         ProxyAuthenticationRequiredError,
         SslHandshakeFailedError,
         ProxyConnectionRefusedError,
-        ProxyConnectionClosedError,             /* 15 */
+        ProxyConnectionClosedError,
         ProxyConnectionTimeoutError,
         ProxyNotFoundError,
         ProxyProtocolError,
         OperationError,
-        SslInternalError,                       /* 20 */
+        SslInternalError,
         SslInvalidUserDataError,
         TemporaryError,
 

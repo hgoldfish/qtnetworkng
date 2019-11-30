@@ -962,7 +962,11 @@ uint qHash(const Certificate &key, uint seed)
             unsigned int len = 0;
             unsigned char md[EVP_MAX_MD_SIZE];
             X509_digest(x509, sha256, md, &len);
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
             return qHashBits(md, len, seed);
+#else
+            return qHash(QByteArray(reinterpret_cast<const char*>(md), len), seed);
+#endif
         }
     }
     return seed;
@@ -972,7 +976,11 @@ uint qHash(const Certificate &key, uint seed)
 QDebug &operator<<(QDebug &debug, const Certificate &certificate)
 {
     QDebugStateSaver saver(debug); Q_UNUSED(saver);
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
     debug.resetFormat().nospace();
+#else
+    debug.nospace();
+#endif
     debug << "Certificate("
           << certificate.version()
           << ", " << certificate.serialNumber()

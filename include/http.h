@@ -104,6 +104,7 @@ public:
     void setMaxBodySize(int maxBodySize);
     int maxRedirects() const;
     void setMaxRedirects(int maxRedirects);
+    inline void disableRedirects() { setMaxRedirects(0); }
     Priority priority() const;
     void setPriority(Priority priority);
     HttpVersion version() const;
@@ -112,6 +113,8 @@ public:
     bool streamResponse() const;
     float timeout() const;
     void setTimeout(float timeout);
+    QSharedPointer<SocketLike> connection() const;
+    void useConnection(QSharedPointer<SocketLike> connection);
 public:
     void setBody(const FormData &formData);
     void setBody(const QJsonDocument &json);
@@ -326,6 +329,7 @@ public:
     HttpResponse send(HttpRequest &request);
     QNetworkCookieJar &cookieJar();
     QNetworkCookie cookie(const QUrl &url, const QString &name);
+    void setManagingCookies(bool managingCookies);
 
     void setMaxConnectionsPerServer(int maxConnectionsPerServer);
     int maxConnectionsPerServer();

@@ -227,6 +227,13 @@ private:
     Q_DISABLE_COPY(SslSocket)
 };
 
+
+QSharedPointer<SocketLike> asSocketLike(QSharedPointer<SslSocket> s);
+
+
+inline QSharedPointer<SocketLike> asSocketLike(SslSocket *s) { return asSocketLike(QSharedPointer<SslSocket>(s)); }
+
+
 QSharedPointer<SslSocket> convertSocketLikeToSslSocket(QSharedPointer<SocketLike> socket);
 
 

@@ -6,6 +6,10 @@
 #include "../include/locks.h"
 #include "../include/coroutine_utils.h"
 #include "../include/data_channel.h"
+#include "../include/kcp.h"
+#ifndef QTNG_NO_CRYPTO
+#include "../include/ssl.h"
+#endif
 
 //#define DEBUG_PROTOCOL
 
@@ -27,6 +31,7 @@ static QByteArray packMakeChannelRequest(quint32 channelNumber)
     return QByteArray(reinterpret_cast<char*>(buf), sizeof(buf));
 }
 
+
 static QByteArray packChannelMadeRequest(quint32 channelNumber)
 {
     uchar buf[sizeof(quint8) + sizeof(quint32)];
@@ -34,6 +39,7 @@ static QByteArray packChannelMadeRequest(quint32 channelNumber)
     qToBigEndian(channelNumber, buf + sizeof(quint8));
     return QByteArray(reinterpret_cast<char*>(buf), sizeof(buf));
 }
+
 
 static QByteArray packDestoryChannelRequest(quint32 channelNumber)
 {
@@ -43,12 +49,14 @@ static QByteArray packDestoryChannelRequest(quint32 channelNumber)
     return QByteArray(reinterpret_cast<char*>(buf), sizeof(buf));
 }
 
+
 static QByteArray packSlowDownRequest()
 {
     uchar buf[sizeof(quint8)];
     qToBigEndian(SLOW_DOWN_REQUEST, buf);
     return QByteArray(reinterpret_cast<char*>(buf), sizeof(buf));
 }
+
 
 static QByteArray packGoThroughRequest()
 {
@@ -98,6 +106,7 @@ static bool unpackCommand(QByteArray data, quint8 *command, quint32 *channelNumb
     }
 }
 
+
 class DataChannelPrivate
 {
 public:
@@ -122,6 +131,7 @@ public:
     virtual void cleanChannel(quint32 channelNumber) = 0;
     virtual void cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray&)> subCheckPacket) = 0;
     virtual quint32 headerSize() const = 0;
+    virtual QSharedPointer<SocketLike> getBackend() const = 0;
 
     // called by the subclasses.
     bool handleCommand(const QByteArray &packet);
@@ -143,8 +153,10 @@ public:
     DataChannel * const q_ptr;
     bool broken;
 
-    inline DataChannelPrivate *getPrivateHelper(QPointer<DataChannel> channel) { return channel.data()->d_func(); }
+    inline static DataChannelPrivate *getPrivateHelper(QPointer<DataChannel> channel) { return channel.data()->d_func(); }
+    inline static DataChannelPrivate *getPrivateHelper(QSharedPointer<DataChannel> channel) { return channel.data()->d_func(); }
 };
+
 
 class WritingPacket
 {
@@ -163,6 +175,7 @@ public:
     }
 };
 
+
 class SocketChannelPrivate: public DataChannelPrivate
 {
 public:
@@ -175,6 +188,7 @@ public:
     virtual void cleanChannel(quint32 channelNumber) override;
     virtual void cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray&)> subCheckPacket) override;
     virtual quint32 headerSize() const override;
+    virtual QSharedPointer<SocketLike> getBackend() const override;
     void doSend();
     void doReceive();
     void doKeepalive();
@@ -190,6 +204,7 @@ public:
     Q_DECLARE_PUBLIC(SocketChannel)
 };
 
+
 class VirtualChannelPrivate: public DataChannelPrivate
 {
 public:
@@ -202,6 +217,7 @@ public:
     virtual void cleanChannel(quint32 channelNumber) override;
     virtual void cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray&)> subCheckPacket) override;
     virtual quint32 headerSize() const override;
+    virtual QSharedPointer<SocketLike> getBackend() const override;
 
     bool handleIncomingPacket(const QByteArray &packet);
 
@@ -227,13 +243,16 @@ DataChannelPrivate::DataChannelPrivate(DataChannelPole pole, DataChannel *parent
     }
 }
 
+
 DataChannelPrivate::~DataChannelPrivate()
 {
     // do not uncomment these lines of code
+    // these codes lead to bug.
 //    for (int i = 0; i < receivingQueue.getting(); ++i) {
 //        receivingQueue.put(QByteArray());
 //    }
 }
+
 
 QString DataChannelPrivate::toString()
 {
@@ -252,12 +271,16 @@ QString DataChannelPrivate::toString()
     return pattern.arg(clazz, name, state);
 }
 
+
 void DataChannelPrivate::abort()
 {
     Q_ASSERT(broken); // must be called by subclasses's close method.
     // FIXME if close() is called by doReceive(), may cause the queue reports deleting not empty.
     for (quint32 i = 0; i < receivingQueue.getting(); ++i) {
         receivingQueue.put(QByteArray());
+    }
+    for (quint32 i = 0;i < pendingChannels.getting(); ++i) {
+        pendingChannels.put(0);
     }
     goThrough.open();
     for (QMapIterator<quint32, QWeakPointer<VirtualChannel>> itor(subChannels); itor.hasNext();) {
@@ -268,6 +291,7 @@ void DataChannelPrivate::abort()
     }
     subChannels.clear();
 }
+
 
 QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannel()
 {
@@ -624,7 +648,7 @@ void SocketChannelPrivate::doKeepalive()
 
 void SocketChannelPrivate::abort()
 {
-    if(broken) {
+    if (broken) {
         return;
     }
     broken = true;
@@ -636,10 +660,10 @@ void SocketChannelPrivate::abort()
         }
     }
     Coroutine *current = Coroutine::current();
-    if(operations->get("receiving").data() != current) {
+    if (operations->get("receiving").data() != current) {
         operations->kill("receiving");
     }
-    if(operations->get("sending").data() != current) {
+    if (operations->get("sending").data() != current) {
         operations->kill("sending");
     }
     if (operations->get("keepalive").data() != current) {
@@ -647,6 +671,7 @@ void SocketChannelPrivate::abort()
     }
     DataChannelPrivate::abort();
 }
+
 
 bool SocketChannelPrivate::isBroken() const
 {
@@ -694,6 +719,12 @@ void SocketChannelPrivate::cleanSendingPacket(quint32 subChannelNumber, std::fun
 quint32 SocketChannelPrivate::headerSize() const
 {
     return static_cast<int>(sizeof(quint32) + sizeof(quint32));
+}
+
+
+QSharedPointer<SocketLike> SocketChannelPrivate::getBackend() const
+{
+    return connection;
 }
 
 
@@ -864,22 +895,31 @@ quint32 VirtualChannelPrivate::headerSize() const
 }
 
 
+QSharedPointer<SocketLike> VirtualChannelPrivate::getBackend() const
+{
+    if (broken || parentChannel.isNull()) {
+        return QSharedPointer<SocketLike>();
+    }
+    return getPrivateHelper(parentChannel)->getBackend();
+}
+
+
 SocketChannel::SocketChannel(QSharedPointer<Socket> connection, DataChannelPole pole)
-    :DataChannel(new SocketChannelPrivate(SocketLike::rawSocket(connection), pole, this))
+    :DataChannel(new SocketChannelPrivate(asSocketLike(connection), pole, this))
 {
 }
 
 
 #ifndef QTNG_NO_CRYPTO
 SocketChannel::SocketChannel(QSharedPointer<SslSocket> connection, DataChannelPole pole)
-    :DataChannel(new SocketChannelPrivate(SocketLike::sslSocket(connection), pole, this))
+    :DataChannel(new SocketChannelPrivate(asSocketLike(connection), pole, this))
 {
 }
 #endif
 
 
 SocketChannel::SocketChannel(QSharedPointer<KcpSocket> connection, DataChannelPole pole)
-    :DataChannel(new SocketChannelPrivate(SocketLike::kcpSocket(connection), pole, this))
+    :DataChannel(new SocketChannelPrivate(asSocketLike(connection), pole, this))
 {
 }
 
@@ -894,6 +934,13 @@ void SocketChannel::setKeepaliveTimeout(float timeout)
 {
     Q_D(SocketChannel);
     d->keepaliveTimeout = static_cast<qint64>(timeout * 1000);
+    if (d->keepaliveTimeout) {
+        d->operations->spawnWithName(QStringLiteral("keepalive"), [d] {
+            d->doKeepalive();
+        }, false);
+    } else {
+        d->operations->kill("keepalive");
+    }
 }
 
 
@@ -1058,10 +1105,35 @@ quint32 VirtualChannel::channelNumber() const
 
 
 namespace {
-class StreamLikeImpl: public StreamLike
+
+class SocketLikeImpl: public SocketLike
 {
 public:
-    StreamLikeImpl(QSharedPointer<DataChannel> channel);
+    SocketLikeImpl(QSharedPointer<DataChannel> channel);
+public:
+    virtual Socket::SocketError error() const override;
+    virtual QString errorString() const override;
+    virtual bool isValid() const override;
+    virtual QHostAddress localAddress() const override;
+    virtual quint16 localPort() const override;
+    virtual QHostAddress peerAddress() const override;
+    virtual QString peerName() const override;
+    virtual quint16 peerPort() const override;
+    virtual qintptr	fileno() const override;
+    virtual Socket::SocketType type() const override;
+    virtual Socket::SocketState state() const override;
+    virtual Socket::NetworkLayerProtocol protocol() const override;
+
+    virtual Socket *acceptRaw() override;
+    virtual QSharedPointer<SocketLike> accept() override;
+    virtual bool bind(QHostAddress &address, quint16 port, Socket::BindMode mode) override;
+    virtual bool bind(quint16 port, Socket::BindMode mode) override;
+    virtual bool connect(const QHostAddress &addr, quint16 port) override;
+    virtual bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol) override;
+    virtual void abort() override;
+    virtual bool listen(int backlog) override;
+    virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
+    virtual QVariant option(Socket::SocketOption option) const override;
 public:
     virtual qint32 recv(char *data, qint32 size) override;
     virtual qint32 recvall(char *data, qint32 size) override;
@@ -1071,17 +1143,224 @@ public:
     virtual QByteArray recvall(qint32 size) override;
     virtual qint32 send(const QByteArray &data) override;
     virtual qint32 sendall(const QByteArray &data) override;
+    virtual void close() override;
+public:
+    QSharedPointer<SocketLike> getBackend() const;
 public:
     QByteArray buf;
     QSharedPointer<DataChannel> channel;
 };
 
 
-StreamLikeImpl::StreamLikeImpl(QSharedPointer<DataChannel> channel)
-    :channel(channel) {}
+SocketLikeImpl::SocketLikeImpl(QSharedPointer<DataChannel> channel)
+    :channel(channel)
+{}
 
 
-qint32 StreamLikeImpl::recv(char *data, qint32 size)
+QSharedPointer<SocketLike> SocketLikeImpl::getBackend() const
+{
+    return DataChannelPrivate::getPrivateHelper(channel)->getBackend();
+}
+
+
+Socket::SocketError SocketLikeImpl::error() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return Socket::UnknownSocketError;
+    } else {
+        return backend->error();
+    }
+}
+
+
+QString SocketLikeImpl::errorString() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return QString();
+    } else {
+        return backend->errorString();
+    }
+}
+
+
+bool SocketLikeImpl::isValid() const
+{
+    return !channel->isBroken();
+}
+
+
+QHostAddress SocketLikeImpl::localAddress() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return QHostAddress();
+    } else {
+        return backend->localAddress();
+    }
+}
+
+
+quint16 SocketLikeImpl::localPort() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return 0;
+    } else {
+        return backend->localPort();
+    }
+}
+
+
+QHostAddress SocketLikeImpl::peerAddress() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return QHostAddress();
+    } else {
+        return backend->peerAddress();
+    }
+}
+
+
+QString SocketLikeImpl::peerName() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return QString();
+    } else {
+        return backend->peerName();
+    }
+}
+
+
+quint16 SocketLikeImpl::peerPort() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return 0;
+    } else {
+        return backend->peerPort();
+    }
+}
+
+
+qintptr	SocketLikeImpl::fileno() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return 0;
+    } else {
+        return backend->fileno();
+    }
+}
+
+
+Socket::SocketType SocketLikeImpl::type() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return Socket::UnknownSocketType;
+    } else {
+        return backend->type();
+    }
+}
+
+
+Socket::SocketState SocketLikeImpl::state() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return Socket::UnconnectedState;
+    } else {
+        return backend->state();
+    }
+}
+
+
+Socket::NetworkLayerProtocol SocketLikeImpl::protocol() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return Socket::UnknownNetworkLayerProtocol;
+    } else {
+        return backend->protocol();
+    }
+}
+
+
+Socket *SocketLikeImpl::acceptRaw()
+{
+    return nullptr;
+}
+
+
+QSharedPointer<SocketLike> SocketLikeImpl::accept()
+{
+    return QSharedPointer<SocketLike>();
+}
+
+
+bool SocketLikeImpl::bind(QHostAddress &, quint16, Socket::BindMode)
+{
+    return false;
+}
+
+
+bool SocketLikeImpl::bind(quint16, Socket::BindMode)
+{
+    return false;
+}
+
+
+bool SocketLikeImpl::connect(const QHostAddress &, quint16)
+{
+    return false;
+}
+
+
+bool SocketLikeImpl::connect(const QString &, quint16, Socket::NetworkLayerProtocol)
+{
+    return false;
+}
+
+
+void SocketLikeImpl::abort()
+{
+    channel->abort();
+}
+
+
+bool SocketLikeImpl::listen(int)
+{
+    return false;
+}
+
+
+bool SocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &value)
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return false;
+    } else {
+        return backend->setOption(option, value);
+    }
+}
+
+
+QVariant SocketLikeImpl::option(Socket::SocketOption option) const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return QVariant();
+    } else {
+        return backend->option(option);
+    }
+}
+
+
+qint32 SocketLikeImpl::recv(char *data, qint32 size)
 {
     if (size <= 0) {
         return -1;
@@ -1098,7 +1377,8 @@ qint32 StreamLikeImpl::recv(char *data, qint32 size)
     return len;
 }
 
-qint32 StreamLikeImpl::recvall(char *data, qint32 size)
+
+qint32 SocketLikeImpl::recvall(char *data, qint32 size)
 {
     if (size <= 0) {
         return -1;
@@ -1119,7 +1399,7 @@ qint32 StreamLikeImpl::recvall(char *data, qint32 size)
 }
 
 
-qint32 StreamLikeImpl::send(const char *data, qint32 size)
+qint32 SocketLikeImpl::send(const char *data, qint32 size)
 {
     qint32 len = qMin<qint32>(size, static_cast<qint32>(channel->payloadSizeHint()));
     bool ok = channel->sendPacket(QByteArray(data, len));
@@ -1127,7 +1407,7 @@ qint32 StreamLikeImpl::send(const char *data, qint32 size)
 }
 
 
-qint32 StreamLikeImpl::sendall(const char *data, qint32 size)
+qint32 SocketLikeImpl::sendall(const char *data, qint32 size)
 {
     qint32 count = 0;
     qint32 maxPayloadSize = static_cast<qint32>(channel->payloadSizeHint());
@@ -1143,7 +1423,7 @@ qint32 StreamLikeImpl::sendall(const char *data, qint32 size)
 }
 
 
-QByteArray StreamLikeImpl::recv(qint32 size)
+QByteArray SocketLikeImpl::recv(qint32 size)
 {
     QByteArray t(size, Qt::Uninitialized);
     qint32 len = recv(t.data(), size);
@@ -1156,7 +1436,7 @@ QByteArray StreamLikeImpl::recv(qint32 size)
 }
 
 
-QByteArray StreamLikeImpl::recvall(qint32 size)
+QByteArray SocketLikeImpl::recvall(qint32 size)
 {
     QByteArray t(size, Qt::Uninitialized);
     qint32 len = recvall(t.data(), size);
@@ -1168,21 +1448,32 @@ QByteArray StreamLikeImpl::recvall(qint32 size)
     }
 }
 
-qint32 StreamLikeImpl::send(const QByteArray &data)
+
+qint32 SocketLikeImpl::send(const QByteArray &data)
 {
     return send(data.data(), data.size());
 }
 
-qint32 StreamLikeImpl::sendall(const QByteArray &data)
+
+qint32 SocketLikeImpl::sendall(const QByteArray &data)
 {
     return sendall(data.data(), data.size());
 }
 
+
+void SocketLikeImpl::close()
+{
+    channel->abort();
 }
 
-QSharedPointer<StreamLike> asStream(QSharedPointer<DataChannel> channel)
-{
-    return QSharedPointer<StreamLikeImpl>::create(channel).dynamicCast<StreamLike>();
+
 }
+
+
+QSharedPointer<SocketLike> asSocketLike(QSharedPointer<DataChannel> channel)
+{
+    return QSharedPointer<SocketLikeImpl>::create(channel).dynamicCast<SocketLike>();
+}
+
 
 QTNETWORKNG_NAMESPACE_END

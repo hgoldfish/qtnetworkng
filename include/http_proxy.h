@@ -20,8 +20,11 @@ public:
     HttpProxy(const QString &hostName, quint16 port = 0,
                  const QString &user = QString(), const QString &password = QString());
     HttpProxy(const HttpProxy &other);
-    HttpProxy(HttpProxy &&other) :d_ptr(0) { qSwap(d_ptr, other.d_ptr); }
+    HttpProxy(HttpProxy &&other) :d_ptr(nullptr) { qSwap(d_ptr, other.d_ptr); }
     ~HttpProxy();
+public:
+    QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port);
+    QSharedPointer<Socket> connect(const QHostAddress &remoteHost, quint16 port);
 public:
     QString hostName() const;
     quint16 port() const;
@@ -52,16 +55,17 @@ public:
 public:
     virtual QSharedPointer<Socks5Proxy> selectSocks5Proxy(const QUrl &url) = 0;
     virtual QSharedPointer<HttpProxy> selectHttpProxy(const QUrl &url) = 0;
-public:
-    QList<QSharedPointer<Socks5Proxy>> socks5Proxies;
-    QList<QSharedPointer<HttpProxy>> httpProxies;
 };
+
 
 class SimpleProxySwitcher: public BaseProxySwitcher
 {
 public:
     virtual QSharedPointer<Socks5Proxy> selectSocks5Proxy(const QUrl &url) override;
     virtual QSharedPointer<HttpProxy> selectHttpProxy(const QUrl &url) override;
+public:
+    QList<QSharedPointer<Socks5Proxy>> socks5Proxies;
+    QList<QSharedPointer<HttpProxy>> httpProxies;
 };
 
 

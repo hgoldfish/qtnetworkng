@@ -94,8 +94,8 @@ private:
     int fd;
 #endif
     QSharedPointer<SocketDnsCache> dnsCache;
-    QSharedPointer<Gate> readGate;
-    QSharedPointer<Gate> writeGate;
+    QSharedPointer<Lock> readLock;
+    QSharedPointer<Lock> writeLock;
 
     Q_DECLARE_PUBLIC(Socket)
 };

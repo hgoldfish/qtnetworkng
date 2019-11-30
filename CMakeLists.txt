@@ -1,29 +1,10 @@
-# How to build QtNetworkNg for Linux with cmake
-# 1. Build static Qt:
-#     ./configure --prefix="/usr/local/Qt5.11.1-linux-static-amd64" -release -opensource -static -no-gui -no-icu -no-glib -no-iconv -nomake tests -nomake examples
-#     make -j4 && sudo make install
-# 2. Build QtNetworkNg
-#     mkdir build
-#     cd build
-#     cmake -DCMAKE_PREFIX_PATH=/usr/local/Qt5.11.1-linux-static-amd64/lib/cmake/ ..
-#     make -j4
-#     sudo make install
-#
-# How to cross build QtNetworkNg for Android with cmake
-# 1. Build static Qt:
-#     ./configure --prefix="/usr/local/Qt5.11.1-android-static-armv7" -release -opensource -static -no-gui -no-icu -xplatform android-clang -disable-rpath -nomake tests -nomake examples -android-ndk /home/goldfish/bin/android-sdk-linux/ndk-bundle -android-sdk /home/goldfish/bin/android-sdk-linux -android-ndk-platform android-14 -android-arch armeabi-v7a
-#     make -j4 && sudo make install
-# 2. Build QtNetworkNg
-#     mkdir build
-#     cd build
-#     cmake -DANDROID_ABI=armeabi-v7a -DANDROID_NDK=/home/goldfish/bin/android-sdk-linux/ndk-bundle -DCMAKE_TOOLCHAIN_FILE=/home/goldfish/bin/android-sdk-linux/ndk-bundle/build/cmake/android.toolchain.cmake -DANDROID_TOOLCHAIN=clang -DANDROID_PLATFORM=android-14 -DANDROID_STL=c++_static -DCMAKE_PREFIX_PATH=/usr/local/Qt5.11.1-android-static-armv7/lib/cmake -DANDROID_CPP_FEATURES="exceptions rtti" ..
-#     make -j4
-#     sudo make install
+cmake_minimum_required(VERSION 2.8.8 FATAL_ERROR)
 
+if (POLICY CMP0025)
+  cmake_policy(SET CMP0025 NEW)
+endif ()
 
-cmake_minimum_required(VERSION 3.1.0 FATAL_ERROR)
-
-project(qtnetworkng VERSION 0.5.2 LANGUAGES C CXX ASM)
+project(qtnetworkng LANGUAGES C CXX ASM)
 
 option(QTNG_BUILD_TESTS OFF)
 set(CMAKE_AUTOMOC ON)
@@ -36,6 +17,19 @@ else()
     find_package(Qt5Network REQUIRED)
     find_package(Qt5Test)
 endif()
+find_package(ZLIB)
+
+
+if (CMAKE_VERSION VERSION_LESS "3.1")
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    else()
+        message(SEND_ERROR "Please update your cmake to enable c++11.")
+    endif ()
+else ()
+    set (CMAKE_CXX_STANDARD 11)
+endif ()
+
 
 set(QTNETWORKNG_SRC
     src/socket.cpp
@@ -46,6 +40,7 @@ set(QTNETWORKNG_SRC
     src/http.cpp
     src/httpd.cpp
     src/socket_utils.cpp
+    src/io_utils.cpp
     src/socket_server.cpp
     src/http_utils.cpp
     src/http_proxy.cpp
@@ -67,6 +62,7 @@ set(QTNETWORKNG_INCLUDE
     include/http.h
     include/httpd.h
     include/socket_utils.h
+    include/io_utils.h
     include/socket_server.h
     include/http_utils.h
     include/http_proxy.h
@@ -118,6 +114,15 @@ set(KCP_SRC
     src/kcp/ikcp.c
     src/kcp/ikcp.h
 )
+
+if(ZLIB_FOUND)
+    set(ZLIB_SRC
+        src/gzip.cpp
+        include/gzip.h
+    )
+    set(ZLIB_LINK z)
+    add_definitions(-DQTNG_HAVE_ZLIB)
+endif()
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(OS_DEPENDENDED_SRC
@@ -225,11 +230,11 @@ else()
 endif()
 
 if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-# intergrate libev
-add_definitions(-DQTNETWOKRNG_USE_EV)
-add_subdirectory(ev)
-set(QTNETWORKNG_EV_SRC src/eventloop_ev.cpp)
-set(QTNETWORKNG_EV_LIB ev)
+    # intergrate libev
+    add_definitions(-DQTNETWOKRNG_USE_EV)
+    add_subdirectory(ev)
+    set(QTNETWORKNG_EV_SRC src/eventloop_ev.cpp)
+    set(QTNETWORKNG_EV_LIB ev)
 endif()
 
 # intergrate libressl
@@ -238,7 +243,7 @@ set(LIBRESSL_TESTS OFF)
 add_subdirectory(libressl)
 
 add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_EV_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
-                               ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} ${KCP_SRC} ${OS_DEPENDENDED_SRC})
+                               ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} ${ZLIB_SRC} ${KCP_SRC} ${OS_DEPENDENDED_SRC})
 target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 
 # Fix Qt-static cmake BUG
@@ -247,16 +252,16 @@ target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${C
 if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a AND NOT EXISTS ${_qt5Core_install_prefix}/bin/Qt5Core.dll)
     message("Static Qt is detected.")
     if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-        set(OS_EXTRA_LINK z log qtpcre2)
+        set(OS_EXTRA_LINK log qtpcre2)
     elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-        set(OS_EXTRA_LINK z pthread dl qtpcre2)
+        set(OS_EXTRA_LINK pthread dl qtpcre2)
     elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         set(OS_EXTRA_LINK ws2_32 qtpcre2)
     endif()
     link_directories(${_qt5Core_install_prefix}/lib/)
 endif()
 
-target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE tls ssl crypto ${QTNETWORKNG_EV_LIB} ${OS_EXTRA_LINK})
+target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE tls ssl crypto ${ZLIB_LINK} ${QTNETWORKNG_EV_LIB} ${OS_EXTRA_LINK})
 
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)

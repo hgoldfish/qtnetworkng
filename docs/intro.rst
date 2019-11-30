@@ -396,10 +396,10 @@ Get data from ``HttpResponse``
     qDebug() << resp.body();  // as QByteArray
 
 
-As crypto library
------------------
+Cryptography
+------------
 
-QtNetworkNg can load OpenSSL dynamically, and provide many crypto routines.
+QtNetworkNg can load OpenSSL dynamically, and provide many cryptography routines.
 
 
 Message Digest

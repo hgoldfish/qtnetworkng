@@ -18,11 +18,9 @@ enum SystemChannelNubmer {
     DataChannelNumber = 1,
 };
 
-class DisconnectedException: public std::exception {};
 
 class VirtualChannel;
 class DataChannelPrivate;
-
 class DataChannel: public QObject
 {
     Q_DISABLE_COPY(DataChannel)
@@ -61,7 +59,7 @@ class SocketChannel: public DataChannel
 public:
     SocketChannel(QSharedPointer<Socket> socket, DataChannelPole pole);
 #ifndef QTNG_NO_CRYPTO
-    SocketChannel(QSharedPointer<SslSocket> socket, DataChannelPole pole);
+    SocketChannel(QSharedPointer<class SslSocket> socket, DataChannelPole pole);
 #endif
     SocketChannel(QSharedPointer<KcpSocket> socket, DataChannelPole pole);
     SocketChannel(QSharedPointer<SocketLike> socket, DataChannelPole pole);
@@ -86,9 +84,20 @@ private:
     friend class SocketChannelPrivate;
 };
 
-QSharedPointer<StreamLike> asStream(QSharedPointer<DataChannel> channel);
-inline QSharedPointer<StreamLike> asStream(QSharedPointer<SocketChannel> channel) { return asStream(channel.dynamicCast<DataChannel>()); }
-inline QSharedPointer<StreamLike> asStream(QSharedPointer<VirtualChannel> channel) { return asStream(channel.dynamicCast<DataChannel>()); }
+
+QSharedPointer<SocketLike> asSocketLike(QSharedPointer<DataChannel> channel);
+
+
+inline QSharedPointer<SocketLike> asSocketLike(QSharedPointer<VirtualChannel> channel)
+{
+    return asSocketLike(channel.dynamicCast<DataChannel>());
+}
+
+
+inline QSharedPointer<SocketLike> asSocketLike(QSharedPointer<SocketChannel> channel)
+{
+    return asSocketLike(channel.dynamicCast<DataChannel>());
+}
 
 
 QTNETWORKNG_NAMESPACE_END

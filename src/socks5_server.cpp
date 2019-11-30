@@ -149,11 +149,11 @@ bool Socks5RequestHandlerPrivate::parseAddress(QString *hostName, QHostAddress *
         addr->setAddress(qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(ipv4.constData())));
 #endif
     } else if(addressType.at(1) == S5_IP_V6){
-        const QByteArray &ipv6 = q->request->recvall(16);
+        QByteArray ipv6 = q->request->recvall(16);
         if(ipv6.size() < 16) {
             return false;
         }
-        addr->setAddress(reinterpret_cast<const quint8*>(ipv6.constData()));
+        addr->setAddress(reinterpret_cast<quint8*>(ipv6.data()));
     } else if(addressType.at(1) == S5_DOMAINNAME) {
         const QByteArray &len = q->request->recvall(1);
         if(len.isEmpty()) {
@@ -212,7 +212,7 @@ void Socks5RequestHandlerPrivate::handleConnectCommand(const QString &hostName, 
     } else {
         q->log(hostName, forward->peerAddress(), port, true);
     }
-    Exchanger exchanger(q->request, asStream(forward));
+    Exchanger exchanger(q->request, asSocketLike(forward));
     exchanger.exchange();
 }
 
@@ -242,7 +242,12 @@ bool Socks5RequestHandler::sendConnectReply(const QHostAddress &hostAddress, qui
         return false;
     }
     QByteArray reply;
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
     quint32 ipv4 = hostAddress.toIPv4Address(&ok);
+#else
+    quint32 ipv4 = hostAddress.toIPv4Address();
+    ok = (ipv4 != 0);
+#endif
     if (!ok && hostAddress.protocol() == QAbstractSocket::IPv4Protocol) {
         return false;
     }

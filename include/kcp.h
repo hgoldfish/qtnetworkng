@@ -25,8 +25,6 @@ public:
 public:
     void setMode(Mode mode);
     Mode mode() const;
-    void setCompression(bool compress);
-    bool compression() const;
     void setSendQueueSize(quint32 sendQueueSize);
     quint32 sendQueueSize() const;
     quint32 payloadSizeHint() const;
@@ -69,11 +67,20 @@ public:
 
     void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache);
 private:
+    // for create SlaveKcpSocket.
     KcpSocket(KcpSocketPrivate *d, const QHostAddress &addr, const quint16 port, KcpSocket::Mode mode);
+    friend class SlaveKcpSocketPrivate;
 private:
     KcpSocketPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(KcpSocket)
 };
+
+
+QSharedPointer<class SocketLike> asSocketLike(QSharedPointer<KcpSocket> s);
+
+
+inline QSharedPointer<class SocketLike> asSocketLike(KcpSocket *s) { return asSocketLike(QSharedPointer<KcpSocket>(s)); }
+
 
 QSharedPointer<KcpSocket> convertSocketLikeToKcpSocket(QSharedPointer<class SocketLike> socket);
 

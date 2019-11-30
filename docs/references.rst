@@ -761,7 +761,77 @@ Wake up all coroutines waiting at this condition.
 
 Return the number of coroutines waiting at this condition.
 
-1.6 The Internal: How Coroutines Switch
+1.6 Utitilies
+^^^^^^^^^^^^^
+
+Several utitilies are provided to resolve conflicts between coroutine event loop and Qt event loop.
+
+*The Biggest Error* in QtNetworkNg programming is that if blocking functions such as ``Socket`` functions, ``RLock`` functions and ``Event`` functions are called in the eventloop coroutine, the behavior of program will become undefined. So, remember, always emit Qt signals in eventloop, and handle signals in spawned coroutine. If this error is found, QtNetworkNg prints a warning message. Fortunately, this error is easy to find.
+
+Another error is that you run a local eventloop using ``QDialog::exec()``.
+
+Here come two functions that can resolve these errors, and another that can spawn threads in coroutines.
+
+.. method:: T callInEventLoop(std::function<T ()> func)
+
+    Call a function in eventloop and return its value.
+
+    To run a local eventloop,
+
+    .. code-block:: c++
+    
+        int code = callInEventLoop<int>([this] -> int {
+            QDialog d(this);  
+            return d.exec();
+        });
+        if (code == QDialog::Accepted) {
+            receiveFile();
+        } else {
+            rejectFile();
+        }
+        
+    To emit signal in eventloop:
+    
+    .. code-block:: c++
+    
+        QString filePath = receiveFile();
+        callInEventLoop([this, filePath]{
+            emit fileReceived(filePath);
+        });
+
+.. method:: void callInEventLoopAsync(std::function<void ()> func, quint32 msecs = 0)
+
+    This is a asynchronous version of ``callInEventLoop()``. This function returns immediately, and schedules a call to function after ``msecs`` milliseconds.
+    
+    .. code-block:: c++
+    
+        if (error) {
+            callInEventLoopAsync([this] {
+                QMessageBox::information(this, windowTitle(), tr("Operation failed."));
+            });
+            return;
+        }
+    
+    Note: Calling to ``callInEventLoopAsync()`` is lighter than ``callInEventLoop()``. And in most cases, if you don't care about the result of function, ``callInEventLoopAsync()`` is the best choice.
+    
+    
+.. method:: T callInThread(std::function<T()> func)
+
+    Call function in new thread and return its value.
+    
+.. method:: void qAwait(const typename QtPrivate::FunctionPointer<Func>::Object *obj, Func signal)
+
+    Await a Qt signal.
+    
+    .. code-block:: c++
+    
+        QNetworkRequest request(url);
+        QNetworkReply *reply = manager.get(request);
+        qAwait(reply, &QNetworkReply::finished);
+        text->setPlainText(reply->readAll());
+
+
+1.7 The Internal: How Coroutines Switch
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 to be written.
@@ -1922,7 +1992,28 @@ Before using the ``HttpResponse``, you should check ``HttpResonse::isOk()``. If 
 4.2 Application Server
 ^^^^^^^^^^^^^^^^^^^^^^
 
-5. Configuration And Build
+5. Cryptography
+---------------
+
+5.1 Cryptographic Hash
+^^^^^^^^^^^^^^^^^^^^^^
+
+5.2 Symmetrical encryption and decryption
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+5.3 Public Key Algorithm
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+5.4 Certificate and CertificateRequest
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+5.5 Key Derivation Function
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+5.6 TLS Cipher Suite
+^^^^^^^^^^^^^^^^^^^^
+
+6. Configuration And Build
 --------------------------
 
 5.1 Use libev Instead Of Qt Eventloop

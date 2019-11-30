@@ -8,6 +8,14 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
+    #define QBYTEARRAYLIST QByteArrayList
+#else
+    #define QBYTEARRAYLIST QList<QByteArray>
+#endif
+
+
 class BaseHttpRequestHandler: public BaseRequestHandler, public HeaderOperationMixin
 {
 public:
@@ -40,7 +48,7 @@ protected:
     virtual void doTRACE();
     virtual void doCONNECT();
 private:
-    QByteArrayList headerCache;
+    QBYTEARRAYLIST headerCache;
 protected:
     QString method;
     QString path;

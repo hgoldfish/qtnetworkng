@@ -68,10 +68,10 @@ class Socks5ProxyPrivate
 public:
     Socks5ProxyPrivate() {}
     Socks5ProxyPrivate(const QString &hostName, quint16 port, const QString &user, const QString &password)
-        :hostName(hostName), port(port), user(user), password(password)
+        : hostName(hostName), user(user), password(password), port(port)
     {
         capabilities |= Socks5Proxy::TunnelingCapability;
-        capabilities |= Socks5Proxy:: HostNameLookupCapability;
+        capabilities |= Socks5Proxy::HostNameLookupCapability;
     }
 public:
     QSharedPointer<Socket> getControlSocket() const;
@@ -79,12 +79,13 @@ public:
     QSharedPointer<Socket> connect(const QHostAddress &host, quint16 port) const;
     QSharedPointer<SocketLike> listen(quint16 port) const;
 public:
-    QFlags<Socks5Proxy::Capability> capabilities;
     QString hostName;
-    quint16 port;
     QString user;
     QString password;
+    QFlags<Socks5Proxy::Capability> capabilities;
+    quint16 port;
 };
+
 
 QSharedPointer<Socket> Socks5ProxyPrivate::getControlSocket() const
 {
@@ -105,9 +106,9 @@ QSharedPointer<Socket> Socks5ProxyPrivate::getControlSocket() const
 
     QByteArray helloRequest;
     helloRequest.reserve(3);
-    helloRequest.append((char) S5_VERSION_5);
-    helloRequest.append((char) S5_PASSWORDAUTH_VERSION);
-    helloRequest.append((char) S5_AUTHMETHOD_NONE);
+    helloRequest.append(static_cast<char>(S5_VERSION_5));
+    helloRequest.append(static_cast<char>(S5_PASSWORDAUTH_VERSION));
+    helloRequest.append(static_cast<char>(S5_AUTHMETHOD_NONE));
     if(!user.isEmpty() && !password.isEmpty()) {
         helloRequest.append(S5_AUTHMETHOD_PASSWORD);
     }
@@ -131,10 +132,10 @@ QSharedPointer<Socket> Socks5ProxyPrivate::getControlSocket() const
         }
         QByteArray authRequest;
         authRequest.reserve(3 + user.size() + password.size());
-        authRequest.append(S5_PASSWORDAUTH_VERSION);
-        authRequest.append(user.size());
+        authRequest.append(static_cast<char>(S5_PASSWORDAUTH_VERSION));
+        authRequest.append(static_cast<char>(user.size()));
         authRequest.append(user.toUtf8());
-        authRequest.append(password.size());
+        authRequest.append(static_cast<char>(password.size()));
         authRequest.append(password.toUtf8());
         sentBytes = s->sendall(authRequest);
         if(sentBytes < authRequest.size()) {
@@ -150,7 +151,7 @@ QSharedPointer<Socket> Socks5ProxyPrivate::getControlSocket() const
         if(authResponse.at(0) != 0x1) {
             throw Socks5Exception(Socks5Exception::ProxyAuthenticationRequiredError);
         }
-    } else if(helloResponse.at(1) == (char) S5_AUTHMETHOD_NOTACCEPTABLE) {
+    } else if(helloResponse.at(1) == static_cast<char>(S5_AUTHMETHOD_NOTACCEPTABLE)) {
         throw Socks5Exception(Socks5Exception::ProxyProtocolError);
     }
     return s;
@@ -160,9 +161,9 @@ static QByteArray makeConnectRequest()
 {
     QByteArray connectRequest;
     connectRequest.reserve(270); // big enough for domain name;
-    connectRequest.append((char) S5_VERSION_5);
-    connectRequest.append((char) S5_CONNECT);
-    connectRequest.append((char) 0x00);
+    connectRequest.append(static_cast<char>(S5_VERSION_5));
+    connectRequest.append(static_cast<char>(S5_CONNECT));
+    connectRequest.append(static_cast<char>(0x00));
     return connectRequest;
 }
 
@@ -208,7 +209,7 @@ static bool qt_socks5_set_host_name_and_port(const QString &hostname, quint16 po
         return false;
 
     buf.append(S5_DOMAINNAME);
-    buf.append(uchar(encodedHostName.length()));
+    buf.append(static_cast<char>(encodedHostName.length()));
     buf.append(encodedHostName);
 
     // add port
@@ -275,19 +276,19 @@ static QSharedPointer<Socket> sendConnectRequest(QSharedPointer<Socket> s, const
         boundIp.setAddress(qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(ipv4.constData())));
 #endif
     } else if(addressType.at(1) == S5_IP_V6){
-        const QByteArray &ipv6 = s->recvall(16);
+        QByteArray ipv6 = s->recvall(16);
         if(ipv6.size() < 16) {
             throw Socks5Exception(Socks5Exception::ProxyProtocolError);
         }
         QHostAddress boundIp;
-        boundIp.setAddress(reinterpret_cast<const quint8*>(ipv6.constData()));
+        boundIp.setAddress(reinterpret_cast<quint8*>(ipv6.data()));
     } else if(addressType.at(1) == S5_DOMAINNAME) {
         const QByteArray &len = s->recvall(1);
         if(len.isEmpty()) {
             throw Socks5Exception(Socks5Exception::ProxyProtocolError);
         }
         const QByteArray &hostName = s->recvall(quint8(len.at(0)));
-        if(hostName.size() < (int) len.at(0)) {
+        if(hostName.size() < len.at(0)) {
             throw Socks5Exception(Socks5Exception::ProxyProtocolError);
         }
     } else {
@@ -381,7 +382,7 @@ Socks5Proxy &Socks5Proxy::operator=(const Socks5Proxy &other)
 Socks5Proxy &Socks5Proxy::operator=(Socks5Proxy &&other)
 {
     delete d_ptr;
-    d_ptr = 0;
+    d_ptr = nullptr;
     qSwap(d_ptr, other.d_ptr);
     return *this;
 }

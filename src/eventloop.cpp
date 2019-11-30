@@ -12,10 +12,12 @@ QTNETWORKNG_NAMESPACE_BEGIN
 
 Q_GLOBAL_STATIC(CurrentLoopStorage, currentLoopStorage)
 
+
 CurrentLoopStorage *currentLoop()
 {
     return currentLoopStorage();
 }
+
 
 class CoroutineSpawnHelper: public Coroutine
 {
@@ -27,11 +29,14 @@ public:
 private:
     QScopedPointer<std::function<void()>> f;
 };
+
+
 CoroutineSpawnHelper::~CoroutineSpawnHelper() {}
 void CoroutineSpawnHelper::run() {
     (*f)();
     f.reset();
 }
+
 
 Coroutine *Coroutine::spawn(std::function<void()> f)
 {
@@ -44,6 +49,7 @@ Coroutine *Coroutine::spawn(std::function<void()> f)
 Functor::~Functor()
 {}
 
+
 void DoNothingFunctor::operator ()()
 {
 
@@ -54,6 +60,7 @@ YieldCurrentFunctor::YieldCurrentFunctor()
 {
     coroutine = BaseCoroutine::current();
 }
+
 
 void YieldCurrentFunctor::operator ()()
 {
@@ -72,6 +79,7 @@ void YieldCurrentFunctor::operator ()()
 EventLoopCoroutinePrivate::EventLoopCoroutinePrivate(EventLoopCoroutine *q)
     :q_ptr(q){}
 
+
 EventLoopCoroutinePrivate::~EventLoopCoroutinePrivate(){}
 
 
@@ -80,15 +88,18 @@ EventLoopCoroutine::EventLoopCoroutine(EventLoopCoroutinePrivate *d, size_t stac
 {
 }
 
+
 EventLoopCoroutine::~EventLoopCoroutine()
 {
     delete dd_ptr;
 }
 
+
 EventLoopCoroutine *EventLoopCoroutine::get()
 {
     return currentLoopStorage->getOrCreate().data();
 }
+
 
 void EventLoopCoroutine::run()
 {
@@ -96,11 +107,13 @@ void EventLoopCoroutine::run()
     d->run();
 }
 
+
 int EventLoopCoroutine::createWatcher(EventType event, qintptr fd, Functor *callback)
 {
     Q_D(EventLoopCoroutine);
     return d->createWatcher(event, fd, callback);
 }
+
 
 void EventLoopCoroutine::startWatcher(int watcherId)
 {
@@ -108,11 +121,13 @@ void EventLoopCoroutine::startWatcher(int watcherId)
     return d->startWatcher(watcherId);
 }
 
+
 void EventLoopCoroutine::stopWatcher(int watcherId)
 {
     Q_D(EventLoopCoroutine);
     return d->stopWatcher(watcherId);
 }
+
 
 void EventLoopCoroutine::removeWatcher(int watcherId)
 {
@@ -120,11 +135,13 @@ void EventLoopCoroutine::removeWatcher(int watcherId)
     return d->removeWatcher(watcherId);
 }
 
+
 void EventLoopCoroutine::triggerIoWatchers(qintptr fd)
 {
     Q_D(EventLoopCoroutine);
     return d->triggerIoWatchers(fd);
 }
+
 
 int EventLoopCoroutine::callLater(quint32 msecs, Functor *callback)
 {
@@ -146,11 +163,13 @@ int EventLoopCoroutine::callRepeat(quint32 msecs, Functor *callback)
     return d->callRepeat(msecs, callback);
 }
 
+
 void EventLoopCoroutine::cancelCall(int callbackId)
 {
     Q_D(EventLoopCoroutine);
     return d->cancelCall(callbackId);
 }
+
 
 int EventLoopCoroutine::exitCode()
 {
@@ -158,11 +177,13 @@ int EventLoopCoroutine::exitCode()
     return d->exitCode();
 }
 
+
 bool EventLoopCoroutine::runUntil(BaseCoroutine *coroutine)
 {
     Q_D(EventLoopCoroutine);
     return d->runUntil(coroutine);
 }
+
 
 void EventLoopCoroutine::yield()
 {
@@ -174,7 +195,7 @@ void EventLoopCoroutine::yield()
 QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::getOrCreate()
 {
     QSharedPointer<EventLoopCoroutine> eventLoop;
-    if(storage.hasLocalData()) {
+    if (storage.hasLocalData()) {
         eventLoop = storage.localData();
     }
     if (eventLoop.isNull()) {
@@ -200,7 +221,7 @@ QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::getOrCreate()
 
 QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::get()
 {
-    if(storage.hasLocalData()) {
+    if (storage.hasLocalData()) {
         return storage.localData();
     } else {
         return QSharedPointer<EventLoopCoroutine>();
@@ -216,7 +237,7 @@ void CurrentLoopStorage::set(QSharedPointer<EventLoopCoroutine> eventLoop)
 
 void CurrentLoopStorage::clean()
 {
-    if(storage.hasLocalData()) {
+    if (storage.hasLocalData()) {
         storage.localData().reset();
     }
 }
@@ -228,12 +249,14 @@ ScopedIoWatcher::ScopedIoWatcher(EventLoopCoroutine::EventType event, qintptr fd
     watcherId = eventLoop->createWatcher(event, fd, new YieldCurrentFunctor());
 }
 
+
 void ScopedIoWatcher::start()
 {
     QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
     eventLoop->startWatcher(watcherId);
     eventLoop->yield();
 }
+
 
 ScopedIoWatcher::~ScopedIoWatcher()
 {
@@ -274,6 +297,7 @@ CoroutinePrivate::CoroutinePrivate(Coroutine *q, QObject *obj, const char *slot)
     });
 }
 
+
 CoroutinePrivate::~CoroutinePrivate()
 {
 }
@@ -300,7 +324,9 @@ struct StartCoroutineFunctor: public Functor
     }
 };
 
+
 StartCoroutineFunctor::~StartCoroutineFunctor() {}
+
 
 struct KillCoroutineFunctor: public Functor
 {
@@ -312,15 +338,17 @@ struct KillCoroutineFunctor: public Functor
     virtual void operator()() override;
 };
 
+
 KillCoroutineFunctor::~KillCoroutineFunctor() {}
+
 
 void KillCoroutineFunctor::operator()()
 {
-    if(cp.isNull()) {
+    if (cp.isNull()) {
         qWarning("killCoroutine is called without coroutine");
         return;
     }
-    if(cp->q_func()->state() != BaseCoroutine::Started) {
+    if (cp->q_func()->state() != BaseCoroutine::Started) {
         return;
     }
     cp->q_func()->raise(e);
@@ -329,7 +357,7 @@ void KillCoroutineFunctor::operator()()
 
 void CoroutinePrivate::start(quint32 msecs)
 {
-    if(callbackId > 0)
+    if (callbackId > 0)
         return;
     callbackId = EventLoopCoroutine::get()->callLater(msecs, new StartCoroutineFunctor(this));
 }
@@ -339,22 +367,23 @@ void CoroutinePrivate::kill(CoroutineException *e, quint32 msecs)
 {
     Q_Q(Coroutine);
     EventLoopCoroutine *c = EventLoopCoroutine::get();
-    if(q->state() == Coroutine::Initialized) {
+    if (q->state() == Coroutine::Initialized) {
         if (dynamic_cast<CoroutineExitException *>(e)) {
             if (callbackId > 0) {
                 EventLoopCoroutine::get()->cancelCall(callbackId);
                 callbackId = 0;
             }
             q->setState(Coroutine::Stopped);
+            setFinishedEvent();
         } else {
             if (callbackId == 0) {
                 callbackId = c->callLater(msecs, new StartCoroutineFunctor(this));
             }
             c->callLater(msecs, new KillCoroutineFunctor(this, e));
         }
-    } else if(q->state() == Coroutine::Stopped || q->state() == Coroutine::Joined) {
+    } else if (q->state() == Coroutine::Stopped || q->state() == Coroutine::Joined) {
         qDebug("coroutine was dead. kill() do nothing.");
-    } else if(q->state() == Coroutine::Started){
+    } else if (q->state() == Coroutine::Started){
         c->callLater(msecs, new KillCoroutineFunctor(this, e));
     } else {
         qWarning("invalid state while kiling coroutine.");
@@ -366,13 +395,12 @@ void CoroutinePrivate::cancelStart()
 {
     Q_Q(Coroutine);
     EventLoopCoroutine *c = EventLoopCoroutine::get();
-    if(callbackId > 0)
+    if (callbackId > 0)
         c->cancelCall(callbackId);
-    if(q->state() == Coroutine::Initialized) {
+    if (q->state() == Coroutine::Initialized) {
         q->setState(Coroutine::Stopped);
         setFinishedEvent();
-    }
-    else if(q->state() == Coroutine::Started) {
+    } else if (q->state() == Coroutine::Started) {
         c->callLater(0, new KillCoroutineFunctor(this, new CoroutineExitException()));
     }
     callbackId = 0;
@@ -389,8 +417,8 @@ bool CoroutinePrivate::join()
 {
     Q_Q(Coroutine);
 
-    if(q->state() == BaseCoroutine::Initialized || q->state() == BaseCoroutine::Started) {
-        if(!dynamic_cast<Coroutine*>(BaseCoroutine::current())) {
+    if (q->state() == BaseCoroutine::Initialized || q->state() == BaseCoroutine::Started) {
+        if (!dynamic_cast<Coroutine*>(BaseCoroutine::current())) {
             return EventLoopCoroutine::get()->runUntil(q);
         }
         return finishedEvent.wait();
@@ -458,7 +486,7 @@ void Coroutine::run()
 {
     Q_D(Coroutine);
     d->callbackId = 0;
-    if(d->obj && d->slot) {
+    if (d->obj && d->slot) {
         QMetaObject::invokeMethod(d->obj, d->slot);
     }
 }
@@ -476,11 +504,13 @@ bool Coroutine::join()
     return d->join();
 }
 
+
 Coroutine *Coroutine::current()
 {
     BaseCoroutine *c = BaseCoroutine::current();
     return dynamic_cast<Coroutine*>(c);
 }
+
 
 struct QScopedCallLater
 {
@@ -488,6 +518,7 @@ struct QScopedCallLater
     ~QScopedCallLater(){EventLoopCoroutine::get()->cancelCall(callbackId);}
     int callbackId;
 };
+
 
 void Coroutine::msleep(quint32 msecs)
 {
@@ -507,7 +538,11 @@ struct TimeoutFunctor: public Functor
     QPointer<BaseCoroutine> coroutine;
     virtual void operator()() override;
 };
+
+
 TimeoutFunctor::~TimeoutFunctor() {}
+
+
 void TimeoutFunctor::operator()()
 {
     if(out.isNull() || coroutine.isNull()) {
@@ -517,27 +552,32 @@ void TimeoutFunctor::operator()()
     coroutine->raise(new TimeoutException());
 }
 
+
 TimeoutException::TimeoutException()
 {
 }
+
 
 QString TimeoutException::what() const
 {
     return QStringLiteral("coroutine had set timeout.");
 }
 
+
 void TimeoutException::raise()
 {
     throw *this;
 }
 
+
 Timeout::Timeout(float secs)
     :msecs(static_cast<quint32>(secs * 1000)), timeoutId(0)
 {
-    if(msecs) {
+    if (msecs) {
         restart();
     }
 }
+
 
 Timeout::Timeout(quint32 msecs, int)
     :msecs(msecs), timeoutId(0)
@@ -547,17 +587,21 @@ Timeout::Timeout(quint32 msecs, int)
     }
 }
 
+
 Timeout::~Timeout()
 {
     if(timeoutId)
         EventLoopCoroutine::get()->cancelCall(timeoutId);
 }
 
+
 void Timeout::restart()
 {
-    if(timeoutId)
+    if (timeoutId) {
         EventLoopCoroutine::get()->cancelCall(timeoutId);
+    }
     timeoutId = EventLoopCoroutine::get()->callLater(msecs, new TimeoutFunctor(this, BaseCoroutine::current()));
 }
+
 
 QTNETWORKNG_NAMESPACE_END

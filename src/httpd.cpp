@@ -241,7 +241,7 @@ bool BaseHttpRequestHandler::sendError(HttpStatus status, const QString &message
         return false;
     }
     if (method != "HEAD" && !body.isEmpty()) {
-        return request->sendall(body);
+        return request->sendall(body) == body.size();
     }
     return true;
 }
@@ -309,10 +309,26 @@ void BaseHttpRequestHandler::sendHeader(const QByteArray &name, const QByteArray
     }
 }
 
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
+    inline static QByteArray join(const QByteArrayList &lines) { return lines.join(); }
+#else
+    inline static QByteArray join(const QList<QByteArray> &lines)
+    {
+        QByteArray buf;
+        buf.reserve(1024 * 4 - 1);
+        for (const QByteArray &line: lines) {
+            buf.append(line);
+        }
+        return buf;
+    }
+#endif
+
+
 bool BaseHttpRequestHandler::endHeader()
 {
     headerCache.append("\r\n");
-    const QByteArray &data = headerCache.join();
+    const QByteArray &data = join(headerCache);
     headerCache.clear();
     return request->sendall(data) == data.size();
 }
@@ -476,7 +492,7 @@ QSharedPointer<FileLike> SimpleHttpRequestHandler::listDirectory(const QDir &dir
 void SimpleHttpRequestHandler::sendFile(QSharedPointer<FileLike> f)
 {
     QByteArray buf(1024 * 8, Qt::Uninitialized);
-    while (!f->atEnd()) {
+    while (true) {
         qint64 bs = f->read(buf.data(), buf.size());
         if (bs <= 0){
             break;

@@ -136,7 +136,7 @@ bool SocketPrivate::createSocket()
 
 inline uint scopeIdFromString(const QString scopeId)
 {
-    if(scopeId.isEmpty())
+    if (scopeId.isEmpty())
         return 0;
     bool ok;
     uint id = scopeId.toUInt(&ok);

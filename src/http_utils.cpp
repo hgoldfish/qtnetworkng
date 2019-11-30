@@ -513,6 +513,12 @@ void HeaderOperationMixin::addHeader(const QString &name, const QByteArray &valu
 }
 
 
+void HeaderOperationMixin::addHeader(const HttpHeader &header)
+{
+    headers.append(header);
+}
+
+
 QByteArray HeaderOperationMixin::header(const QString &headerName, const QByteArray &defaultValue) const
 {
     for (int i = 0; i < headers.size(); ++i) {
@@ -585,9 +591,15 @@ QByteArray HeaderOperationMixin::header(KnownHeader knownHeader, const QByteArra
 }
 
 
-QByteArrayList HeaderOperationMixin::multiHeader(const QString &headerName) const
+#if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
+#define QBYTEARRAYLIST QByteArrayList
+#else
+#define QBYTEARRAYLIST QList<QByteArray>
+#endif
+
+QBYTEARRAYLIST HeaderOperationMixin::multiHeader(const QString &headerName) const
 {
-    QByteArrayList l;
+    QBYTEARRAYLIST l;
     for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
         if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
@@ -598,7 +610,7 @@ QByteArrayList HeaderOperationMixin::multiHeader(const QString &headerName) cons
 }
 
 
-QByteArrayList HeaderOperationMixin::multiHeader(KnownHeader header) const
+QBYTEARRAYLIST HeaderOperationMixin::multiHeader(KnownHeader header) const
 {
     return multiHeader(toString(header));
 }
@@ -631,10 +643,10 @@ QByteArray HeaderSplitter::nextLine(HeaderSplitter::Error *error)
         for (; j < buf.size() && j < MaxLineLength; ++j) {
             char c = buf.at(j);
             if (c == '\n') {
-                if(!expectingLineBreak) {
-                    *error = HeaderSplitter::EncodingError;
-                    return QByteArray();
-                }
+//                if(!expectingLineBreak) {
+//                    *error = HeaderSplitter::EncodingError;
+//                    return QByteArray();
+//                }
                 buf.remove(0, j + 1);
                 if (buf.size() > MaxLineLength) {
                     *error = HeaderSplitter::LineTooLong;
@@ -644,7 +656,7 @@ QByteArray HeaderSplitter::nextLine(HeaderSplitter::Error *error)
                     return line;
                 }
             } else if (c == '\r') {
-                if(expectingLineBreak) {
+                if (expectingLineBreak) {
                     *error = HeaderSplitter::EncodingError;
                     return QByteArray();
                 }
@@ -674,8 +686,10 @@ HttpHeader HeaderSplitter::nextHeader(Error *error)
         *error = HeaderSplitter::NoError;
         return HttpHeader();
     }
-
-    QByteArrayList headerParts = splitBytes(line, ':', 1);
+    if (debugLevel > 2) {
+        qDebug() << "receiving data:" << line;
+    }
+    QBYTEARRAYLIST headerParts = splitBytes(line, ':', 1);
     if(headerParts.size() != 2) {
         *error = HeaderSplitter::EncodingError;
         return HttpHeader();

@@ -82,7 +82,7 @@ BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *prev
 BaseCoroutinePrivate::~BaseCoroutinePrivate()
 {
     Q_Q(BaseCoroutine);
-    if(state == BaseCoroutine::Started) {
+    if (state == BaseCoroutine::Started) {
         qWarning() << "deleting running BaseCoroutine" << this;
     }
     if (stack) {
@@ -92,10 +92,13 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
     if(currentCoroutine().get() == q) {
         qWarning("do not delete one self.");
     }
-    if (context)
+    if (context) {
         delete context;
-    if (exception)
-        delete exception;
+    }
+    if (exception) {
+        qWarning("BaseCoroutine->exception should always be kept null.");
+        //delete exception;
+    }
 }
 
 
@@ -103,15 +106,23 @@ bool BaseCoroutinePrivate::yield()
 {
     Q_Q(BaseCoroutine);
 
-    if(bad || (state != BaseCoroutine::Initialized && state != BaseCoroutine::Started))
+    if (bad || (state != BaseCoroutine::Initialized && state != BaseCoroutine::Started)) {
+        qWarning("invalid coroutine state.");
         return false;
+    }
 
-    if(!initContext())
+    if (!initContext())
         return false;
 
     BaseCoroutine *old = currentCoroutine().get();
-    if(!old || old == q)
+    if (!old) {
+        qWarning("can not get old coroutine.");
         return false;
+    }
+    if (old == q) {
+        qWarning("yield to myself. did you call blocking functions in eventloop?");
+        return false;
+    }
 
     currentCoroutine().set(q);
 
@@ -119,36 +130,37 @@ bool BaseCoroutinePrivate::yield()
         qDebug() << "swapcontext() return error: " << errno;
         return false;
     }
-    if(currentCoroutine().get() != old) { // when coroutine finished, swapcontext auto yield to the previous.
+    if (currentCoroutine().get() != old) { // when coroutine finished, swapcontext auto yield to the previous.
         currentCoroutine().set(old);
     }
     CoroutineException *e = old->dd_ptr->exception;
-    if(e) {
+    if (e) {
         old->d_func()->exception = nullptr;
         e->raise();
     }
     return true;
 }
 
+
 bool BaseCoroutinePrivate::initContext()
 {
-    if(context)
+    if (context)
         return true;
 
     context = new ucontext_t;
-    if(!context) {
+    if (!context) {
         qWarning("Coroutine can not malloc new memroy.");
         bad = true;
         return false;
     }
-    if(getcontext(context) < 0) {
+    if (getcontext(context) < 0) {
         qDebug() <<"getcontext() return error." << errno;
         bad = true;
         return false;
     }
     context->uc_stack.ss_sp = stack;
     context->uc_stack.ss_size = stackSize;
-    if(previous) {
+    if (previous) {
         context->uc_link = previous->dd_ptr->context;
     } else {
         context->uc_link = nullptr;
@@ -157,35 +169,37 @@ bool BaseCoroutinePrivate::initContext()
     return true;
 }
 
+
 bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 {
     Q_Q(BaseCoroutine);
-    if(currentCoroutine().get() == q) {
+    if (currentCoroutine().get() == q) {
         qWarning("can not kill oneself.");
         return false;
     }
 
-    if(this->exception) {
+    if (this->exception) {
         qWarning("coroutine had been killed.");
         return false;
     }
 
-    if(state == BaseCoroutine::Stopped || state == BaseCoroutine::Joined) {
+    if (state == BaseCoroutine::Stopped || state == BaseCoroutine::Joined) {
         qWarning("coroutine is stopped.");
         return false;
     }
 
-    if(exception) {
+    if (exception) {
         this->exception = exception;
     } else {
         this->exception = new CoroutineExitException();
     }
+    CoroutineException *t = this->exception; // this->exception will be zeroed in yield()
     try {
         bool result = yield();
-        delete exception;
+        delete t;
         return result;
     } catch (...) {
-        delete exception;
+        delete t;
         throw;
     }
 }
@@ -259,6 +273,7 @@ void BaseCoroutine::cleanup()
         d->previous->yield();
     }
 }
+
 
 BaseCoroutine *BaseCoroutine::previous() const
 {

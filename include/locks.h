@@ -7,6 +7,7 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+
 class SemaphorePrivate;
 class Semaphore
 {
@@ -26,6 +27,7 @@ private:
     Q_DISABLE_COPY(Semaphore)
 };
 
+
 class Lock: public Semaphore
 {
 public:
@@ -33,6 +35,7 @@ public:
 private:
     Q_DISABLE_COPY(Lock)
 };
+
 
 class RLockPrivate;
 class RLock
@@ -51,6 +54,7 @@ private:
     Q_DISABLE_COPY(RLock)
     friend class ConditionPrivate;
 };
+
 
 class ConditionPrivate;
 class Condition
@@ -90,6 +94,7 @@ private:
     Q_DISABLE_COPY(Event)
 };
 
+
 template<typename Value>
 class ValueEvent
 {
@@ -108,6 +113,7 @@ private:
     Q_DISABLE_COPY(ValueEvent)
 };
 
+
 template<typename Value>
 void ValueEvent<Value>::send(const Value &value)
 {
@@ -115,12 +121,14 @@ void ValueEvent<Value>::send(const Value &value)
     event.set();
 }
 
+
 template<typename Value>
 Value ValueEvent<Value>::wait(bool blocking)
 {
     event.wait(blocking);
     return value;
 }
+
 
 class GatePrivate;
 class Gate
@@ -140,6 +148,7 @@ private:
     Q_DECLARE_PRIVATE(Gate)
     Q_DISABLE_COPY(Gate)
 };
+
 
 template <typename LockType>
 class ScopedLock
@@ -168,13 +177,15 @@ class Queue
 {
 public:
     explicit Queue(quint32 capacity);
-    Queue() : Queue(INT_MAX) {}
+    Queue() : Queue(UINT_MAX) {}
     ~Queue();
     void setCapacity(quint32 capacity);
-    bool put(const T &e);          // insert e to the tail of queue.
-    bool putForcedly(const T& e);  // insert e to the tail of queue ignoring capacity.
-    bool returns(const T &e);      // like put() but insert e to the head of queue.
+    bool put(const T &e);             // insert e to the tail of queue. blocked until not full.
+    bool putForcedly(const T& e);     // insert e to the tail of queue ignoring capacity.
+    bool returns(const T &e);         // like put() but insert e to the head of queue.
+    bool returnsForcely(const T& e);  // like putForcedly() but insert e to the head of queue.
     T get();
+    T peek();
     bool isEmpty() const;
     bool isFull() const;
     quint32 capacity() const { return mCapacity; }
@@ -192,6 +203,7 @@ private:
     Q_DISABLE_COPY(Queue)
 };
 
+
 template<typename T>
 Queue<T>::Queue(quint32 capacity)
     :mCapacity(capacity)
@@ -199,6 +211,7 @@ Queue<T>::Queue(quint32 capacity)
     notEmpty.clear();
     notFull.set();
 }
+
 
 template<typename T>
 Queue<T>::~Queue()
@@ -208,12 +221,15 @@ Queue<T>::~Queue()
 //    }
 }
 
+
 template<typename T>
 void Queue<T>::setCapacity(quint32 capacity)
 {
     this->mCapacity = capacity;
     if (isFull()) {
         notFull.clear();
+    } else {
+        notFull.set();
     }
 }
 
@@ -290,6 +306,19 @@ bool Queue<T>::returns(const T &e)
     return true;
 }
 
+
+template<typename T>
+bool Queue<T>::returnsForcely(const T& e)
+{
+    queue.prepend(e);
+    notEmpty.set();
+    if (isFull()) {
+        notFull.clear();
+    }
+    return true;
+}
+
+
 template<typename T>
 T Queue<T>::get()
 {
@@ -305,17 +334,29 @@ T Queue<T>::get()
     return e;
 }
 
+
+template<typename T>
+T Queue<T>::peek()
+{
+    if (!isEmpty())
+        return T();
+    return queue.head();
+}
+
+
 template<typename T>
 inline bool Queue<T>::isEmpty() const
 {
     return queue.isEmpty();
 }
 
+
 template<typename T>
 inline bool Queue<T>::isFull() const
 {
-    return mCapacity > 0 && static_cast<quint32>(queue.size()) >= mCapacity;
+    return static_cast<quint32>(queue.size()) >= mCapacity;
 }
+
 
 QTNETWORKNG_NAMESPACE_END
 

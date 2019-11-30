@@ -5,6 +5,7 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+
 class SemaphorePrivate: public QObject
 {
 public:
@@ -49,6 +50,7 @@ void SemaphorePrivate::scheduleDelete()
     }
     EventLoopCoroutine::get()->callLater(0, new DeleteLaterFunctor<SemaphorePrivate>(this));
 }
+
 
 bool SemaphorePrivate::acquire(bool blocking)
 {
@@ -96,6 +98,7 @@ struct SemaphoreNotifyWaitersFunctor: public Functor
 };
 SemaphoreNotifyWaitersFunctor::~SemaphoreNotifyWaitersFunctor() {}
 
+
 void SemaphorePrivate::release(int value)
 {
     if(value <= 0) {
@@ -111,6 +114,7 @@ void SemaphorePrivate::release(int value)
         notified = EventLoopCoroutine::get()->callLater(0, new SemaphoreNotifyWaitersFunctor(this));
     }
 }
+
 
 void SemaphorePrivate::notifyWaiters(bool force)
 {
@@ -131,16 +135,19 @@ void SemaphorePrivate::notifyWaiters(bool force)
     notified = 0;
 }
 
+
 Semaphore::Semaphore(int value)
     :d_ptr(new SemaphorePrivate(this, value))
 {
 }
+
 
 Semaphore::~Semaphore()
 {
     d_ptr->scheduleDelete();
     d_ptr = nullptr;
 }
+
 
 bool Semaphore::acquire(bool blocking)
 {
@@ -238,13 +245,16 @@ private:
     Q_DECLARE_PUBLIC(RLock)
 };
 
+
 RLockPrivate::RLockPrivate(RLock *q)
     :q_ptr(q), holder(0), counter(0)
 {}
 
+
 RLockPrivate::~RLockPrivate()
 {
 }
+
 
 bool RLockPrivate::acquire(bool blocking)
 {
@@ -260,6 +270,7 @@ bool RLockPrivate::acquire(bool blocking)
     return false; // XXX lock is deleted.
 }
 
+
 void RLockPrivate::release()
 {
     if(holder != BaseCoroutine::current()->id()) {
@@ -272,6 +283,7 @@ void RLockPrivate::release()
         lock.release();
     }
 }
+
 
 RLockState RLockPrivate::reset()
 {
@@ -286,6 +298,7 @@ RLockState RLockPrivate::reset()
     return state;
 }
 
+
 void RLockPrivate::set(const RLockState &state)
 {
     counter = state.counter;
@@ -295,14 +308,17 @@ void RLockPrivate::set(const RLockState &state)
     }
 }
 
+
 RLock::RLock()
     :d_ptr(new RLockPrivate(this))
 {}
+
 
 RLock::~RLock()
 {
     delete d_ptr;
 }
+
 
 bool RLock::acquire(bool blocking)
 {
@@ -310,17 +326,20 @@ bool RLock::acquire(bool blocking)
     return d->acquire(blocking);
 }
 
+
 void RLock::release()
 {
     Q_D(RLock);
     d->release();
 }
 
+
 bool RLock::isLocked() const
 {
     Q_D(const RLock);
     return d->lock.isLocked();
 }
+
 
 bool RLock::isOwned() const
 {
@@ -343,10 +362,12 @@ private:
     Q_DECLARE_PUBLIC(Condition)
 };
 
+
 ConditionPrivate::ConditionPrivate(Condition *q)
     :q_ptr(q)
 {
 }
+
 
 ConditionPrivate::~ConditionPrivate()
 {
@@ -376,6 +397,7 @@ bool ConditionPrivate::wait()
     }
 }
 
+
 void ConditionPrivate::notify(int value)
 {
     for (int i = 0; i < value && !waiters.isEmpty(); ++i) {
@@ -384,10 +406,12 @@ void ConditionPrivate::notify(int value)
     }
 }
 
+
 Condition::Condition()
     :d_ptr(new ConditionPrivate(this))
 {
 }
+
 
 Condition::~Condition()
 {
@@ -439,10 +463,12 @@ private:
     Q_DECLARE_PUBLIC(Event)
 };
 
+
 EventPrivate::EventPrivate(Event *q)
     :q_ptr(q), flag(false)
 {
 }
+
 
 EventPrivate::~EventPrivate()
 {
@@ -451,6 +477,7 @@ EventPrivate::~EventPrivate()
     }
 }
 
+
 void EventPrivate::set()
 {
     if(!flag) {
@@ -458,6 +485,7 @@ void EventPrivate::set()
         condition.notifyAll();
     }
 }
+
 
 void EventPrivate::clear()
 {
@@ -480,15 +508,18 @@ bool EventPrivate::wait(bool blocking)
     }
 }
 
+
 Event::Event()
     :d_ptr(new EventPrivate(this))
 {
 }
 
+
 Event::~Event()
 {
     delete d_ptr;
 }
+
 
 bool Event::wait(bool blocking)
 {
@@ -496,11 +527,13 @@ bool Event::wait(bool blocking)
     return d->wait(blocking);
 }
 
+
 void Event::set()
 {
     Q_D(Event);
     d->set();
 }
+
 
 bool Event::isSet() const
 {
@@ -508,11 +541,13 @@ bool Event::isSet() const
     return d->flag;
 }
 
+
 void Event::clear()
 {
     Q_D(Event);
     d->clear();
 }
+
 
 quint32 Event::getting() const
 {
@@ -520,52 +555,72 @@ quint32 Event::getting() const
     return d->condition.getting();
 }
 
+
 class GatePrivate
 {
 public:
-    Event event;
+    Lock lock;
 };
+
 
 Gate::Gate()
     :d_ptr(new GatePrivate())
 {
-    Q_D(Gate);
-    d->event.set();
 }
+
 
 Gate::~Gate()
 {
     delete d_ptr;
 }
 
+
 bool Gate::goThrough(bool blocking)
 {
     Q_D(Gate);
-    return d->event.wait(blocking);
+    if (!d->lock.isLocked()) {
+        return true;
+    } else {
+        bool success = d->lock.acquire(blocking);
+        if (!success) {
+            return success;
+        } else {
+            d->lock.release();
+            return true;
+        }
+    }
 }
+
 
 void Gate::open()
 {
     Q_D(Gate);
-    d->event.set();
+    if (d->lock.isLocked()) {
+        d->lock.release();
+    }
 }
+
 
 bool Gate::isOpen() const
 {
     Q_D(const Gate);
-    return d->event.isSet();
+    return !d->lock.isLocked();
 }
+
 
 bool Gate::isClosed() const
 {
     Q_D(const Gate);
-    return !d->event.isSet();
+    return d->lock.isLocked();
 }
+
 
 void Gate::close()
 {
     Q_D(Gate);
-    d->event.clear();
+    if (!d->lock.isLocked()) {
+        d->lock.acquire();
+    }
 }
 
 QTNETWORKNG_NAMESPACE_END

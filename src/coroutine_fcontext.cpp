@@ -109,21 +109,23 @@ BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *prev
 BaseCoroutinePrivate::~BaseCoroutinePrivate()
 {
     Q_Q(BaseCoroutine);
-    if(state == BaseCoroutine::Started) {
+    if (state == BaseCoroutine::Started) {
         if (q->objectName().isEmpty()) {
             qWarning() << "do not delete running BaseCoroutine:" << q;
         } else {
             qWarning() << "do not delete running BaseCoroutine:" << q->objectName();
         }
     }
-    if(exception)
-        delete exception;
+    if (exception) {
+        qWarning("BaseCoroutine->exception should always be kept null.");
+        //delete exception;
+    }
 
-    if(currentCoroutine().get() == q) {
+    if (currentCoroutine().get() == q) {
         qWarning("do not delete one self.");
     }
 
-    if(stack) {
+    if (stack) {
 #ifdef Q_OS_UNIX
         munmap(stack, stackSize);
 #else
@@ -137,30 +139,39 @@ bool BaseCoroutinePrivate::yield()
 {
     Q_Q(BaseCoroutine);
 
-    if(bad || (state != BaseCoroutine::Initialized && state != BaseCoroutine::Started))
+    if (bad || (state != BaseCoroutine::Initialized && state != BaseCoroutine::Started)) {
+        qWarning("invalid coroutine state.");
         return false;
+    }
 
-    if(!initContext())
+    if (!initContext()) {
         return false;
+    }
 
     BaseCoroutine *old = currentCoroutine().get();
-    if(!old || old == q)
+    if (!old) {
+        qWarning("can not get old coroutine.");
         return false;
+    }
+    if (old == q) {
+        qWarning("yield to myself. did you call blocking functions in eventloop?");
+        return false;
+    }
 
     currentCoroutine().set(q);
 
     intptr_t result = jump_fcontext(&old->d_func()->context, context, reinterpret_cast<intptr_t>(this), false);
-    if(!result && state != BaseCoroutine::Stopped) {  // last coroutine private.
-        qDebug() << "jump_fcontext() return error.";
+    if (!result && state != BaseCoroutine::Stopped) {  // last coroutine private.
+        qWarning("jump_fcontext() return error.");
         return false;
     }
-    if(currentCoroutine().get() != old) {  // when coroutine finished, jump_fcontext auto yield to the previous.
+    if (currentCoroutine().get() != old) {  // when coroutine finished, jump_fcontext auto yield to the previous.
         currentCoroutine().set(old);
     }
     CoroutineException *e = old->d_func()->exception;
-    if(e) {
+    if (e) {
         old->d_func()->exception = nullptr;
-        if(!dynamic_cast<CoroutineExitException*>(e)) {
+        if (!dynamic_cast<CoroutineExitException*>(e)) {
 //            qDebug() << "got exception with no harm:" << e->what() << old;
         }
         e->raise();
@@ -171,16 +182,17 @@ bool BaseCoroutinePrivate::yield()
 
 bool BaseCoroutinePrivate::initContext()
 {
-    if(context)
+    if (context) {
         return true;
-    if(!stackSize) {
-        qDebug() << "is the main fiber forgot to create context?";
+    }
+    if (!stackSize) {
+        qDebug("is the main fiber forgot to create context?");
         return true;
     }
 
     void * stackTop = static_cast<char*>(stack) + stackSize;
     context = make_fcontext(stackTop, stackSize, run_stub);
-    if(!context) {
+    if (!context) {
         qWarning("Coroutine can not malloc new context.");
         bad = true;
         return false;
@@ -192,32 +204,33 @@ bool BaseCoroutinePrivate::initContext()
 bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 {
     Q_Q(BaseCoroutine);
-    if(currentCoroutine().get() == q) {
+    if (currentCoroutine().get() == q) {
         qWarning("can not kill oneself.");
         return false;
     }
 
-    if(this->exception) {
+    if (this->exception) {
         qWarning("coroutine had been killed.");
         return false;
     }
 
-    if(state == BaseCoroutine::Stopped || state == BaseCoroutine::Joined) {
+    if (state == BaseCoroutine::Stopped || state == BaseCoroutine::Joined) {
         qWarning("coroutine is stopped.");
         return false;
     }
 
-    if(exception) {
+    if (exception) {
         this->exception = exception;
     } else {
         this->exception = new CoroutineExitException();
     }
+    CoroutineException *t = this->exception;  // this->exception will be zeroed in yiled()
     try {
         bool result = yield();
-        delete exception;
+        delete t;
         return result;
     } catch (...) {
-        delete exception;
+        delete t;
         throw;
     }
 }
@@ -226,8 +239,9 @@ bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 BaseCoroutine* createMainCoroutine()
 {
     BaseCoroutine *main = new BaseCoroutine(nullptr, 0);
-    if(!main)
+    if (!main) {
         return nullptr;
+    }
     BaseCoroutinePrivate *mainPrivate = main->d_func();
     mainPrivate->stack = new char[1024];
     mainPrivate->stackSize = 1024;
@@ -268,7 +282,7 @@ void BaseCoroutine::setState(BaseCoroutine::State state)
 void BaseCoroutine::cleanup()
 {
     Q_D(BaseCoroutine);
-    if(d->previous) {
+    if (d->previous) {
         d->previous->yield();
     }
 }

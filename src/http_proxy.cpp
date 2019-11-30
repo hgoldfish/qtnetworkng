@@ -7,12 +7,12 @@ class HttpProxyPrivate
 public:
     HttpProxyPrivate() {}
     HttpProxyPrivate(const QString &hostName, quint16 port, const QString &user, const QString &password)
-        :hostName(hostName), port(port), user(user), password(password) {}
+        : hostName(hostName), user(user), password(password), port(port) {}
 public:
     QString hostName;
-    quint16 port;
     QString user;
     QString password;
+    quint16 port;
 };
 
 
@@ -21,16 +21,30 @@ HttpProxy::HttpProxy()
 {
 }
 
+
 HttpProxy::HttpProxy(const QString &hostName, quint16 port, const QString &user, const QString &password)
     :d_ptr(new HttpProxyPrivate(hostName, port, user, password))
 {
 }
+
 
 HttpProxy::HttpProxy(const HttpProxy &other)
     :d_ptr(new HttpProxyPrivate(other.d_ptr->hostName, other.d_ptr->port,
                                 other.d_ptr->user, other.d_ptr->password))
 {
 }
+
+
+HttpProxy &HttpProxy::operator=(const HttpProxy &other)
+{
+    Q_D(HttpProxy);
+    d->user = other.d_ptr->user;
+    d->hostName = other.d_ptr->hostName;
+    d->password = other.d_ptr->password;
+    d->port = other.d_ptr->port;
+    return *this;
+}
+
 
 HttpProxy &HttpProxy::operator=(HttpProxy &&other)
 {
@@ -39,11 +53,109 @@ HttpProxy &HttpProxy::operator=(HttpProxy &&other)
     return *this;
 }
 
+
+bool HttpProxy::operator==(const HttpProxy &other) const
+{
+    Q_D(const HttpProxy);
+    return d->user == other.d_ptr->user
+            && d->hostName == other.d_ptr->hostName
+            && d->password == other.d_ptr->password
+            && d->port == other.d_ptr->port;
+}
+
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
+    #define QBYTEARRAYLIST QByteArrayList
+    inline static QByteArray join(const QByteArrayList &lines) { return lines.join(); }
+#else
+    #define QBYTEARRAYLIST QList<QByteArray>
+    inline static QByteArray join(const QList<QByteArray> &lines)
+    {
+        QByteArray buf;
+        buf.reserve(1024 * 4 - 1);
+        for (const QByteArray &line: lines) {
+            buf.append(line);
+        }
+        return buf;
+    }
+#endif
+inline static QString join(QChar c, const QStringList &l) { return l.join(c); }
+inline static QString join(QChar c, const QList<QString> &l) { return QStringList(l).join(c); }
+
+
+QSharedPointer<Socket> HttpProxy::connect(const QString &remoteHost, quint16 port)
+{
+    Q_D(HttpProxy);
+    if (remoteHost.isEmpty()) {
+        return QSharedPointer<Socket>();
+    }
+    QSharedPointer<Socket> connection(new Socket());
+    if (!connection->connect(d->hostName, d->port)) {
+        return QSharedPointer<Socket>();
+    }
+
+    QBYTEARRAYLIST lines;
+    QByteArray firstLine = QByteArray("CONNECT ")
+            + remoteHost.toLatin1() + QByteArray(":") + QByteArray::number(port)
+            + QByteArray(" HTTP/1.1\r\n");
+    QByteArray secondLine = QByteArray("Host: ") + remoteHost.toLatin1() + QByteArray("\r\n");
+    lines.append(firstLine);
+    lines.append(secondLine);
+    lines.append("Proxy-Connection: keep-alive\r\n");
+    lines.append("User-Agent: Mozilla/5.0\r\n");
+    lines.append("\r\n");
+    QByteArray headersBytes = join(lines);
+    if (connection->sendall(headersBytes) != headersBytes.size()) {
+        return QSharedPointer<Socket>();
+    }
+
+    HeaderSplitter headerSplitter(asSocketLike(connection));
+    HeaderSplitter::Error headerSplitterError;
+    QByteArray statusLine = headerSplitter.nextLine(&headerSplitterError);
+    if (statusLine.isEmpty() || headerSplitterError != HeaderSplitter::NoError) {
+        return QSharedPointer<Socket>();
+    }
+    QStringList commands = QString::fromLatin1(firstLine).split(QRegExp("\\s+"));
+    if (commands.size() < 3) {
+        return QSharedPointer<Socket>();
+    }
+    if (commands.at(0) != QStringLiteral("HTTP/1.0") && commands.at(0) == QStringLiteral("HTTP/1.1")) {
+        return QSharedPointer<Socket>();
+    }
+    if (commands.at(1) != QByteArray("200")) {
+        return QSharedPointer<Socket>();
+    }
+    qDebug() << join(' ', commands.mid(2));
+    const int MaxHeaders = 64;
+    headerSplitter.headers(MaxHeaders, &headerSplitterError);
+    if (headerSplitterError != HeaderSplitter::NoError) {
+        return QSharedPointer<Socket>();
+    }
+    return connection;
+}
+
+
+QSharedPointer<Socket> HttpProxy::connect(const QHostAddress &remoteHost, quint16 port)
+{
+    if (remoteHost.isNull()) {
+        return QSharedPointer<Socket>();
+    }
+    QString hostName;
+    if (remoteHost.protocol() == QAbstractSocket::IPv6Protocol) {
+        hostName = QStringLiteral("[%1]").arg(remoteHost.toString());
+    } else {
+        hostName = remoteHost.toString();
+    }
+    return connect(hostName, port);
+}
+
+
 QString HttpProxy::hostName() const
 {
     Q_D(const HttpProxy);
     return d->hostName;
 }
+
 
 quint16 HttpProxy::port() const
 {
@@ -51,11 +163,13 @@ quint16 HttpProxy::port() const
     return d->port;
 }
 
+
 QString HttpProxy::user() const
 {
     Q_D(const HttpProxy);
     return d->user;
 }
+
 
 QString HttpProxy::password() const
 {
@@ -63,17 +177,20 @@ QString HttpProxy::password() const
     return d->password;
 }
 
+
 void HttpProxy::setHostName(const QString &hostName)
 {
     Q_D(HttpProxy);
     d->hostName = hostName;
 }
 
+
 void HttpProxy::setUser(const QString &user)
 {
     Q_D(HttpProxy);
     d->user = user;
 }
+
 
 void HttpProxy::setPassword(const QString &password)
 {

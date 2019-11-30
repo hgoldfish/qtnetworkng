@@ -1,8 +1,11 @@
 #include <QtCore/qloggingcategory.h>
 #include "../include/socket_server.h"
 
+// #define DEBUG_PROTOCOL 1
 
+#ifdef DEBUG_PROTOCOL
 static Q_LOGGING_CATEGORY(logger, "qtng.socket_server")
+#endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -38,7 +41,6 @@ private:
 BaseStreamServer::BaseStreamServer(const QHostAddress &serverAddress, quint16 serverPort)
     :started(new Event()), stopped(new Event()), d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
 {
-    Q_D(BaseStreamServer);
     started->clear();
     stopped->set();
 }
@@ -96,9 +98,11 @@ bool BaseStreamServer::serverBind()
         mode = Socket::DefaultForPlatform;
     }
     bool ok = d->serverSocket->bind(d->serverAddress, d->serverPort, mode);
+#ifdef DEBUG_PROTOCOL
     if (!ok) {
         qCInfo(logger) << "server can not bind to" << d->serverAddress.toString() << ":" << d->serverPort;
     }
+#endif
     return ok;
 }
 
@@ -107,9 +111,11 @@ bool BaseStreamServer::serverActivate()
 {
     Q_D(BaseStreamServer);
     bool ok = d->serverSocket->listen(d->requestQueueSize);
+#ifdef DEBUG_PROTOCOL
     if (!ok) {
         qCInfo(logger) << "server can not listen to" << d->serverAddress.toString() << ":" << d->serverPort;
     }
+#endif
     return ok;
 }
 
@@ -241,7 +247,13 @@ void *BaseStreamServer::userData() const
 quint16 BaseStreamServer::serverPort() const
 {
     Q_D(const BaseStreamServer);
-    return d->serverPort;
+    if (d->serverPort) {
+        return d->serverPort;
+    } else if (!d->serverSocket.isNull() && d->serverSocket->isValid()) {
+        return d->serverSocket->localPort();
+    } else {
+        return 0;
+    }
 }
 
 
@@ -342,8 +354,9 @@ bool BaseSslServer::isSecure() const
 QSharedPointer<SocketLike> BaseSslServer::serverCreate()
 {
     Q_D(BaseSslServer);
-    return SocketLike::sslSocket(QSharedPointer<SslSocket>::create(d->configuration));
+    return asSocketLike(QSharedPointer<SslSocket>::create(d->configuration));
 }
+
 
 #endif  // QTNG_NO_CRYPTO
 

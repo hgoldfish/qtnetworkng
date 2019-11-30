@@ -27,6 +27,7 @@ private:
     friend BaseCoroutine* createMainCoroutine();
 };
 
+
 void CALLBACK BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
 {
     coroutine->state = BaseCoroutine::Started;
@@ -62,28 +63,31 @@ BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *prev
 BaseCoroutinePrivate::~BaseCoroutinePrivate()
 {
     Q_Q(BaseCoroutine);
-    if(currentCoroutine().get() == q) {
+    if (currentCoroutine().get() == q) {
         qWarning("do not delete one self.");
     }
-    if(context) {
+    if (context) {
         if(Q_UNLIKELY(stackSize == 0)) {
             ConvertFiberToThread();
         } else {
             DeleteFiber(context);
         }
     }
-    if(exception)
-        delete exception;
+    if (exception) {
+        qWarning("BaseCoroutine::exception should always be kept null.");
+        // delete exception;
+    }
 }
 
 
 bool BaseCoroutinePrivate::initContext()
 {
-    if(context)
+    if (context) {
         return true;
+    }
 
     context = CreateFiberEx(1024 * 4, stackSize, 0, (PFIBER_START_ROUTINE)BaseCoroutinePrivate::run_stub, this);
-    if(!context) {
+    if (!context) {
         DWORD error = GetLastError();
         qWarning() << QStringLiteral("can not create fiber: error is %1").arg(error);
         bad = true;
@@ -98,7 +102,7 @@ bool BaseCoroutinePrivate::initContext()
 bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 {
     Q_Q(BaseCoroutine);
-    if(currentCoroutine().get() == q) {
+    if (currentCoroutine().get() == q) {
         qWarning("can not kill oneself.");
         return false;
     }
@@ -118,13 +122,13 @@ bool BaseCoroutinePrivate::raise(CoroutineException *exception)
     } else {
         this->exception = new CoroutineExitException();
     }
-
+    CoroutineException *t = this->exception;
     try {
         bool result = yield();
-        delete exception;
+        delete t;
         return result;
     } catch (...) {
-        delete exception;
+        delete t;
         throw;
     }
 }
@@ -133,15 +137,24 @@ bool BaseCoroutinePrivate::yield()
 {
     Q_Q(BaseCoroutine);
 
-    if(bad || (state != BaseCoroutine::Initialized && state != BaseCoroutine::Started))
+    if(bad || (state != BaseCoroutine::Initialized && state != BaseCoroutine::Started)) {
+        qWarning("invalid coroutine state.");
         return false;
+    }
 
-    if(!initContext())
+    if(!initContext()) {
         return false;
+    }
 
     BaseCoroutine *old = currentCoroutine().get();
-    if (!old || old == q)
+    if (!old) {
+        qWarning("can not get old coroutine.");
         return false;
+    }
+    if (old == q) {
+        qWarning("yield to myself. did you call blocking functions in eventloop?");
+        return false;
+    }
 
     currentCoroutine().set(q);
     SwitchToFiber(context);
@@ -162,8 +175,9 @@ bool BaseCoroutinePrivate::yield()
 BaseCoroutine* createMainCoroutine()
 {
     BaseCoroutine *main = new BaseCoroutine(nullptr, 0);
-    if (!main)
+    if (!main) {
         return nullptr;
+    }
     BaseCoroutinePrivate *mainPrivate = main->d_func();
 #if ( _WIN32_WINNT > 0x0600)
         if (IsThreadAFiber()) {
@@ -238,7 +252,7 @@ void BaseCoroutine::setState(BaseCoroutine::State state)
 void BaseCoroutine::cleanup()
 {
     Q_D(BaseCoroutine);
-    if(d->previous) {
+    if (d->previous) {
         d->previous->yield();
     }
 }

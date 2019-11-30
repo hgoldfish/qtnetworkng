@@ -144,12 +144,18 @@ public:
 
     void setHeader(const QString &name, const QByteArray &value);
     void addHeader(const QString &name, const QByteArray &value);
+    void addHeader(const HttpHeader &header);
     bool hasHeader(const QString &name) const;
     bool removeHeader(const QString &name);
     QByteArray header(const QString &name, const QByteArray &defaultValue = QByteArray()) const;
     QByteArray header(KnownHeader header, const QByteArray &defaultValue = QByteArray()) const;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
     QByteArrayList multiHeader(const QString &name) const;
     QByteArrayList multiHeader(KnownHeader header) const;
+#else
+    QList<QByteArray> multiHeader(const QString &name) const;
+    QList<QByteArray> multiHeader(KnownHeader header) const;
+#endif
     QList<HttpHeader> allHeaders() const { return headers; }
     void setHeaders(const QMap<QString, QByteArray> headers);
     void setHeaders(const QList<HttpHeader> &headers) { this->headers = headers; }
@@ -174,16 +180,17 @@ public:
         LineTooLong,
     };
 public:
-    HeaderSplitter(QSharedPointer<SocketLike> connection, const QByteArray &buf)
-        :connection(connection), buf(buf) {}
-    HeaderSplitter(QSharedPointer<SocketLike> connection)
-        :connection(connection) {}
+    HeaderSplitter(QSharedPointer<SocketLike> connection, const QByteArray &buf, int debugLevel = 0)
+        :connection(connection), buf(buf), debugLevel(debugLevel) {}
+    HeaderSplitter(QSharedPointer<SocketLike> connection, int debugLevel = 0)
+        :connection(connection), debugLevel(debugLevel) {}
     QByteArray nextLine(Error *error);
     HttpHeader nextHeader(Error *error);
     QList<HttpHeader> headers(int maxHeaders, Error *error);
 public:
     QSharedPointer<SocketLike> connection;
     QByteArray buf;
+    int debugLevel;
 };
 
 class ChunkedBlockReader
