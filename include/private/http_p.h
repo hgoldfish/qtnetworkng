@@ -30,7 +30,8 @@ public:
     virtual ~ConnectionPool();
     QSharedPointer<Semaphore> getSemaphore(const QUrl &url);
     void recycle(const QUrl &url, QSharedPointer<SocketLike> connection);
-    QSharedPointer<SocketLike> connectionForUrl(const QUrl &url, RequestError **error);
+    QSharedPointer<SocketLike> oldConnectionForUrl(const QUrl &url);
+    QSharedPointer<SocketLike> newConnectionForUrl(const QUrl &url, RequestError **error);
     void removeUnusedConnections();
     QSharedPointer<Socks5Proxy> socks5Proxy() const;
     QSharedPointer<HttpProxy> httpProxy() const;

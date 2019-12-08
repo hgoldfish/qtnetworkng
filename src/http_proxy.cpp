@@ -35,6 +35,12 @@ HttpProxy::HttpProxy(const HttpProxy &other)
 }
 
 
+HttpProxy::~HttpProxy()
+{
+    delete d_ptr;
+}
+
+
 HttpProxy &HttpProxy::operator=(const HttpProxy &other)
 {
     Q_D(HttpProxy);
@@ -115,17 +121,16 @@ QSharedPointer<Socket> HttpProxy::connect(const QString &remoteHost, quint16 por
     if (statusLine.isEmpty() || headerSplitterError != HeaderSplitter::NoError) {
         return QSharedPointer<Socket>();
     }
-    QStringList commands = QString::fromLatin1(firstLine).split(QRegExp("\\s+"));
+    QStringList commands = QString::fromLatin1(statusLine).split(QRegExp("\\s+"));
     if (commands.size() < 3) {
         return QSharedPointer<Socket>();
     }
-    if (commands.at(0) != QStringLiteral("HTTP/1.0") && commands.at(0) == QStringLiteral("HTTP/1.1")) {
+    if (commands.at(0) != QStringLiteral("HTTP/1.0") && commands.at(0) != QStringLiteral("HTTP/1.1")) {
         return QSharedPointer<Socket>();
     }
     if (commands.at(1) != QByteArray("200")) {
         return QSharedPointer<Socket>();
     }
-    qDebug() << join(' ', commands.mid(2));
     const int MaxHeaders = 64;
     headerSplitter.headers(MaxHeaders, &headerSplitterError);
     if (headerSplitterError != HeaderSplitter::NoError) {
@@ -182,6 +187,13 @@ void HttpProxy::setHostName(const QString &hostName)
 {
     Q_D(HttpProxy);
     d->hostName = hostName;
+}
+
+
+void HttpProxy::setPort(quint16 port)
+{
+    Q_D(HttpProxy);
+    d->port = port;
 }
 
 

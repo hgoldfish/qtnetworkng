@@ -52,7 +52,7 @@ SslCipher SslCipherPrivate::from_SSL_CIPHER(const SSL_CIPHER *cipher)
         return ciph;
     }
     QString descriptionOneLine = QString::fromLatin1(description);
-    
+
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
     const QVector<QStringRef> &descriptionList = descriptionOneLine.splitRef(QLatin1Char(' '), QString::SkipEmptyParts);
 #else
@@ -844,6 +844,18 @@ bool SslConnection<Socket>::handshake(bool asServer, const QString &verification
         if(!ssl.isNull()) {
             // do not free incoming & outgoing
             SSL_set_bio(ssl.data(), incoming, outgoing);
+//            if (!verificationPeerName.isEmpty() && !asServer) {
+//                X509_VERIFY_PARAM *param;
+//                param = SSL_get0_param(ssl.data());
+//                X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
+//            const QByteArray &t = verificationPeerName.toUtf8();
+//            if (!X509_VERIFY_PARAM_set1_host(param, t.data(), t.size())) {
+//                ssl.reset();
+//                ctx.reset();
+//                return false;
+//            }
+//                SSL_set_verify(ssl.data(), SSL_VERIFY_PEER, nullptr);
+//            }
             return _handshake();
         } else {
             ctx.reset();

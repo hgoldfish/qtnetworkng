@@ -128,7 +128,7 @@ public:
     virtual bool isBroken() const = 0;
     virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet) = 0;
     virtual bool sendPacketRawAsync(quint32 channelNumber, const QByteArray &packet) = 0;
-    virtual void cleanChannel(quint32 channelNumber) = 0;
+    virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) = 0;
     virtual void cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray&)> subCheckPacket) = 0;
     virtual quint32 headerSize() const = 0;
     virtual QSharedPointer<SocketLike> getBackend() const = 0;
@@ -185,7 +185,7 @@ public:
     virtual void abort() override;
     virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet) override;
     virtual bool sendPacketRawAsync(quint32 channelNumber, const QByteArray &packet) override;
-    virtual void cleanChannel(quint32 channelNumber) override;
+    virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) override;
     virtual void cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray&)> subCheckPacket) override;
     virtual quint32 headerSize() const override;
     virtual QSharedPointer<SocketLike> getBackend() const override;
@@ -200,6 +200,7 @@ public:
     qint64 lastActiveTimestamp;
     qint64 lastKeepaliveTimestamp;
     qint64 keepaliveTimeout;
+    qint64 keepaliveInterval;
 
     Q_DECLARE_PUBLIC(SocketChannel)
 };
@@ -214,7 +215,7 @@ public:
     virtual void abort() override;
     virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet) override;
     virtual bool sendPacketRawAsync(quint32 channelNumber, const QByteArray &packet) override;
-    virtual void cleanChannel(quint32 channelNumber) override;
+    virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) override;
     virtual void cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray&)> subCheckPacket) override;
     virtual quint32 headerSize() const override;
     virtual QSharedPointer<SocketLike> getBackend() const override;
@@ -268,7 +269,7 @@ QString DataChannelPrivate::toString()
     } else {
         state = QStringLiteral("ok");
     }
-    return pattern.arg(clazz, name, state);
+    return pattern.arg(clazz).arg(name).arg(state);
 }
 
 
@@ -286,7 +287,7 @@ void DataChannelPrivate::abort()
     for (QMapIterator<quint32, QWeakPointer<VirtualChannel>> itor(subChannels); itor.hasNext();) {
         const QWeakPointer<VirtualChannel> &subChannel = itor.next().value();
         if(!subChannel.isNull()) {
-            subChannel.data()->abort();
+            subChannel.data()->d_func()->abort();
         }
     }
     subChannels.clear();
@@ -423,7 +424,9 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
         } else if (subChannels.contains(channelNumber)) {
             QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
             if (!channel.isNull()) {
-                channel.data()->abort();
+                cleanChannel(channelNumber, false);
+                channel.data()->d_func()->parentChannel.clear();
+                channel.data()->d_func()->abort();
             }
         }
         return true;
@@ -452,9 +455,14 @@ void DataChannelPrivate::notifyChannelClose(quint32 channelNumber)
 
 
 SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection, DataChannelPole pole, SocketChannel *parent)
-    :DataChannelPrivate(pole, parent), connection(connection), sendingQueue(256), operations(new CoroutineGroup()),
-      lastActiveTimestamp(QDateTime::currentMSecsSinceEpoch()), lastKeepaliveTimestamp(lastActiveTimestamp),
-      keepaliveTimeout(1000 * 10)
+    : DataChannelPrivate(pole, parent)
+    , connection(connection)
+    , sendingQueue(256)
+    , operations(new CoroutineGroup())
+    , lastActiveTimestamp(QDateTime::currentMSecsSinceEpoch())
+    , lastKeepaliveTimestamp(lastActiveTimestamp)
+    , keepaliveTimeout(1000 * 10)
+    , keepaliveInterval(1000 * 2)
 {
     connection->setOption(Socket::LowDelayOption, true);
     operations->spawnWithName(QStringLiteral("receiving"), [this] {
@@ -633,12 +641,12 @@ void SocketChannelPrivate::doReceive()
 void SocketChannelPrivate::doKeepalive()
 {
     while (true) {
-        Coroutine::sleep(1.0);
+        Coroutine::sleep(0.2f);
         qint64 now = QDateTime::currentMSecsSinceEpoch();
         if (now - lastActiveTimestamp > keepaliveTimeout) {
             return abort();
         }
-        if (now - lastKeepaliveTimestamp > (keepaliveTimeout / 2)) {
+        if (now - lastKeepaliveTimestamp > keepaliveInterval) {
             lastKeepaliveTimestamp = now;
             sendPacketRawAsync(CommandChannelNumber, packKeepaliveRequest());
         }
@@ -679,20 +687,20 @@ bool SocketChannelPrivate::isBroken() const
 }
 
 
-bool alwayTrue(const QByteArray &packet) {
-    Q_UNUSED(packet);
+static inline bool alwayTrue(const QByteArray &) {
     return true;
 }
 
 
-void SocketChannelPrivate::cleanChannel(quint32 channelNumber)
+void SocketChannelPrivate::cleanChannel(quint32 channelNumber, bool sendDestroyPacket)
 {
     int found = subChannels.remove(channelNumber);
     if (found <= 0) {
         return;
     }
-
-    notifyChannelClose(channelNumber);
+    if (sendDestroyPacket) {
+        notifyChannelClose(channelNumber);
+    }
     cleanSendingPacket(channelNumber, alwayTrue);
 }
 
@@ -813,7 +821,7 @@ void VirtualChannelPrivate::abort()
     }
     broken = true;
     if (!parentChannel.isNull()) {
-        getPrivateHelper(parentChannel)->cleanChannel(channelNumber);
+        getPrivateHelper(parentChannel)->cleanChannel(channelNumber, true);
     }
     if (!notPending.isOpen()) {
         notPending.open();
@@ -822,13 +830,13 @@ void VirtualChannelPrivate::abort()
 }
 
 
-void VirtualChannelPrivate::cleanChannel(quint32 channelNumber)
+void VirtualChannelPrivate::cleanChannel(quint32 channelNumber, bool sendDestroyPacket)
 {
     int found = subChannels.remove(channelNumber);
-    if (broken || parentChannel.isNull()) {
+    if (broken || parentChannel.isNull() || found <= 0) {
         return;
     }
-    if (found > 0) {
+    if (sendDestroyPacket) {
         notifyChannelClose(channelNumber);
     }
     getPrivateHelper(parentChannel)->cleanSendingPacket(this->channelNumber, [channelNumber](const QByteArray &packet) -> bool{
@@ -934,13 +942,13 @@ void SocketChannel::setKeepaliveTimeout(float timeout)
 {
     Q_D(SocketChannel);
     d->keepaliveTimeout = static_cast<qint64>(timeout * 1000);
-    if (d->keepaliveTimeout) {
-        d->operations->spawnWithName(QStringLiteral("keepalive"), [d] {
-            d->doKeepalive();
-        }, false);
-    } else {
-        d->operations->kill("keepalive");
-    }
+//    if (d->keepaliveTimeout) {
+//        d->operations->spawnWithName(QStringLiteral("keepalive"), [d] {
+//            d->doKeepalive();
+//        }, false);
+//    } else {
+//        d->operations->kill("keepalive");
+//    }
 }
 
 

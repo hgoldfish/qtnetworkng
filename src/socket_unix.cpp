@@ -182,9 +182,21 @@ void SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address,
 }
 
 
+bool SocketPrivate::isValid() const
+{
+    if (!checkState()) {
+        return false;
+    }
+    int error = 0;
+    socklen_t len = sizeof (error);
+    int result = getsockopt (fd, SOL_SOCKET, SO_ERROR, &error, &len);
+    return result == 0 && error == 0;
+}
+
+
 bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::BindMode mode)
 {
-    if (!isValid())  {
+    if (!checkState())  {
         return false;
     }
     if (state != Socket::UnconnectedState) {
@@ -246,7 +258,7 @@ bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::Bind
 
 bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 {
-    if (!isValid()) {
+    if (!checkState()) {
         return false;
     }
     if (state != Socket::UnconnectedState && state != Socket::BoundState && state != Socket::ConnectingState) {
@@ -260,7 +272,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
     state = Socket::ConnectingState;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     while (true) {
-        if (!isValid())
+        if (!checkState())
             return false;
         if (state != Socket::ConnectingState)
             return false;
@@ -340,7 +352,7 @@ void SocketPrivate::close()
 {
     if (fd > 0) {
         // TODO flush socket.
-//        ::shutdown(fd, SHUT_RDWR);
+        ::shutdown(fd, SHUT_RDWR);
         ::close(fd);
         EventLoopCoroutine::get()->triggerIoWatchers(fd);
         fd = -1;
@@ -370,7 +382,7 @@ void SocketPrivate::abort()
 
 bool SocketPrivate::listen(int backlog)
 {
-    if (!isValid())
+    if (!checkState())
         return false;
     if (state != Socket::BoundState && state != Socket::UnconnectedState)
         return false;
@@ -470,20 +482,20 @@ bool SocketPrivate::fetchConnectionParameters()
 
 qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 {
-    if (!isValid()) {
+    if (!checkState()) {
         return -1;
     }
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     qint32 total = 0;
     while (total < size) {
-        if (!isValid()) {
+        if (!checkState()) {
             setError(Socket::SocketAccessError, AccessErrorString);
             return total == 0 ? -1: total;
         }
         ssize_t r = 0;
         do {
             r = ::recv(fd, data + total, static_cast<size_t>(size - total), 0);
-        } while(r < 0 && errno == EINTR);
+        } while (r < 0 && errno == EINTR);
 
         if (r < 0) {
             int e = errno;
@@ -510,7 +522,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
                 abort();
                 return total == 0 ? -1 : total;
             }
-        } else if(r == 0 && type == Socket::TcpSocket) {
+        } else if (r == 0 && type == Socket::TcpSocket) {
             setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
             abort();
             return total;
@@ -534,7 +546,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 
 qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 {
-    if (!isValid()) {
+    if (!checkState()) {
         return 0;
     }
     qint32 sent = 0;
@@ -542,7 +554,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
     // TODO UDP socket may send zero length packet
 
     while (sent < size) {
-        if (!isValid()) {
+        if (!checkState()) {
             return sent;
         }
         ssize_t w;
@@ -603,7 +615,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 
 qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, quint16 *port)
 {
-    if (!isValid()) {
+    if (!checkState()) {
         return -1;
     }
 
@@ -626,7 +638,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, q
     ssize_t recvResult = 0;
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     while (true) {
-        if (!isValid()){
+        if (!checkState()){
             setError(Socket::SocketAccessError, AccessErrorString);
             return -1;
         }
@@ -678,7 +690,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, q
 
 qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
 {
-    if (!isValid()) {
+    if (!checkState()) {
         return -1;
     }
     struct msghdr msg;
@@ -707,7 +719,7 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
     int flags = 0;
 #endif
     while(true) {
-        if (!isValid()) {
+        if (!checkState()) {
             return -1;
         }
         do {
@@ -855,7 +867,7 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
 
 QVariant SocketPrivate::option(Socket::SocketOption option) const
 {
-    if (!isValid())
+    if (!checkState())
         return QVariant();
 
     if (option == Socket::BroadcastSocketOption) {
@@ -874,7 +886,7 @@ QVariant SocketPrivate::option(Socket::SocketOption option) const
 
 bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value)
 {
-    if (!isValid())
+    if (!checkState())
         return false;
 
 //    if(option == Socket::BroadcastSocketOption) {
@@ -951,7 +963,7 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrle
 
 Socket *SocketPrivate::accept()
 {
-    if (!isValid()) {
+    if (!checkState()) {
         return nullptr;
     }
 
@@ -961,7 +973,7 @@ Socket *SocketPrivate::accept()
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     while (true) {
-        if (!isValid() || state != Socket::ListeningState) {
+        if (!checkState() || state != Socket::ListeningState) {
             return nullptr;
         }
         int acceptedDescriptor = qt_safe_accept(fd, nullptr, nullptr);

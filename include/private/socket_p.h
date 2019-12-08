@@ -55,7 +55,8 @@ public:
     QString getErrorString() const;
     void setError(Socket::SocketError error, const QString &errorString);
     void setError(Socket::SocketError error, ErrorString errorString);
-    bool isValid() const {return fd > 0 && (error == Socket::NoError || type != Socket::TcpSocket);}
+    bool checkState() const { return fd > 0 && (error == Socket::NoError || type != Socket::TcpSocket); } // not very accurate
+    bool isValid() const;
 
     Socket *accept();
     bool bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);

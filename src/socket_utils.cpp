@@ -156,7 +156,12 @@ Socket *SocketLikeImpl::acceptRaw()
 
 QSharedPointer<SocketLike> SocketLikeImpl::accept()
 {
-    return asSocketLike(s->accept());
+    Socket *r = s->accept();
+    if (r) {
+        return asSocketLike(r);
+    } else {
+        return QSharedPointer<SocketLike>();
+    }
 }
 
 
@@ -413,7 +418,8 @@ void ExchangerPrivate::in2out()
     while (true) {
         qint32 len = request->recv(buf.data(), buf.size());
         if (len <= 0) {
-            operations->killall(false);
+            forward->close();
+            operations->kill("out2in");
             return;
         }
         qint32 sentBytes = -1;
@@ -424,7 +430,8 @@ void ExchangerPrivate::in2out()
             sentBytes = -1;
         }
         if (sentBytes != len) {
-            operations->killall(false);
+            forward->close();
+            operations->kill("out2in");
             return;
         }
     }
@@ -437,7 +444,8 @@ void ExchangerPrivate::out2in()
     while (true) {
         qint32 len = forward->recv(buf.data(), buf.size());
         if (len <= 0) {
-            operations->killall(false);
+            request->close();
+            operations->kill("in2out");
             return;
         }
         qint32 sentBytes = -1;
@@ -448,7 +456,8 @@ void ExchangerPrivate::out2in()
             sentBytes = -1;
         }
         if (sentBytes != len) {
-            operations->killall(false);
+            request->close();
+            operations->kill("in2out");
             return;
         }
     }
@@ -475,8 +484,8 @@ void Exchanger::exchange()
 //    d->operations->spawnWithName("receive_incoming", [d] { d->receiveIncoming(); });
 //    d->operations->spawnWithName("send_outgoing", [d] { d->sendOutgoing(); });
 //    d->operations->spawnWithName("send_incoming", [d] { d->sendIncoming(); });
-    d->operations->spawn([d] { d->in2out(); });
-    d->operations->spawn([d] { d->out2in(); });
+    d->operations->spawnWithName("in2out", [d] { d->in2out(); });
+    d->operations->spawnWithName("out2in", [d] { d->out2in(); });
     d->operations->joinall();
 }
 

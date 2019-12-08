@@ -535,9 +535,9 @@ QByteArray KcpSocketPrivate::makeMultiPathPacket(quint32 connectionId)
     QByteArray packet = randomBytes(5 + qrand() % (64 - 5));
     packet.data()[0] = PACKET_TYPE_CREATE_MULTIPATH;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
-    qToBigEndian<quint32>(this->connectionId, packet.data() + 1);
+    qToBigEndian<quint32>(connectionId, packet.data() + 1);
 #else
-    qToBigEndian<quint32>(this->connectionId, reinterpret_cast<uchar*>(packet.data() + 1));
+    qToBigEndian<quint32>(connectionId, reinterpret_cast<uchar*>(packet.data() + 1));
 #endif
     return packet;
 }
@@ -797,7 +797,7 @@ void MasterKcpSocketPrivate::doAccept()
                     receiversByHostAndPort.insert(key, d);
                     receiversByConnectionId.insert(d->connectionId, d);
                     pendingSlaves.put(slave);
-                    const QByteArray &multiPathPacket = makeMultiPathPacket(connectionId);
+                    const QByteArray &multiPathPacket = makeMultiPathPacket(d->connectionId);
                     if (rawSocket->sendto(multiPathPacket, addr, port) != multiPathPacket.size()) {
                         error = Socket::SocketResourceError;
                         errorString = QStringLiteral("KcpSocket can not send udp packet.");

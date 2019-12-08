@@ -454,6 +454,18 @@ bool SocketPrivate::createSocket()
 }
 
 
+bool SocketPrivate::isValid() const
+{
+    if (!checkState()) {
+        return false;
+    }
+    int error = 0;
+    int len = sizeof (error);
+    int result = getsockopt(static_cast<SOCKET>(fd), SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&error), &len);
+    return result == 0 && error == 0;
+}
+
+
 bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode mode)
 {
     Q_UNUSED(mode);
@@ -528,9 +540,9 @@ bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode m
 
 bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 {
-    if(!isValid())
+    if (!checkState())
         return false;
-    if(state != Socket::UnconnectedState && state != Socket::BoundState && state != Socket::ConnectingState)
+    if (state != Socket::UnconnectedState && state != Socket::BoundState && state != Socket::ConnectingState)
         return false;
 
     qt_sockaddr aa;
@@ -547,10 +559,10 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 
     state = Socket::ConnectingState;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
-    while(true) {
-        if(!isValid())
+    while (true) {
+        if (!checkState())
             return false;
-        if(state != Socket::ConnectingState)
+        if (state != Socket::ConnectingState)
             return false;
 
         int connectResult = ::WSAConnect(static_cast<SOCKET>(fd), &aa.a, sockAddrSize, 0,0,0,0);
@@ -666,7 +678,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 
 void SocketPrivate::close()
 {
-    if(fd > 0) {
+    if (fd > 0) {
         ::closesocket(static_cast<SOCKET>(fd));
         EventLoopCoroutine::get()->triggerIoWatchers(fd);
         fd = -1;
@@ -680,7 +692,7 @@ void SocketPrivate::close()
 
 void SocketPrivate::abort()
 {
-    if(fd > 0) {
+    if (fd > 0) {
         ::closesocket(static_cast<SOCKET>(fd));
         EventLoopCoroutine::get()->triggerIoWatchers(fd);
         fd = -1;
@@ -695,10 +707,10 @@ void SocketPrivate::abort()
 
 bool SocketPrivate::listen(int backlog)
 {
-    if(!isValid()) {
+    if (!checkState()) {
         return false;
     }
-    if(state != Socket::BoundState) {
+    if (state != Socket::BoundState) {
         return false;
     }
     if (::listen(static_cast<SOCKET>(fd), backlog) == SOCKET_ERROR) {
@@ -740,7 +752,7 @@ bool SocketPrivate::fetchConnectionParameters()
     peerPort = 0;
     peerAddress.clear();
 
-    if(!isValid()) {
+    if (!checkState()) {
         return false;
     }
 
@@ -828,13 +840,13 @@ bool SocketPrivate::fetchConnectionParameters()
 
 qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 {
-    if(!isValid()) {
+    if(!checkState()) {
         return -1;
     }
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     qint32 total = 0;
-    while(total < size) {
-        if(!isValid()) {
+    while (total < size) {
+        if (!checkState()) {
             setError(Socket::SocketAccessError, AccessErrorString);
             return total == 0 ? -1: total;
         }
@@ -882,14 +894,14 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 
 qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 {
-    if(!isValid()) {
+    if (!checkState()) {
         return -1;
     }
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     qint32 ret = 0;
     qint32 bytesToSend = qMin<qint32>(49152, size);
-    while(bytesToSend > 0) {
-        if(!isValid()) {
+    while (bytesToSend > 0) {
+        if (!checkState()) {
             setError(Socket::SocketAccessError, AccessErrorString);
             return ret == 0 ? -1: ret;
         }
@@ -984,7 +996,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 
 qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port)
 {
-    if(!isValid() || size < 0) {
+    if (!checkState() || size < 0) {
         return -1;
     }
 
@@ -1009,8 +1021,8 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
 
-    while(true) {
-        if(!isValid()){
+    while (true) {
+        if (!checkState()) {
             setError(Socket::SocketAccessError, AccessErrorString);
             return -1;
         }
@@ -1066,7 +1078,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
             ret = static_cast<qint32>(bytesRead);
 
         }
-        if(ret > 0) {
+        if (ret > 0) {
             qt_socket_getPortAndAddress(static_cast<SOCKET>(fd), &aa, port, addr);
 #if defined (SOCKET_DEBUG)
             bool printSender = (ret != -1);
@@ -1084,7 +1096,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
 
 qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
 {
-    if(!isValid()) {
+    if (!checkState()) {
         return -1;
     }
     qint32 ret = 0;
@@ -1107,8 +1119,8 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
     DWORD bytesSent = 0;
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
-    while(true) {
-        if (!isValid()) {
+    while (true) {
+        if (!checkState()) {
             return -1;
         }
         int socketRet = ::WSASendTo(static_cast<SOCKET>(fd), &buf, 1, &bytesSent, flags,
@@ -1151,7 +1163,7 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
                 return -1;
             }
         } else {
-            if(ret >= size) {
+            if (ret >= size) {
                 if (type == Socket::UdpSocket && !localPort && localAddress.isNull()) {
                     fetchConnectionParameters();
                 }
@@ -1164,7 +1176,7 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
 
 QVariant SocketPrivate::option(Socket::SocketOption option) const
 {
-    if (!isValid())
+    if (!checkState())
         return -1;
 
     // handle non-getsockopt
@@ -1195,7 +1207,7 @@ QVariant SocketPrivate::option(Socket::SocketOption option) const
 
 bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value)
 {
-    if(!isValid())
+    if (!checkState())
         return false;
 
     // handle non-setsockopt options
@@ -1240,14 +1252,14 @@ bool SocketPrivate::setNonblocking()
 
 Socket *SocketPrivate::accept()
 {
-    if(!isValid()) {
+    if (!checkState()) {
         return nullptr;
     }
-    if(state != Socket::ListeningState || type != Socket::TcpSocket)
+    if (state != Socket::ListeningState || type != Socket::TcpSocket)
         return nullptr;
 
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
-    while(true) {
+    while (true) {
         SOCKET acceptedDescriptor = WSAAccept(static_cast<SOCKET>(fd), nullptr, nullptr, nullptr, 0);
         if (acceptedDescriptor == SOCKET_ERROR) {
             int err = WSAGetLastError();

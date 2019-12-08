@@ -37,7 +37,7 @@ SocketPrivate::SocketPrivate(qintptr socketDescriptor, Socket *parent)
 #endif
     fd = static_cast<int>(socketDescriptor);
     setNonblocking();
-    if (!isValid())
+    if (!checkState())
         return;
     // FIXME determine the type and state of socket
     protocol = Socket::AnyIPProtocol;
@@ -454,7 +454,7 @@ qint32 Socket::send(const char *data, qint32 size)
         return -1;
     }
     qint32 bytesSent = d->send(data, size, false);
-    if (bytesSent == 0 && !d->isValid()) {
+    if (bytesSent == 0 && !d->checkState()) {
         return -1;
     } else {
         return bytesSent;
@@ -537,7 +537,7 @@ qint32 Socket::send(const QByteArray &data)
         return -1;
     }
     qint32 bytesSent = d->send(data.data(), data.size(), false);
-    if(bytesSent == 0 && !d->isValid()) {
+    if(bytesSent == 0 && !d->checkState()) {
         return -1;
     } else {
         return bytesSent;
@@ -587,7 +587,7 @@ qint32 Socket::sendto(const QByteArray &data, const QHostAddress &addr, quint16 
 QList<QHostAddress> Socket::resolve(const QString &hostName)
 {
     QHostAddress tmp;
-    if(tmp.setAddress(hostName)) {
+    if (tmp.setAddress(hostName)) {
         QList<QHostAddress> result;
         result.append(tmp);
         return result;

@@ -86,6 +86,7 @@ QByteArray FormData::toByteArray() const
     return body;
 }
 
+
 class HttpRequestPrivate: public QSharedData
 {
 public:
@@ -121,6 +122,7 @@ HttpRequestPrivate::HttpRequestPrivate()
 
 
 HttpRequestPrivate::~HttpRequestPrivate() {}
+
 
 HttpRequestPrivate::HttpRequestPrivate(const HttpRequestPrivate &other)
     :QSharedData(other)
@@ -413,10 +415,12 @@ public:
 
 
 HttpResponsePrivate::HttpResponsePrivate()
-    : elapsed(0), version(Http1_1), consumed(false)
+    : elapsed(0), statusCode(0), version(Http1_1), consumed(false)
 {}
 
+
 HttpResponsePrivate::~HttpResponsePrivate() {}
+
 
 HttpResponsePrivate::HttpResponsePrivate(const HttpResponsePrivate &other)
     : QSharedData(other)
@@ -431,6 +435,7 @@ HttpResponsePrivate::HttpResponsePrivate(const HttpResponsePrivate &other)
     , version(other.version)
     , consumed(other.consumed)
 {}
+
 
 HttpResponse::HttpResponse()
     :d(new HttpResponsePrivate())
@@ -761,6 +766,7 @@ HttpSessionPrivate::HttpSessionPrivate(HttpSession *q_ptr)
     defaultUserAgent = QStringLiteral("Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0");
 }
 
+
 HttpSessionPrivate::~HttpSessionPrivate()
 {
 
@@ -822,18 +828,23 @@ void ConnectionPool::recycle(const QUrl &url, QSharedPointer<SocketLike> connect
 }
 
 
-QSharedPointer<SocketLike> ConnectionPool::connectionForUrl(const QUrl &url, RequestError **error)
+QSharedPointer<SocketLike> ConnectionPool::oldConnectionForUrl(const QUrl &url)
 {
     ConnectionPoolItem &item = getItem(url);
-    QSharedPointer<SocketLike> connection;
 
     while (!item.connections.isEmpty()) {
-        connection = item.connections.takeFirst();
+        QSharedPointer<SocketLike> connection = item.connections.takeFirst();
         if (connection->isValid()) {
             return connection;
         }
     }
+    return QSharedPointer<SocketLike>();
+}
 
+
+QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, RequestError **error)
+{
+    QSharedPointer<SocketLike> connection;
     QSharedPointer<Socket> rawSocket;
     quint16 port;
     if (url.scheme() == QStringLiteral("http")) {
@@ -1065,6 +1076,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             qDebug() << "sending headers:" << line;
         }
     }
+    const QByteArray &headerBytes = join(lines);
 
     QScopedPointer<ScopedLock<Semaphore>> ptrLock;
 
@@ -1076,26 +1088,47 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             return response;
         }
 
-        float timeout = request.d->timeout < 0 ? defaultConnectionTimeout : request.d->timeout;
-        try {
-            Timeout t(timeout);
-            connection = connectionForUrl(url, &error);
-        } catch (TimeoutException &) {
-            response.d->error.reset(new class RequestTimeout());
-            return response;
+        // try keep-alive connections first.
+        while (true) {
+            connection = oldConnectionForUrl(url);
+            if (connection.isNull()) {
+                break;
+            }
+            {
+                // test connection.
+                Timeout t(0.001f);Q_UNUSED(t);
+                char tbuf[4];
+                try {
+                    connection->recv(tbuf, 4);
+                    continue;
+                } catch (TimeoutException &) {
+                    // if the connection is ok, it always timeout.
+                    break;
+                }
+            }
         }
-        if (error != nullptr) {
-            response.d->error.reset(error);
-            return response;
+
+        //make a new connection.
+        if (connection.isNull()) {
+            float timeout = request.d->timeout < 0 ? defaultConnectionTimeout : request.d->timeout;
+            try {
+                Timeout t(timeout);
+                connection = newConnectionForUrl(url, &error);
+            } catch (TimeoutException &) {
+                response.d->error.reset(new class RequestTimeout());
+                return response;
+            }
+            if (error != nullptr) {
+                response.d->error.reset(error);
+                return response;
+            }
         }
     }
 
-    const QByteArray &headerBytes = join(lines);
     if (connection->sendall(headerBytes) != headerBytes.size()) {
         response.d->error.reset(new ConnectionError());
         return response;
     }
-
     if (!request.d->body.isEmpty()) {
         if (debugLevel > 1) {
             qDebug() << "sending body:" << request.d->body;
@@ -1175,7 +1208,9 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         if(debugLevel > 1 && !body.isEmpty()) {
             qDebug() << "receiving body:" << body;
         }
-        if (!ptrLock.isNull() && response.d->statusCode == 200
+        if (!ptrLock.isNull()
+                && connection->isValid()
+                && response.d->statusCode == 200
                 && response.header(HttpResponse::ConnectionHeader).toLower() == "keep-alive") {
             recycle(response.d->url, connection);
         }
@@ -2620,7 +2655,7 @@ HttpResponse HttpSession::send(HttpRequest &request)
 
     if (request.maxRedirects() > 0 && request.connection().isNull()) {
         int tries = 0;
-        while (isRedirect(response.statusCode())) {
+        while (response.isOk() && isRedirect(response.statusCode())) {
             if (tries > request.maxRedirects()) {
                 response.setError(new TooManyRedirects());
                 return response;
