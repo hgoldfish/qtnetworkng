@@ -404,10 +404,10 @@ public:
     QList<QNetworkCookie> cookies;
     HttpRequest request;
     QByteArray body;
-    qint64 elapsed;
     QList<HttpResponse> history;
     QSharedPointer<RequestError> error;
     QSharedPointer<SocketLike> stream;
+    qint64 elapsed;
     int statusCode;
     HttpVersion version;
     bool consumed;
@@ -429,8 +429,8 @@ HttpResponsePrivate::HttpResponsePrivate(const HttpResponsePrivate &other)
     , cookies(other.cookies)
     , request(other.request)
     , body(other.body)
-    , elapsed(other.elapsed)
     , history(other.history)
+    , elapsed(other.elapsed)
     , statusCode(other.statusCode)
     , version(other.version)
     , consumed(other.consumed)
@@ -834,7 +834,15 @@ QSharedPointer<SocketLike> ConnectionPool::oldConnectionForUrl(const QUrl &url)
 
     while (!item.connections.isEmpty()) {
         QSharedPointer<SocketLike> connection = item.connections.takeFirst();
-        if (connection->isValid()) {
+        if (!connection->isValid()) {
+            continue;
+        }
+        Timeout t(0.001f);Q_UNUSED(t);
+        char tbuf[4];
+        try {
+            connection->recv(tbuf, 4);
+        } catch (TimeoutException &) {
+            // if the connection is ok, it always timeout.
             return connection;
         }
     }
@@ -1089,25 +1097,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         }
 
         // try keep-alive connections first.
-        while (true) {
-            connection = oldConnectionForUrl(url);
-            if (connection.isNull()) {
-                break;
-            }
-            {
-                // test connection.
-                Timeout t(0.001f);Q_UNUSED(t);
-                char tbuf[4];
-                try {
-                    connection->recv(tbuf, 4);
-                    continue;
-                } catch (TimeoutException &) {
-                    // if the connection is ok, it always timeout.
-                    break;
-                }
-            }
-        }
-
+        connection = oldConnectionForUrl(url);
         //make a new connection.
         if (connection.isNull()) {
             float timeout = request.d->timeout < 0 ? defaultConnectionTimeout : request.d->timeout;
@@ -1132,6 +1122,8 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     if (!request.d->body.isEmpty()) {
         if (debugLevel > 1) {
             qDebug() << "sending body:" << request.d->body;
+        } else if (debugLevel > 0) {
+            qDebug() << "sending body:" << request.d->body.size();
         }
         if (connection->sendall(request.d->body) != request.d->body.size()) {
             response.d->error.reset(new ConnectionError());

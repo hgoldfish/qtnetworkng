@@ -5,7 +5,7 @@ QtNetworkNg
 Introduction
 ------------
 
-QtNetworkgNg is a coroutine-based network toolkit, like boost::asio but uses concepts from QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg requires Qt5 framework. For more detail visit:
+QtNetworkgNg is a coroutine-based network toolkit. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API which is similar to python-gevent. As the name suggests, QtNetworkNg requires Qt5 framework. For more detail visit:
 
 [Introduction to QtNetworkNg](https://qtng.org/intro.html)
 
@@ -23,8 +23,9 @@ Features
 * `Socket` supports UDP and TCP.
 * `SSLSocket` with similar API to `Socket`.
 * `KcpSocket` implements KCP over UDP.
-* `HttpSession` implements a HTTP 1.0/1.1 client.
+* `HttpSession` implements a HTTP 1.0/1.1 client, supports connection via SOCKS5/HTTP proxy.
 * `HttpServr` implements a static HTTP 1.0/1.1 server, can be used for reversed http proxy.
+* `MsgPackStream` is a new MessagePack implementation similar to `QDataStream`
 * `Cipher`, `MessageDigest`, `PublicKey`, `PrivateKey` wrap complicate LibreSSL C API.
 
 Examples
@@ -149,7 +150,11 @@ Qt 5 - https://www.qt.io/download
 Supported Platforms
 -----------------------
 
-Linux, Windows, Android and OpenBSD is supported. Macos, iOS is not tested yet, as I have no mac machines.
+Linux, Android and OpenBSD is supported.
+
+Macos, iOS is not tested yet, as I have no mac machines.
+
+Windows is supported partially. Because the Qt eventloop is not very efficient, a separate libev event loop is provided in Linux which is not available in Windows. GZip compression is not supported under Windows if zlib library not present.
 
 QtNetworkNg uses more effective boost::context asm code in arm, arm64, x86, amd64 machines, and uses native ucontext or windows fiber API in other architectures.
 
@@ -159,14 +164,22 @@ Towards 1.0
 
 - [ ] Complete reference documents
 - [x] Implements an HTTP 1.0 server.
-- [ ] HTTP support gzip compression.
+- [x] HTTP support gzip compression.
 - [x] HttpResponse support stream.
-- [ ] Support HTTP proxy and cache.
+- [x] Support HTTP proxy and cache.
+- [ ] Built as shared library(DLL)
 - [ ] A simple replacement for libev in Windows.
 - [ ] Add more OpenSSL functions.
-- [ ] Support verification for https connection.
+- [ ] Support verification/ALPS for https connection.
 - [ ] Support MacOS and iOS platforms.
 - [ ] Remove QtNetwork dependence.
+
+
+Towards 2.0
+-----------
+- [ ] Support HTTP/2
+- [ ] Support HTTP/3
+
 
 Building
 --------

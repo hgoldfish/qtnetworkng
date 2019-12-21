@@ -311,7 +311,7 @@ struct StartCoroutineFunctor: public Functor
     QPointer<CoroutinePrivate> cp;
     virtual void operator()() override
     {
-        if(cp.isNull()) {
+        if (cp.isNull()) {
             qWarning("startCouroutine is called without coroutine.");
             return;
         }
@@ -339,26 +339,37 @@ struct KillCoroutineFunctor: public Functor
 };
 
 
-KillCoroutineFunctor::~KillCoroutineFunctor() {}
+KillCoroutineFunctor::~KillCoroutineFunctor()
+{
+    if (e) {
+        delete e;
+    }
+}
 
 
 void KillCoroutineFunctor::operator()()
 {
     if (cp.isNull()) {
         qWarning("killCoroutine is called without coroutine");
+        delete e;
+        e = nullptr;
         return;
     }
     if (cp->q_func()->state() != BaseCoroutine::Started) {
+        delete e;
+        e = nullptr;
         return;
     }
     cp->q_func()->raise(e);
+    e = nullptr;
 }
 
 
 void CoroutinePrivate::start(quint32 msecs)
 {
-    if (callbackId > 0)
+    if (callbackId > 0) {
         return;
+    }
     callbackId = EventLoopCoroutine::get()->callLater(msecs, new StartCoroutineFunctor(this));
 }
 
@@ -374,6 +385,7 @@ void CoroutinePrivate::kill(CoroutineException *e, quint32 msecs)
                 callbackId = 0;
             }
             q->setState(Coroutine::Stopped);
+            delete e;
             setFinishedEvent();
         } else {
             if (callbackId == 0) {
@@ -471,7 +483,11 @@ Coroutine *Coroutine::start(quint32 msecs)
 void Coroutine::kill(CoroutineException *e, quint32 msecs)
 {
     Q_D(Coroutine);
-    d->kill(e, msecs);
+    if (!e) {
+        d->kill(new CoroutineExitException(), msecs);
+    } else {
+        d->kill(e, msecs);
+    }
 }
 
 
@@ -545,7 +561,7 @@ TimeoutFunctor::~TimeoutFunctor() {}
 
 void TimeoutFunctor::operator()()
 {
-    if(out.isNull() || coroutine.isNull()) {
+    if (out.isNull() || coroutine.isNull()) {
         qDebug("triggerTimeout is called while timeout or coroutine is deleted.");
         return;
     }
@@ -571,7 +587,7 @@ void TimeoutException::raise()
 
 
 Timeout::Timeout(float secs)
-    :msecs(static_cast<quint32>(secs * 1000)), timeoutId(0)
+    : msecs(static_cast<quint32>(secs * 1000)), timeoutId(0)
 {
     if (msecs) {
         restart();
@@ -580,9 +596,9 @@ Timeout::Timeout(float secs)
 
 
 Timeout::Timeout(quint32 msecs, int)
-    :msecs(msecs), timeoutId(0)
+    : msecs(msecs), timeoutId(0)
 {
-    if(msecs) {
+    if (msecs) {
         restart();
     }
 }
@@ -590,8 +606,9 @@ Timeout::Timeout(quint32 msecs, int)
 
 Timeout::~Timeout()
 {
-    if(timeoutId)
+    if (timeoutId) {
         EventLoopCoroutine::get()->cancelCall(timeoutId);
+    }
 }
 
 

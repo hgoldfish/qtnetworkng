@@ -89,7 +89,7 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
         munmap(stack, stackSize);
     }
 
-    if(currentCoroutine().get() == q) {
+    if (currentCoroutine().get() == q) {
         qWarning("do not delete one self.");
     }
     if (context) {
@@ -126,7 +126,7 @@ bool BaseCoroutinePrivate::yield()
 
     currentCoroutine().set(q);
 
-    if(swapcontext(old->d_func()->context, this->context) < 0) {
+    if (swapcontext(old->d_func()->context, this->context) < 0) {
         qDebug() << "swapcontext() return error: " << errno;
         return false;
     }
@@ -173,33 +173,35 @@ bool BaseCoroutinePrivate::initContext()
 bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 {
     Q_Q(BaseCoroutine);
+    if (!exception) {
+        qWarning("can not kill coroutine with null exception.");
+        return false;
+    }
     if (currentCoroutine().get() == q) {
         qWarning("can not kill oneself.");
+        delete exception;
         return false;
     }
 
     if (this->exception) {
         qWarning("coroutine had been killed.");
+        delete exception;
         return false;
     }
 
     if (state == BaseCoroutine::Stopped || state == BaseCoroutine::Joined) {
         qWarning("coroutine is stopped.");
+        delete exception;
         return false;
     }
 
-    if (exception) {
-        this->exception = exception;
-    } else {
-        this->exception = new CoroutineExitException();
-    }
-    CoroutineException *t = this->exception; // this->exception will be zeroed in yield()
+    this->exception = exception;
     try {
         bool result = yield();
-        delete t;
+        delete exception;
         return result;
     } catch (...) {
-        delete t;
+        delete exception;
         throw;
     }
 }

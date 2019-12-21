@@ -56,6 +56,7 @@ BaseStreamServer::BaseStreamServer(BaseStreamServerPrivate *d)
 
 BaseStreamServer::~BaseStreamServer()
 {
+    stop();
     delete d_ptr;
 }
 

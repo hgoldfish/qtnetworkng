@@ -167,7 +167,9 @@ protected:
     QList<HttpHeader> headers;
 };
 
+
 QList<QByteArray> splitBytes(const QByteArray &bs, char sep, int maxSplit = -1);
+
 
 class HeaderSplitter
 {
@@ -193,6 +195,7 @@ public:
     int debugLevel;
 };
 
+
 class ChunkedBlockReader
 {
 public:
@@ -212,6 +215,7 @@ public:
     QSharedPointer<SocketLike> connection;
     QByteArray buf;
 };
+
 
 QTNETWORKNG_NAMESPACE_END
 

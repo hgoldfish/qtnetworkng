@@ -102,33 +102,35 @@ bool BaseCoroutinePrivate::initContext()
 bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 {
     Q_Q(BaseCoroutine);
+    if (!exception) {
+        qWarning("can not kill coroutine with null exception.");
+        return false;
+    }
     if (currentCoroutine().get() == q) {
         qWarning("can not kill oneself.");
+        delete exception;
         return false;
     }
 
     if (this->exception) {
         qWarning("coroutine had been killed.");
+        delete exception;
         return false;
     }
 
     if (state == BaseCoroutine::Stopped || state == BaseCoroutine::Joined) {
         qWarning("coroutine is stopped.");
+        delete exception;
         return false;
     }
 
-    if (exception) {
-        this->exception = exception;
-    } else {
-        this->exception = new CoroutineExitException();
-    }
-    CoroutineException *t = this->exception;
+    this->exception = exception;
     try {
         bool result = yield();
-        delete t;
+        delete exception;
         return result;
     } catch (...) {
-        delete t;
+        delete exception;
         throw;
     }
 }
@@ -137,12 +139,12 @@ bool BaseCoroutinePrivate::yield()
 {
     Q_Q(BaseCoroutine);
 
-    if(bad || (state != BaseCoroutine::Initialized && state != BaseCoroutine::Started)) {
+    if (bad || (state != BaseCoroutine::Initialized && state != BaseCoroutine::Started)) {
         qWarning("invalid coroutine state.");
         return false;
     }
 
-    if(!initContext()) {
+    if (!initContext()) {
         return false;
     }
 
@@ -164,9 +166,6 @@ bool BaseCoroutinePrivate::yield()
     CoroutineException *e = old->d_func()->exception;
     if (e) {
         old->d_func()->exception = nullptr;
-//        if(!dynamic_cast<CoroutineExitException*>(e)) {
-//            qDebug() << "got exception:" << e->what() << old;
-//        }
         e->raise();
     }
     return true;

@@ -68,7 +68,7 @@ public:
     virtual void run();
 
     State state() const;
-    bool raise(CoroutineException *exception = nullptr);
+    bool raise(CoroutineException *exception);
     bool yield();
     quintptr id() const;
 

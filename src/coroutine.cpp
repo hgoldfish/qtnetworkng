@@ -102,8 +102,7 @@ CurrentCoroutineStorage &currentCoroutine()
 
 BaseCoroutine *CurrentCoroutineStorage::get()
 {
-    if(storage.hasLocalData())
-    {
+    if (storage.hasLocalData()) {
         return storage.localData().value;
     }
     BaseCoroutine *main = createMainCoroutine();
@@ -121,8 +120,7 @@ void CurrentCoroutineStorage::set(BaseCoroutine *coroutine)
 
 void CurrentCoroutineStorage::clean()
 {
-    if(storage.hasLocalData())
-    {
+    if (storage.hasLocalData()) {
         storage.localData().value = nullptr;
     }
 }
@@ -136,7 +134,7 @@ BaseCoroutine *BaseCoroutine::current()
 
 QDebug &operator <<(QDebug &out, const BaseCoroutine& coroutine)
 {
-    if(coroutine.objectName().isEmpty()) {
+    if (coroutine.objectName().isEmpty()) {
         return out << QString::fromLatin1("BaseCourtine(id=%1)").arg(coroutine.id());
     } else {
         return out << QString::fromLatin1("%1(id=%2)").arg(coroutine.objectName()).arg(coroutine.id());
