@@ -25,19 +25,11 @@ QByteArray FileLike::readall(bool *ok)
     while (true) {
         qint32 readBytes = read(buf, 1024 * 8);
         if (readBytes <= 0) {
-            if (ok) *ok = false;
+            if (ok) *ok = (s < 0 || data.size() == s);
             return data;
         }
         data.append(buf, readBytes);
     }
-    if (s > 0) {
-        if (data.size() != s) {
-            if (ok) *ok = false;
-            return data;
-        }
-    }
-    if (ok) *ok = true;
-    return data;
 }
 
 
