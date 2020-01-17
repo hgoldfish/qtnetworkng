@@ -66,6 +66,7 @@ public:
     HttpSession *q_ptr;
     int debugLevel;
     bool managingCookies;
+    bool keepAlive;
     friend void setProxySwitcher(HttpSession *session, QSharedPointer<BaseProxySwitcher> switcher);
     static inline HttpSessionPrivate *getPrivateHelper(HttpSession *session) {return session->d_ptr; }
     Q_DECLARE_PUBLIC(HttpSession)

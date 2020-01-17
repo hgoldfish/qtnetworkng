@@ -337,6 +337,9 @@ public:
     void setDebugLevel(int level);
     void disableDebug();
 
+    void setKeepalive(bool keepAlive);
+    bool keepAlive() const;
+
     QString defaultUserAgent() const;
     void setDefaultUserAgent(const QString &userAgent);
     HttpVersion defaultVersion() const;

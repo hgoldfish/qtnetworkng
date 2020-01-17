@@ -35,6 +35,11 @@
     #endif
 #endif
 
+// love linux
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+
 QTNETWORKNG_NAMESPACE_BEGIN
 
 union qt_sockaddr {
@@ -559,7 +564,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
         }
         ssize_t w;
         do {
-            w = ::send(fd, data + sent, static_cast<size_t>(size - sent), all ? 0 : MSG_MORE);
+            w = ::send(fd, data + sent, static_cast<size_t>(size - sent), all ? MSG_NOSIGNAL : MSG_MORE | MSG_NOSIGNAL);
         } while(w < 0 && errno == EINTR);
         if (w > 0) {
             if(!all) {
@@ -713,17 +718,12 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
 
     ssize_t sentBytes = 0;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
-#ifdef MSG_NOSIGNAL
-    int flags = MSG_NOSIGNAL;
-#else
-    int flags = 0;
-#endif
     while(true) {
         if (!checkState()) {
             return -1;
         }
         do {
-            sentBytes = ::sendmsg(fd, &msg, flags);
+            sentBytes = ::sendmsg(fd, &msg, MSG_NOSIGNAL);
         } while(sentBytes == -1 && error == EINTR);
 
         if(sentBytes < 0) {

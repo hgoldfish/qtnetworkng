@@ -572,7 +572,7 @@ QByteArray HttpResponse::body()
     qint32 contentLength = getContentLength();
     if (contentLength > 0) {
         if (d->request.maxBodySize() > 0 && contentLength > d->request.maxBodySize()) {
-            d->error.reset(new UnrewindableBodyError());
+            setError(new UnrewindableBodyError());
             d->consumed = true;
             return QByteArray();
         } else {
@@ -580,14 +580,14 @@ QByteArray HttpResponse::body()
                 qWarning() << "got too much bytes.";
             } else if (d->body.size() < contentLength){
                 if (d->stream.isNull()) {
-                    d->error.reset(new UnrewindableBodyError());
+                    setError(new UnrewindableBodyError());
                     d->consumed = true;
                     return QByteArray();
                 }
                 qint32 leftBytes = contentLength - d->body.size();
                 const QByteArray &t = d->stream->recvall(leftBytes);
                 if (t.size() != leftBytes) {
-                    d->error.reset(new ConnectionError());
+                    setError(new ConnectionError());
                     d->consumed = true;
                     return QByteArray();
                 }
@@ -596,7 +596,7 @@ QByteArray HttpResponse::body()
         }
     } else if (contentLength < 0) { // without `Content-Length` header.
         if (d->stream.isNull()) {
-            d->error.reset(new UnrewindableBodyError());
+            setError(new UnrewindableBodyError());
             d->consumed = true;
             return QByteArray();
         }
@@ -618,7 +618,7 @@ QByteArray HttpResponse::body()
                 const QByteArray &block = reader.nextBlock(leftBytes, &readerError);
                 error = toRequestError(readerError);
                 if (error != nullptr) {
-                    d->error.reset(error);
+                    setError(error);
                     d->consumed = true;
                     return QByteArray();
                 }
@@ -648,7 +648,7 @@ QByteArray HttpResponse::body()
          contentEncodingHeader.toLower() == "deflate") && !d->body.isEmpty()) {
         QSharedPointer<BytesIO> output(new BytesIO());
         if (!qGzipDecompress(FileLike::bytes(d->body), output)) {
-            d->error.reset(new ContentDecodingError());
+            setError(new ContentDecodingError());
             d->consumed = true;
             return QByteArray();
         }
@@ -761,7 +761,11 @@ void HttpResponse::setError(QSharedPointer<RequestError> error)
 
 
 HttpSessionPrivate::HttpSessionPrivate(HttpSession *q_ptr)
-    : defaultVersion(HttpVersion::Http1_1), q_ptr(q_ptr), debugLevel(0), managingCookies(true)
+    : defaultVersion(HttpVersion::Http1_1)
+    , q_ptr(q_ptr)
+    , debugLevel(0)
+    , managingCookies(true)
+    , keepAlive(true)
 {
     defaultUserAgent = QStringLiteral("Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0");
 }
@@ -884,8 +888,8 @@ QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, 
     }
 
     if (rawSocket.isNull() || !rawSocket->isValid()) {
-            *error = new ConnectionError();
-            return QSharedPointer<SocketLike>();
+        *error = new ConnectionError();
+        return QSharedPointer<SocketLike>();
     }
 
     if (url.scheme() == QStringLiteral("http")) {
@@ -1022,7 +1026,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         if (debugLevel > 0) {
             qDebug() << "invalid scheme" << url.scheme();
         }
-        response.d->error.reset(new InvalidScheme());
+        response.setError(new InvalidScheme());
         return response;
     }
     if (!request.d->query.isEmpty()) {
@@ -1062,7 +1066,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         if (debugLevel > 0) {
             qDebug() << "invalid http version." << request.d->version;
         }
-        response.d->error.reset(new UnsupportedVersion());
+        response.setError(new UnsupportedVersion());
         return response;
     }
 
@@ -1092,12 +1096,14 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     if (connection.isNull()) {
         ptrLock.reset(new ScopedLock<Semaphore>(getSemaphore(url)));
         if (!ptrLock->isSuccess()) {
-            response.d->error.reset(new ConnectionError());
+            response.setError(new ConnectionError());
             return response;
         }
 
         // try keep-alive connections first.
-        connection = oldConnectionForUrl(url);
+        if (keepAlive) {
+            connection = oldConnectionForUrl(url);
+        }
         //make a new connection.
         if (connection.isNull()) {
             float timeout = request.d->timeout < 0 ? defaultConnectionTimeout : request.d->timeout;
@@ -1105,18 +1111,18 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
                 Timeout t(timeout);
                 connection = newConnectionForUrl(url, &error);
             } catch (TimeoutException &) {
-                response.d->error.reset(new class RequestTimeout());
+                response.setError(new class RequestTimeout());
                 return response;
             }
             if (error != nullptr) {
-                response.d->error.reset(error);
+                response.setError(error);
                 return response;
             }
         }
     }
 
     if (connection->sendall(headerBytes) != headerBytes.size()) {
-        response.d->error.reset(new ConnectionError());
+        response.setError(new ConnectionError());
         return response;
     }
     if (!request.d->body.isEmpty()) {
@@ -1126,7 +1132,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             qDebug() << "sending body:" << request.d->body.size();
         }
         if (connection->sendall(request.d->body) != request.d->body.size()) {
-            response.d->error.reset(new ConnectionError());
+            response.setError(new ConnectionError());
             return response;
         }
     }
@@ -1138,12 +1144,12 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     QByteArray firstLine = headerSplitter.nextLine(&headerSplitterError);
     error = toRequestError(headerSplitterError);
     if (error != nullptr) {
-        response.d->error.reset(error);
+        response.setError(error);
         return response;
     }
     QStringList commands = QString::fromLatin1(firstLine).split(QRegExp("\\s+"));
     if (commands.size() < 3) {
-        response.d->error.reset(new InvalidHeader());
+        response.setError(new InvalidHeader());
         return response;
     }
     if (commands.at(0) == QStringLiteral("HTTP/1.0")) {
@@ -1151,13 +1157,13 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     } else if (commands.at(0) == QStringLiteral("HTTP/1.1")) {
         response.d->version = Http1_1;
     } else {
-        response.d->error.reset(new InvalidHeader());
+        response.setError(new InvalidHeader());
         return response;
     }
     bool ok;
     response.d->statusCode = commands.at(1).toInt(&ok);
     if (!ok) {
-        response.d->error.reset(new InvalidHeader());
+        response.setError(new InvalidHeader());
         return response;
     }
     response.d->statusText = join(' ', commands.mid(2));
@@ -1166,7 +1172,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     const int MaxHeaders = 64;
     QList<HttpHeader> headers = headerSplitter.headers(MaxHeaders, &headerSplitterError);
     if (headerSplitterError != HeaderSplitter::NoError) {
-        response.d->error.reset(toRequestError(headerSplitterError));
+        response.setError(toRequestError(headerSplitterError));
         return response;
     } else {
         response.setHeaders(headers);
@@ -1203,7 +1209,8 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         if (!ptrLock.isNull()
                 && connection->isValid()
                 && response.d->statusCode == 200
-                && response.header(HttpResponse::ConnectionHeader).toLower() == "keep-alive") {
+                && response.header(HttpResponse::ConnectionHeader).toLower() == "keep-alive"
+                && keepAlive) {
             recycle(response.d->url, connection);
         }
         response.d->stream.clear();
@@ -1211,11 +1218,9 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 
     // response.d->statusCode < 200 is not error.
     if (response.d->statusCode >= 400) {
-        response.d->error.reset(new HTTPError(response.d->statusCode));
+        response.setError(new HTTPError(response.d->statusCode));
     } else {
-        if ((request.method() == "GET"
-             || request.method() == "HEAD"
-             || request.method() == "OPTION")
+        if ((request.method() == "GET" || request.method() == "HEAD" || request.method() == "OPTION")
                 && !cacheManager.isNull()
                 && !request.streamResponse()
                 ) {
@@ -2742,6 +2747,20 @@ void HttpSession::disableDebug()
 {
     Q_D(HttpSession);
     d->debugLevel = 0;
+}
+
+
+void HttpSession::setKeepalive(bool keepAlive)
+{
+    Q_D(HttpSession);
+    d->keepAlive = keepAlive;
+}
+
+
+bool HttpSession::keepAlive() const
+{
+    Q_D(const HttpSession);
+    return d->keepAlive;
 }
 
 
