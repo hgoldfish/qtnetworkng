@@ -1247,7 +1247,11 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
     QList<HttpHeader> allHeaders = request.allHeaders();
 
     if (!request.hasHeader(QStringLiteral("Connection")) && request.version() == Http1_1) {
-        allHeaders.prepend(HttpHeader(QStringLiteral("Connection"), QByteArray("keep-alive")));
+        if (keepAlive) {
+            allHeaders.prepend(HttpHeader(QStringLiteral("Connection"), QByteArray("keep-alive")));
+        } else {
+            allHeaders.prepend(HttpHeader(QStringLiteral("Connection"), QByteArray("close")));
+        }
     }
     if (!request.hasHeader(QStringLiteral("Content-Length")) && !request.d->body.isEmpty()) {
         allHeaders.prepend(HttpHeader(QStringLiteral("Content-Length"), QByteArray::number(request.d->body.size())));
