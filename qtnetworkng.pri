@@ -15,6 +15,7 @@ SOURCES += \
     $$PWD/src/locks.cpp \
     $$PWD/src/coroutine_utils.cpp \
     $$PWD/src/http.cpp \
+    $$PWD/src/io_utils.cpp \
     $$PWD/src/socket_utils.cpp \
     $$PWD/src/http_utils.cpp \
     $$PWD/src/http_proxy.cpp \
@@ -25,7 +26,8 @@ SOURCES += \
     $$PWD/src/kcp/ikcp.c \
     $$PWD/src/socket_server.cpp \
     $$PWD/src/httpd.cpp \
-    $$PWD/src/socks5_server.cpp
+    $$PWD/src/socks5_server.cpp \
+    $$PWD/src/random.cpp
 
     
 PRIVATE_HEADERS += \
@@ -43,6 +45,7 @@ HEADERS += \
     $$PWD/include/locks.h \
     $$PWD/include/coroutine_utils.h \
     $$PWD/include/http.h \
+    $$PWD/include/io_utils.h \
     $$PWD/include/socket_utils.h \
     $$PWD/include/http_utils.h \
     $$PWD/include/http_proxy.h \
@@ -51,7 +54,8 @@ HEADERS += \
     $$PWD/include/msgpack.h \
     $$PWD/include/kcp.h \
     $$PWD/include/socket_server.h \
-    $$PWD/include/httpd.h
+    $$PWD/include/httpd.h \
+    $$PWD/include/random.h
 
     
 windows {
@@ -78,7 +82,6 @@ qtng_crypto {
         $$PWD/include/crypto.h \
         $$PWD/include/ssl.h \
         $$PWD/include/md.h \
-        $$PWD/include/random.h \
         $$PWD/include/cipher.h \
         $$PWD/include/pkey.h \
         $$PWD/include/certificate.h \
@@ -86,7 +89,6 @@ qtng_crypto {
 
     SOURCES += $$PWD/src/ssl.cpp \
         $$PWD/src/crypto.cpp \
-        $$PWD/src/random.cpp \
         $$PWD/src/md.cpp \
         $$PWD/src/pkey.cpp \
         $$PWD/src/cipher.cpp \
