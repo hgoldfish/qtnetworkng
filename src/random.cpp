@@ -16,8 +16,8 @@ QByteArray randomBytes(int numBytes)
 {
     initOpenSSL();
     QByteArray b;
-    b.resize(i);
-    RAND_bytes(reinterpret_cast<unsigned char*>(b.data()), i);
+    b.resize(numBytes);
+    RAND_bytes(reinterpret_cast<unsigned char*>(b.data()), numBytes);
     return b;
 }
 
