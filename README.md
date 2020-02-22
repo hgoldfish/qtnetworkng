@@ -77,6 +77,11 @@ To create tcp server.
         });
     }
 
+To create HTTP server is even more simpler:
+
+    TcpServer<SimpleHttpRequestHandler> httpd(QHostAddress::LocalHost, 8000);
+    httpd.serveForever();
+
 A Qt GUI example to fetch web page.
 
     // main.cpp
