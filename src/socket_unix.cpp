@@ -263,7 +263,8 @@ bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::Bind
 
 bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 {
-    if (!checkState()) {
+    //if (!checkState()) { // not require NoError
+    if (fd == 0) {
         return false;
     }
     if (state != Socket::UnconnectedState && state != Socket::BoundState && state != Socket::ConnectingState) {
@@ -913,6 +914,7 @@ bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value
     return ::setsockopt(fd, level, n, reinterpret_cast<char*>(&v), sizeof(v)) == 0;
 }
 
+
 bool SocketPrivate::setNonblocking()
 {
 #if !defined(Q_OS_VXWORKS)
@@ -931,6 +933,7 @@ bool SocketPrivate::setNonblocking()
 #endif // Q_OS_VXWORKS
     return true;
 }
+
 
 // Tru64 redefines accept -> _accept with _XOPEN_SOURCE_EXTENDED
 static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrlen, int flags = 0)
@@ -960,6 +963,7 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrle
 
     return fd;
 }
+
 
 Socket *SocketPrivate::accept()
 {

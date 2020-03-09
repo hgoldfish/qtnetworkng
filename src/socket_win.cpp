@@ -469,6 +469,13 @@ bool SocketPrivate::isValid() const
 bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode mode)
 {
     Q_UNUSED(mode);
+    if (!checkState())  {
+        return false;
+    }
+    if (state != Socket::UnconnectedState) {
+        return false;
+    }
+
     QHostAddress address = a;
     if (address.protocol() == QAbstractSocket::IPv4Protocol) {
         if ((address.toIPv4Address() & 0xffff0000) == 0xefff0000) {
@@ -540,8 +547,10 @@ bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode m
 
 bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
 {
-    if (!checkState())
+    //if (!checkState()) {
+    if (fd == 0) {
         return false;
+    }
     if (state != Socket::UnconnectedState && state != Socket::BoundState && state != Socket::ConnectingState)
         return false;
 
@@ -689,6 +698,7 @@ void SocketPrivate::close()
     peerAddress.clear();
     peerPort = 0;
 }
+
 
 void SocketPrivate::abort()
 {
@@ -840,7 +850,7 @@ bool SocketPrivate::fetchConnectionParameters()
 
 qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 {
-    if(!checkState()) {
+    if (!checkState()) {
         return -1;
     }
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);

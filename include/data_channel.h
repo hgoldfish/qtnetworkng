@@ -46,7 +46,7 @@ public:
     void abort();
     QSharedPointer<VirtualChannel> makeChannel();
     QSharedPointer<VirtualChannel> takeChannel();
-    QSharedPointer<VirtualChannel> getChannel(quint32 channelNumber);
+    QSharedPointer<VirtualChannel> takeChannel(quint32 channelNumber);
 protected:
     DataChannelPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(DataChannel)

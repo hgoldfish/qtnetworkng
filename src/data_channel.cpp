@@ -116,7 +116,7 @@ public:
     // called by the public class DataChannel
     QSharedPointer<VirtualChannel> makeChannel();
     QSharedPointer<VirtualChannel> takeChannel();
-    QSharedPointer<VirtualChannel> getChannel(quint32 channelNumber);
+    QSharedPointer<VirtualChannel> takeChannel(quint32 channelNumber);
     bool removeChannel(VirtualChannel *channel);
     QByteArray recvPacket();
     bool sendPacket(const QByteArray &packet);
@@ -280,7 +280,7 @@ void DataChannelPrivate::abort()
         receivingQueue.put(QByteArray());
     }
     for (quint32 i = 0;i < pendingChannels.getting(); ++i) {
-        pendingChannels.put(0);
+        pendingChannels.put(QSharedPointer<VirtualChannel>());
     }
     goThrough.open();
     for (QMapIterator<quint32, QWeakPointer<VirtualChannel>> itor(subChannels); itor.hasNext();) {
@@ -312,6 +312,7 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannel()
     QSharedPointer<VirtualChannel> channel(new VirtualChannel(q, DataChannelPole::PositivePole, channelNumber));
     channel->setMaxPacketSize(maxPacketSize - sizeof(quint32));
     channel->setPayloadSizeHint(payloadSizeHint - sizeof(quint32));
+    channel->setCapacity(receivingQueue.capacity());
     subChannels.insert(channelNumber, channel);
     return channel;
 }
@@ -327,7 +328,7 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel()
 }
 
 
-QSharedPointer<VirtualChannel> DataChannelPrivate::getChannel(quint32 channelNumber)
+QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel(quint32 channelNumber)
 {
     if (isBroken()) {
         return QSharedPointer<VirtualChannel>();
@@ -394,6 +395,7 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
         QSharedPointer<VirtualChannel> channel(new VirtualChannel(q, DataChannelPole::NegativePole, channelNumber));
         channel->setMaxPacketSize(maxPacketSize - sizeof(quint32));
         channel->setPayloadSizeHint(payloadSizeHint - sizeof(quint32));
+        channel->setCapacity(receivingQueue.capacity());
         subChannels.insert(channelNumber, channel);
         sendPacketRawAsync(CommandChannelNumber, packChannelMadeRequest(channelNumber));
         pendingChannels.put(channel);
@@ -414,7 +416,7 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
             return false;
         }
     } else if (command == DESTROY_CHANNEL_REQUEST) {
-        getChannel(channelNumber); // remove channel from pending channels.
+        takeChannel(channelNumber); // remove channel from pending channels.
         if (subChannels.contains(channelNumber)) {
             QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
             if (!channel.isNull()) {
@@ -922,13 +924,6 @@ void SocketChannel::setKeepaliveTimeout(float timeout)
 {
     Q_D(SocketChannel);
     d->keepaliveTimeout = static_cast<qint64>(timeout * 1000);
-//    if (d->keepaliveTimeout) {
-//        d->operations->spawnWithName(QStringLiteral("keepalive"), [d] {
-//            d->doKeepalive();
-//        }, false);
-//    } else {
-//        d->operations->kill("keepalive");
-//    }
 }
 
 
@@ -1007,10 +1002,10 @@ QSharedPointer<VirtualChannel> DataChannel::takeChannel()
 }
 
 
-QSharedPointer<VirtualChannel> DataChannel::getChannel(quint32 channelNumber)
+QSharedPointer<VirtualChannel> DataChannel::takeChannel(quint32 channelNumber)
 {
     Q_D(DataChannel);
-    return d->getChannel(channelNumber);
+    return d->takeChannel(channelNumber);
 }
 
 
