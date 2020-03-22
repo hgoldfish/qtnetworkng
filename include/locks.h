@@ -162,7 +162,7 @@ public:
     ~ScopedLock()
     {
         if (success && !lock.isNull()) {
-            lock.data()->release();
+            lock.toStrongRef()->release();
         }
     }
     bool isSuccess() const { return success; }

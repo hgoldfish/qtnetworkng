@@ -3,8 +3,19 @@ cmake_minimum_required(VERSION 2.8.8 FATAL_ERROR)
 if (POLICY CMP0025)
   cmake_policy(SET CMP0025 NEW)
 endif ()
+if (POLICY CMP0020)
+  cmake_policy(SET CMP0020 NEW)
+endif ()
+if (POLICY CMP0071)
+  cmake_policy(SET CMP0071 NEW)
+endif ()
 
 project(qtnetworkng LANGUAGES C CXX ASM)
+
+# intergrate libressl
+set(LIBRESSL_APPS OFF)
+set(LIBRESSL_TESTS OFF)
+add_subdirectory(libressl)
 
 option(QTNG_BUILD_TESTS OFF)
 set(CMAKE_AUTOMOC ON)
@@ -236,11 +247,6 @@ if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(QTNETWORKNG_EV_SRC src/eventloop_ev.cpp)
     set(QTNETWORKNG_EV_LIB ev)
 endif()
-
-# intergrate libressl
-set(LIBRESSL_APPS OFF)
-set(LIBRESSL_TESTS OFF)
-add_subdirectory(libressl)
 
 add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_EV_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
                                ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} ${ZLIB_SRC} ${KCP_SRC} ${OS_DEPENDENDED_SRC})

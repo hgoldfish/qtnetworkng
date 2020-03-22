@@ -286,7 +286,7 @@ void DataChannelPrivate::abort()
     for (QMapIterator<quint32, QWeakPointer<VirtualChannel>> itor(subChannels); itor.hasNext();) {
         const QWeakPointer<VirtualChannel> &subChannel = itor.next().value();
         if(!subChannel.isNull()) {
-            subChannel.data()->d_func()->abort();
+            subChannel.toStrongRef()->d_func()->abort();
         }
     }
     subChannels.clear();
@@ -320,7 +320,6 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannel()
 
 QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel()
 {
-    Q_Q(DataChannel);
     if (isBroken()) {
         return QSharedPointer<VirtualChannel>();
     }
@@ -421,8 +420,8 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
             QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
             if (!channel.isNull()) {
                 cleanChannel(channelNumber, false);
-                channel.data()->d_func()->parentChannel.clear();
-                channel.data()->d_func()->abort();
+                channel.toStrongRef()->d_func()->parentChannel.clear();
+                channel.toStrongRef()->d_func()->abort();
             }
         }
         return true;
@@ -622,7 +621,7 @@ void SocketChannelPrivate::doReceive()
 #endif
                 subChannels.remove(channelNumber);
             } else {
-                channel.data()->d_func()->handleIncomingPacket(packet);
+                channel.toStrongRef()->d_func()->handleIncomingPacket(packet);
             }
         } else {
 #ifdef DEBUG_PROTOCOL
@@ -788,7 +787,7 @@ bool VirtualChannelPrivate::handleIncomingPacket(const QByteArray &packet)
             subChannels.remove(channelNumber);
             return false;
         }
-        channel.data()->d_func()->handleIncomingPacket(payload);
+        channel.toStrongRef()->d_func()->handleIncomingPacket(payload);
         return true;
     } else {
 #ifdef DEBUG_PROTOCOL
