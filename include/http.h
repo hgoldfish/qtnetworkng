@@ -7,6 +7,7 @@
 #include <QtCore/qjsonarray.h>
 #include <QtCore/qjsonobject.h>
 #include <QtCore/qmimedatabase.h>
+#include <QtCore/qdir.h>
 #include <QtNetwork/qnetworkcookie.h>
 #include <QtNetwork/qnetworkcookiejar.h>
 
@@ -15,16 +16,6 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
-struct FormDataFile
-{
-    FormDataFile(const QString &filename, const QByteArray &data, const QString &contentType)
-        :filename(filename), data(data), contentType(contentType) {}
-
-    QString filename;
-    QByteArray data;
-    QString contentType;
-};
 
 class FormData
 {
@@ -46,16 +37,31 @@ public:
         if (newContentType.isEmpty()) {
             newContentType = "application/octet-stream";
         }
-        files.insert(name, FormDataFile(filename, data, newContentType));
+        files.append(File(name, filename, data, newContentType));
     }
 
     void addQuery(const QString &key, const QString &value)
     {
-        query.insert(key, value);
+        queries.append(Query(key, value));
     }
 public:
-    QMap<QString, QString> query;
-    QMap<QString, FormDataFile> files;
+    struct Query {
+        Query(const QString &name, const QString &value)
+            : name(name), value(value) {}
+        QString name;
+        QString value;
+    };
+    struct File {
+        File(const QString &name, const QString &filename, const QByteArray &data, const QString &contentType)
+            : name(name), filename(filename), data(data), contentType(contentType) {}
+        QString name;
+        QString filename;
+        QByteArray data;
+        QString contentType;
+    };
+
+    QList<Query> queries;
+    QList<File> files;
     QByteArray boundary;
 };
 
@@ -390,6 +396,22 @@ private:
     HttpMemoryCacheManagerPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(HttpMemoryCacheManager)
 };
+
+
+class HttpDiskCacheManager: public HttpCacheManager
+{
+public:
+    HttpDiskCacheManager(const QDir &cacheDir)
+        :cacheDir(cacheDir) {}
+    HttpDiskCacheManager(const QString &cacheDir)
+        :cacheDir(cacheDir) {}
+protected:
+    virtual bool store(const QString &url, const QByteArray &data);
+    virtual QByteArray load(const QString &url);
+protected:
+    QDir cacheDir;
+};
+
 
 
 class HTTPError: public RequestError {

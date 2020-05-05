@@ -5,6 +5,7 @@
 #include <QtCore/qtextcodec.h>
 #include <QtCore/qendian.h>
 #include <QtCore/qdatastream.h>
+#include <QtCore/qcryptographichash.h>
 #include "../include/private/http_p.h"
 #include "../include/socks5_proxy.h"
 #ifdef QTNG_HAVE_ZLIB
@@ -56,29 +57,29 @@ QByteArray formatHeaderParam(const QString &name, const QString &value)
 QByteArray FormData::toByteArray() const
 {
     QByteArray body;
-    for (QMap<QString, QString>::const_iterator itor = query.constBegin(); itor != query.constEnd(); ++itor) {
+    for (QList<FormData::Query>::const_iterator itor = queries.constBegin(); itor != queries.constEnd(); ++itor) {
         body.append("--");
         body.append(boundary);
         body.append("\r\n");
         body.append("Content-Disposition: form-data;");
-        body.append(formatHeaderParam(QStringLiteral("name"), itor.key()));
+        body.append(formatHeaderParam(QStringLiteral("name"), itor->name));
         body.append("\r\n\r\n");
-        body.append(itor.value().toUtf8());
+        body.append(itor->value.toUtf8());
         body.append("\r\n");
     }
-    for (QMap<QString, FormDataFile>::const_iterator itor = files.constBegin(); itor != files.constEnd(); ++itor) {
+    for (QList<FormData::File>::const_iterator itor = files.constBegin(); itor != files.constEnd(); ++itor) {
         body.append("--");
         body.append(boundary);
         body.append("\r\n");
         body.append("Content-Disposition: form-data;");
-        body.append(formatHeaderParam(QStringLiteral("name"), itor.key()));
+        body.append(formatHeaderParam(QStringLiteral("name"),itor->name));
         body.append("; ");
-        body.append(formatHeaderParam(QStringLiteral("filename"), itor.value().filename));
+        body.append(formatHeaderParam(QStringLiteral("filename"), itor->filename));
         body.append("\r\n");
         body.append("Content-Type: ");
-        body.append(itor.value().contentType);
+        body.append(itor->contentType);
         body.append("\r\n\r\n");
-        body.append(itor.value().data);
+        body.append(itor->data);
     }
     body.append("--");
     body.append(boundary);
@@ -1225,13 +1226,18 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
                 && !request.streamResponse()
                 ) {
             bool doCache = true;
-            const QByteArray &requestHeader = request.header(HttpResponse::CacheControlHeader);
+            const QByteArray &requestHeader = request.header(HttpResponse::CacheControlHeader).toLower();
             if (requestHeader.contains("no-cache") || requestHeader.contains("no-store")) {
                 doCache = false;
-            }
-            const QByteArray &responseHeader = response.header(HttpResponse::CacheControlHeader);
-            if (responseHeader.contains("no-cache") || responseHeader.contains("no-store")) {
-                doCache = false;
+            } else {
+                const QByteArray &responseHeader = response.header(HttpResponse::CacheControlHeader).toLower();
+                if (responseHeader.contains("public") || responseHeader.contains("private")) {
+                    doCache = true;
+                } else if (responseHeader.contains("no-cache") || responseHeader.contains("no-store")) {
+                    doCache = false;
+                } else {
+                    doCache = false;
+                }
             }
             if (doCache) {
                 cacheManager->addResponse(response);
@@ -2969,6 +2975,34 @@ QByteArray HttpMemoryCacheManager::load(const QString &url)
 {
     Q_D(HttpMemoryCacheManager);
     return d->cache.value(url);
+}
+
+
+bool HttpDiskCacheManager::store(const QString &url, const QByteArray &data)
+{
+    const QString &filename = QCryptographicHash::hash(url.toUtf8(), QCryptographicHash::Sha256).toHex();
+    const QString &fullpath = cacheDir.filePath(filename);
+    QFile f(fullpath);
+    if (!f.open(QIODevice::WriteOnly)) {
+        return false;
+    }
+    qint64 bs = f.write(data);
+    if (bs != data.size()) {
+        return false;
+    }
+    return true;
+}
+
+
+QByteArray HttpDiskCacheManager::load(const QString &url)
+{
+    const QString &filename = QCryptographicHash::hash(url.toUtf8(), QCryptographicHash::Sha256).toHex();
+    const QString &fullpath = cacheDir.filePath(filename);
+    QFile f(fullpath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return QByteArray();
+    }
+    return f.readAll();
 }
 
 
