@@ -11,7 +11,7 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 
-class EventLoopCoroutinePrivateEv;
+class EvEventLoopCoroutinePrivate;
 
 struct EvWatcher
 {
@@ -35,7 +35,7 @@ struct TimerWatcher: public EvWatcher
 
     ev_timer w;
     Functor *callback;
-    EventLoopCoroutinePrivateEv *parent;
+    EvEventLoopCoroutinePrivate *parent;
     int watcherId;
 };
 
@@ -74,7 +74,7 @@ TimerWatcher::TimerWatcher(quint32 msecs, bool repeat)
 //    :parent(nullptr), watcherId(0) // value set by caller.
 {
     float secs = static_cast<float>(msecs) / 1000.0f;
-    if(repeat) {
+    if (repeat) {
         ev_timer_init(&w, ev_timer_callback, 0, secs);
     } else {
         ev_timer_init(&w, ev_timer_callback, secs, 0);
@@ -89,11 +89,11 @@ TimerWatcher::~TimerWatcher()
 }
 
 
-class EventLoopCoroutinePrivateEv: public EventLoopCoroutinePrivate
+class EvEventLoopCoroutinePrivate: public EventLoopCoroutinePrivate
 {
 public:
-    EventLoopCoroutinePrivateEv(EventLoopCoroutine* parent);
-    virtual ~EventLoopCoroutinePrivateEv() override;
+    EvEventLoopCoroutinePrivate(EventLoopCoroutine* parent);
+    virtual ~EvEventLoopCoroutinePrivate() override;
 public:
     virtual void run() override;
     virtual int createWatcher(EventLoopCoroutine::EventType event, qintptr fd, Functor *callback) override;
@@ -133,7 +133,7 @@ static void ev_timer_callback(struct ev_loop *loop, ev_timer *w, int)
         ev_timer_stop(loop, w);
     }
     Functor *f = watcher->callback;
-    EventLoopCoroutinePrivateEv *parent = watcher->parent;
+    EvEventLoopCoroutinePrivate *parent = watcher->parent;
     int watcherId = watcher->watcherId;
     (*f)();
     if (parent && watcherId) {
@@ -142,10 +142,10 @@ static void ev_timer_callback(struct ev_loop *loop, ev_timer *w, int)
 }
 
 
-EventLoopCoroutinePrivateEv::EventLoopCoroutinePrivateEv(EventLoopCoroutine *parent)
+EvEventLoopCoroutinePrivate::EvEventLoopCoroutinePrivate(EventLoopCoroutine *parent)
     :EventLoopCoroutinePrivate(parent), loop(nullptr), nextWatcherId(1)
 {
-    unsigned int flags = EVFLAG_NOENV | EVFLAG_FORKCHECK;
+    unsigned int flags = EVFLAG_NOENV;
     loop = ev_loop_new(flags);
     ev_async_init(&asyncContext, ev_async_callback);
     asyncContext.data = this;
@@ -153,9 +153,16 @@ EventLoopCoroutinePrivateEv::EventLoopCoroutinePrivateEv(EventLoopCoroutine *par
 }
 
 
-EventLoopCoroutinePrivateEv::~EventLoopCoroutinePrivateEv()
+EvEventLoopCoroutinePrivate::~EvEventLoopCoroutinePrivate()
 {
-    ev_break(loop);
+    mqMutex.lock();
+    while (!callLaterQueue.isEmpty()) {
+        QPair<quint32, Functor*> item = callLaterQueue.dequeue();
+        delete item.second;
+    }
+    mqMutex.unlock();
+    ev_async_stop(loop, &asyncContext);
+    ev_break(loop, EVBREAK_ONE);
     ev_loop_destroy(loop); // FIXME run() function may not exit, but this situation is rare.
     QMapIterator<int, EvWatcher*> itor(watchers);
     while (itor.hasNext()) {
@@ -164,7 +171,7 @@ EventLoopCoroutinePrivateEv::~EventLoopCoroutinePrivateEv()
     }
 }
 
-void EventLoopCoroutinePrivateEv::run()
+void EvEventLoopCoroutinePrivate::run()
 {
     try {
         ev_run(loop, 0);
@@ -174,7 +181,7 @@ void EventLoopCoroutinePrivateEv::run()
 }
 
 
-int EventLoopCoroutinePrivateEv::createWatcher(EventLoopCoroutine::EventType event, qintptr fd, Functor *callback)
+int EvEventLoopCoroutinePrivate::createWatcher(EventLoopCoroutine::EventType event, qintptr fd, Functor *callback)
 {
     IoWatcher *watcher = new IoWatcher(event, fd);
     watcher->callback = callback;
@@ -183,7 +190,7 @@ int EventLoopCoroutinePrivateEv::createWatcher(EventLoopCoroutine::EventType eve
 }
 
 
-void EventLoopCoroutinePrivateEv::startWatcher(int watcherId)
+void EvEventLoopCoroutinePrivate::startWatcher(int watcherId)
 {
     IoWatcher *watcher = dynamic_cast<IoWatcher*>(watchers.value(watcherId));
     if (watcher) {
@@ -192,7 +199,7 @@ void EventLoopCoroutinePrivateEv::startWatcher(int watcherId)
 }
 
 
-void EventLoopCoroutinePrivateEv::stopWatcher(int watcherId)
+void EvEventLoopCoroutinePrivate::stopWatcher(int watcherId)
 {
     IoWatcher *watcher = dynamic_cast<IoWatcher*>(watchers.value(watcherId));
     if (watcher) {
@@ -201,7 +208,7 @@ void EventLoopCoroutinePrivateEv::stopWatcher(int watcherId)
 }
 
 
-void EventLoopCoroutinePrivateEv::removeWatcher(int watcherId)
+void EvEventLoopCoroutinePrivate::removeWatcher(int watcherId)
 {
     IoWatcher *watcher = dynamic_cast<IoWatcher*>(watchers.take(watcherId));
     if (watcher) {
@@ -212,9 +219,9 @@ void EventLoopCoroutinePrivateEv::removeWatcher(int watcherId)
 
 struct TriggerIoWatchersFunctor: public Functor
 {
-    TriggerIoWatchersFunctor(int watcherId, EventLoopCoroutinePrivateEv *eventloop)
+    TriggerIoWatchersFunctor(int watcherId, EvEventLoopCoroutinePrivate *eventloop)
         :eventloop(eventloop), watcherId(watcherId) {}
-    EventLoopCoroutinePrivateEv *eventloop;
+    EvEventLoopCoroutinePrivate *eventloop;
     int watcherId;
     virtual void operator()() override
     {
@@ -226,7 +233,7 @@ struct TriggerIoWatchersFunctor: public Functor
 };
 
 
-void EventLoopCoroutinePrivateEv::triggerIoWatchers(qintptr fd)
+void EvEventLoopCoroutinePrivate::triggerIoWatchers(qintptr fd)
 {
     for (QMap<int, EvWatcher*>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
         IoWatcher *watcher = dynamic_cast<IoWatcher*>(itor.value());
@@ -238,7 +245,7 @@ void EventLoopCoroutinePrivateEv::triggerIoWatchers(qintptr fd)
 }
 
 
-int EventLoopCoroutinePrivateEv::callLater(quint32 msecs, Functor *callback)
+int EvEventLoopCoroutinePrivate::callLater(quint32 msecs, Functor *callback)
 {
     TimerWatcher *watcher = new TimerWatcher(msecs, false);
     watcher->callback = callback;
@@ -250,16 +257,16 @@ int EventLoopCoroutinePrivateEv::callLater(quint32 msecs, Functor *callback)
 }
 
 
-void EventLoopCoroutinePrivateEv::ev_async_callback(struct ev_loop *, ev_async *w, int)
+void EvEventLoopCoroutinePrivate::ev_async_callback(struct ev_loop *, ev_async *w, int)
 {
-    //char *baseaddr = reinterpret_cast<char*>(w) - offsetof(EventLoopCoroutinePrivateEv, asyncContext);
-    //EventLoopCoroutinePrivateEv *p = reinterpret_cast<EventLoopCoroutinePrivateEv*>(baseaddr); // TODO is p still alive?
-    EventLoopCoroutinePrivateEv *p = static_cast<EventLoopCoroutinePrivateEv*>(w->data);
+    //char *baseaddr = reinterpret_cast<char*>(w) - offsetof(EvEventLoopCoroutinePrivate, asyncContext);
+    //EvEventLoopCoroutinePrivate *p = reinterpret_cast<EvEventLoopCoroutinePrivate*>(baseaddr); // TODO is p still alive?
+    EvEventLoopCoroutinePrivate *p = static_cast<EvEventLoopCoroutinePrivate*>(w->data);
     p->doCallLater();
 }
 
 
-void EventLoopCoroutinePrivateEv::doCallLater()
+void EvEventLoopCoroutinePrivate::doCallLater()
 {
     QMutexLocker locker(&mqMutex);
     while (!callLaterQueue.isEmpty()) {
@@ -269,7 +276,7 @@ void EventLoopCoroutinePrivateEv::doCallLater()
 }
 
 
-void EventLoopCoroutinePrivateEv::callLaterThreadSafe(quint32 msecs, Functor *callback)
+void EvEventLoopCoroutinePrivate::callLaterThreadSafe(quint32 msecs, Functor *callback)
 {
     QMutexLocker locker(&mqMutex);
     callLaterQueue.enqueue(qMakePair(msecs, callback));
@@ -279,7 +286,7 @@ void EventLoopCoroutinePrivateEv::callLaterThreadSafe(quint32 msecs, Functor *ca
 }
 
 
-int EventLoopCoroutinePrivateEv::callRepeat(quint32 msecs, Functor *callback)
+int EvEventLoopCoroutinePrivate::callRepeat(quint32 msecs, Functor *callback)
 {
     TimerWatcher *watcher = new TimerWatcher(msecs, true);
     watcher->callback = callback;
@@ -291,7 +298,7 @@ int EventLoopCoroutinePrivateEv::callRepeat(quint32 msecs, Functor *callback)
 }
 
 
-void EventLoopCoroutinePrivateEv::cancelCall(int callbackId)
+void EvEventLoopCoroutinePrivate::cancelCall(int callbackId)
 {
     TimerWatcher *watcher = dynamic_cast<TimerWatcher*>(watchers.take(callbackId));
     if (watcher) {
@@ -300,13 +307,13 @@ void EventLoopCoroutinePrivateEv::cancelCall(int callbackId)
     }
 }
 
-int EventLoopCoroutinePrivateEv::exitCode()
+int EvEventLoopCoroutinePrivate::exitCode()
 {
     return 0;
 }
 
 
-bool EventLoopCoroutinePrivateEv::runUntil(BaseCoroutine *coroutine)
+bool EvEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
 {
     QPointer<BaseCoroutine> current = BaseCoroutine::current();
     if (!loopCoroutine.isNull() && loopCoroutine != current) {
@@ -327,14 +334,14 @@ bool EventLoopCoroutinePrivateEv::runUntil(BaseCoroutine *coroutine)
             }
         };
         coroutine->finished.addCallback(exitOneDepth);
-        ev_run(loop);
+        ev_run(loop, 0);
         loopCoroutine = old;
     }
     return true;
 }
 
 
-void EventLoopCoroutinePrivateEv::yield()
+void EvEventLoopCoroutinePrivate::yield()
 {
     Q_Q(EventLoopCoroutine);
     if (!loopCoroutine.isNull()) {
@@ -346,7 +353,7 @@ void EventLoopCoroutinePrivateEv::yield()
 
 
 EvEventLoopCoroutine::EvEventLoopCoroutine()
-    :EventLoopCoroutine(new EventLoopCoroutinePrivateEv(this))
+    :EventLoopCoroutine(new EvEventLoopCoroutinePrivate(this))
 {
 
 }

@@ -19,15 +19,10 @@ add_subdirectory(libressl)
 
 option(QTNG_BUILD_TESTS OFF)
 set(CMAKE_AUTOMOC ON)
-if(ANDROID)
-    find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
-    find_package(Qt5Network CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
-    find_package(Qt5Test CONFIG CMAKE_FIND_ROOT_PATH_BOTH)
-else()
-    find_package(Qt5Core REQUIRED)
-    find_package(Qt5Network REQUIRED)
-    find_package(Qt5Test)
-endif()
+
+find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
+find_package(Qt5Network CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
+find_package(Qt5Test CONFIG CMAKE_FIND_ROOT_PATH_BOTH)
 find_package(ZLIB)
 
 
@@ -45,22 +40,26 @@ endif ()
 set(QTNETWORKNG_SRC
     src/socket.cpp
     src/eventloop.cpp
+    src/eventloop_qt.cpp
     src/coroutine.cpp
     src/locks.cpp
     src/coroutine_utils.cpp
-    src/http.cpp
-    src/httpd.cpp
     src/socket_utils.cpp
     src/io_utils.cpp
-    src/socket_server.cpp
+    src/http.cpp
     src/http_utils.cpp
     src/http_proxy.cpp
     src/socks5_proxy.cpp
-    src/eventloop_qt.cpp
     src/msgpack.cpp
     src/data_channel.cpp
-    src/kcp.cpp
+
+    src/socket_server.cpp
+    src/httpd.cpp
     src/socks5_server.cpp
+
+    src/kcp.cpp
+    src/kcp/ikcp.c
+    src/kcp/ikcp.h
 )
 
 set(QTNETWORKNG_INCLUDE
@@ -121,19 +120,19 @@ set(QTCRYPTONG_PRIVATE_INCLUDE
     include/private/qasn1element.h
 )
 
-set(KCP_SRC
-    src/kcp/ikcp.c
-    src/kcp/ikcp.h
-)
-
 if(ZLIB_FOUND)
-    set(ZLIB_SRC
+    set(QTNETWORKNG_SRC
+        ${QTNETWORKNG_SRC}
         src/gzip.cpp
+    )
+    set(QTNETWORKNG_INCLUDE
+        ${QTNETWORKNG_INCLUDE}
         include/gzip.h
     )
     set(ZLIB_LINK z)
     add_definitions(-DQTNG_HAVE_ZLIB)
 endif()
+
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(OS_DEPENDENDED_SRC
@@ -240,16 +239,34 @@ else()
     message(FATAL_ERROR ${CMAKE_SYSTEM_NAME} is not supported.)
 endif()
 
-if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    # intergrate libev
+# intergrate libev-light
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    add_definitions(-DQTNETWORKNG_USE_WIN=1)
+    set(QTNETWORKNG_SRC ${QTNETWORKNG_SRC} src/eventloop_win.cpp)
+elseif(UNIX)
     add_definitions(-DQTNETWOKRNG_USE_EV)
-    add_subdirectory(ev)
-    set(QTNETWORKNG_EV_SRC src/eventloop_ev.cpp)
-    set(QTNETWORKNG_EV_LIB ev)
+    add_definitions(-DEV_USE_4HEAP=1 -DEV_VERIFY=0 -DQTNG_EV_ASSERT=0)
+    check_function_exists(kqueue HAVE_KQUEUE)
+    check_function_exists(epoll HAVE_EPOLL)
+    if(HAVE_EPOLL)
+        add_definitions(-DEV_USE_EPOLL=1 -DEV_USE_EVENTFD=1)
+        add_definitions(-DEV_USE_KQUEUE=0)
+        add_definitions(-DEV_USE_POLL=0)
+    elseif(HAVE_KQUEUE AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "NetBSD")
+        add_definitions(-DEV_USE_EPOLL=0 -DEV_USE_EVENTFD=0)
+        add_definitions(-DEV_USE_KQUEUE=1)
+        add_definitions(-DEV_USE_POLL=0)
+    else()
+        add_definitions(-DEV_USE_EPOLL=0 -DEV_USE_EVENTFD=0)
+        add_definitions(-DEV_USE_KQUEUE=0)
+        add_definitions(-DEV_USE_POLL=1)
+    endif()
+    set(QTNETWORKNG_SRC ${QTNETWORKNG_SRC} src/ev/ev.c src/ev/ev.h src/eventloop_ev.cpp)
 endif()
 
-add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_EV_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
-                               ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} ${ZLIB_SRC} ${KCP_SRC} ${OS_DEPENDENDED_SRC})
+add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
+                               ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE}
+                               ${OS_DEPENDENDED_SRC})
 target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 
 # Fix Qt-static cmake BUG
@@ -267,7 +284,7 @@ if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a AND NOT EXISTS ${_qt5Core_
     link_directories(${_qt5Core_install_prefix}/lib/)
 endif()
 
-target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE tls ssl crypto ${ZLIB_LINK} ${QTNETWORKNG_EV_LIB} ${OS_EXTRA_LINK})
+target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE tls ssl crypto ${ZLIB_LINK} ${OS_EXTRA_LINK})
 
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
