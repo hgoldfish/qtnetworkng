@@ -1,9 +1,11 @@
 #include <QtCore/qdebug.h>
 #include <QtCore/qdatetime.h>
 #include <QtCore/qdatastream.h>
+extern "C" {
 #include <openssl/x509v3.h>
 #include <openssl/pem.h>
 #include <openssl/asn1.h>
+}
 #include "../include/certificate.h"
 #include "../include/private/qasn1element.h"
 #include "../include/private/crypto_p.h"

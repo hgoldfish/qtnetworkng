@@ -1,6 +1,8 @@
 #include <QtCore/qdebug.h>
 #include <QtCore/qfile.h>
+extern "C" {
 #include <openssl/pem.h>
+}
 #include "../include/pkey.h"
 #include "../include/private/crypto_p.h"
 

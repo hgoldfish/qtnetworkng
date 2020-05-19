@@ -1,8 +1,10 @@
 #ifndef QTNG_CRYPTO_P_H
 #define QTNG_CRYPTO_P_H
 
+extern "C" {
 #include <openssl/evp.h>
 #include <openssl/x509.h>
+}
 #include "../md.h"
 #include "../cipher.h"
 #include "../pkey.h"

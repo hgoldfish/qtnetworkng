@@ -7,14 +7,11 @@ add_subdirectory(../../ qtnetworkng)
 
 # Fix Qt-static cmake BUG
 # https://bugreports.qt.io/browse/QTBUG-38913
-if((EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.so) OR
-   (EXISTS ${_qt5Core_install_prefix}/lib64/libQt5Core.so) OR
-   (EXISTS ${_qt5Core_install_prefix}/bin/Qt5Core.dll))
-    message("Shared Qt is detected.")
-else()
+if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a AND NOT EXISTS ${_qt5Core_install_prefix}/bin/Qt5Core.dll)
     message("Static Qt is detected.")
     link_directories(${_qt5Core_install_prefix}/lib/)
 endif()
+
 
 add_executable(kcptun-server server.cpp)
 target_link_libraries(kcptun-server PRIVATE qtnetworkng)

@@ -60,17 +60,36 @@ HEADERS += \
     
 windows {
     SOURCES += $$PWD/src/socket_win.cpp
+    SOURCES += $$PWD/src/eventloop_win.cpp
     LIBS += -lws2_32
-}
-
-unix | macos {
+    DEFINES += "QTNETWOKRNG_USE_WIN=1"
+} else: unix  {
     SOURCES += $$PWD/src/socket_unix.cpp
-}
-
-networkng_ev {
-    LIBS += -lev
-    SOURCES += $$PWD/src/eventloop_ev.cpp
-    DEFINES += QTNETWOKRNG_USE_EV
+    linux {
+        DEFINES += "EV_USE_EPOLL=1"
+        DEFINES += "EV_USE_EVENTFD=1"
+        DEFINES += "EV_USE_KQUEUE=0"
+        DEFINES += "EV_USE_POLL=0"
+    } else: netbsd { # use poll
+        DEFINES += "EV_USE_EPOLL=0"
+        DEFINES += "EV_USE_EVENTFD=0"
+        DEFINES += "EV_USE_KQUEUE=0"
+        DEFINES += "EV_USE_POLL=1"
+    } else: bsd {
+        DEFINES += "EV_USE_EPOLL=0"
+        DEFINES += "EV_USE_EVENTFD=0"
+        DEFINES += "EV_USE_KQUEUE=1"
+        DEFINES += "EV_USE_POLL=0"
+    } else {
+        DEFINES += "EV_USE_EPOLL=0"
+        DEFINES += "EV_USE_EVENTFD=0"
+        DEFINES += "EV_USE_KQUEUE=0"
+        DEFINES += "EV_USE_POLL=1"
+    }
+    DEFINES += "QTNETWOKRNG_USE_EV=1"
+    SOURCES += $$PWD/src/ev/ev.c \
+               $$PWD/src/eventloop_ev.cpp
+    PRIVATE_HEADERS += $$PWD/src/ev/ev.h
 }
 
 qtng_crypto {
@@ -138,31 +157,31 @@ android {
         SOURCES += $$PWD/src/context/asm/jump_x86_64_sysv_elf_gas.S \
             $$PWD/src/context/asm/make_x86_64_sysv_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
-    } else:equals(QT_ARCH, i386) {
+    } else: equals(QT_ARCH, i386) {
         SOURCES += $$PWD/src/context/asm/jump_i386_sysv_elf_gas.S \
             $$PWD/src/context/asm/make_i386_sysv_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
-    } else:equals(QT_ARCH, sparc64) {
+    } else: equals(QT_ARCH, sparc64) {
         SOURCES += $$PWD/src/context/asm/jump_sparc64_sysv_elf_gas.S \
             $$PWD/src/context/asm/make_sparc64_sysv_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
-    } else:equals(QT_ARCH, power64) {
+    } else: equals(QT_ARCH, power64) {
         SOURCES += $$PWD/src/context/asm/jump_ppc64_sysv_elf_gas.S \
             $$PWD/src/context/asm/make_ppc64_sysv_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
-    } else:equals(QT_ARCH, power) {
+    } else: equals(QT_ARCH, power) {
         SOURCES += $$PWD/src/context/asm/jump_ppc32_sysv_elf_gas.S \
             $$PWD/src/context/asm/make_ppc32_sysv_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
-    } else:equals(QT_ARCH, arm){
+    } else: equals(QT_ARCH, arm){
         SOURCES += $$PWD/src/context/asm/jump_arm_aapcs_elf_gas.S \
             $$PWD/src/context/asm/make_arm_aapcs_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
-    } else:equals(QT_ARCH, arm64) {
+    } else: equals(QT_ARCH, arm64) {
         SOURCES += $$PWD/src/context/asm/jump_arm64_aapcs_elf_gas.S \
             $$PWD/src/context/asm/make_arm64_aapcs_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
-    } else:equals(QT_ARCH, mips) {
+    } else: equals(QT_ARCH, mips) {
         SOURCES += $$PWD/src/context/asm/jump_mips32_o32_elf_gas.S \
             $$PWD/src/context/asm/make_mips32_o32_elf_gas.S \
             $$PWD/src/coroutine_fcontext.cpp
@@ -177,7 +196,7 @@ android {
             SOURCES += $$PWD/src/context/asm/jump_x86_64_ms_pe_gas.S \
                 $$PWD/src/context/asm/make_x86_64_ms_pe_gas.S \
                 $$PWD/src/coroutine_fcontext.cpp
-        } else:equals(QT_ARCH, i386) {
+        } else: equals(QT_ARCH, i386) {
             SOURCES += $$PWD/src/context/asm/jump_i386_ms_pe_gas.S \
                 $$PWD/src/context/asm/make_i386_ms_pe_gas.S \
                 $$PWD/src/coroutine_fcontext.cpp

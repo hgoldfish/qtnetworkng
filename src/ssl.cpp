@@ -1,6 +1,8 @@
 ﻿#include <QtCore/qfile.h>
 #include <QtCore/qdatetime.h>
+extern "C" {
 #include <openssl/ssl.h>
+}
 #include "../include/locks.h"
 #include "../include/ssl.h"
 #include "../include/socket.h"

@@ -52,7 +52,11 @@ static void qt_ignore_sigpipe()
 {
     // Set to ignore SIGPIPE once only.
     static QBasicAtomicInt atom = Q_BASIC_ATOMIC_INITIALIZER(0);
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+    if (!atom.loadRelaxed()) {
+#else
     if (!atom.load()) {
+#endif
         // More than one thread could turn off SIGPIPE at the same time
         // But that's acceptable because they all would be doing the same
         // action
@@ -60,7 +64,11 @@ static void qt_ignore_sigpipe()
         memset(&noaction, 0, sizeof(noaction));
         noaction.sa_handler = SIG_IGN;
         ::sigaction(SIGPIPE, &noaction, nullptr);
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+        atom.storeRelaxed(1);
+#else
         atom.store(1);
+#endif
     }
 }
 

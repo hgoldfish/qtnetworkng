@@ -377,12 +377,12 @@ bool SocketPrivate::createSocket()
 #define WSA_FLAG_NO_HANDLE_INHERIT 0x80
 #endif
 
-    SOCKET socket = ::WSASocket(protocol, type, 0, nullptr, 0, WSA_FLAG_NO_HANDLE_INHERIT | WSA_FLAG_OVERLAPPED);
+    SOCKET socket = ::WSASocketW(protocol, type, 0, nullptr, 0, WSA_FLAG_NO_HANDLE_INHERIT | WSA_FLAG_OVERLAPPED);
     // previous call fails if the windows 7 service pack 1 or hot fix isn't installed.
 
     // Try the old API if the new one failed on Windows 7
     if (socket == INVALID_SOCKET && QSysInfo::windowsVersion() < QSysInfo::WV_WINDOWS8) {
-        socket = ::WSASocket(protocol, type, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
+        socket = ::WSASocketW(protocol, type, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
 #ifdef HANDLE_FLAG_INHERIT
         if (socket != INVALID_SOCKET) {
             // make non inheritable the old way

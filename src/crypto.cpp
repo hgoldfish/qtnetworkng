@@ -2,7 +2,9 @@
 #include <QtCore/qatomic.h>
 #include <QtCore/qfile.h>
 #include <QtCore/qsharedpointer.h>
+extern "C" {
 #include <openssl/ssl.h>
+}
 #include "../include/private/crypto_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN

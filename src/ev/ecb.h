@@ -10,8 +10,6 @@
   #define ECB_GCC_VERSION(major,minor) (__GNUC__ > (major) || (__GNUC__ == (major) && __GNUC_MINOR__ >= (minor)))
 #endif
 
-#define ECB_CLANG_VERSION(major,minor) (__clang_major__ > (major) || (__clang_major__ == (major) && __clang_minor__ >= (minor)))
-
 #if __clang__ && defined __has_builtin
   #define ECB_CLANG_BUILTIN(x) __has_builtin (x)
 #else

@@ -171,7 +171,6 @@ ParserResult parseArguments(Configure *configure, QString *errorMessage)
 
 int main(int argc, char **argv)
 {
-    QCoreApplication app(argc, argv);
     app.setApplicationName("kcptun-server");
     app.setApplicationVersion("1.0");
 

@@ -16,6 +16,8 @@ class WinEventLoopCoroutinePrivate;
 
 struct WinWatcher
 {
+    int id;
+    WinWatcher();
     virtual ~WinWatcher();
 };
 
@@ -36,10 +38,14 @@ struct TimerWatcher: public WinWatcher
     virtual ~TimerWatcher();
 
     quint32 interval;
-    int repeat;
+    bool repeat;
+    bool inUse;
     Functor *callback;
 };
 
+
+WinWatcher::WinWatcher()
+    : id(0) {}
 
 WinWatcher::~WinWatcher() {}
 
@@ -59,7 +65,7 @@ IoWatcher::~IoWatcher()
 
 
 TimerWatcher::TimerWatcher(quint32 interval, bool repeat, Functor *callback)
-    : interval(interval), repeat(repeat), callback(callback)
+    : interval(interval), repeat(repeat), inUse(false), callback(callback)
 {
 }
 
@@ -91,8 +97,9 @@ public:
     virtual void yield() override;
     void doCallLater();
 public:
+    void stopWatcher(IoWatcher *watcher);
     void sendTimerEvent(int callbackId);
-    void sendIoEvent(qintptr fd, EventLoopCoroutine::EventType event);
+    void sendIoEvent(qintptr fd, EventLoopCoroutine::EventType event, bool doClose);
     void updateIoMask(qintptr fd);
     void createInternalWindow();
     HWND internalHwnd;
@@ -103,7 +110,7 @@ private:
     QQueue<TimerWatcher *> callLaterQueue;
     QPointer<BaseCoroutine> loopCoroutine;
     int nextWatcherId;
-    QAtomicInteger<bool> interrupted;
+    QAtomicInt interrupted;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
     friend struct TriggerIoWatchersFunctor;
 };
@@ -126,12 +133,16 @@ enum {
 
 WinEventLoopCoroutinePrivate::~WinEventLoopCoroutinePrivate()
 {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+    interrupted.storeRelaxed(true);
+#else
     interrupted.store(true);
+#endif
     if (internalHwnd) {
         QMapIterator<qintptr, QList<IoWatcher*> > activeSocketsItor(activeSockets);
         while (activeSocketsItor.hasNext()) {
             activeSocketsItor.next();
-            WSAAsyncSelect(static_cast<SOCKET>(activeSocketsItor.key()), internalHwnd, WM_QTNG_SOCKETNOTIFIER, 0);
+            WSAAsyncSelect(static_cast<SOCKET>(activeSocketsItor.key()), internalHwnd, 0, 0);
         }
         activeSockets.clear();
 
@@ -171,10 +182,17 @@ void WinEventLoopCoroutinePrivate::run()
             return;
         } else {
             TranslateMessage(&msg);
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+            interrupted.storeRelease(false);
+            DispatchMessage(&msg);
+        }
+    } while (!interrupted.loadAcquire());
+#else
             interrupted.store(false);
             DispatchMessage(&msg);
         }
     } while (!interrupted.load());
+#endif
 }
 
 
@@ -182,14 +200,25 @@ int WinEventLoopCoroutinePrivate::createWatcher(EventLoopCoroutine::EventType ev
 {
     IoWatcher *watcher = new IoWatcher(event, fd);
     watcher->callback = callback;
-    watchers.insert(nextWatcherId, watcher);
-    return nextWatcherId++;
+    int id = nextWatcherId++;
+    watcher->id = id;
+    watchers.insert(id, watcher);
+    return id;
 }
+
+
+//static bool isValid(qintptr fd)
+//{
+//    int error = 0;
+//    int len = sizeof (error);
+//    int result = getsockopt(static_cast<SOCKET>(fd), SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&error), &len);
+//    return result == 0 && error == 0;
+//}
 
 
 void WinEventLoopCoroutinePrivate::updateIoMask(qintptr fd)
 {
-    QList<IoWatcher *> allWatchers = activeSockets.value(fd);
+    const QList<IoWatcher *> &allWatchers = activeSockets.value(fd);
     long event = 0;
     for (IoWatcher *watcher: allWatchers) {
         if (watcher->event & EventLoopCoroutine::Read) {
@@ -198,7 +227,10 @@ void WinEventLoopCoroutinePrivate::updateIoMask(qintptr fd)
             event |= FD_WRITE | FD_CONNECT | FD_CLOSE;
         }
     }
-    WSAAsyncSelect(static_cast<SOCKET>(fd), internalHwnd, WM_QTNG_SOCKETNOTIFIER, event);
+    int result = WSAAsyncSelect(static_cast<SOCKET>(fd), internalHwnd, (event ? WM_QTNG_SOCKETNOTIFIER : 0), event);
+    if (result && event) {
+        qDebug() << result << WSAGetLastError();
+    }
 }
 
 
@@ -225,17 +257,22 @@ void WinEventLoopCoroutinePrivate::stopWatcher(int watcherId)
 {
     IoWatcher *watcher = dynamic_cast<IoWatcher*>(watchers.value(watcherId));
     if (watcher) {
-        // i don't like activeSockets[fd]
-        bool found = false;
-        if (activeSockets.contains(watcher->fd)) {
-            found = activeSockets[watcher->fd].removeAll(watcher) > 0;
-            if (activeSockets[watcher->fd].isEmpty()) {
-                activeSockets.remove(watcher->fd);
-            }
+        stopWatcher(watcher);
+    }
+}
+
+void WinEventLoopCoroutinePrivate::stopWatcher(IoWatcher *watcher)
+{
+    // i don't like activeSockets[fd]
+    bool found = false;
+    if (activeSockets.contains(watcher->fd)) {
+        found = activeSockets[watcher->fd].removeAll(watcher) > 0;
+        if (activeSockets[watcher->fd].isEmpty()) {
+            activeSockets.remove(watcher->fd);
         }
-        if (found) {
-            updateIoMask(watcher->fd);
-        }
+    }
+    if (found) {
+        updateIoMask(watcher->fd);
     }
 }
 
@@ -244,7 +281,7 @@ void WinEventLoopCoroutinePrivate::removeWatcher(int watcherId)
 {
     IoWatcher *watcher = dynamic_cast<IoWatcher*>(watchers.take(watcherId));
     if (watcher) {
-        stopWatcher(watcherId);
+        stopWatcher(watcher);
         delete watcher;
     }
 }
@@ -272,11 +309,8 @@ TriggerIoWatchersFunctor::~TriggerIoWatchersFunctor() {}
 
 void WinEventLoopCoroutinePrivate::triggerIoWatchers(qintptr fd)
 {
-    for (QMap<int, WinWatcher*>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
-        IoWatcher *watcher = dynamic_cast<IoWatcher*>(itor.value());
-        if (watcher && watcher->fd == fd) {
-            callLater(0, new TriggerIoWatchersFunctor(itor.key(), this));
-        }
+    for (IoWatcher *watcher: activeSockets.value(fd)) {
+        callLater(0, new TriggerIoWatchersFunctor(watcher->id, this));
     }
 }
 
@@ -285,6 +319,7 @@ int WinEventLoopCoroutinePrivate::callLater(quint32 msecs, Functor *callback)
 {
     TimerWatcher *watcher = new TimerWatcher(msecs, false, callback);
     int timerId = nextWatcherId++;
+    watcher->id = timerId;
     watchers.insert(timerId, watcher);
     SetTimer(internalHwnd, static_cast<UINT_PTR>(timerId), msecs, nullptr);
     return timerId;
@@ -297,6 +332,7 @@ void WinEventLoopCoroutinePrivate::doCallLater()
     while (!callLaterQueue.isEmpty()) {
         TimerWatcher *watcher = callLaterQueue.dequeue();
         int timerId = nextWatcherId++;
+        watcher->id = timerId;
         watchers.insert(timerId, watcher);
         SetTimer(internalHwnd, static_cast<UINT_PTR>(timerId), watcher->interval, nullptr);
     }
@@ -315,6 +351,7 @@ int WinEventLoopCoroutinePrivate::callRepeat(quint32 msecs, Functor *callback)
 {
     TimerWatcher *watcher = new TimerWatcher(msecs, true, callback);
     int timerId = nextWatcherId++;
+    watcher->id = timerId;
     watchers.insert(timerId, watcher);
     SetTimer(internalHwnd, static_cast<UINT_PTR>(timerId), msecs, nullptr);
     return timerId;
@@ -326,7 +363,11 @@ void WinEventLoopCoroutinePrivate::cancelCall(int callbackId)
     TimerWatcher *watcher = dynamic_cast<TimerWatcher*>(watchers.take(callbackId));
     if (watcher) {
         KillTimer(internalHwnd, static_cast<UINT_PTR>(callbackId));
-        delete watcher;
+        if (watcher->inUse) {
+            watcher->id = 0;
+        } else {
+            delete watcher;
+        }
     }
 }
 
@@ -351,7 +392,11 @@ bool WinEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
         QPointer<BaseCoroutine> old = loopCoroutine;
         loopCoroutine = current;
         Deferred<BaseCoroutine*>::Callback exitOneDepth = [this] (BaseCoroutine *) {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+            this->interrupted.storeRelaxed(true);
+#else
             this->interrupted.store(true);
+#endif
             if (!loopCoroutine.isNull()) {
                 loopCoroutine->yield();
             }
@@ -410,12 +455,16 @@ LRESULT QT_WIN_CALLBACK evl_win_internal_proc(HWND hwnd, UINT message, WPARAM wp
     case WM_QTNG_SOCKETNOTIFIER: {
         // socket notifier message
         int event = WSAGETSELECTEVENT(lp);
+        qintptr fd = static_cast<qintptr>(wp);
         if (event == FD_READ || event == FD_ACCEPT) {
-            d->sendIoEvent(static_cast<qintptr>(wp), EventLoopCoroutine::Read);
+            d->sendIoEvent(fd, EventLoopCoroutine::Read, false);
         } else if (event == FD_WRITE || event == FD_CONNECT) {
-            d->sendIoEvent(static_cast<qintptr>(wp), EventLoopCoroutine::Write);
+            d->sendIoEvent(fd, EventLoopCoroutine::Write, false);
         } else if (event == FD_CLOSE) {
-            d->sendIoEvent(static_cast<qintptr>(wp), EventLoopCoroutine::ReadWrite);
+            WSAAsyncSelect(static_cast<SOCKET>(wp), hwnd, 0, 0);
+            d->sendIoEvent(fd, EventLoopCoroutine::ReadWrite, true);
+        } else {
+            qDebug() << "unknown select event!";
         }
         return 0;
     }
@@ -510,25 +559,38 @@ void WinEventLoopCoroutinePrivate::sendTimerEvent(int callbackId)
 {
     TimerWatcher *watcher = dynamic_cast<TimerWatcher*>(watchers.value(callbackId));
     if (watcher) {
+        watcher->inUse = true;
         (*watcher->callback)();
-        if (watcher->repeat) {
+        if (watcher->id == 0) {
+            delete watcher;
+        } else if (watcher->repeat) {
+            watcher->inUse = false;
             SetTimer(internalHwnd, static_cast<UINT_PTR>(callbackId), watcher->interval, nullptr);
         } else {
             watchers.remove(callbackId);
+            KillTimer(internalHwnd, static_cast<UINT_PTR>(callbackId));
             delete watcher;
         }
     }
 }
 
 
-void WinEventLoopCoroutinePrivate::sendIoEvent(qintptr fd, EventLoopCoroutine::EventType event)
+void WinEventLoopCoroutinePrivate::sendIoEvent(qintptr fd, EventLoopCoroutine::EventType event, bool doClose)
 {
-    const QList<IoWatcher *> &allWatchers = activeSockets.value(fd);
-    for (IoWatcher *watcher: allWatchers) {
-        if ((event & EventLoopCoroutine::Read) && (watcher->event & EventLoopCoroutine::Read)) {
-            (*watcher->callback)();
+    QList<IoWatcher *> allWatchers = activeSockets.value(fd);
+    if (doClose) {
+        activeSockets.remove(fd);
+        QMutableMapIterator<int, WinWatcher*> itor(watchers);
+        while (itor.hasNext()) {
+            IoWatcher *watcher = dynamic_cast<IoWatcher *>(itor.next().value());
+            if (watcher && watcher->fd == fd) {
+                itor.remove();
+            }
         }
-        if ((event & EventLoopCoroutine::Write) && (watcher->event & EventLoopCoroutine::Write)) {
+    }
+    for (IoWatcher *watcher: allWatchers) {
+        if (((event & EventLoopCoroutine::Read) && (watcher->event & EventLoopCoroutine::Read)) ||
+            ((event & EventLoopCoroutine::Write) && (watcher->event & EventLoopCoroutine::Write))) {
             (*watcher->callback)();
         }
     }

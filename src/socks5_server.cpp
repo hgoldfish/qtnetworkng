@@ -303,7 +303,7 @@ void Socks5RequestHandler::doFailed(const QString &hostName, const QHostAddress 
     QByteArray reply(3, Qt::Uninitialized);
     reply[0] = S5_VERSION_5;
     reply[1] = S5_R_ERROR_CMD_NOT_SUPPORTED;
-    reply[3] = 0x00;
+    reply[2] = 0x00;
     request->sendall(reply);
     log(hostName, hostAddress, port, false);
 }
@@ -314,7 +314,7 @@ bool Socks5RequestHandler::sendFailedReply()
     QByteArray reply(3, Qt::Uninitialized);
     reply[0] = S5_VERSION_5;
     reply[1] = S5_R_ERROR_SOCKS_FAILURE;
-    reply[3] = 0x00;
+    reply[2] = 0x00;
     return request->sendall(reply) == 3;
 }
 
