@@ -559,17 +559,17 @@ void WinEventLoopCoroutinePrivate::sendTimerEvent(int callbackId)
 {
     TimerWatcher *watcher = dynamic_cast<TimerWatcher*>(watchers.value(callbackId));
     if (watcher) {
+        if (!watcher->repeat) {
+            watchers.remove(callbackId);
+            KillTimer(internalHwnd, static_cast<UINT_PTR>(callbackId));
+            watcher->id = 0;
+        }
         watcher->inUse = true;
         (*watcher->callback)();
         if (watcher->id == 0) {
             delete watcher;
-        } else if (watcher->repeat) {
-            watcher->inUse = false;
-            SetTimer(internalHwnd, static_cast<UINT_PTR>(callbackId), watcher->interval, nullptr);
         } else {
-            watchers.remove(callbackId);
-            KillTimer(internalHwnd, static_cast<UINT_PTR>(callbackId));
-            delete watcher;
+            watcher->inUse = false;
         }
     }
 }
