@@ -39,7 +39,7 @@ void CALLBACK BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
     } catch(const CoroutineExitException &) {
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
-    } catch(const CoroutineException &e) {
+    } catch(const CoroutineException &) {
 //        qDebug() << "got coroutine exception:" << e.what();
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
@@ -177,6 +177,7 @@ BaseCoroutine* createMainCoroutine()
     if (!main) {
         return nullptr;
     }
+    main->setObjectName("main");
     BaseCoroutinePrivate *mainPrivate = main->d_func();
 #if ( _WIN32_WINNT > 0x0600)
         if (IsThreadAFiber()) {

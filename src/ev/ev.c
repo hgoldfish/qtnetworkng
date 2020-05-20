@@ -930,7 +930,7 @@ void ev_loop_destroy(struct ev_loop *loop)
 void loop_fork(struct ev_loop *loop)
 {
 #if EV_USE_KQUEUE
-    if (backend == EVBACKEND_KQUEUE) kqueue_fork(loop);
+    if (loop->backend == EVBACKEND_KQUEUE) kqueue_fork(loop);
 #endif
 #if EV_USE_EPOLL
     if (loop->backend == EVBACKEND_EPOLL ) epoll_fork(loop);

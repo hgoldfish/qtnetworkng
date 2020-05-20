@@ -45,7 +45,7 @@ void SemaphorePrivate::scheduleDelete()
         notified = 0;
     }
     notifyWaiters(true);
-    if(counter != init_value) {
+    if (counter != init_value) {
 //        qWarning("Semaphore is deleted but caught by some one.");
     }
     EventLoopCoroutine::get()->callLater(0, new DeleteLaterFunctor<SemaphorePrivate>(this));
@@ -54,11 +54,11 @@ void SemaphorePrivate::scheduleDelete()
 
 bool SemaphorePrivate::acquire(bool blocking)
 {
-    if(counter > 0) {
-        counter -= 1;
+    if (counter > 0) {
+        --counter;
         return true;
     }
-    if(!blocking)
+    if (!blocking)
         return false;
 
     waiters.append(BaseCoroutine::current());
@@ -101,16 +101,16 @@ SemaphoreNotifyWaitersFunctor::~SemaphoreNotifyWaitersFunctor() {}
 
 void SemaphorePrivate::release(int value)
 {
-    if(value <= 0) {
+    if (value <= 0) {
         return;
     }
-    if(counter > INT_MAX - value) {
+    if (counter > INT_MAX - value) {
         counter = INT_MAX;
     } else {
         counter += value;
     }
     counter = qMin(static_cast<int>(counter), init_value);
-    if(!notified && !waiters.isEmpty()) {
+    if (!notified && !waiters.isEmpty()) {
         notified = EventLoopCoroutine::get()->callLater(0, new SemaphoreNotifyWaitersFunctor(this));
     }
 }
@@ -118,17 +118,17 @@ void SemaphorePrivate::release(int value)
 
 void SemaphorePrivate::notifyWaiters(bool force)
 {
-    if(notified == 0 && !force) {
+    if (notified == 0 && !force) {
         return;
     }
-    while(!waiters.isEmpty() && counter > 0) {
+    while (!waiters.isEmpty() && counter > 0) {
         QPointer<BaseCoroutine> waiter = waiters.takeFirst();
-        if(waiter.isNull()) {
+        if (waiter.isNull()) {
             qDebug() << "waiter was deleted.";
             continue;
         }
         if (!force) {
-            counter -= 1;
+            --counter;
         }
         waiter->yield();
     }
@@ -378,10 +378,10 @@ ConditionPrivate::~ConditionPrivate()
 bool ConditionPrivate::wait()
 {
     QSharedPointer<Lock> waiter(new Lock());
-    if(!waiter->acquire())
+    if (!waiter->acquire())
         return false;
     waiters.append(waiter);
-    try{
+    try {
         if (waiter->acquire()) {
             waiter->release();
             waiters.removeOne(waiter);

@@ -672,6 +672,7 @@ void PollPrivate::add(QSharedPointer<Socket> socket, EventLoopCoroutine::EventTy
     }
     PollFunctor *callback = new PollFunctor(events, done, socket);
     int watcherId = EventLoopCoroutine::get()->createWatcher(event, socket->fileno(), callback);
+    EventLoopCoroutine::get()->startWatcher(watcherId);
     watchers.insert(socket, watcherId);
 }
 

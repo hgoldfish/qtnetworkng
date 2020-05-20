@@ -43,6 +43,7 @@
 #include <string.h>
 #include <errno.h>
 
+#define EV_TS_SET(ts,t) do { ts.tv_sec = (long)t; ts.tv_nsec = (long)((t - ts.tv_sec) * 1e9); } while (0)
 
 static void kqueue_change(struct ev_loop *loop, int fd, int filter, int flags, int fflags)
 {
@@ -142,7 +143,7 @@ static void kqueue_poll(struct ev_loop *loop, ev_tstamp timeout)
     }
 }
 
-static int kqueue_init(struct ev_loop *loop, int flags)
+static int kqueue_init(struct ev_loop *loop)
 {
     /* initialize the kernel queue */
     loop->kqueue_fd_pid = getpid ();
@@ -173,7 +174,7 @@ static void kqueue_destroy(struct ev_loop *loop)
 }
 
 
-static void kqueue_fork()
+static void kqueue_fork(struct ev_loop *loop)
 {
     /* some BSD kernels don't just destroy the kqueue itself,
     * but also close the fd, which isn't documented, and
@@ -185,7 +186,7 @@ static void kqueue_fork()
     */
     pid_t newpid = getpid ();
 
-    if (newpid == kqueue_fd_pid) {
+    if (newpid == loop->kqueue_fd_pid) {
         close(loop->backend_fd);
     }
 
