@@ -15,6 +15,7 @@ class BaseStreamServer
 {
 public:
     BaseStreamServer(const QHostAddress &serverAddress, quint16 serverPort);
+    BaseStreamServer(quint16 serverPort) : BaseStreamServer(QHostAddress::Any, serverPort) {}
     virtual ~BaseStreamServer();
 protected:
     // these two virtual functions should be overrided by subclass.
@@ -30,7 +31,7 @@ public:
     void stop();                                       // stop serving
     virtual bool isSecure() const;                     // is this ssl?
 public:
-    void setUserData(void *data);
+    void setUserData(void *data); // the owner of data is not changed.
     void *userData() const;
 public:
     quint16 serverPort() const;
@@ -61,7 +62,9 @@ class TcpServer: public BaseStreamServer
 {
 public:
     TcpServer(const QHostAddress &serverAddress, quint16 serverPort)
-        :BaseStreamServer(serverAddress, serverPort) {}
+        : BaseStreamServer(serverAddress, serverPort) {}
+    TcpServer(quint16 serverPort)
+        : BaseStreamServer(QHostAddress::Any, serverPort) {}
 protected:
     virtual QSharedPointer<SocketLike> serverCreate() override;
     virtual void processRequest(QSharedPointer<SocketLike> request) override;
@@ -91,6 +94,8 @@ class KcpServer: public BaseStreamServer
 public:
     KcpServer(const QHostAddress &serverAddress, quint16 serverPort)
         :BaseStreamServer(serverAddress, serverPort) {}
+    KcpServer(quint16 serverPort)
+        : BaseStreamServer(QHostAddress::Any, serverPort) {}
 protected:
     virtual QSharedPointer<SocketLike> serverCreate() override;
     virtual void processRequest(QSharedPointer<SocketLike> request) override;
@@ -122,6 +127,10 @@ class BaseSslServer: public BaseStreamServer
 public:
     BaseSslServer(const QHostAddress &serverAddress, quint16 serverPort);
     BaseSslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
+    BaseSslServer(quint16 serverPort)
+        : BaseSslServer(QHostAddress::Any, serverPort) {}
+    BaseSslServer(quint16 serverPort, const SslConfiguration &configuration)
+        : BaseSslServer(QHostAddress::Any, serverPort, configuration) {}
 public:
     void setSslConfiguration(const SslConfiguration &configuration);
     SslConfiguration sslConfiguratino() const;
@@ -141,6 +150,10 @@ public:
         :BaseSslServer(serverAddress, serverPort) {}
     SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
         :BaseSslServer(serverAddress, serverPort, configuration) {}
+    SslServer(quint16 serverPort)
+        :BaseSslServer(QHostAddress::Any, serverPort) {}
+    SslServer(quint16 serverPort, const SslConfiguration &configuration)
+        :BaseSslServer(QHostAddress::Any, serverPort, configuration) {}
 protected:
     virtual void processRequest(QSharedPointer<SocketLike> request) override;
 };

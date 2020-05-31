@@ -89,7 +89,7 @@ struct SemaphoreNotifyWaitersFunctor: public Functor
     QPointer<SemaphorePrivate> sp;
     virtual void operator() () override
     {
-        if(sp.isNull()) {
+        if (sp.isNull()) {
             qWarning("SemaphorePrivate is deleted while calling notifyWaitersCallback.");
             return;
         }
@@ -132,7 +132,7 @@ void SemaphorePrivate::notifyWaiters(bool force)
         }
         waiter->yield();
     }
-    notified = 0;
+    notified = 0;  // do not move this line above the last loop, see the return statement in ::acquire()
 }
 
 
@@ -152,7 +152,7 @@ Semaphore::~Semaphore()
 bool Semaphore::acquire(bool blocking)
 {
     Q_D(Semaphore);
-    if(!d) {
+    if (!d) {
         return false;
     }
     return d->acquire(blocking);
@@ -162,7 +162,7 @@ bool Semaphore::acquire(bool blocking)
 bool Semaphore::acquire(int value, bool blocking)
 {
     Q_D(Semaphore);
-    if(!d) {
+    if (!d) {
         return false;
     }
     for (int i = 0; i < value; ++i) {
@@ -177,7 +177,7 @@ bool Semaphore::acquire(int value, bool blocking)
 void Semaphore::release()
 {
     Q_D(Semaphore);
-    if(!d) {
+    if (!d) {
         return;
     }
     d->release(1);
@@ -187,7 +187,7 @@ void Semaphore::release()
 void Semaphore::release(int value)
 {
     Q_D(Semaphore);
-    if(!d) {
+    if (!d) {
         return;
     }
     d->release(value);
@@ -197,7 +197,7 @@ void Semaphore::release(int value)
 bool Semaphore::isLocked() const
 {
     Q_D(const Semaphore);
-    if(!d) {
+    if (!d) {
         return false;
     }
     return d->counter <= 0;
@@ -207,7 +207,7 @@ bool Semaphore::isLocked() const
 bool Semaphore::isUsed() const
 {
     Q_D(const Semaphore);
-    if(!d) {
+    if (!d) {
         return false;
     }
     return d->counter < d->init_value;
@@ -258,11 +258,11 @@ RLockPrivate::~RLockPrivate()
 
 bool RLockPrivate::acquire(bool blocking)
 {
-    if(holder == BaseCoroutine::current()->id()) {
+    if (holder == BaseCoroutine::current()->id()) {
         counter += 1;
         return true;
     }
-    if(lock.acquire(blocking)) {
+    if (lock.acquire(blocking)) {
         counter = 1;
         holder = BaseCoroutine::current()->id();
         return true;
@@ -273,12 +273,12 @@ bool RLockPrivate::acquire(bool blocking)
 
 void RLockPrivate::release()
 {
-    if(holder != BaseCoroutine::current()->id()) {
+    if (holder != BaseCoroutine::current()->id()) {
         qWarning("do not release other coroutine's rlock.");
         return;
     }
     counter -= 1;
-    if(counter == 0) {
+    if (counter == 0) {
         holder = 0;
         lock.release();
     }
@@ -292,7 +292,7 @@ RLockState RLockPrivate::reset()
     counter = 0;
     state.holder = holder;
     holder = 0;
-    if(state.counter > 0) {
+    if (state.counter > 0) {
         lock.release();
     }
     return state;
@@ -303,7 +303,7 @@ void RLockPrivate::set(const RLockState &state)
 {
     counter = state.counter;
     holder = state.holder;
-    if(counter > 0) {
+    if (counter > 0) {
         lock.acquire();
     }
 }
@@ -472,7 +472,7 @@ EventPrivate::EventPrivate(Event *q)
 
 EventPrivate::~EventPrivate()
 {
-    if(!flag && condition.getting() > 0) {
+    if (!flag && condition.getting() > 0) {
         condition.notifyAll();
     }
 }
@@ -480,7 +480,7 @@ EventPrivate::~EventPrivate()
 
 void EventPrivate::set()
 {
-    if(!flag) {
+    if (!flag) {
         flag = true;
         condition.notifyAll();
     }
@@ -495,7 +495,7 @@ void EventPrivate::clear()
 
 bool EventPrivate::wait(bool blocking)
 {
-    if(!blocking) {
+    if (!blocking) {
         return flag;
     } else {
         while(!flag) {

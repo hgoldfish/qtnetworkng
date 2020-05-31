@@ -105,10 +105,16 @@ static inline void qt_socket_getPortAndAddress(const qt_sockaddr *s, quint16 *po
     }
 }
 
+#ifdef SOCK_CLOEXEC
+#define CREATE_FLAGS SOCK_NONBLOCK | SOCK_CLOEXEC
+#else
+#define CREATE_FLAGS SOCK_NONBLOCK
+#endif
+
 bool SocketPrivate::createSocket()
 {
     qt_ignore_sigpipe();
-    int flags = SOCK_NONBLOCK ; //| SOCK_CLOEXEC
+    int flags = CREATE_FLAGS;
     int family = AF_INET;
     if (protocol == Socket::IPv6Protocol || protocol == Socket::AnyIPProtocol) {
         family = AF_INET6;
@@ -566,17 +572,16 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
     qint32 sent = 0;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     // TODO UDP socket may send zero length packet
-
     while (sent < size) {
         if (!checkState()) {
             return sent;
         }
         ssize_t w;
         do {
-            w = ::send(fd, data + sent, static_cast<size_t>(size - sent), all ? MSG_NOSIGNAL : MSG_MORE | MSG_NOSIGNAL);
+            w = ::send(fd, data + sent, static_cast<size_t>(size - sent), all  && ((size - sent) > 1024 * 4) ? (MSG_MORE |  MSG_NOSIGNAL) : MSG_NOSIGNAL);
         } while(w < 0 && errno == EINTR);
         if (w > 0) {
-            if(!all) {
+            if (!all) {
                 return static_cast<qint32>(w);
             } else {
                 sent += w;
@@ -949,16 +954,17 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrle
     Q_ASSERT((flags & ~O_NONBLOCK) == 0);
 
     int fd;
-#if defined (QT_UNIX_SUPPORTS_THREADSAFE_CLOEXEC) && defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
+#if defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
     // use accept4
     int sockflags = SOCK_CLOEXEC;
     if (flags & O_NONBLOCK)
         sockflags |= SOCK_NONBLOCK;
+# if defined(Q_OS_NETBSD)
+    fd = ::paccept(s, addr, static_cast<QT_SOCKLEN_T *>(addrlen), NULL, sockflags);
+# else
     fd = ::accept4(s, addr, static_cast<QT_SOCKLEN_T *>(addrlen), sockflags);
-    if (fd != -1 || !(errno == ENOSYS || errno == EINVAL))
-        return fd;
-#endif
-
+# endif
+#else
     fd = ::accept(s, addr, addrlen);
     if (fd < 0)
         return -1;
@@ -968,7 +974,7 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrle
     // set non-block too?
     if (flags & O_NONBLOCK)
         ::fcntl(fd, F_SETFL, ::fcntl(fd, F_GETFL) | O_NONBLOCK);
-
+#endif
     return fd;
 }
 

@@ -21,17 +21,17 @@ public:
     explicit KcpSocket(Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol);
     explicit KcpSocket(qintptr socketDescriptor);
     explicit KcpSocket(QSharedPointer<Socket> rawSocket);
-    ~KcpSocket();
+    virtual ~KcpSocket();
 public:
     void setMode(Mode mode);
     Mode mode() const;
     void setSendQueueSize(quint32 sendQueueSize);
     quint32 sendQueueSize() const;
-    quint32 payloadSizeHint() const;
     void setUdpPacketSize(quint32 udpPacketSize);
     quint32 udpPacketSize() const;
-    Event busy;
-    Event notBusy;
+    quint32 payloadSizeHint() const;
+    QSharedPointer<Event> busy;
+    QSharedPointer<Event> notBusy;
 public:
     Socket::SocketError error() const;
     QString errorString() const;
@@ -46,6 +46,9 @@ public:
     Socket::NetworkLayerProtocol protocol() const;
 
     QSharedPointer<KcpSocket> accept();
+    QSharedPointer<KcpSocket> accept(const QHostAddress &addr, quint16 port);
+    QSharedPointer<KcpSocket> accept(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol);
+
     bool bind(QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
     bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
     bool connect(const QHostAddress &addr, quint16 port);
@@ -66,6 +69,11 @@ public:
     qint32 sendall(const QByteArray &data);
 
     void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache);
+
+    virtual bool filter(char *data, qint32 *len, QHostAddress *addr, quint16 *port);
+    qint32 udpSend(const char *data, qint32 size, const QHostAddress &addr, quint16 port);
+    qint32 udpSend(const QByteArray &packet, const QHostAddress &addr, quint16 port)
+        { return udpSend(packet.constData(), packet.size(), addr, port); }
 private:
     // for create SlaveKcpSocket.
     KcpSocket(KcpSocketPrivate *d, const QHostAddress &addr, const quint16 port, KcpSocket::Mode mode);

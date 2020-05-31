@@ -12,6 +12,7 @@ extern "C" {
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+
 static QDateTime getTimeFromASN1(const ASN1_TIME *aTime)
 {
     size_t lTimeLength = static_cast<size_t>(aTime->length);
@@ -105,10 +106,12 @@ static QDateTime getTimeFromASN1(const ASN1_TIME *aTime)
 
 }
 
+
 struct X509Cleaner
 {
     static inline void cleanup(X509 *x) { if(x) X509_free(x); }
 };
+
 
 class CertificatePrivate: public QSharedData
 {
@@ -160,6 +163,7 @@ static QByteArray asn1ObjectId(ASN1_OBJECT *object)
     return QByteArray(buf);
 }
 
+
 static QByteArray asn1ObjectName(ASN1_OBJECT *object)
 {
     int nid = OBJ_obj2nid(object);
@@ -168,6 +172,7 @@ static QByteArray asn1ObjectName(ASN1_OBJECT *object)
 
     return asn1ObjectId(object);
 }
+
 
 static QMap<QByteArray, QString> _mapFromX509Name(X509_NAME *name)
 {
@@ -185,27 +190,28 @@ static QMap<QByteArray, QString> _mapFromX509Name(X509_NAME *name)
     return info;
 }
 
+
 bool CertificatePrivate::init(X509 *x)
 {
-    if(!x)
+    if (!x)
         return false;
     this->x509.reset(x, X509_free);
 
     int parsed = 0; // 0 for never parsed, -1 for failed, and 1 for success.
     ASN1_TIME *t = X509_getm_notBefore(x);
-    if(t) {
+    if (t) {
         notValidBefore = getTimeFromASN1(t);
     } else {
         parsed = qtParse() ? 1 : -1;
     }
     t = X509_getm_notAfter(x);
-    if(t) {
+    if (t) {
         notValidAfter = getTimeFromASN1(t);
     } else if(parsed == 0) {
         parsed = qtParse() ? 1 : -1;
     }
     qlonglong version = qlonglong(X509_get_version(x));
-    if(version >= 0) {
+    if (version >= 0) {
         versionString = QByteArray::number(version);
     } else if(parsed == 0){
         parsed = qtParse() ? 1 : -1;
@@ -216,27 +222,32 @@ bool CertificatePrivate::init(X509 *x)
     return parsed != -1;
 }
 
+
 bool CertificatePrivate::setX509(Certificate *cert, X509 *x)
 {
-    if(!x || !cert)
+    if (!x || !cert)
         return false;
     return cert->d->init(X509_dup(x));
 }
+
 
 bool openssl_setCertificate(Certificate *cert, X509 *x509)
 {
     return CertificatePrivate::setX509(cert, x509);
 }
 
+
 bool CertificatePrivate::isNull() const
 {
     return x509.isNull();
 }
 
+
 QDateTime CertificatePrivate::effectiveDate() const
 {
     return notValidBefore;
 }
+
 
 QDateTime CertificatePrivate::expiryDate() const
 {
@@ -297,7 +308,7 @@ static const char *const certificate_blacklist[] = {
 
 bool CertificatePrivate::isBlacklisted() const
 {
-    if(x509.isNull())
+    if (x509.isNull())
         return false;
     for (int a = 0; certificate_blacklist[a] != nullptr; a++) {
         QString blacklistedCommonName = QString::fromUtf8(certificate_blacklist[(a+1)]);
@@ -309,9 +320,10 @@ bool CertificatePrivate::isBlacklisted() const
     return false;
 }
 
+
 bool CertificatePrivate::isSelfSigned() const
 {
-    if(x509.isNull())
+    if (x509.isNull())
         return false;
     return (X509_check_issued(x509.data(), x509.data()) == X509_V_OK);
 }
@@ -334,31 +346,35 @@ QByteArray CertificatePrivate::subjectInfoToString(Certificate::SubjectInfo info
     return str;
 }
 
+
 QStringList CertificatePrivate::issuerInfo(Certificate::SubjectInfo subject) const
 {
-    if(x509.isNull())
+    if (x509.isNull())
         return QStringList();
     return issuerInfoMap.values(subjectInfoToString(subject));
 }
 
+
 QStringList CertificatePrivate::issuerInfo(const QByteArray &attribute) const
 {
-    if(x509.isNull())
+    if (x509.isNull())
         return QStringList();
     return issuerInfoMap.values(attribute);
 }
 
+
 QList<QByteArray> CertificatePrivate::issuerInfoAttributes() const
 {
-    if(x509.isNull())
+    if (x509.isNull())
         return QList<QByteArray>();
     return issuerInfoMap.uniqueKeys();
 }
 
+
 PublicKey CertificatePrivate::publicKey() const
 {
     PublicKey key;
-    if(!x509.isNull()) {
+    if (!x509.isNull()) {
         EVP_PKEY *pkey = X509_get_pubkey(x509.data());
         if(pkey) {
             openssl_setPkey(&key, pkey, false);
@@ -367,10 +383,11 @@ PublicKey CertificatePrivate::publicKey() const
     return key;
 }
 
+
 QByteArray CertificatePrivate::serialNumber() const
 {
     ASN1_INTEGER *serialNumber = X509_get_serialNumber(x509.data());
-    if(serialNumber) {
+    if (serialNumber) {
         qlonglong n = ASN1_INTEGER_get(serialNumber);
         if(n) {
             return QByteArray::number(n);
@@ -385,29 +402,34 @@ QStringList CertificatePrivate::subjectInfo(Certificate::SubjectInfo subject) co
     return subjectInfoMap.values(subjectInfoToString(subject));
 }
 
+
 QStringList CertificatePrivate::subjectInfo(const QByteArray &attribute) const
 {
     return subjectInfoMap.values(attribute);
 }
+
 
 QList<QByteArray> CertificatePrivate::subjectInfoAttributes() const
 {
     return subjectInfoMap.uniqueKeys();
 }
 
+
 QByteArray CertificatePrivate::version() const
 {
     return versionString;
 }
+
 
 struct BioCleaner
 {
     static void inline cleanup(BIO *o) { if(o) BIO_free(o); }
 };
 
+
 QString CertificatePrivate::toString() const
 {
-    if(x509.isNull()) {
+    if (x509.isNull()) {
         return QString();
     }
     QByteArray result;
@@ -426,29 +448,30 @@ QString CertificatePrivate::toString() const
     return QString::fromLatin1(result);
 }
 
+
 QByteArray CertificatePrivate::save(Ssl::EncodingFormat format) const
 {
-    if(x509.isNull()) {
+    if (x509.isNull()) {
         return QByteArray();
     }
 
-    if(format == Ssl::Pem) {
+    if (format == Ssl::Pem) {
         QSharedPointer<BIO> bio(BIO_new(BIO_s_mem()), BIO_free);
-        if(bio.isNull()) {
+        if (bio.isNull()) {
             return QByteArray();
         }
         int r = PEM_write_bio_X509(bio.data(), x509.data());
-        if(r) {
+        if (r) {
             char *p = nullptr;
             long size = BIO_get_mem_data(bio.data(), &p);
             if(size > 0 && p != nullptr) {
                 return QByteArray(p, static_cast<int>(size));
             }
         }
-    } else if(format == Ssl::Der) {
+    } else if (format == Ssl::Der) {
         unsigned char *buf = nullptr;
         int len = i2d_X509(x509.data(), &buf);
-        if(len > 0) {
+        if (len > 0) {
             return QByteArray(static_cast<char*>(static_cast<void*>(buf)), len);
         }
     }
@@ -459,14 +482,14 @@ QByteArray CertificatePrivate::save(Ssl::EncodingFormat format) const
 Certificate CertificatePrivate::load(const QByteArray &data, Ssl::EncodingFormat format)
 {
     Certificate cert;
-    if(format == Ssl::Pem) {
+    if (format == Ssl::Pem) {
         QSharedPointer<BIO> bio(BIO_new_mem_buf(data.data(), data.size()), BIO_free);
-        if(bio.isNull()) {
+        if (bio.isNull()) {
             return cert;
         }
         X509 *x = nullptr;
         PEM_read_bio_X509(bio.data(), &x, nullptr, nullptr);
-        if(x) {
+        if (x) {
             cert.d->init(x);
         }
     } else if (format == Ssl::Der) {
@@ -474,7 +497,7 @@ Certificate CertificatePrivate::load(const QByteArray &data, Ssl::EncodingFormat
         buf = reinterpret_cast<const unsigned char *>(data.constData());
         int len = data.size();
         X509 *x = d2i_X509(nullptr, &buf, len);
-        if(x) {
+        if (x) {
             cert.d->init(x);
         }
         return cert;
@@ -482,10 +505,11 @@ Certificate CertificatePrivate::load(const QByteArray &data, Ssl::EncodingFormat
     return cert;
 }
 
+
 static bool setIssuerInfos(X509 *x, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
 {
     X509_NAME *name = X509_get_issuer_name(x);
-    if(!name) {
+    if (!name) {
         return false;
     }
     QMap<Certificate::SubjectInfo, QByteArray> table = {
@@ -510,17 +534,18 @@ static bool setIssuerInfos(X509 *x, const QMultiMap<Certificate::SubjectInfo, QS
                                                             bs.size(), -1, 0);
         }
     }
-    if(!success) {
+    if (!success) {
         return false;
     }
     int r = X509_set_issuer_name(x, name);
     return r;
 }
 
+
 static bool setSubjectInfos(X509 *x, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
 {
     X509_NAME *name = X509_get_subject_name(x);
-    if(!name) {
+    if (!name) {
         return false;
     }
     QMap<Certificate::SubjectInfo, QByteArray> table = {
@@ -545,17 +570,19 @@ static bool setSubjectInfos(X509 *x, const QMultiMap<Certificate::SubjectInfo, Q
                                                                        bs.size(), -1, 0);
         }
     }
-    if(!success) {
+    if (!success) {
         return false;
     }
     int r  = X509_set_subject_name(x, name);
     return r;
 }
 
+
 std::string toText(const QDateTime &t)
 {
     return (t.toUTC().toString("yyyyMMddhhmmss") + QStringLiteral("Z")).toStdString();
 }
+
 
 struct Asn1TimeCleaner
 {
@@ -565,37 +592,38 @@ struct Asn1TimeCleaner
     }
 };
 
+
 Certificate CertificatePrivate::generate(const PrivateKey &key, MessageDigest::Algorithm signAlgo,
                                   long serialNumber, const QDateTime &effectiveDate,
                                   const QDateTime &expiryDate, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
 {
     Certificate cert;
     QScopedPointer<X509, X509Cleaner> x509(X509_new());
-    if(x509.isNull()) {
+    if (x509.isNull()) {
         qDebug() << "can not allocate X509.";
         return cert;
     }
     int r = X509_set_version(x509.data(), 2);
     ASN1_INTEGER *i = X509_get_serialNumber(x509.data());
-    if(!r || !i) {
+    if (!r || !i) {
         qDebug() << "can not set version and serial number.";
         return cert;
     }
     ASN1_INTEGER_set(i, serialNumber);
     X509_set_pubkey(x509.data(), static_cast<EVP_PKEY*>(key.handle()));
-    if(!setSubjectInfos(x509.data(), subjectInfoes)) {
+    if (!setSubjectInfos(x509.data(), subjectInfoes)) {
         qDebug() << "can not set subject infos.";
         return cert;
     }
-    if(!setIssuerInfos(x509.data(), subjectInfoes)) {
+    if (!setIssuerInfos(x509.data(), subjectInfoes)) {
         qDebug() << "can not set issuer infos.";
         return cert;
     }
     //FIXME set datetime
     QScopedPointer<ASN1_TIME, Asn1TimeCleaner> t(ASN1_TIME_new());
-    if(!t.isNull()) {
+    if (!t.isNull()) {
         r = ASN1_TIME_set_string(t.data(), toText(effectiveDate).c_str());
-        if(r) {
+        if (r) {
             r = X509_set1_notBefore(x509.data(), t.data());
             if(!r) {
                 qDebug() << "can not set effective date.";
@@ -604,7 +632,7 @@ Certificate CertificatePrivate::generate(const PrivateKey &key, MessageDigest::A
             qDebug() << "invalid x509 effective date:" << effectiveDate;
         }
         r = ASN1_TIME_set_string(t.data(), toText(expiryDate).c_str());
-        if(r) {
+        if (r) {
             r = X509_set1_notAfter(x509.data(), t.data());
             if(!r) {
                 qDebug() << "can not set expiry date";
@@ -614,12 +642,12 @@ Certificate CertificatePrivate::generate(const PrivateKey &key, MessageDigest::A
         }
     }
     const EVP_MD *md = getOpenSSL_MD(signAlgo);
-    if(!md) {
+    if (!md) {
         qDebug() << "can not find md.";
         return cert;
     }
     r = X509_sign(x509.data(), static_cast<EVP_PKEY*>(key.handle()), md);
-    if(!r) {
+    if (!r) {
         qDebug() << "can not sign certificate.";
         return cert;
     }
@@ -627,14 +655,16 @@ Certificate CertificatePrivate::generate(const PrivateKey &key, MessageDigest::A
     return cert;
 }
 
+
 inline char toHexLower(uint value)
 {
     return "0123456789abcdef"[value & 0xF];
 }
 
+
 QByteArray toHex(const QByteArray &bs, char separator)
 {
-    if(bs.isEmpty()) {
+    if (bs.isEmpty()) {
         return QByteArray();
     }
 
@@ -653,6 +683,7 @@ QByteArray toHex(const QByteArray &bs, char separator)
     return hex;
 }
 
+
 static QByteArray colonSeparatedHex(const QByteArray &value)
 {
     const int size = value.size();
@@ -662,6 +693,7 @@ static QByteArray colonSeparatedHex(const QByteArray &value)
 
     return toHex(value.mid(i), ':');
 }
+
 
 bool CertificatePrivate::qtParse()
 {
@@ -815,25 +847,29 @@ bool CertificatePrivate::qtParse()
 
 
 Certificate::Certificate()
-    :d(new CertificatePrivate)
+    : d(new CertificatePrivate)
 {
     initOpenSSL();
 }
 
+
 Certificate::Certificate(const Certificate &other)
-    :d(other.d)
+    : d(other.d)
 {
 }
 
+
 Certificate::Certificate(Certificate &&other)
-    :d(nullptr)
+    : d(nullptr)
 {
     qSwap(d, other.d);
 }
 
+
 Certificate::~Certificate()
 {
 }
+
 
 Certificate &Certificate::operator=(const Certificate &other)
 {
@@ -841,10 +877,12 @@ Certificate &Certificate::operator=(const Certificate &other)
     return *this;
 }
 
+
 bool Certificate::isNull() const
 {
     return d->isNull();
 }
+
 
 QByteArray Certificate::digest(MessageDigest::Algorithm algorithm) const
 {
@@ -855,75 +893,90 @@ QByteArray Certificate::digest(MessageDigest::Algorithm algorithm) const
     return MessageDigest::hash(der, algorithm);
 }
 
+
 QDateTime Certificate::effectiveDate() const
 {
     return d->effectiveDate();
 }
+
 
 QDateTime Certificate::expiryDate() const
 {
     return d->expiryDate();
 }
 
+
 Qt::HANDLE Certificate::handle() const
 {
     return static_cast<Qt::HANDLE>(d->x509.data());
 }
+
 
 bool Certificate::isBlacklisted() const
 {
     return d->isBlacklisted();
 }
 
+
 bool Certificate::isSelfSigned() const
 {
     return d->isSelfSigned();
 }
+
 
 QStringList Certificate::issuerInfo(SubjectInfo subject) const
 {
     return d->issuerInfo(subject);
 }
 
+
 QStringList Certificate::issuerInfo(const QByteArray &attribute) const
 {
     return d->issuerInfo(attribute);
 }
+
 
 QList<QByteArray> Certificate::issuerInfoAttributes() const
 {
     return d->issuerInfoAttributes();
 }
 
+
 PublicKey Certificate::publicKey() const
 {
     return d->publicKey();
 }
+
 
 QByteArray Certificate::serialNumber() const
 {
     return d->serialNumber();
 }
 
+
 QStringList Certificate::subjectInfo(SubjectInfo subject) const
 {
     return d->subjectInfo(subject);
 }
+
 
 QStringList Certificate::subjectInfo(const QByteArray &attribute) const
 {
     return d->subjectInfo(attribute);
 }
 
+
 QList<QByteArray> Certificate::subjectInfoAttributes() const
 {
     return d->subjectInfoAttributes();
 }
 
+
 QString Certificate::toString() const
 {
     return d->toString();
 }
+
 
 QByteArray Certificate::version() const
 {
@@ -936,10 +989,12 @@ QByteArray Certificate::save(Ssl::EncodingFormat format) const
     return d->save(format);
 }
 
+
 Certificate Certificate::load(const QByteArray& data, Ssl::EncodingFormat format)
 {
     return CertificatePrivate::load(data, format);
 }
+
 
 Certificate Certificate::generate(const PrivateKey &key, MessageDigest::Algorithm signAlgo,
                                   long serialNumber, const QDateTime &effectiveDate,
@@ -955,6 +1010,7 @@ bool Certificate::operator==(const Certificate &other) const
         return X509_cmp(d->x509.data(), other.d->x509.data()) == 0;
     return false;
 }
+
 
 uint qHash(const Certificate &key, uint seed)
 {
@@ -995,6 +1051,7 @@ QDebug &operator<<(QDebug &debug, const Certificate &certificate)
     return debug;
 }
 
+
 QDebug &operator<<(QDebug &debug, Certificate::SubjectInfo info)
 {
     switch (info) {
@@ -1010,6 +1067,7 @@ QDebug &operator<<(QDebug &debug, Certificate::SubjectInfo info)
     }
     return debug;
 }
+
 
 QTNETWORKNG_NAMESPACE_END
 

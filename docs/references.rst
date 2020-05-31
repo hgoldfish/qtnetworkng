@@ -69,7 +69,6 @@ Here comes an example showing two coroutines output message in turn.
 .. code-block:: c++
     :caption: Example 2: switch between two Coroutine.
     
-    #include <QCoreApplication>
     #include "qtnetworkng/qtnetworkng.h"
     
     using namespace qtng;
@@ -88,7 +87,6 @@ Here comes an example showing two coroutines output message in turn.
     };
     
     int main(int argc, char **argv) {
-        QCoreApplication app(argc, argv);
         MyCoroutine coroutine1("coroutine1");
         MyCoroutine coroutine2("coroutine2");
         coroutine1.start();
@@ -458,7 +456,6 @@ The most significant advantage of QtNetworkNg with respect to `boost::coroutine`
 .. code-block:: c++
     :caption: using RLock
     
-    #include <QtCore/qcoreapplication.h>
     #include "qtnetworkng/qtnetworkng.h"
     
     void output(QSharedPointer<RLock> lock, const QString &name)
@@ -472,7 +469,6 @@ The most significant advantage of QtNetworkNg with respect to `boost::coroutine`
     
     int main(int argc, char **argv)
     {
-        QCoreApplication app(argc, argv);
         QSharedPointer<RLock> lock(new RLock);
         QCoroutineGroup operations;
         operations.spawn([lock]{
@@ -648,7 +644,6 @@ A `semaphore` is a variable or abstract data type used to control access to a co
 .. code-block:: c++
     :caption: using Semaphore to control the concurrent number of request.
     
-    #include <QtCore/qcoreapplication.h>
     #include "qtnetworkng/qtnetworkng.h"
 
     using namespace qtng;
@@ -662,7 +657,6 @@ A `semaphore` is a variable or abstract data type used to control access to a co
 
     int main(int argc, char **argv)
     {
-        QCoreApplication app(argc, argv);
         QSharedPointer<Semaphore> semaphore(new Semaphore(5));
         
         CoroutineGroup operations;

@@ -1,8 +1,6 @@
 ﻿#include <QtCore/qfile.h>
 #include <QtCore/qdatetime.h>
-extern "C" {
 #include <openssl/ssl.h>
-}
 #include "../include/locks.h"
 #include "../include/ssl.h"
 #include "../include/socket.h"
@@ -16,8 +14,11 @@ class SslCipherPrivate
 {
 public:
     SslCipherPrivate()
-        : supportedBits(0), bits(0),
-          protocol(Ssl::UnknownProtocol), exportable(false), isNull(true)
+        : supportedBits(0)
+        , bits(0)
+        , protocol(Ssl::UnknownProtocol)
+        , exportable(false)
+        , isNull(true)
     {
     }
 
@@ -44,13 +45,13 @@ inline QString toString(const QString &s) { return s; }
 SslCipher SslCipherPrivate::from_SSL_CIPHER(const SSL_CIPHER *cipher)
 {
     SslCipher ciph;
-    if(!cipher) {
+    if (!cipher) {
         return ciph;
     }
 
     char buf [256];
     char *description = SSL_CIPHER_description(cipher, buf, sizeof(buf));
-    if(!description) {
+    if (!description) {
         return ciph;
     }
     QString descriptionOneLine = QString::fromLatin1(description);
@@ -285,16 +286,16 @@ QSharedPointer<SSL_CTX> SslConfigurationPrivate::makeContext(const SslConfigurat
 {
     QSharedPointer<SSL_CTX> ctx;
     const SSL_METHOD *method = nullptr;
-    if(asServer) {
+    if (asServer) {
         method = SSLv23_server_method();
     } else {
         method = SSLv23_client_method();
     }
-    if(!method) {
+    if (!method) {
         return ctx;
     }
     ctx.reset(SSL_CTX_new(method), SSL_CTX_free);
-    if(ctx.isNull()) {
+    if (ctx.isNull()) {
         return ctx;
     }
     SSL_CTX_set_verify_depth(ctx.data(), config.peerVerifyDepth());
@@ -307,14 +308,14 @@ QSharedPointer<SSL_CTX> SslConfigurationPrivate::makeContext(const SslConfigurat
     }
     SSL_CTX_set_options(ctx.data(), flags);
     const PrivateKey &privateKey = config.privateKey();
-    if(privateKey.isValid()) {
+    if (privateKey.isValid()) {
         int r = SSL_CTX_use_PrivateKey(ctx.data(), static_cast<EVP_PKEY *>(privateKey.handle()));
-        if(!r) {
+        if (!r) {
             qDebug() << "can not set ssl private key.";
         }
     }
     const Certificate localCertificate = config.localCertificate();
-    if(localCertificate.isValid()) {
+    if (localCertificate.isValid()) {
         int r = SSL_CTX_use_certificate(ctx.data(), static_cast<X509 *>(localCertificate.handle()));
         if(!r) {
             qDebug() << "can not set ssl certificate.";
@@ -350,7 +351,7 @@ SslConfiguration::~SslConfiguration()
 
 SslConfiguration &SslConfiguration::operator=(const SslConfiguration &other)
 {
-    if(this == &other) {
+    if (this == &other) {
         return *this;
     }
     d = other.d;
@@ -360,7 +361,7 @@ SslConfiguration &SslConfiguration::operator=(const SslConfiguration &other)
 
 bool SslConfiguration::operator==(const SslConfiguration &other) const
 {
-    if(d == other.d) {
+    if (d == other.d) {
         return true;
     }
     return d->operator ==(*other.d);
@@ -478,12 +479,12 @@ void SslConfiguration::setLocalCertificate(const Certificate &certificate)
 bool SslConfiguration::setLocalCertificate(const QString &path, Ssl::EncodingFormat format)
 {
     QFile f(path);
-    if(!f.open(QIODevice::ReadOnly)) {
+    if (!f.open(QIODevice::ReadOnly)) {
         return false;
     }
     const QByteArray &data = f.readAll();
     const Certificate &cert = Certificate::load(data, format);
-    if(cert.isNull() || cert.isBlacklisted()) {
+    if (cert.isNull() || cert.isBlacklisted()) {
         return false;
     }
     setLocalCertificate(cert);
@@ -766,7 +767,7 @@ static SslError _q_OpenSSL_to_SslError(int errorCode, const Certificate &cert)
 */
 
 
-template<typename Socket>
+template<typename SocketType>
 class SslConnection
 {
 public:
@@ -789,7 +790,7 @@ public:
     SslSocket::SslMode mode() const;
     Ssl::SslProtocol sslProtocol() const;
 
-    QSharedPointer<Socket> rawSocket;
+    QSharedPointer<SocketType> rawSocket;
     SslConfiguration config;
     QSharedPointer<SSL_CTX> ctx;
     QSharedPointer<SSL> ssl;
@@ -799,30 +800,30 @@ public:
 };
 
 
-template<typename Socket>
-SslConnection<Socket>::SslConnection(const SslConfiguration &config)
-    :config(config)
+template<typename SocketType>
+SslConnection<SocketType>::SslConnection(const SslConfiguration &config)
+    : config(config)
 {
     initOpenSSL();
 }
 
 
-template<typename Socket>
-SslConnection<Socket>::SslConnection()
+template<typename SocketType>
+SslConnection<SocketType>::SslConnection()
 {
     initOpenSSL();
 }
 
 
-template<typename Socket>
-SslConnection<Socket>::~SslConnection()
+template<typename SocketType>
+SslConnection<SocketType>::~SslConnection()
 {
     close();
 }
 
 
-template<typename Socket>
-bool SslConnection<Socket>::handshake(bool asServer, const QString &verificationPeerName)
+template<typename SocketType>
+bool SslConnection<SocketType>::handshake(bool asServer, const QString &verificationPeerName)
 {
     if (rawSocket.isNull()) {
         return false;
@@ -832,16 +833,17 @@ bool SslConnection<Socket>::handshake(bool asServer, const QString &verification
     // TODO set verify name.
 
     BIO *incoming = BIO_new(BIO_s_mem());
-    if(!incoming) {
+    if (!incoming) {
         return false;
     }
     BIO *outgoing = BIO_new(BIO_s_mem());
     if(!outgoing) {
+        BIO_free(incoming);
         return false;
     }
 
     ctx = SslConfigurationPrivate::makeContext(config, asServer);
-    if(!ctx.isNull()) {
+    if (!ctx.isNull()) {
         ssl.reset(SSL_new(ctx.data()), SSL_free);
         if(!ssl.isNull()) {
             // do not free incoming & outgoing
@@ -870,8 +872,8 @@ bool SslConnection<Socket>::handshake(bool asServer, const QString &verification
 }
 
 
-template<typename Socket>
-bool SslConnection<Socket>::close()
+template<typename SocketType>
+bool SslConnection<SocketType>::close()
 {
     if (!ssl.isNull()) {
 //        while(true) {
@@ -930,20 +932,20 @@ bool SslConnection<Socket>::close()
 }
 
 
-template<typename Socket>
-bool SslConnection<Socket>::_handshake()
+template<typename SocketType>
+bool SslConnection<SocketType>::_handshake()
 {
-    while(true) {
+    while (true) {
         int result = asServer ? SSL_accept(ssl.data()) : SSL_connect(ssl.data());
-        if(result <= 0) {
+        if (result <= 0) {
             int err = SSL_get_error(ssl.data(), result);
-            switch(err) {
+            switch (err) {
             case SSL_ERROR_WANT_READ:
-                if(!pumpOutgoing()) return false;
-                if(!pumpIncoming()) return false;
+                if (!pumpOutgoing()) return false;
+                if (!pumpIncoming()) return false;
                 break;
             case SSL_ERROR_WANT_WRITE:
-                if(!pumpOutgoing()) return false;
+                if (!pumpOutgoing()) return false;
                 break;
             case SSL_ERROR_ZERO_RETURN:
             case SSL_ERROR_WANT_CONNECT:
@@ -967,8 +969,8 @@ bool SslConnection<Socket>::_handshake()
 }
 
 
-template<typename Socket>
-bool SslConnection<Socket>::pumpOutgoing()
+template<typename SocketType>
+bool SslConnection<SocketType>::pumpOutgoing()
 {
     if (ssl.isNull()) {
         return false;
@@ -976,7 +978,7 @@ bool SslConnection<Socket>::pumpOutgoing()
     int pendingBytes;
     QVarLengthArray<char, 4096> buf;
     BIO *outgoing = SSL_get_wbio(ssl.data());
-    while(outgoing && rawSocket->isValid() && (pendingBytes = BIO_pending(outgoing)) > 0) {
+    while (outgoing && rawSocket->isValid() && (pendingBytes = BIO_pending(outgoing)) > 0) {
         buf.resize(pendingBytes);
         qint32 encryptedBytesRead = BIO_read(outgoing, buf.data(), pendingBytes);
         qint32 actualWritten = rawSocket->sendall(buf.constData(), encryptedBytesRead);
@@ -989,20 +991,20 @@ bool SslConnection<Socket>::pumpOutgoing()
 }
 
 
-template<typename Socket>
-bool SslConnection<Socket>::pumpIncoming()
+template<typename SocketType>
+bool SslConnection<SocketType>::pumpIncoming()
 {
     if (ssl.isNull()) {
         return false;
     }
     const QByteArray &buf = rawSocket->recv(1024 * 8);
-    if(buf.isEmpty())
+    if (buf.isEmpty())
         return false;
     int totalWritten = 0;
     BIO *incoming = SSL_get_rbio(ssl.data());
-    while(incoming && totalWritten < buf.size()) {
+    while (incoming && totalWritten < buf.size()) {
         int writtenToBio = BIO_write(incoming, buf.constData() + totalWritten, buf.size() - totalWritten);
-        if(writtenToBio > 0) {
+        if (writtenToBio > 0) {
             totalWritten += writtenToBio;
         } else {
             qDebug() << "Unable to decrypt data";
@@ -1013,27 +1015,27 @@ bool SslConnection<Socket>::pumpIncoming()
 }
 
 
-template<typename Socket>
-qint32 SslConnection<Socket>::recv(char *data, qint32 size, bool all)
+template<typename SocketType>
+qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
 {
     if (ssl.isNull()) {
         return -1;
     }
     qint32 total = 0;
-    while(true) {
+    while (true) {
         int result = SSL_read(ssl.data(), data + total, size - total);
-        if(result < 0) {
-            switch(SSL_get_error(ssl.data(), result)) {
+        if (result < 0) {
+            switch (SSL_get_error(ssl.data(), result)) {
             case SSL_ERROR_WANT_READ:
-                if(!pumpOutgoing()) {
+                if (!pumpOutgoing()) {
                     return total == 0 ? -1 : total;
                 }
-                if(!pumpIncoming()) {
+                if (!pumpIncoming()) {
                     return total == 0 ? -1 : total;
                 }
                 break;
             case SSL_ERROR_WANT_WRITE:
-                if(!pumpOutgoing()) {
+                if (!pumpOutgoing()) {
                     return total == 0 ? -1 : total;
                 }
                 break;
@@ -1049,11 +1051,11 @@ qint32 SslConnection<Socket>::recv(char *data, qint32 size, bool all)
                 qDebug() << "recv error.";
                 return total == 0 ? -1 : total;
             }
-        } else if(result == 0) {
+        } else if (result == 0) {
             return total;
         } else {
             total += result;
-            if(all && total < size) {
+            if (all && total < size) {
                 continue;
             } else {
                 return total;
@@ -1063,27 +1065,27 @@ qint32 SslConnection<Socket>::recv(char *data, qint32 size, bool all)
 }
 
 
-template<typename Socket>
-qint32 SslConnection<Socket>::send(const char *data, qint32 size, bool all)
+template<typename SocketType>
+qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
 {
     if (ssl.isNull()) {
         return -1;
     }
     qint32 total = 0;
-    while(true) {
+    while (true) {
         int result = SSL_write(ssl.data(), data + total, size - total);
-        if(result < 0) {
-            switch(SSL_get_error(ssl.data(), result)) {
+        if (result < 0) {
+            switch (SSL_get_error(ssl.data(), result)) {
             case SSL_ERROR_WANT_READ:
-                if(!pumpOutgoing()) {
+                if (!pumpOutgoing()) {
                     return total == 0 ? -1 : total;
                 }
-                if(!pumpIncoming()) {
+                if (!pumpIncoming()) {
                     return total == 0 ? -1 : total;
                 }
                 break;
             case SSL_ERROR_WANT_WRITE:
-                if(!pumpOutgoing()) {
+                if (!pumpOutgoing()) {
                     return total == 0 ? -1 : total;
                 }
                 break;
@@ -1101,15 +1103,15 @@ qint32 SslConnection<Socket>::send(const char *data, qint32 size, bool all)
             }
         } else {
             total += result;
-            if(total > size) {
+            if (total > size) {
                 qDebug() << "send too many data.";
                 pumpOutgoing();
                 return size;
-            } else if(total == size) {
+            } else if (total == size) {
                 pumpOutgoing();
                 return total;
             } else {
-                if(all) {
+                if (all) {
                     continue;
                 } else {
                     return total;
@@ -1120,13 +1122,13 @@ qint32 SslConnection<Socket>::send(const char *data, qint32 size, bool all)
 }
 
 
-template<typename Socket>
-Certificate SslConnection<Socket>::localCertificate() const
+template<typename SocketType>
+Certificate SslConnection<SocketType>::localCertificate() const
 {
     Certificate cert;
-    if(!ssl.isNull()) {
+    if (!ssl.isNull()) {
         X509 *x = SSL_get_certificate(ssl.data());
-        if(x) {
+        if (x) {
             openssl_setCertificate(&cert, x);
         }
     }
@@ -1134,13 +1136,13 @@ Certificate SslConnection<Socket>::localCertificate() const
 }
 
 
-template<typename Socket>
-Certificate SslConnection<Socket>::peerCertificate() const
+template<typename SocketType>
+Certificate SslConnection<SocketType>::peerCertificate() const
 {
     Certificate cert;
-    if(!ssl.isNull()) {
+    if (!ssl.isNull()) {
         X509 *x = SSL_get_peer_certificate(ssl.data());
-        if(x) {
+        if (x) {
             openssl_setCertificate(&cert, x);
         }
     }
@@ -1162,46 +1164,46 @@ QList<Certificate> STACKOFX509_to_Certificates(STACK_OF(X509) *x509)
 }
 
 
-template<typename Socket>
-QList<Certificate> SslConnection<Socket>::localCertificateChain() const
+template<typename SocketType>
+QList<Certificate> SslConnection<SocketType>::localCertificateChain() const
 {
     QList<Certificate> certificates;
-    if(ssl.isNull())
+    if (ssl.isNull())
         return certificates;
     //FIXME store in sslconfig.
     return certificates;
 }
 
 
-template<typename Socket>
-QList<Certificate> SslConnection<Socket>::peerCertificateChain() const
+template<typename SocketType>
+QList<Certificate> SslConnection<SocketType>::peerCertificateChain() const
 {
     QList<Certificate> certificates;
-    if(ssl.isNull())
+    if (ssl.isNull())
         return certificates;
 
     STACK_OF(X509) *x509 = SSL_get_peer_cert_chain(ssl.data());
-    if(x509) {
+    if (x509) {
         certificates = STACKOFX509_to_Certificates(x509);
     }
     return certificates;
 }
 
 
-template<typename Socket>
-Ssl::PeerVerifyMode SslConnection<Socket>::peerVerifyMode() const
+template<typename SocketType>
+Ssl::PeerVerifyMode SslConnection<SocketType>::peerVerifyMode() const
 {
-    if(ssl.isNull()) {
+    if (ssl.isNull()) {
         return Ssl::AutoVerifyPeer;
     }
     int mode = SSL_get_verify_mode(ssl.data());
-    if(mode == SSL_VERIFY_NONE) {
+    if (mode == SSL_VERIFY_NONE) {
         return Ssl::VerifyNone;
-    } else if(mode == SSL_VERIFY_PEER) {
+    } else if (mode == SSL_VERIFY_PEER) {
         return Ssl::VerifyPeer;
-    } else if(mode == SSL_VERIFY_FAIL_IF_NO_PEER_CERT) {
+    } else if (mode == SSL_VERIFY_FAIL_IF_NO_PEER_CERT) {
         return Ssl::QueryPeer;
-    } else if(mode == SSL_VERIFY_CLIENT_ONCE) {
+    } else if (mode == SSL_VERIFY_CLIENT_ONCE) {
         return Ssl::AutoVerifyPeer;
     } else {
         return Ssl::AutoVerifyPeer;
@@ -1209,10 +1211,10 @@ Ssl::PeerVerifyMode SslConnection<Socket>::peerVerifyMode() const
 }
 
 
-template<typename Socket>
-SslCipher SslConnection<Socket>::cipher() const
+template<typename SocketType>
+SslCipher SslConnection<SocketType>::cipher() const
 {
-    if(ssl.isNull()) {
+    if (ssl.isNull()) {
         return SslCipher();
     }
     const SSL_CIPHER *sessionCipher = SSL_get_current_cipher(ssl.data());
@@ -1220,10 +1222,10 @@ SslCipher SslConnection<Socket>::cipher() const
 }
 
 
-template<typename Socket>
-SslSocket::SslMode SslConnection<Socket>::mode() const
+template<typename SocketType>
+SslSocket::SslMode SslConnection<SocketType>::mode() const
 {
-    if(asServer) {
+    if (asServer) {
         return SslSocket::SslServerMode;
     } else {
         return SslSocket::SslClientMode;
@@ -1231,10 +1233,10 @@ SslSocket::SslMode SslConnection<Socket>::mode() const
 }
 
 
-template<typename Socket>
-Ssl::SslProtocol SslConnection<Socket>::sslProtocol() const
+template<typename SocketType>
+Ssl::SslProtocol SslConnection<SocketType>::sslProtocol() const
 {
-    if(ssl.isNull())
+    if (ssl.isNull())
         return Ssl::UnknownProtocol;
     int ver = SSL_version(ssl.data());
     switch (ver) {
@@ -1273,7 +1275,7 @@ SslSocketPrivate::SslSocketPrivate(const SslConfiguration &config)
 
 bool SslSocketPrivate::isValid() const
 {
-    if(error != Socket::NoError) {
+    if (error != Socket::NoError) {
         return false;
     } else {
         return rawSocket->isValid();
@@ -1282,7 +1284,7 @@ bool SslSocketPrivate::isValid() const
 
 
 SslSocket::SslSocket(const SslConfiguration &config)
-    :d_ptr(new SslSocketPrivate(config))
+    : d_ptr(new SslSocketPrivate(config))
 {
     Q_D(SslSocket);
     d->rawSocket = asSocketLike(new Socket());
@@ -1335,7 +1337,7 @@ SslSocket::~SslSocket()
 bool SslSocket::handshake(bool asServer, const QString &verificationPeerName)
 {
     Q_D(SslSocket);
-    if(!d->ssl.isNull()) {
+    if (!d->ssl.isNull()) {
         return false;
     }
     return d->handshake(asServer, verificationPeerName);
@@ -1436,11 +1438,11 @@ void SslSocket::setSslConfiguration(const SslConfiguration &configuration)
 QSharedPointer<SslSocket> SslSocket::accept()
 {
     Q_D(SslSocket);
-    while(true) {
+    while (true) {
         QSharedPointer<SocketLike> rawSocket = d->rawSocket->accept();
-        if(rawSocket) {
+        if (rawSocket) {
             QSharedPointer<SslSocket> s(new SslSocket(rawSocket, d->config));
-            if(s->d_func()->handshake(true, QString())) {
+            if (s->d_func()->handshake(true, QString())) {
                 return s;
             }
         }
@@ -1477,7 +1479,7 @@ bool SslSocket::bind(quint16 port, Socket::BindMode mode)
 bool SslSocket::connect(const QHostAddress &addr, quint16 port)
 {
     Q_D(SslSocket);
-    if(!d->rawSocket->connect(addr, port)) {
+    if (!d->rawSocket->connect(addr, port)) {
         return false;
     }
     return d->handshake(false, QString());
@@ -1487,7 +1489,7 @@ bool SslSocket::connect(const QHostAddress &addr, quint16 port)
 bool SslSocket::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
 {
     Q_D(SslSocket);
-    if(!d->rawSocket->connect(hostName, port, protocol)) {
+    if (!d->rawSocket->connect(hostName, port, protocol)) {
         return false;
     }
     return d->handshake(false, hostName);
@@ -1531,7 +1533,7 @@ QVariant SslSocket::option(Socket::SocketOption option) const
 Socket::SocketError SslSocket::error() const
 {
     Q_D(const SslSocket);
-    if(d->error) {
+    if (d->error) {
         return d->error;
     } else {
         return d->rawSocket->error();
@@ -1542,7 +1544,7 @@ Socket::SocketError SslSocket::error() const
 QString SslSocket::errorString() const
 {
     Q_D(const SslSocket);
-    if(!d->errorString.isEmpty()) {
+    if (!d->errorString.isEmpty()) {
         return d->errorString;
     } else {
         return d->rawSocket->errorString();
@@ -1655,7 +1657,7 @@ QByteArray SslSocket::recv(qint32 size)
     bs.resize(size);
 
     qint32 bytes = d->recv(bs.data(), bs.size(), false);
-    if(bytes > 0) {
+    if (bytes > 0) {
         bs.resize(bytes);
         return bs;
     }
@@ -1670,7 +1672,7 @@ QByteArray SslSocket::recvall(qint32 size)
     bs.resize(size);
 
     qint32 bytes = d->recv(bs.data(), bs.size(), true);
-    if(bytes > 0) {
+    if (bytes > 0) {
         bs.resize(bytes);
         return bs;
     }
@@ -1682,7 +1684,7 @@ qint32 SslSocket::send(const QByteArray &data)
 {
     Q_D(SslSocket);
     qint32 bytesSent = d->send(data.data(), data.size(), false);
-    if(bytesSent == 0 && !d->isValid()) {
+    if (bytesSent == 0 && !d->isValid()) {
         return -1;
     } else {
         return bytesSent;
@@ -2269,7 +2271,7 @@ qint32 EncryptedSocketLike::sendall(const QByteArray &data)
     return send(data.constData(), data.size(), true);
 }
 
-}
+}  // anonymous namespace
 
 
 QSharedPointer<SocketLike> encrypted(QSharedPointer<Cipher> cipher, QSharedPointer<SocketLike> socket)

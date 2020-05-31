@@ -510,7 +510,7 @@ QWindowsMessageWindowClassContext::QWindowsMessageWindowClassContext()
     wc.lpszClassName = className;
     atom = RegisterClassW(&wc);
     if (!atom) {
-        qErrnoWarning("%ls RegisterClass() failed", qUtf16Printable(qClassName));
+        qErrnoWarning("WinEventLoopCoroutine_Internal_Widget RegisterClass() failed");
         delete [] className;
         className = nullptr;
     }

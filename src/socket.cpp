@@ -76,7 +76,7 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::Netwo
     if (t.setAddress(hostName)) {
         addresses.append(t);
     } else {
-        if(dnsCache.isNull()) {
+        if (dnsCache.isNull()) {
             addresses = Socket::resolve(hostName);
         } else {
             addresses = dnsCache->resolve(hostName);
@@ -91,7 +91,7 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::Netwo
     bool done = true;
     state = oldState;
     for (int i = 0; i < addresses.size(); ++i) {
-        QHostAddress addr = addresses.at(i);
+        const QHostAddress &addr = addresses.at(i);
         if(protocol == Socket::IPv4Protocol && addr.protocol() != QAbstractSocket::IPv4Protocol) {
             continue;
         }

@@ -33,12 +33,10 @@ Examples
 
 Here comes a simple example to get web pages.
 
-    #include <QtCore/QCoreApplication>
     #include "qtnetworkng.h"
     
     int main(int argc, char **argv)
     {
-        QCoreApplication app(argc, argv);
         qtng::HttpSession session;
         qtng::HttpResponse r = session.get("http://example.com/");
         qDebug() << r.html();
@@ -47,12 +45,10 @@ Here comes a simple example to get web pages.
     
 And another exmaple to make tcp connection.
 
-    #include <QtCore/QCoreApplication>
     #include "qtnetworkng.h"
     
     int main(int argc, char **argv)
     {
-        QCoreApplication app(argc, argv);
         qtng::Socket conn;
         conn.connect("example.com", 80);
         conn.sendall("GET / HTTP/1.0\r\n\r\n");
@@ -173,7 +169,7 @@ Towards 1.0
 - [x] HttpResponse support stream.
 - [x] Support HTTP proxy and cache.
 - [ ] Built as shared library(DLL)
-- [ ] A simple replacement for libev in Windows.
+- [x] A simple replacement for libev in Windows.
 - [ ] Add more OpenSSL functions.
 - [ ] Support verification/ALPS for https connection.
 - [ ] Support MacOS and iOS platforms.
@@ -184,6 +180,7 @@ Towards 2.0
 -----------
 - [ ] Support HTTP/2
 - [ ] Support HTTP/3
+- [ ] Support Kademlia
 
 
 Building

@@ -1,5 +1,4 @@
-#include <QMimeDatabase>
-#include <QTemporaryFile>
+#include <QtCore/qmimedatabase.h>
 #include <stdio.h>
 #include "../include/httpd.h"
 
@@ -41,7 +40,7 @@ void BaseHttpRequestHandler::handle()
 
 void BaseHttpRequestHandler::handleOneRequest()
 {
-    if(!parseRequest()) {
+    if (!parseRequest()) {
         return;
     }
     doMethod();

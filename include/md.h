@@ -58,12 +58,15 @@ inline QByteArray MessageDigest::digest(const QByteArray &data, Algorithm algo)
     return m.result();
 }
 
+
 QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray &salt,
                        const MessageDigest::Algorithm hashAlgo = MessageDigest::Sha256,
                        int i = 10000);
 
+
 QByteArray scrypt(int keylen, const QByteArray &password, const QByteArray &salt,
                   int n = 1048576, int r = 8, int p = 1);
+
 
 QTNETWORKNG_NAMESPACE_END
 

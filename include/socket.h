@@ -23,8 +23,9 @@ class Socket: public QObject
 {
 public:
     enum SocketType {
-        TcpSocket,
-        UdpSocket,
+        TcpSocket = QAbstractSocket::TcpSocket,
+        UdpSocket = QAbstractSocket::UdpSocket,
+        // SctpSocket = QAbstractSocket::SctpSocket,
         // define for other XXXSocket types. not used here.
         KcpSocket,
         LocalSocket,
@@ -32,9 +33,9 @@ public:
     };
     Q_ENUMS(SocketType)
     enum NetworkLayerProtocol {
-        IPv4Protocol,
-        IPv6Protocol,
-        AnyIPProtocol,
+        IPv4Protocol = QAbstractSocket::IPv4Protocol,
+        IPv6Protocol = QAbstractSocket::IPv6Protocol,
+        AnyIPProtocol = QAbstractSocket::AnyIPProtocol,
         UnknownNetworkLayerProtocol = -1
     };
     Q_ENUMS(NetworkLayerProtocol)

@@ -25,12 +25,10 @@ QtNetworkNg is a coroutine-based network toolkit, like boost::asio but uses conc
 
 .. code-block:: c++
     
-    #include <QtCore/QCoreApplication>
     #include "qtnetworkng/qtnetworkng.h"
     
     int main(int argc, char **argv)
     {
-        QCoreApplication app(argc, argv);
         qtng::HttpSession session;
         qtng::HttpResponse r = session.get("http://www.example.com/");
         if (r.isOk()) {
@@ -45,12 +43,10 @@ And another example to make tcp connection.
 
 .. code-block:: c++
     
-    #include <QtCore/QCoreApplication>
     #include "qtnetworkng/qtnetworkng.h"
     
     int main(int argc, char **argv)
     {
-        QCoreApplication app(argc, argv);
         qtng::Socket conn;
         conn.connect("news.163.com", 80);
         conn.sendall("GET / HTTP/1.0\r\n\r\n");

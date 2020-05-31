@@ -75,13 +75,11 @@ Edit ``main.cpp``.
 .. code-block:: c++
     :caption: get web page.
     
-    #include <QtCore/QCoreApplication>
     #include "qtnetworkng/qtnetworkng.h"
     
     using namespace qtng;
     int main(int argc, char **argv)
     {
-        QCoreApplication app(argc, argv);
         HttpSession session;
         HttpResponse resp = session.get("http://www.example.com/");
         if (resp.isOk()) {
@@ -312,7 +310,7 @@ Combine ``Socket`` and ``Coroutine``, you can create socket server in few lines 
     
     Socket s;
     CoroutineGroup operations;
-    s.bind(QHostAddress::Any, 8000);
+    s.bind(8000);
     s.listen(100);
     while(true) {
         QSharedPointer<Socket> request(s.accept());

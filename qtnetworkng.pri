@@ -119,8 +119,6 @@ qtng_crypto {
     DEFINES += QTNG_NO_CRYPTO
 }
 
-HEADERS += $$PRIVATE_HEADERS
-
 # decide which fcontext asm file to use.
 android {
     equals(ANDROID_ARCHITECTURE, x86) {
