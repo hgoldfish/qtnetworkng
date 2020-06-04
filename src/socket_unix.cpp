@@ -954,7 +954,7 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrle
     Q_ASSERT((flags & ~O_NONBLOCK) == 0);
 
     int fd;
-#if defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
+#if defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK) && !defined(Q_OS_ANDROID)
     // use accept4
     int sockflags = SOCK_CLOEXEC;
     if (flags & O_NONBLOCK)
