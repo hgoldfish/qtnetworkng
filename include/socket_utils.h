@@ -53,7 +53,7 @@ public:
     virtual qint32 sendall(const QByteArray &data) = 0;
 public:
     virtual qint32 read(char *data, qint32 size) override;
-    virtual qint32 write(char *data, qint32 size) override;
+    virtual qint32 write(const char *data, qint32 size) override;
     virtual qint64 size() override;
 };
 

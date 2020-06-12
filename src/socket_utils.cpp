@@ -15,7 +15,7 @@ qint32 SocketLike::read(char *data, qint32 size)
 }
 
 
-qint32 SocketLike::write(char *data, qint32 size)
+qint32 SocketLike::write(const char *data, qint32 size)
 {
     return sendall(data, size);
 }

@@ -343,7 +343,7 @@ qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
         if (result < 0) {
             qWarning() << "why this happended?";
             updateKcp();
-            return count;
+            return count == 0 ? -1 : count;
         } else { // result == 0
             count += nextBlockSize;
             if (!all) {
@@ -451,9 +451,6 @@ void KcpSocketPrivate::doUpdate()
             return;
         }
 
-        quint32 ts = ikcp_check(kcp, current);
-        quint32 interval = ts - current;
-
         if (now - lastKeepaliveTimestamp > 1000 * 5) {
             const QByteArray &packet = makeKeepalivePacket();
             if (rawSend(packet.data(), packet.size()) != packet.size()) {
@@ -486,6 +483,8 @@ void KcpSocketPrivate::doUpdate()
             }
         }
 
+        quint32 ts = ikcp_check(kcp, current);
+        quint32 interval = ts - current;
         if (interval > 0) {
             forceToUpdate->close();
             try {

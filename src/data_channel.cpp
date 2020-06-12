@@ -285,7 +285,8 @@ void DataChannelPrivate::abort()
     goThrough.open();
     for (QMapIterator<quint32, QWeakPointer<VirtualChannel>> itor(subChannels); itor.hasNext();) {
         const QWeakPointer<VirtualChannel> &subChannel = itor.next().value();
-        if(!subChannel.isNull()) {
+        if (!subChannel.isNull()) {
+            subChannel.toStrongRef()->d_func()->parentChannel.clear();
             subChannel.toStrongRef()->d_func()->abort();
         }
     }
@@ -421,6 +422,7 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
             if (!channel.isNull()) {
                 cleanChannel(channelNumber, false);
                 channel.toStrongRef()->d_func()->parentChannel.clear();
+                // do not worry, the receiving queue is still ok after aborted.
                 channel.toStrongRef()->d_func()->abort();
             }
         }

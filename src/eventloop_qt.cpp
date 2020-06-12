@@ -396,8 +396,7 @@ QtEventLoopCoroutine::QtEventLoopCoroutine()
 int startQtLoop()
 {
     if (!QCoreApplication::instance()) {
-        qWarning("Qt eventloop require QCoreApplication.");
-        return -1;
+        qFatal("Qt eventloop require QCoreApplication.");
     }
 
     QSharedPointer<EventLoopCoroutine> eventLoop = currentLoop()->get();

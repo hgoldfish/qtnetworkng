@@ -116,7 +116,7 @@ qtng_crypto {
 
     LIBS += -lssl -lcrypto
 } else {
-    DEFINES += QTNG_NO_CRYPTO
+    DEFINES += "QTNG_NO_CRYPTO=1"
 }
 
 # decide which fcontext asm file to use.

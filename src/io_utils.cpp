@@ -39,7 +39,7 @@ public:
     RawFile(QSharedPointer<QFile> f)
         :f(f) {}
     virtual qint32 read(char *data, qint32 size) override;
-    virtual qint32 write(char *data, qint32 size) override;
+    virtual qint32 write(const char *data, qint32 size) override;
     virtual void close() override;
     virtual qint64 size() override;
 private:
@@ -54,7 +54,7 @@ qint32 RawFile::read(char *data, qint32 size)
 }
 
 
-qint32 RawFile::write(char *data, qint32 size)
+qint32 RawFile::write(const char *data, qint32 size)
 {
     qint64 len = f->write(data, size);
     return static_cast<qint32>(len);
@@ -122,7 +122,7 @@ qint32 BytesIO::read(char *data, qint32 size)
 }
 
 
-qint32 BytesIO::write(char *data, qint32 size)
+qint32 BytesIO::write(const char *data, qint32 size)
 {
     Q_D(BytesIO);
     if (d->pos + size > d->buf.size()) {

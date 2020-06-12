@@ -13,7 +13,7 @@ class FileLike
 public:
     virtual ~FileLike();
     virtual qint32 read(char *data, qint32 size) = 0;
-    virtual qint32 write(char *data, qint32 size) = 0;
+    virtual qint32 write(const char *data, qint32 size) = 0;
     virtual void close() = 0;
     virtual qint64 size() = 0;
     QByteArray readall(bool *ok);
@@ -32,7 +32,7 @@ public:
     BytesIO();
     virtual ~BytesIO() override;
     virtual qint32 read(char *data, qint32 size) override;
-    virtual qint32 write(char *data, qint32 size) override;
+    virtual qint32 write(const char *data, qint32 size) override;
     virtual void close() override;
     virtual qint64 size() override;
     QByteArray data();
