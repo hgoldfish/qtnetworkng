@@ -13,8 +13,6 @@ const char PACKET_TYPE_UNCOMPRESSED_DATA = 0x01;
 const char PACKET_TYPE_CREATE_MULTIPATH = 0x02;
 const char PACKET_TYPE_CLOSE= 0X03;
 const char PACKET_TYPE_KEEPALIVE = 0x04;
-
-
 //#define DEBUG_PROTOCOL 1
 
 
@@ -207,8 +205,10 @@ int kcp_callback(const char *buf, int len, ikcpcb *, void *user)
     for (int i = 0; i < 1; ++i) {
         sentBytes = p->rawSend(packet.data(), packet.size());
         if (sentBytes != packet.size()) {  // but why this happens?
-            p->error = Socket::SocketAccessError;
-            p->errorString = QStringLiteral("can not send udp packet");
+            if (p->error == Socket::NoError) {
+                p->error = Socket::SocketAccessError;
+                p->errorString = QStringLiteral("can not send udp packet");
+            }
 #ifdef DEBUG_PROTOCOL
             qWarning() << "can not send packet.";
 #endif
@@ -307,13 +307,13 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
         break;
     case KcpSocket::Ethernet:
         ikcp_nodelay(kcp, 1, 10, 2, 1);
-        ikcp_setmtu(kcp, 16384);
-        ikcp_wndsize(kcp, 64, 64);
+        ikcp_setmtu(kcp, 1024 * 32);
+        ikcp_wndsize(kcp, 1024, 1024);
         break;
     case KcpSocket::Loopback:
-        ikcp_nodelay(kcp, 1, 5, 1, 0);
-        ikcp_setmtu(kcp, 32768);
-        ikcp_wndsize(kcp, 32, 32);
+        ikcp_nodelay(kcp, 1, 10, 1, 0);
+        ikcp_setmtu(kcp, 1024 * 63);
+        ikcp_wndsize(kcp, 1024, 1024);
         break;
     }
 }
@@ -342,8 +342,12 @@ qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
         int result = ikcp_send(kcp, data + count, nextBlockSize);
         if (result < 0) {
             qWarning() << "why this happended?";
-            updateKcp();
-            return count == 0 ? -1 : count;
+            if (count > 0) {
+                updateKcp();
+                return count;
+            } else {
+                return -1;
+            }
         } else { // result == 0
             count += nextBlockSize;
             if (!all) {
@@ -433,12 +437,14 @@ bool KcpSocketPrivate::handleDatagram(const char *buf, quint32 len)
 void KcpSocketPrivate::doUpdate()
 {
     // in close(), state is set to Socket::UnconnectedState but error = NoError.
-    while (state == Socket::ConnectedState || error == Socket::NoError) {
+    while (state == Socket::ConnectedState || (state == Socket::UnconnectedState && error == Socket::NoError)) {
         quint64 now = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
-        if (now - lastActiveTimestamp > tearDownTime) {
+        if (now - lastActiveTimestamp > tearDownTime && state == Socket::ConnectedState) {
 #ifdef DEBUG_PROTOCOL
             qDebug() << "tearDown!";
 #endif
+            error = Socket::SocketTimeoutError;
+            errorString = QStringLiteral("KcpSocket is timeout.");
             close(true);
             return;
         }
@@ -447,11 +453,11 @@ void KcpSocketPrivate::doUpdate()
             ScopedLock<RLock> l(kcpLock); Q_UNUSED(l);
             ikcp_update(kcp, current);   // ikcp_update() call ikcp_flush() and then kcp_callback(), and maybe close(true)
         }
-        if (state != Socket::ConnectedState && error != Socket::NoError) {
+        if (!(state == Socket::ConnectedState || (state == Socket::UnconnectedState && error == Socket::NoError))) {
             return;
         }
 
-        if (now - lastKeepaliveTimestamp > 1000 * 5) {
+        if (now - lastKeepaliveTimestamp > 1000 * 5 && state == Socket::ConnectedState) {
             const QByteArray &packet = makeKeepalivePacket();
             if (rawSend(packet.data(), packet.size()) != packet.size()) {
 #ifdef DEBUG_PROTOCOL
@@ -680,11 +686,12 @@ bool MasterKcpSocketPrivate::close(bool force)
         return true;
     } else if (state == Socket::ConnectedState) {
         state = Socket::UnconnectedState;
-        if (!force) {
-            updateKcp();
-            bool ok = sendingQueueEmpty->wait();
-            if (!ok) {
-                return false;
+        if (!force && error == Socket::NoError) {
+            if (!sendingQueueEmpty->isSet()) {
+                updateKcp();
+                if (!sendingQueueEmpty->wait()) {
+                    return false;
+                }
             }
             const QByteArray &packet = makeShutdownPacket();
             rawSend(packet.constData(), packet.size());
@@ -704,10 +711,14 @@ bool MasterKcpSocketPrivate::close(bool force)
         return true;
     }
 
-    rawSocket->close();
-
     //connected and listen state would do more cleaning work.
     operations->killall();
+    // always kill operations before release resources.
+    if (force) {
+        rawSocket->abort();
+    } else {
+        rawSocket->close();
+    }
     // await all pending recv()/send()
     receivingQueueNotEmpty->set();
     sendingQueueEmpty->set();
@@ -753,10 +764,8 @@ void MasterKcpSocketPrivate::doReceive()
     while (true) {
         qint32 len = rawSocket->recvfrom(buf.data(), buf.size(), &addr, &port);
         if (Q_UNLIKELY(len < 0 || addr.isNull() || port == 0)) {
-            error = Socket::SocketResourceError;
-            errorString = QStringLiteral("KcpSocket can not receive udp packet.");
 #ifdef DEBUG_PROTOCOL
-            qDebug() << "KcpSocket can not receive udp packet.";
+            qDebug() << "KcpSocket can not receive udp packet." << rawSocket->errorString();
 #endif
             MasterKcpSocketPrivate::close(true);
             return;
@@ -817,10 +826,8 @@ void MasterKcpSocketPrivate::doAccept()
     while (true) {
         qint32 len = rawSocket->recvfrom(buf.data(), buf.size(), &addr, &port);
         if (Q_UNLIKELY(len < 0 || addr.isNull() || port == 0)) {
-            error = Socket::SocketResourceError;
-            errorString = QStringLiteral("KcpSocket can not receive udp packet.");
 #ifdef DEBUG_PROTOCOL
-            qDebug() << "KcpSocket can not receive udp packet.";
+            qDebug() << "KcpSocket can not receive udp packet." << rawSocket->errorString();
 #endif
             MasterKcpSocketPrivate::close(true);
             return;
@@ -842,7 +849,6 @@ void MasterKcpSocketPrivate::doAccept()
         quint32 connectionId = qFromBigEndian<quint32>(reinterpret_cast<uchar*>(buf.data() + 1));
         qToBigEndian<quint32>(0, reinterpret_cast<uchar*>(buf.data() + 1));
 #endif
-
         const QString &key = concat(addr, port);
         QPointer<SlaveKcpSocketPrivate> receiver;
         receiver = receiversByHostAndPort.value(key);
@@ -870,8 +876,10 @@ void MasterKcpSocketPrivate::doAccept()
             if (connectionId != 0) {
                 const QByteArray &closePacket = makeShutdownPacket(connectionId);
                 if (rawSocket->sendto(closePacket, addr, port) != closePacket.size()) {
-                    error = Socket::SocketResourceError;
-                    errorString = QStringLiteral("KcpSocket can not send udp packet.");
+                    if (error == Socket::NoError) {
+                        error = Socket::SocketResourceError;
+                        errorString = QStringLiteral("KcpSocket can not send udp packet.");
+                    }
 #ifdef DEBUG_PROTOCOL
                     qDebug() << errorString;
 #endif
@@ -888,8 +896,10 @@ void MasterKcpSocketPrivate::doAccept()
                     pendingSlaves.put(slave);
                     const QByteArray &multiPathPacket = makeMultiPathPacket(d->connectionId);
                     if (rawSocket->sendto(multiPathPacket, addr, port) != multiPathPacket.size()) {
-                        error = Socket::SocketResourceError;
-                        errorString = QStringLiteral("KcpSocket can not send udp packet.");
+                        if (error == Socket::NoError) {
+                            error = Socket::SocketResourceError;
+                            errorString = QStringLiteral("KcpSocket can not send udp packet.");
+                        }
 #ifdef DEBUG_PROTOCOL
                         qDebug() << errorString;
 #endif
@@ -943,7 +953,7 @@ QSharedPointer<KcpSocket> MasterKcpSocketPrivate::accept(const QHostAddress &add
     const QString &key = concat(addr, port);
     QPointer<SlaveKcpSocketPrivate> receiver;
     receiver = receiversByHostAndPort.value(key);
-    if (!receiver.isNull()) {
+    if (!receiver.isNull() && receiver->isValid()) {
         return QSharedPointer<KcpSocket>();
     } else {
         QSharedPointer<KcpSocket> slave(SlaveKcpSocketPrivate::create(this, addr, port, this->mode));
@@ -1130,11 +1140,12 @@ bool SlaveKcpSocketPrivate::close(bool force)
         return true;
     } else if (state == Socket::ConnectedState) {
         state = Socket::UnconnectedState;
-        if (!force) {
-            updateKcp();
-            bool ok = sendingQueueEmpty->wait();
-            if (!ok) {
-                return false;
+        if (!force && error != Socket::NoError) {
+            if (!sendingQueueEmpty->isSet()) {
+                updateKcp();
+                if (!sendingQueueEmpty->wait()) {
+                    return false;
+                }
             }
             const QByteArray &packet = makeShutdownPacket();
             rawSend(packet.constData(), packet.size());

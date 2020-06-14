@@ -58,11 +58,11 @@ HEADERS += \
     $$PWD/include/random.h
 
     
-windows {
-    SOURCES += $$PWD/src/socket_win.cpp
-    SOURCES += $$PWD/src/eventloop_win.cpp
+win32 {
+    SOURCES += $$PWD/src/socket_win.cpp \
+        $$PWD/src/eventloop_win.cpp
     LIBS += -lws2_32
-    DEFINES += "QTNETWOKRNG_USE_WIN=1"
+    DEFINES += "QTNETWORKNG_USE_WIN=1"
 } else: unix  {
     SOURCES += $$PWD/src/socket_unix.cpp
     linux {
@@ -186,15 +186,11 @@ android {
     } else {
         SOURCES += $$PWD/src/coroutine_unix.cpp
     }
-} else: windows {
+} else: win32 {
     win32-msvc* : {
         SOURCES += $$PWD/src/coroutine_win.cpp
     } else {
-        equals(QT_ARCH, x86_64) {
-            SOURCES += $$PWD/src/context/asm/jump_x86_64_ms_pe_gas.S \
-                $$PWD/src/context/asm/make_x86_64_ms_pe_gas.S \
-                $$PWD/src/coroutine_fcontext.cpp
-        } else: equals(QT_ARCH, i386) {
+        equals(QT_ARCH, i386) {
             SOURCES += $$PWD/src/context/asm/jump_i386_ms_pe_gas.S \
                 $$PWD/src/context/asm/make_i386_ms_pe_gas.S \
                 $$PWD/src/coroutine_fcontext.cpp

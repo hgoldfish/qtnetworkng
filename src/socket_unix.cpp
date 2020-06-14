@@ -674,6 +674,13 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, q
             case EAGAIN:
                 break;
             case ECONNRESET:
+                if(type == Socket::TcpSocket) {
+                    setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
+                    abort();
+                    return -1;
+                } else {
+                    break;
+                }
             case ECONNREFUSED:
             case ENOTCONN:
 #if defined(Q_OS_VXWORKS)

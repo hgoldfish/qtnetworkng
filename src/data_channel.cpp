@@ -657,14 +657,15 @@ void SocketChannelPrivate::abort()
         return;
     }
     broken = true;
+    Coroutine *current = Coroutine::current();
     connection->abort();
+
     while (!sendingQueue.isEmpty()) {
         const WritingPacket &writingPacket = sendingQueue.get();
         if (!writingPacket.done.isNull()) {
             writingPacket.done->send(false);
         }
     }
-    Coroutine *current = Coroutine::current();
     if (operations->get("receiving").data() != current) {
         operations->kill("receiving");
     }

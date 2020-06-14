@@ -1056,9 +1056,13 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
                 case WSAEWOULDBLOCK:
                     break;
                 case WSAECONNRESET:
-                    setError(Socket::ConnectionRefusedError, ConnectionResetErrorString);
-                    close();
-                    return -1;
+                    if (type == Socket::TcpSocket) {
+                        setError(Socket::ConnectionRefusedError, ConnectionResetErrorString);
+                        abort();
+                        return -1;
+                    } else {
+                        break; // windows throws this error, just kidding me?
+                    }
                 case WSAENOTCONN: // not connected for tcp
                 case WSAEINVAL: // not bound for udp
                     setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
@@ -1067,7 +1071,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
                 case WSAENETRESET:
                     if(type == Socket::TcpSocket) {
                         setError(Socket::NetworkError, NetworkDroppedConnectionErrorString);
-                        close();
+                        abort();
                     } else {
                         setError(Socket::NetworkError, QString::fromLatin1("the time to live has expired."));
                         // need not close()
@@ -1077,7 +1081,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
                 case WSAENETDOWN:
                 case WSAEFAULT:
                     setError(Socket::UnknownSocketError, UnknownSocketErrorString);
-                    close();
+                    abort();
                     return -1;
                 default:
                     setError(Socket::UnknownSocketError, UnknownSocketErrorString);
@@ -1271,7 +1275,7 @@ Socket *SocketPrivate::accept()
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     while (true) {
         SOCKET acceptedDescriptor = WSAAccept(static_cast<SOCKET>(fd), nullptr, nullptr, nullptr, 0);
-        if (acceptedDescriptor == SOCKET_ERROR) {
+        if (acceptedDescriptor == static_cast<SOCKET>(SOCKET_ERROR)) {
             int err = WSAGetLastError();
             switch (err) {
             case WSAEACCES:
