@@ -2,12 +2,16 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <errno.h>
+#include "../include/private/socket_p.h"
+#ifdef Q_OS_MACOS
+#define __APPLE_USE_RFC_3542
+#endif
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include "../include/private/socket_p.h"
+
 
 #ifndef SOCK_NONBLOCK
 # define SOCK_NONBLOCK O_NONBLOCK

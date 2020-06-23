@@ -181,6 +181,50 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     else()
         message(FATAL_ERROR Android for ${CMAKE_ANDROID_ARCH_ABI} is not supported.)
     endif()
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    if((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+            OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "amd64"))
+        set(OS_DEPENDENDED_SRC
+            src/socket_unix.cpp
+            src/context/asm/jump_x86_64_sysv_macho_gas.S
+            src/context/asm/make_x86_64_sysv_macho_gas.S
+            src/coroutine_fcontext.cpp
+        )
+    elseif((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "i386")
+            OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "i686"))
+        set(OS_DEPENDENDED_SRC
+            src/socket_unix.cpp
+            src/context/asm/jump_i386_sysv_macho_gas.S
+            src/context/asm/make_i386_sysv_macho_gas.S
+            src/coroutine_fcontext.cpp
+        )
+    elseif((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
+            OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm64"))
+        set(OS_DEPENDENDED_SRC
+            src/socket_unix.cpp
+            src/context/asm/jump_arm64_aapcs_macho_gas.S
+            src/context/asm/make_arm64_aapcs_macho_gas.S
+            src/coroutine_fcontext.cpp
+        )
+    elseif((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "armv7")
+            OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm"))
+        set(OS_DEPENDENDED_SRC
+            src/socket_unix.cpp
+            src/context/asm/jump_arm_aapcs_macho_gas.S
+            src/context/asm/make_arm_aapcs_macho_gas.S
+            src/coroutine_fcontext.cpp
+        )
+    #ELSEIF(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "mips64")
+    elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "mips")
+        set(OS_DEPENDENDED_SRC
+            src/socket_unix.cpp
+            src/context/asm/jump_mips32_o32_elf_gas.S
+            src/context/asm/make_mips32_o32_elf_gas.S
+            src/coroutine_fcontext.cpp
+        )
+    else()
+        message(FATAL_ERROR ${CMAKE_SYSTEM_NAME} is not supported.)
+    endif()
 elseif(UNIX)
     # TODO should support cross build.
     if((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
