@@ -181,11 +181,6 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     else()
         message(FATAL_ERROR Android for ${CMAKE_ANDROID_ARCH_ABI} is not supported.)
     endif()
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-    set(OS_DEPENDENDED_SRC
-        src/socket_unix.cpp
-        src/coroutine_unix.cpp
-    )
 elseif(UNIX)
     # TODO should support cross build.
     if((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
