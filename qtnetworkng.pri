@@ -147,9 +147,33 @@ android {
         error(Unsupported platform)
     }
 } else: mac {
-    error(Unsupported platform)
-} else: ios {
-    error(Unsupported platform)
+    equals(QT_ARCH, x86_64) {
+        SOURCES += $$PWD/src/context/asm/jump_x86_64_sysv_macho_gas.S \
+            $$PWD/src/context/asm/make_x86_64_sysv_macho_gas.S \
+            $$PWD/src/coroutine_fcontext.cpp
+    } else: equals(QT_ARCH, i386) {
+        SOURCES += $$PWD/src/context/asm/jump_i386_sysv_macho_gas.S \
+            $$PWD/src/context/asm/make_i386_sysv_macho_gas.S \
+            $$PWD/src/coroutine_fcontext.cpp
+    } else: equals(QT_ARCH, power64) {
+        SOURCES += $$PWD/src/context/asm/jump_ppc64_sysv_macho_gas.S \
+            $$PWD/src/context/asm/make_ppc64_sysv_macho_gas.S \
+            $$PWD/src/coroutine_fcontext.cpp
+    } else: equals(QT_ARCH, power) {
+        SOURCES += $$PWD/src/context/asm/jump_ppc32_sysv_macho_gas.S \
+            $$PWD/src/context/asm/make_ppc32_ppc64_sysv_macho_gas.S \
+            $$PWD/src/coroutine_fcontext.cpp
+    } else: equals(QT_ARCH, arm){
+        SOURCES += $$PWD/src/context/asm/jump_arm_aapcs_macho_gas.S \
+            $$PWD/src/context/asm/make_arm_aapcs_macho_gas.S \
+            $$PWD/src/coroutine_fcontext.cpp
+    } else: equals(QT_ARCH, arm64) {
+        SOURCES += $$PWD/src/context/asm/jump_arm64_aapcs_macho_gas.S \
+            $$PWD/src/context/asm/make_arm64_aapcs_macho_gas.S \
+            $$PWD/src/coroutine_fcontext.cpp
+    } else {
+        error(Unsupported platform)
+    }
 } else: unix {
     equals(QT_ARCH, x86_64) {
         SOURCES += $$PWD/src/context/asm/jump_x86_64_sysv_elf_gas.S \

@@ -67,8 +67,8 @@ void KcptunClient::handleRequest(QSharedPointer<Socket> request)
     }
     QSharedPointer<Cipher> cipher(new Cipher(Cipher::AES256, Cipher::CFB, Cipher::Encrypt));
     cipher->setPassword(configure.password.toUtf8(), "3.1415926535");
-    QSharedPointer<SocketLike> encryptedForward = encrypted(cipher, SocketLike::kcpSocket(forward));
-    Exchanger exchanger(asStream(request), encryptedForward);
+    QSharedPointer<SocketLike> encryptedForward = encrypted(cipher, asSocketLike(forward));
+    Exchanger exchanger(asSocketLike(request), encryptedForward);
     exchanger.exchange();
 }
 
@@ -76,7 +76,7 @@ void KcptunClient::handleRequest(QSharedPointer<Socket> request)
 ParserResult parseArguments(Configure *configure, QString *errorMessage)
 {
     QCommandLineParser parser;
-    parser.setApplicationDescription("joker server");
+    parser.setApplicationDescription("kcptun client");
     const QCommandLineOption &helpOption = parser.addHelpOption();
     const QCommandLineOption &versionOption = parser.addVersionOption();
 
@@ -169,6 +169,7 @@ ParserResult parseArguments(Configure *configure, QString *errorMessage)
 
 int main(int argc, char **argv)
 {
+    QCoreApplication app(argc, argv);
     app.setApplicationName("kcptun-client");
     app.setApplicationVersion("1.0");
 

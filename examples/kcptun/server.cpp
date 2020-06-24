@@ -68,9 +68,9 @@ void KcptunServer::handleRequest(QSharedPointer<KcpSocket> request)
 
     QSharedPointer<Cipher> cipher(new Cipher(Cipher::AES256, Cipher::CFB, Cipher::Encrypt));
     cipher->setPassword(configure.password.toUtf8(), "3.1415926535");
-    QSharedPointer<SocketLike> encryptedRequest = encrypted(cipher, SocketLike::kcpSocket(request));
+    QSharedPointer<SocketLike> encryptedRequest = encrypted(cipher, asSocketLike(request));
 
-    Exchanger exchanger(encryptedRequest, asStream(forward));
+    Exchanger exchanger(encryptedRequest, asSocketLike(forward));
     exchanger.exchange();
 }
 
@@ -78,7 +78,7 @@ void KcptunServer::handleRequest(QSharedPointer<KcpSocket> request)
 ParserResult parseArguments(Configure *configure, QString *errorMessage)
 {
     QCommandLineParser parser;
-    parser.setApplicationDescription("joker server");
+    parser.setApplicationDescription("kcptun server");
     const QCommandLineOption &helpOption = parser.addHelpOption();
     const QCommandLineOption &versionOption = parser.addVersionOption();
 
@@ -99,7 +99,7 @@ ParserResult parseArguments(Configure *configure, QString *errorMessage)
                                            "target_address");
     parser.addOption(targetAddressOption);
     QCommandLineOption targetPortOption(QStringList() << "p" << "target-port",
-                                        QCoreApplication::translate("main", "target port to forward. default to `8085`."),
+                                        QCoreApplication::translate("main", "target port to forward. default to `22`."),
                                         "target_port");
     parser.addOption(targetPortOption);
 
@@ -156,7 +156,7 @@ ParserResult parseArguments(Configure *configure, QString *errorMessage)
 
     QString targetPortStr = parser.value(targetPortOption);
     if (targetPortStr.isEmpty()) {
-        configure->targetPort = 8085;
+        configure->targetPort = 22;
     } else {
         bool ok;
         configure->targetPort = targetPortStr.toUShort(&ok);
@@ -171,6 +171,7 @@ ParserResult parseArguments(Configure *configure, QString *errorMessage)
 
 int main(int argc, char **argv)
 {
+    QCoreApplication app(argc, argv);
     app.setApplicationName("kcptun-server");
     app.setApplicationVersion("1.0");
 
