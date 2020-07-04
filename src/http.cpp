@@ -879,9 +879,8 @@ QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, 
         if (!httpProxy.isNull()) {
             rawSocket = httpProxy->connect(url.host(), port);
         } else {
-            rawSocket.reset(new Socket);
-            rawSocket->setDnsCache(dnsCache);
-            if (!rawSocket->connect(url.host(), port)) {
+            rawSocket.reset(Socket::createConnection(url.host(), port, nullptr, dnsCache));
+            if (rawSocket.isNull()) {
                 *error = new ConnectionError();
                 return QSharedPointer<SocketLike>();
             }

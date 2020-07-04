@@ -79,13 +79,14 @@ void runLocalLoop(EventLoop *loop)
 }
 
 
-template <typename Func>
-void qAwait(const typename QtPrivate::FunctionPointer<Func>::Object *obj, Func signal)
+template <typename Obj>
+void qAwait(const Obj *obj,
+            const typename QtPrivate::FunctionPointer<void (Obj::*) ()>::Function signal)
 {
-    QSharedPointer<Event> event(new Event);
-    const auto connection = QObject::connect(obj, signal, [event] {
+    QSharedPointer<Event> event(new Event());
+    const auto connection = QObject::connect(obj, signal, [event] () {
         event->set();
-    });
+    }, Qt::DirectConnection);
     try {
         event->wait();
         QObject::disconnect(connection);
@@ -95,6 +96,59 @@ void qAwait(const typename QtPrivate::FunctionPointer<Func>::Object *obj, Func s
     }
 }
 
+
+template <typename ARG1, typename... ARGS>
+struct QAwaitHelper1: QObject
+{
+    QAwaitHelper1(QSharedPointer<ValueEvent<ARG1>> event)
+        : event(event) {}
+    void call(ARG1 arg1, ARGS...) { event->send(arg1); }
+    QSharedPointer<ValueEvent<ARG1>> event;
+};
+
+
+template <typename Obj, typename ARG1>
+ARG1 qAwait(const Obj *obj,
+            const typename QtPrivate::FunctionPointer<void (Obj::*) (ARG1 arg1)>::Function signal)
+{
+    QSharedPointer<ValueEvent<ARG1>> event(new ValueEvent<ARG1>());
+    QAwaitHelper1<ARG1> helper(event);
+    const auto connection = QObject::connect(obj, signal, &helper, &QAwaitHelper1<ARG1>::call, Qt::DirectConnection);
+    try {
+        return event->wait();
+        QObject::disconnect(connection);
+    } catch (...) {
+        QObject::disconnect(connection);
+        throw;
+    }
+}
+
+
+template <typename... ARGS>
+struct QAwaitHelper: QObject
+{
+    QAwaitHelper(QSharedPointer<ValueEvent<std::tuple<ARGS...>>> event)
+        : event(event) {}
+    void call(ARGS ... args) { event->send(std::tuple<ARGS...>(args...)); }
+    QSharedPointer<ValueEvent<std::tuple<ARGS...>>> event;
+};
+
+
+template <typename Obj, typename ARG1, typename ARG2, typename... ARGS>
+std::tuple<ARG1, ARGS...> qAwait(const Obj *obj,
+            const typename QtPrivate::FunctionPointer<void (Obj::*) (ARG1, ARG2, ARGS...)>::Function signal)
+{
+    QSharedPointer<ValueEvent<std::tuple<ARG1, ARG2, ARGS...>>> event(new ValueEvent<std::tuple<ARG1, ARG2, ARGS...>>());
+    QAwaitHelper<ARG1, ARG2, ARGS...> helper(event);
+    const auto connection = QObject::connect(obj, signal, &helper, &QAwaitHelper<ARG1, ARG2, ARGS...>::call, Qt::DirectConnection);
+    try {
+        return event->wait();
+        QObject::disconnect(connection);
+    } catch (...) {
+        QObject::disconnect(connection);
+        throw;
+    }
+}
 
 // XXX DO NOT DELETE ANYTHING IN CHILD THREADS.
 class DeferCallThread: public QThread
@@ -124,6 +178,7 @@ T callInThread(std::function<T()> func)
     done->wait();
     return *result;
 }
+
 
 template<typename T, typename ARG1>
 T callInThread(std::function<T(ARG1)> func, ARG1 arg1)

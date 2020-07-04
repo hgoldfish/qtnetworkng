@@ -74,7 +74,7 @@ protected:
 template<typename RequestHandler>
 QSharedPointer<SocketLike> TcpServer<RequestHandler>::serverCreate()
 {
-    return asSocketLike(new Socket());
+    return asSocketLike(Socket::createServer(serverAddress(), serverPort(), 0));
 }
 
 
@@ -105,7 +105,7 @@ protected:
 template<typename RequestHandler>
 QSharedPointer<SocketLike> KcpServer<RequestHandler>::serverCreate()
 {
-    return asSocketLike(new KcpSocket());
+    return asSocketLike(KcpSocket::createServer(serverAddress(), serverPort(), 0));
 }
 
 

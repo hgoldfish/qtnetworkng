@@ -23,79 +23,78 @@ class Socket: public QObject
 {
 public:
     enum SocketType {
-        TcpSocket = QAbstractSocket::TcpSocket,
-        UdpSocket = QAbstractSocket::UdpSocket,
+        TcpSocket = 1,
+        UdpSocket = 2,
         // SctpSocket = QAbstractSocket::SctpSocket,
         // define for other XXXSocket types. not used here.
-        KcpSocket,
-        LocalSocket,
+        KcpSocket = 3,
+        LocalSocket = 4,
         UnknownSocketType = -1
     };
     Q_ENUMS(SocketType)
     enum NetworkLayerProtocol {
-        IPv4Protocol = QAbstractSocket::IPv4Protocol,
-        IPv6Protocol = QAbstractSocket::IPv6Protocol,
-        AnyIPProtocol = QAbstractSocket::AnyIPProtocol,
+        IPv4Protocol = 1,
+        IPv6Protocol = 2,
         UnknownNetworkLayerProtocol = -1
     };
     Q_ENUMS(NetworkLayerProtocol)
     enum SocketError {
-        ConnectionRefusedError,
-        RemoteHostClosedError,
-        HostNotFoundError,
-        SocketAccessError,
-        SocketResourceError,
-        SocketTimeoutError,
-        DatagramTooLargeError,
-        NetworkError,
-        AddressInUseError,
-        SocketAddressNotAvailableError,
-        UnsupportedSocketOperationError,
-        UnfinishedSocketOperationError,
+        ConnectionRefusedError = 1,
+        RemoteHostClosedError = 2,
+        HostNotFoundError = 3,
+        SocketAccessError = 4,
+        SocketResourceError = 5,
+        SocketTimeoutError = 6,
+        DatagramTooLargeError = 7,
+        NetworkError = 8,
+        AddressInUseError = 9,
+        SocketAddressNotAvailableError = 10,
+        UnsupportedSocketOperationError = 11,
+        UnfinishedSocketOperationError = 12,
 
         // define for proxy and ssl, not used here.
-        ProxyAuthenticationRequiredError,
-        SslHandshakeFailedError,
-        ProxyConnectionRefusedError,
-        ProxyConnectionClosedError,
-        ProxyConnectionTimeoutError,
-        ProxyNotFoundError,
-        ProxyProtocolError,
-        OperationError,
-        SslInternalError,
-        SslInvalidUserDataError,
-        TemporaryError,
+        ProxyAuthenticationRequiredError = 101,
+        SslHandshakeFailedError = 102,
+        ProxyConnectionRefusedError = 103,
+        ProxyConnectionClosedError = 104,
+        ProxyConnectionTimeoutError = 105,
+        ProxyNotFoundError = 106,
+        ProxyProtocolError = 107,
+        OperationError = 108,
+        SslInternalError = 109,
+        SslInvalidUserDataError = 110,
+        TemporaryError = 111,
 
         UnknownSocketError = -1,
         NoError = -2,
     };
     Q_ENUMS(SocketError)
     enum SocketState {
-        UnconnectedState,
-        HostLookupState,
-        ConnectingState,
-        ConnectedState,
-        BoundState,
-        ListeningState,
-        ClosingState
+        UnconnectedState = 1,
+        HostLookupState = 2,
+        ConnectingState = 3,
+        ConnectedState = 4,
+        BoundState = 5,
+        ListeningState = 6,
+        ClosingState = 7
     };
     Q_ENUMS(SocketState)
     enum SocketOption {
-        BroadcastSocketOption,             // SO_BROADCAST
-        AddressReusable,                   // SO_REUSEADDR
-        ReceiveOutOfBandData,              // SO_OOBINLINE
-        ReceivePacketInformation,          // IP_PKTINFO
-        ReceiveHopLimit,                   // IP_RECVTTL
-        LowDelayOption,                    // TCP_NODELAY
-        KeepAliveOption,                   // SO_KEEPALIVE
-        MulticastTtlOption,                // IP_MULTICAST_TTL
-        MulticastLoopbackOption,           // IP_MULTICAST_LOOPBACK
-        TypeOfServiceOption,               // IP_TOS
-        SendBufferSizeSocketOption,        // SO_SNDBUF
-        ReceiveBufferSizeSocketOption,     // SO_RCVBUF
-        MaxStreamsSocketOption,            // for sctp
-        NonBlockingSocketOption,
-        BindExclusively
+        BroadcastSocketOption = 1,              // SO_BROADCAST
+        AddressReusable = 2,                    // SO_REUSEADDR
+        ReceiveOutOfBandData = 3,               // SO_OOBINLINE
+        ReceivePacketInformation = 4,           // IP_PKTINFO
+        ReceiveHopLimit = 5,                    // IP_RECVTTL
+        LowDelayOption = 6,                     // TCP_NODELAY
+        KeepAliveOption = 7,                    // SO_KEEPALIVE
+        MulticastTtlOption = 8,                 // IP_MULTICAST_TTL
+        MulticastLoopbackOption = 9,            // IP_MULTICAST_LOOPBACK
+        TypeOfServiceOption = 10,               // IP_TOS
+        SendBufferSizeSocketOption = 11,        // SO_SNDBUF
+        ReceiveBufferSizeSocketOption = 12,     // SO_RCVBUF
+        MaxStreamsSocketOption = 13,            // for sctp
+        NonBlockingSocketOption = 14,
+        BindExclusively = 15
     };
     Q_ENUMS(SocketOption)
     enum BindFlag {
@@ -106,7 +105,7 @@ public:
     };
     Q_DECLARE_FLAGS(BindMode, BindFlag)
 public:
-    explicit Socket(NetworkLayerProtocol protocol = AnyIPProtocol, SocketType type = TcpSocket);
+    explicit Socket(NetworkLayerProtocol protocol = IPv4Protocol, SocketType type = TcpSocket);
     explicit Socket(qintptr socketDescriptor);
     virtual ~Socket();
 public:
@@ -127,7 +126,7 @@ public:
     bool bind(const QHostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool bind(quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool connect(const QHostAddress &host, quint16 port);
-    bool connect(const QString &hostName, quint16 port, NetworkLayerProtocol protocol = AnyIPProtocol);
+    bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>());
     void close();
     void abort();
     bool listen(int backlog);
@@ -149,7 +148,12 @@ public:
     qint32 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port);
 
     static QList<QHostAddress> resolve(const QString &hostName);
-    void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache);
+    static Socket *createConnection(const QHostAddress &host, quint16 port, Socket::SocketError *error = nullptr,
+                                  int allowProtocol = IPv4Protocol | IPv6Protocol);
+    static Socket *createConnection(const QString &hostName, quint16 port, Socket::SocketError *error = nullptr,
+                                  QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>(),
+                                  int allowProtocol = IPv4Protocol | IPv6Protocol);
+    static Socket *createServer(const QHostAddress &host, quint16 port, int backlog = 50);
 private:
     SocketPrivate * const dd_ptr;
     Q_DECLARE_PRIVATE_D(dd_ptr, Socket)

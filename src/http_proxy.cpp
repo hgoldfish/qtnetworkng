@@ -85,18 +85,15 @@ bool HttpProxy::operator==(const HttpProxy &other) const
         return buf;
     }
 #endif
-inline static QString join(QChar c, const QStringList &l) { return l.join(c); }
-inline static QString join(QChar c, const QList<QString> &l) { return QStringList(l).join(c); }
 
 
 QSharedPointer<Socket> HttpProxy::connect(const QString &remoteHost, quint16 port)
 {
-    Q_D(HttpProxy);
     if (remoteHost.isEmpty()) {
         return QSharedPointer<Socket>();
     }
-    QSharedPointer<Socket> connection(new Socket());
-    if (!connection->connect(d->hostName, d->port)) {
+    QSharedPointer<Socket> connection(Socket::createConnection(remoteHost, port));
+    if (connection.isNull()) {
         return QSharedPointer<Socket>();
     }
 

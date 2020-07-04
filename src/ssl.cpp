@@ -4,6 +4,7 @@
 #include "../include/locks.h"
 #include "../include/ssl.h"
 #include "../include/socket.h"
+#include "../include/private/socket_p.h"
 #include "../include/socket_utils.h"
 #include "../include/private/crypto_p.h"
 
@@ -1283,15 +1284,6 @@ bool SslSocketPrivate::isValid() const
 }
 
 
-SslSocket::SslSocket(const SslConfiguration &config)
-    : d_ptr(new SslSocketPrivate(config))
-{
-    Q_D(SslSocket);
-    d->rawSocket = asSocketLike(new Socket());
-    d->asServer = false;
-}
-
-
 SslSocket::SslSocket(Socket::NetworkLayerProtocol protocol, const SslConfiguration &config)
     :d_ptr(new SslSocketPrivate(config))
 {
@@ -1453,16 +1445,11 @@ QSharedPointer<SslSocket> SslSocket::accept()
 Socket *SslSocket::acceptRaw()
 {
     Q_D(SslSocket);
-    QSharedPointer<Socket> s = convertSocketLikeToSocket(d->rawSocket);
-    if (!s.isNull()) {
-        return s->accept();
-    } else {
-        return nullptr;
-    }
+    return d->rawSocket->acceptRaw();
 }
 
 
-bool SslSocket::bind(QHostAddress &address, quint16 port, Socket::BindMode mode)
+bool SslSocket::bind(const QHostAddress &address, quint16 port, Socket::BindMode mode)
 {
     Q_D(SslSocket);
     return d->rawSocket->bind(address, port, mode);
@@ -1486,10 +1473,10 @@ bool SslSocket::connect(const QHostAddress &addr, quint16 port)
 }
 
 
-bool SslSocket::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
+bool SslSocket::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
 {
     Q_D(SslSocket);
-    if (!d->rawSocket->connect(hostName, port, protocol)) {
+    if (!d->rawSocket->connect(hostName, port, dnsCache)) {
         return false;
     }
     return d->handshake(false, hostName);
@@ -1699,6 +1686,37 @@ qint32 SslSocket::sendall(const QByteArray &data)
 }
 
 
+QSharedPointer<SslSocket> SslSocket::createConnection(const QHostAddress &host, quint16 port,
+              const SslConfiguration &config, Socket::SocketError *error, int allowProtocol)
+{
+    std::function<SslSocket*(Socket::NetworkLayerProtocol)> func = [config] (Socket::NetworkLayerProtocol protocol) -> SslSocket * {
+        return new SslSocket(protocol, config);
+    };
+    return QSharedPointer<SslSocket>(QTNETWORKNG_NAMESPACE::createConnection<SslSocket>(host, port, error, allowProtocol, func));
+}
+
+
+QSharedPointer<SslSocket> SslSocket::createConnection(const QString &hostName, quint16 port,
+              const SslConfiguration &config, Socket::SocketError *error,
+              QSharedPointer<SocketDnsCache> dnsCache, int allowProtocol)
+{
+    std::function<SslSocket*(Socket::NetworkLayerProtocol)> func = [config] (Socket::NetworkLayerProtocol protocol) -> SslSocket * {
+        return new SslSocket(protocol, config);
+    };
+    return QSharedPointer<SslSocket>(QTNETWORKNG_NAMESPACE::createConnection<SslSocket>(hostName, port, error, dnsCache, allowProtocol, func));
+}
+
+
+QSharedPointer<SslSocket> SslSocket::createServer(const QHostAddress &host, quint16 port,
+                                                  const SslConfiguration &config, int backlog)
+{
+    std::function<SslSocket*(Socket::NetworkLayerProtocol)> func = [config] (Socket::NetworkLayerProtocol protocol) -> SslSocket * {
+        return new SslSocket(protocol, config);
+    };
+    return QSharedPointer<SslSocket>(QTNETWORKNG_NAMESPACE::createServer<SslSocket>(host, port, backlog, func));
+}
+
+
 namespace {
 
 class SocketLikeImpl: public SocketLike
@@ -1721,10 +1739,10 @@ public:
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
-    virtual bool bind(QHostAddress &address, quint16 port, Socket::BindMode mode) override;
+    virtual bool bind(const QHostAddress &address, quint16 port, Socket::BindMode mode) override;
     virtual bool bind(quint16 port, Socket::BindMode mode) override;
     virtual bool connect(const QHostAddress &addr, quint16 port) override;
-    virtual bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol) override;
+    virtual bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache) override;
     virtual void close() override;
     virtual void abort() override;
     virtual bool listen(int backlog) override;
@@ -1832,7 +1850,7 @@ QSharedPointer<SocketLike> SocketLikeImpl::accept()
 }
 
 
-bool SocketLikeImpl::bind(QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
+bool SocketLikeImpl::bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
 {
     return s->bind(address, port, mode);
 }
@@ -1850,9 +1868,9 @@ bool SocketLikeImpl::connect(const QHostAddress &addr, quint16 port)
 }
 
 
-bool SocketLikeImpl::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
+bool SocketLikeImpl::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
 {
-    return s->connect(hostName, port, protocol);
+    return s->connect(hostName, port, dnsCache);
 }
 
 
@@ -1977,10 +1995,10 @@ public:
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
-    virtual bool bind(QHostAddress &address, quint16 port, Socket::BindMode mode) override;
+    virtual bool bind(const QHostAddress &address, quint16 port, Socket::BindMode mode) override;
     virtual bool bind(quint16 port, Socket::BindMode mode) override;
     virtual bool connect(const QHostAddress &addr, quint16 port) override;
-    virtual bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol) override;
+    virtual bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache) override;
     virtual void close() override;
     virtual void abort() override;
     virtual bool listen(int backlog) override;
@@ -2102,7 +2120,7 @@ QSharedPointer<SocketLike> EncryptedSocketLike::accept()
 }
 
 
-bool EncryptedSocketLike::bind(QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
+bool EncryptedSocketLike::bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
 {
     return s->bind(address, port, mode);
 }
@@ -2120,9 +2138,9 @@ bool EncryptedSocketLike::connect(const QHostAddress &addr, quint16 port)
 }
 
 
-bool EncryptedSocketLike::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
+bool EncryptedSocketLike::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
 {
-    return s->connect(hostName, port, protocol);
+    return s->connect(hostName, port, dnsCache);
 }
 
 

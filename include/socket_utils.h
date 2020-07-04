@@ -33,10 +33,10 @@ public:
 
     virtual QSharedPointer<SocketLike> accept() = 0;
     virtual Socket *acceptRaw() = 0;
-    virtual bool bind(QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform) = 0;
+    virtual bool bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform) = 0;
     virtual bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform) = 0;
     virtual bool connect(const QHostAddress &addr, quint16 port) = 0;
-    virtual bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol) = 0;
+    virtual bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>()) = 0;
 //    virtual void close() override = 0;  // from FileLike
     virtual void abort() = 0;
     virtual bool listen(int backlog) = 0;

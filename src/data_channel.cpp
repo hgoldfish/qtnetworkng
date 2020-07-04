@@ -1111,10 +1111,10 @@ public:
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
-    virtual bool bind(QHostAddress &address, quint16 port, Socket::BindMode mode) override;
+    virtual bool bind(const QHostAddress &address, quint16 port, Socket::BindMode mode) override;
     virtual bool bind(quint16 port, Socket::BindMode mode) override;
     virtual bool connect(const QHostAddress &addr, quint16 port) override;
-    virtual bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol) override;
+    virtual bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache) override;
     virtual void abort() override;
     virtual bool listen(int backlog) override;
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
@@ -1287,7 +1287,7 @@ QSharedPointer<SocketLike> SocketLikeImpl::accept()
 }
 
 
-bool SocketLikeImpl::bind(QHostAddress &, quint16, Socket::BindMode)
+bool SocketLikeImpl::bind(const QHostAddress &, quint16, Socket::BindMode)
 {
     return false;
 }
@@ -1305,7 +1305,7 @@ bool SocketLikeImpl::connect(const QHostAddress &, quint16)
 }
 
 
-bool SocketLikeImpl::connect(const QString &, quint16, Socket::NetworkLayerProtocol)
+bool SocketLikeImpl::connect(const QString &, quint16, QSharedPointer<SocketDnsCache>)
 {
     return false;
 }

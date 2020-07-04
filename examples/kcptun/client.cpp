@@ -58,8 +58,8 @@ bool KcptunClient::start()
 
 void KcptunClient::handleRequest(QSharedPointer<Socket> request)
 {
-    QSharedPointer<KcpSocket> forward(new KcpSocket);
-    if (!forward->connect(configure.remoteAddress, configure.remotePort)) {
+    QSharedPointer<KcpSocket> forward = KcpSocket::createConnection(configure.remoteAddress, configure.remotePort);
+    if (forward.isNull()) {
         QString errorMessage = QCoreApplication::translate("main", "can not connect to remote host %1:%2");
         printf("%s", qPrintable(errorMessage.arg(configure.remoteAddress).arg(configure.remotePort)));
         request->close();

@@ -48,10 +48,10 @@ public:
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
-    virtual bool bind(QHostAddress &address, quint16 port, Socket::BindMode mode) override;
+    virtual bool bind(const QHostAddress &address, quint16 port, Socket::BindMode mode) override;
     virtual bool bind(quint16 port, Socket::BindMode mode) override;
     virtual bool connect(const QHostAddress &addr, quint16 port) override;
-    virtual bool connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol) override;
+    virtual bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>()) override;
     virtual void close() override;
     virtual void abort() override;
     virtual bool listen(int backlog) override;
@@ -165,7 +165,7 @@ QSharedPointer<SocketLike> SocketLikeImpl::accept()
 }
 
 
-bool SocketLikeImpl::bind(QHostAddress &address, quint16 port, Socket::BindMode mode)
+bool SocketLikeImpl::bind(const QHostAddress &address, quint16 port, Socket::BindMode mode)
 {
     return s->bind(address, port, mode);
 }
@@ -183,9 +183,9 @@ bool SocketLikeImpl::connect(const QHostAddress &addr, quint16 port)
 }
 
 
-bool SocketLikeImpl::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
+bool SocketLikeImpl::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
 {
-    return s->connect(hostName, port, protocol);
+    return s->connect(hostName, port, dnsCache);
 }
 
 

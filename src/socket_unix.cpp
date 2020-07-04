@@ -120,7 +120,7 @@ bool SocketPrivate::createSocket()
     qt_ignore_sigpipe();
     int flags = CREATE_FLAGS;
     int family = AF_INET;
-    if (protocol == Socket::IPv6Protocol || protocol == Socket::AnyIPProtocol) {
+    if (protocol == Socket::IPv6Protocol) {
         family = AF_INET6;
     }
     if (type == Socket::TcpSocket) {
@@ -129,10 +129,6 @@ bool SocketPrivate::createSocket()
         flags = SOCK_DGRAM | flags;
     }
     fd = socket(family, flags, 0);
-    if (fd < 0 && protocol == Socket::AnyIPProtocol && errno == EAFNOSUPPORT) {
-        fd = socket(AF_INET, flags, 0);
-        this->protocol = Socket::IPv4Protocol;
-    }
     if (fd < 0) {
         int ecopy = errno;
         switch(ecopy) {
@@ -180,12 +176,11 @@ namespace SetSALen {
 }
 
 
-void SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, int *sockAddrSize)
+bool SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, int *sockAddrSize)
 {
-    if (address.protocol() == QAbstractSocket::IPv6Protocol
-        || address.protocol() == QAbstractSocket::AnyIPProtocol
-        || protocol == Socket::IPv6Protocol
-        || protocol == Socket::AnyIPProtocol) {
+    if ((address.protocol() == QAbstractSocket::IPv6Protocol
+        || address.protocol() == QAbstractSocket::AnyIPProtocol)
+        && protocol == Socket::IPv6Protocol) {
         memset(&aa->a6, 0, sizeof(sockaddr_in6));
         aa->a6.sin6_family = AF_INET6;
         aa->a6.sin6_scope_id = scopeIdFromString(address.scopeId());
@@ -194,13 +189,20 @@ void SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address,
         memcpy(&aa->a6.sin6_addr, &tmp, sizeof(tmp));
         *sockAddrSize = sizeof(sockaddr_in6);
         SetSALen::set(&aa->a, sizeof(sockaddr_in6));
-    } else {
+        return true;
+    } else if ((address.protocol() == QAbstractSocket::IPv4Protocol
+                || address.protocol() == QAbstractSocket::AnyIPProtocol)
+               && protocol == Socket::IPv4Protocol){
         memset(&aa->a, 0, sizeof(sockaddr_in));
         aa->a4.sin_family = AF_INET;
         aa->a4.sin_port = htons(port);
-        aa->a4.sin_addr.s_addr = htonl(address.toIPv4Address());
+        bool ok;
+        aa->a4.sin_addr.s_addr = htonl(address.toIPv4Address(&ok));
         *sockAddrSize = sizeof(sockaddr_in);
         SetSALen::set(&aa->a, sizeof(sockaddr_in));
+        return ok;
+    } else {
+        return false;
     }
 }
 
@@ -228,7 +230,10 @@ bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::Bind
     qt_sockaddr aa;
     QT_SOCKLEN_T sockAddrSize;
     int t;
-    setPortAndAddress(port, address, &aa, &t);
+    if (!setPortAndAddress(port, address, &aa, &t)) {
+        setError(Socket::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
+        return false;
+    }
     sockAddrSize = static_cast<QT_SOCKLEN_T>(t);
 
     if(mode & Socket::ReuseAddressHint) {
@@ -236,9 +241,7 @@ bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::Bind
     }
 #ifdef IPV6_V6ONLY
     if (aa.a.sa_family == AF_INET6) {
-        int ipv6only = 0;
-        if (address.protocol() == QAbstractSocket::IPv6Protocol)
-            ipv6only = 1;
+        int ipv6only = 1;
         //default value of this socket option varies depending on unix variant (or system configuration on BSD), so always set it explicitly
         ::setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, static_cast<void*>(&ipv6only), sizeof(ipv6only) );
     }
@@ -291,8 +294,18 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
     qt_sockaddr aa;
     QT_SOCKLEN_T sockAddrSize;
     int t;
-    setPortAndAddress(port, address, &aa, &t);
+    if (!setPortAndAddress(port, address, &aa, &t)) {
+        setError(Socket::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
+        return false;
+    }
     sockAddrSize = static_cast<QT_SOCKLEN_T>(t);
+#ifdef IPV6_V6ONLY
+    if (protocol == Socket::IPv6Protocol) {
+        int ipv6only = 1;
+        //default value of this socket option varies depending on unix variant (or system configuration on BSD), so always set it explicitly
+        ::setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, static_cast<void*>(&ipv6only), sizeof(ipv6only) );
+    }
+#endif
     state = Socket::ConnectingState;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
     while (true) {
@@ -463,25 +476,6 @@ bool SocketPrivate::fetchConnectionParameters()
         setError(Socket::UnsupportedSocketOperationError, InvalidSocketErrorString);
         return false;
     }
-
-#if defined (IPV6_V6ONLY)
-    // determine if local address is dual mode
-    // On linux, these are returned as "::" (==AnyIPv6)
-    // On OSX, these are returned as "::FFFF:0.0.0.0" (==AnyIPv4)
-    // in either case, the IPV6_V6ONLY option is cleared
-    int ipv6only = 0;
-    socklen_t optlen = sizeof(ipv6only);
-    if (protocol == Socket::IPv6Protocol
-        && (localAddress == QHostAddress::AnyIPv4 || localAddress == QHostAddress::AnyIPv6)
-        && !getsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, reinterpret_cast<char*>(&ipv6only), &optlen )) {
-            if (optlen != sizeof(ipv6only))
-                qWarning("unexpected size of IPV6_V6ONLY socket option");
-            if (!ipv6only) {
-                protocol = Socket::AnyIPProtocol;
-                localAddress = QHostAddress::Any;
-            }
-    }
-#endif
 
     // Determine the remote address
     if (!::getpeername(fd, &sa.a, &sockAddrSize))
@@ -728,17 +722,20 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
     qt_sockaddr aa;
     QT_SOCKLEN_T len;
 
-    memset(&msg, 0, sizeof(msg));
+    int t;
     memset(&aa, 0, sizeof(aa));
+    if (!setPortAndAddress(port, addr, &aa, &t)) {
+        setError(Socket::UnsupportedSocketOperationError, ProtocolUnsupportedErrorString);
+        return -1;
+    }
+    len = static_cast<QT_SOCKLEN_T>(t);
+
+    memset(&msg, 0, sizeof(msg));
     vec.iov_base = const_cast<char *>(data);
     vec.iov_len = static_cast<size_t>(size);
     msg.msg_iov = &vec;
     msg.msg_iovlen = 1;
     msg.msg_name = &aa.a;
-
-    int t;
-    setPortAndAddress(port, addr, &aa, &t);
-    len = static_cast<QT_SOCKLEN_T>(t);
     msg.msg_namelen = len;
 
     ssize_t sentBytes = 0;
@@ -829,21 +826,19 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         *n = SO_KEEPALIVE;
         break;
     case Socket::MulticastTtlOption:
-        if (socketProtocol == Socket::IPv6Protocol || socketProtocol == Socket::AnyIPProtocol) {
+        if (socketProtocol == Socket::IPv6Protocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_MULTICAST_HOPS;
-        } else
-        {
+        } else {
             *level = IPPROTO_IP;
             *n = IP_MULTICAST_TTL;
         }
         break;
     case Socket::MulticastLoopbackOption:
-        if (socketProtocol == Socket::IPv6Protocol || socketProtocol == Socket::AnyIPProtocol) {
+        if (socketProtocol == Socket::IPv6Protocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_MULTICAST_LOOP;
-        } else
-        {
+        } else {
             *level = IPPROTO_IP;
             *n = IP_MULTICAST_LOOP;
         }
@@ -855,10 +850,10 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         }
         break;
     case Socket::ReceivePacketInformation:
-        if (socketProtocol == Socket::IPv6Protocol || socketProtocol == Socket::AnyIPProtocol) {
+        if (socketProtocol == Socket::IPv6Protocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_RECVPKTINFO;
-        } else if (socketProtocol == Socket::IPv4Protocol) {
+        } else {
             *level = IPPROTO_IP;
 #ifdef IP_PKTINFO
             *n = IP_PKTINFO;
@@ -870,10 +865,10 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         }
         break;
     case Socket::ReceiveHopLimit:
-        if (socketProtocol == Socket::IPv6Protocol || socketProtocol == Socket::AnyIPProtocol) {
+        if (socketProtocol == Socket::IPv6Protocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_RECVHOPLIMIT;
-        } else if (socketProtocol == Socket::IPv4Protocol) {
+        } else {
 #ifdef IP_RECVTTL               // IP_RECVTTL is a non-standard extension supported on some OS
             *level = IPPROTO_IP;
             *n = IP_RECVTTL;

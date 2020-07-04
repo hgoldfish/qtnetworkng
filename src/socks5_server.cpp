@@ -185,17 +185,17 @@ bool Socks5RequestHandlerPrivate::parseAddress(QString *hostName, QHostAddress *
 void Socks5RequestHandlerPrivate::handleConnectCommand(const QString &hostName, const QHostAddress &addr, quint16 port)
 {
     Q_Q(Socks5RequestHandler);
-    QSharedPointer<Socket> forward(new Socket);
+    QSharedPointer<Socket> forward;
     if (!hostName.isEmpty()) {
-        bool ok = forward->connect(hostName, port);
-        if (!ok) {
+        forward.reset(Socket::createConnection(hostName, port));
+        if (!forward.isNull()) {
             q->sendFailedReply();
             q->log(hostName, addr, port, false);
             return;
         }
     } else if (!addr.isNull()) {
-        bool ok = forward->connect(addr, port);
-        if (!ok) {
+        forward.reset(Socket::createConnection(addr, port));
+        if (!forward.isNull()) {
             q->sendFailedReply();
             q->log(hostName, addr, port, false);
             return;

@@ -89,15 +89,16 @@ public:
 
 QSharedPointer<Socket> Socks5ProxyPrivate::getControlSocket() const
 {
-    QSharedPointer<Socket> s(new Socket);
-    if(!s->connect(hostName, port)) {
-        if(s->error() == Socket::HostNotFoundError) {
+    Socket::SocketError error;
+    QSharedPointer<Socket> s(Socket::createConnection(hostName, port, &error));
+    if(s.isNull()) {
+        if(error == Socket::HostNotFoundError) {
             throw Socks5Exception(Socks5Exception::ProxyNotFoundError);
-        } else if(s->error() == Socket::RemoteHostClosedError) {
+        } else if(error == Socket::RemoteHostClosedError) {
             throw Socks5Exception(Socks5Exception::ProxyConnectionClosedError);
-        } else if(s->error() == Socket::ConnectionRefusedError) {
+        } else if(error == Socket::ConnectionRefusedError) {
             throw Socks5Exception(Socks5Exception::ProxyConnectionRefusedError);
-        } else if(s->error() == Socket::SocketTimeoutError) {
+        } else if(error == Socket::SocketTimeoutError) {
             throw Socks5Exception(Socks5Exception::ProxyConnectionTimeoutError);
         } else {
             throw Socks5Exception(Socks5Exception::ProxyProtocolError);

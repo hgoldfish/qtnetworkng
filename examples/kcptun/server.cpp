@@ -58,8 +58,8 @@ bool KcptunServer::start()
 
 void KcptunServer::handleRequest(QSharedPointer<KcpSocket> request)
 {
-    QSharedPointer<Socket> forward(new Socket);
-    if (!forward->connect(configure.targetAddress, configure.targetPort)) {
+    QSharedPointer<Socket> forward(Socket::createConnection(configure.targetAddress, configure.targetPort));
+    if (forward.isNull()) {
         QString errorMessage = QCoreApplication::translate("main", "can not connect to target %1:%2");
         printf("%s", qPrintable(errorMessage.arg(configure.targetAddress).arg(configure.targetPort)));
         request->close();

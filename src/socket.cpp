@@ -40,7 +40,7 @@ SocketPrivate::SocketPrivate(qintptr socketDescriptor, Socket *parent)
     if (!checkState())
         return;
     // FIXME determine the type and state of socket
-    protocol = Socket::AnyIPProtocol;
+    protocol = Socket::IPv4Protocol;
     type = Socket::TcpSocket;
     state = Socket::ConnectedState;
     fetchConnectionParameters();
@@ -61,52 +61,6 @@ SocketPrivate::~SocketPrivate()
 bool SocketPrivate::bind(quint16 port, Socket::BindMode mode)
 {
     return bind(QHostAddress(QHostAddress::Any), port, mode);
-}
-
-
-bool SocketPrivate::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
-{
-    if (state != Socket::UnconnectedState && state != Socket::BoundState) {
-        return false;
-    }
-    Socket::SocketState oldState = state;
-    state = Socket::HostLookupState;
-    QList<QHostAddress> addresses;
-    QHostAddress t;
-    if (t.setAddress(hostName)) {
-        addresses.append(t);
-    } else {
-        if (dnsCache.isNull()) {
-            addresses = Socket::resolve(hostName);
-        } else {
-            addresses = dnsCache->resolve(hostName);
-        }
-    }
-
-    if (addresses.isEmpty()) {
-        state = oldState;
-        setError(Socket::HostNotFoundError, QStringLiteral("Host not found."));
-        return false;
-    }
-    bool done = true;
-    state = oldState;
-    for (int i = 0; i < addresses.size(); ++i) {
-        const QHostAddress &addr = addresses.at(i);
-        if(protocol == Socket::IPv4Protocol && addr.protocol() != QAbstractSocket::IPv4Protocol) {
-            continue;
-        }
-        if(protocol == Socket::IPv6Protocol && addr.protocol() != QAbstractSocket::IPv6Protocol) {
-            continue;
-        }
-        done = connect(addr, port);
-        if(done)
-            return true;
-    }
-    if (error == Socket::NoError) {
-        setError(Socket::HostNotFoundError, QStringLiteral("Host not found."));
-    }
-    state = oldState;
-    return false;
 }
 
 
@@ -218,6 +172,52 @@ void SocketPrivate::setError(Socket::SocketError error, ErrorString errorString)
 QString SocketPrivate::getErrorString() const
 {
     return errorString;
+}
+
+
+bool SocketPrivate::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
+{
+    if (state != Socket::UnconnectedState && state != Socket::BoundState) {
+        return false;
+    }
+    Socket::SocketState oldState = state;
+    state = Socket::HostLookupState;
+    QList<QHostAddress> addresses;
+    QHostAddress t;
+    if (t.setAddress(hostName)) {
+        addresses.append(t);
+    } else {
+        if (dnsCache.isNull()) {
+            addresses = Socket::resolve(hostName);
+        } else {
+            addresses = dnsCache->resolve(hostName);
+        }
+    }
+
+    if (addresses.isEmpty()) {
+        state = oldState;
+        setError(Socket::HostNotFoundError, QStringLiteral("Host not found."));
+        return false;
+    }
+    bool done = false;
+    for (int i = 0; i < addresses.size(); ++i) {
+        const QHostAddress &addr = addresses.at(i);
+        if (protocol == Socket::IPv4Protocol && addr.protocol() == QAbstractSocket::IPv6Protocol) {
+            continue;
+        }
+        if (protocol == Socket::IPv6Protocol && addr.protocol() == QAbstractSocket::IPv4Protocol) {
+            continue;
+        }
+        state = oldState;
+        done = connect(addr, port);
+        if (done)
+            return true;
+    }
+    if (error == Socket::NoError) {  // and done must be false!
+        setError(Socket::UnsupportedSocketOperationError, QStringLiteral("No host with protocol(%1) not found.").arg(static_cast<int>(protocol)));
+    }
+    state = oldState;
+    return false;
 }
 
 
@@ -364,14 +364,14 @@ bool Socket::connect(const QHostAddress &host, quint16 port)
 }
 
 
-bool Socket::connect(const QString &hostName, quint16 port, Socket::NetworkLayerProtocol protocol)
+bool Socket::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
 {
     Q_D(Socket);
     ScopedLock<Lock> lock(d->writeLock);
     if (!lock.isSuccess()) {
         return false;
     }
-    return d->connect(hostName, port, protocol);
+    return d->connect(hostName, port, dnsCache);
 }
 
 
@@ -604,10 +604,22 @@ QList<QHostAddress> Socket::resolve(const QString &hostName)
 }
 
 
-void Socket::setDnsCache(QSharedPointer<SocketDnsCache> dnsCache)
+Socket *Socket::createConnection(const QHostAddress &host, quint16 port, Socket::SocketError *error, int allowProtocol)
 {
-    Q_D(Socket);
-    d->dnsCache = dnsCache;
+    return QTNETWORKNG_NAMESPACE::createConnection<Socket>(host, port, error, allowProtocol, MakeSocketType<Socket>);
+}
+
+
+Socket *Socket::createConnection(const QString &hostName, quint16 port, Socket::SocketError *error,
+                                  QSharedPointer<SocketDnsCache> dnsCache, int allowProtocol)
+{
+    return QTNETWORKNG_NAMESPACE::createConnection<Socket>(hostName, port, error, dnsCache, allowProtocol, MakeSocketType<Socket>);
+}
+
+
+Socket *Socket::createServer(const QHostAddress &host, quint16 port, int backlog)
+{
+    return QTNETWORKNG_NAMESPACE::createServer<Socket>(host, port, backlog, MakeSocketType<Socket>);
 }
 
 

@@ -90,11 +90,14 @@ BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *prev
 {
     if(stackSize) {
 #ifdef Q_OS_UNIX
-#ifdef MAP_GROWSDOWN
-        stack = mmap(nullptr, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
-#else
-        stack = mmap(nullptr, this->stackSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        int flags = MAP_PRIVATE | MAP_ANONYMOUS;
+#ifdef MAP_STACK
+        flags |= MAP_STACK;
 #endif
+#ifdef MAP_GROWSDOWN
+        flags |= MAP_GROWSDOWN;
+#endif
+        stack = mmap(nullptr, this->stackSize, PROT_READ | PROT_WRITE, flags, -1, 0);
 #else
         stack = operator new(stackSize);
 #endif

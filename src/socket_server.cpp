@@ -355,7 +355,12 @@ bool BaseSslServer::isSecure() const
 QSharedPointer<SocketLike> BaseSslServer::serverCreate()
 {
     Q_D(BaseSslServer);
-    return asSocketLike(QSharedPointer<SslSocket>::create(d->configuration));
+    QAbstractSocket::NetworkLayerProtocol protocol = serverAddress().protocol();
+    if (protocol == QAbstractSocket::IPv6Protocol || protocol == QAbstractSocket::AnyIPProtocol) {
+        return asSocketLike(new SslSocket(Socket::IPv6Protocol, d->configuration));
+    } else {
+        return asSocketLike(new SslSocket(Socket::IPv4Protocol, d->configuration));
+    }
 }
 
 
