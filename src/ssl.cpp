@@ -1427,15 +1427,15 @@ void SslSocket::setSslConfiguration(const SslConfiguration &configuration)
 }
 
 
-QSharedPointer<SslSocket> SslSocket::accept()
+SslSocket *SslSocket::accept()
 {
     Q_D(SslSocket);
     while (true) {
         QSharedPointer<SocketLike> rawSocket = d->rawSocket->accept();
         if (rawSocket) {
-            QSharedPointer<SslSocket> s(new SslSocket(rawSocket, d->config));
+            QScopedPointer<SslSocket> s(new SslSocket(rawSocket, d->config));
             if (s->d_func()->handshake(true, QString())) {
-                return s;
+                return s.take();
             }
         }
     }
@@ -1686,34 +1686,34 @@ qint32 SslSocket::sendall(const QByteArray &data)
 }
 
 
-QSharedPointer<SslSocket> SslSocket::createConnection(const QHostAddress &host, quint16 port,
+SslSocket *SslSocket::createConnection(const QHostAddress &host, quint16 port,
               const SslConfiguration &config, Socket::SocketError *error, int allowProtocol)
 {
     std::function<SslSocket*(Socket::NetworkLayerProtocol)> func = [config] (Socket::NetworkLayerProtocol protocol) -> SslSocket * {
         return new SslSocket(protocol, config);
     };
-    return QSharedPointer<SslSocket>(QTNETWORKNG_NAMESPACE::createConnection<SslSocket>(host, port, error, allowProtocol, func));
+    return QTNETWORKNG_NAMESPACE::createConnection<SslSocket>(host, port, error, allowProtocol, func);
 }
 
 
-QSharedPointer<SslSocket> SslSocket::createConnection(const QString &hostName, quint16 port,
+SslSocket *SslSocket::createConnection(const QString &hostName, quint16 port,
               const SslConfiguration &config, Socket::SocketError *error,
               QSharedPointer<SocketDnsCache> dnsCache, int allowProtocol)
 {
     std::function<SslSocket*(Socket::NetworkLayerProtocol)> func = [config] (Socket::NetworkLayerProtocol protocol) -> SslSocket * {
         return new SslSocket(protocol, config);
     };
-    return QSharedPointer<SslSocket>(QTNETWORKNG_NAMESPACE::createConnection<SslSocket>(hostName, port, error, dnsCache, allowProtocol, func));
+    return QTNETWORKNG_NAMESPACE::createConnection<SslSocket>(hostName, port, error, dnsCache, allowProtocol, func);
 }
 
 
-QSharedPointer<SslSocket> SslSocket::createServer(const QHostAddress &host, quint16 port,
+SslSocket *SslSocket::createServer(const QHostAddress &host, quint16 port,
                                                   const SslConfiguration &config, int backlog)
 {
     std::function<SslSocket*(Socket::NetworkLayerProtocol)> func = [config] (Socket::NetworkLayerProtocol protocol) -> SslSocket * {
         return new SslSocket(protocol, config);
     };
-    return QSharedPointer<SslSocket>(QTNETWORKNG_NAMESPACE::createServer<SslSocket>(host, port, backlog, func));
+    return QTNETWORKNG_NAMESPACE::createServer<SslSocket>(host, port, backlog, func);
 }
 
 

@@ -100,6 +100,7 @@ class ValueEvent
 {
 public:
     ValueEvent() {}
+    ~ValueEvent() {}
     void send(const Value &value);
     Value wait(bool blocking = true);
     void set() { event.set(); }

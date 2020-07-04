@@ -39,7 +39,7 @@ QtNetworkNg is a coroutine-based network toolkit, like boost::asio but uses conc
         return 0;
     }
     
-And another example to make tcp connection.
+And another example to make IPv4 tcp connection.
 
 .. code-block:: c++
     
@@ -54,13 +54,13 @@ And another example to make tcp connection.
         return 0;
     }
 
-To create tcp server.
+To create IPv4 tcp server.
 
 .. code-block:: c++
     
     Socket s;
     CoroutineGroup workers;
-    s.bind(QHostAddress::Any, 8000);
+    s.bind(QHostAddress::AnyIPv4, 8000);
     s.listen(100);
     while(true) {
         QSharedPointer<Socket> request(s.accept());

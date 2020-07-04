@@ -281,8 +281,13 @@ Create Socket client
 .. code-block:: c++
     :caption: connect to remote host
     
-    Socket s(Socket::AnyIPProtocol, Socket::TcpSocket);
+    // only for ipv4
+    Socket s(Socket::IPv4Protocol, Socket::TcpSocket);
     bool ok = s.connect(remoteHost, 80);
+    
+    // auto detect ipv4/ipv6 host.
+    QScopedPointer<Socket> s(Socket::createConnection(remoteHost, 80));
+    bool ok = !s.isNull();
     
     Socket s(socketDescriptor); // socketDescriptor is set to nonblocking.
     bool ok = s.connect(remoteHost, 80);
@@ -292,9 +297,15 @@ The ``SslSocket`` has similar constructors which accpet an extra ``SslConfigurat
 .. code-block:: c++
     :caption: connect to remote ssl server.
     
+    // only for ipv4
     SslConfiguration config;
-    SslSocket s(Socket::AnyIPProtocol, config);
+    SslSocket s(Socket::IPv4Protocol, config);
     bool ok = s.connect(remoteHost, 443);
+    
+    // auto detect ipv4/ipv6 host
+    SslConfiguration config;
+    QScopedPointer<SslSocket> s(SslSocket::createConnection(remoteHost, 443, config));
+    bool ok = !s.isNull();
     
     SslSocket s(socketDescriptor, config);
     bool ok = s.connect(remoteHost, 443);
@@ -308,12 +319,10 @@ Combine ``Socket`` and ``Coroutine``, you can create socket server in few lines 
 .. code-block:: c++
     :caption: tcp server
     
-    Socket s;
+    QScopedPointer<Socket> s(Socket::createServer(QHostAddress::AnyIPv4, 8000, 100));
     CoroutineGroup operations;
-    s.bind(8000);
-    s.listen(100);
     while(true) {
-        QSharedPointer<Socket> request(s.accept());
+        QSharedPointer<Socket> request(s->accept());
         if(request.isNull()) {
             break;
         }
@@ -358,17 +367,23 @@ The most common method to send data to HTTP server is making HTTP POST form data
     
     FormData data;
     data.addQuery("name", "fish");
+    data.addFile("file", "filename.txt", QByteArray("file content"));
     HttpResponse resp = session.post(url, data.toByteArray());
     
 Or send json data.
 
 .. code-block:: c++
-    :caption: post file
+    :caption: post json
     
     QJsonObject obj;
     obj.insert("name", "fish");
     HttpResponse resp = session.post(url, obj);
     
+
+With headers:
+
+.. code-block:: c++
+    :caption post 
     
 Get data from ``HttpResponse``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -379,18 +394,19 @@ Get data from ``HttpResponse``
     :caption: get response information
 
     HttpResponse resp = session.get(url);
+    qDebug() << resp.isOk();  // return true if there is no error
     qDebug() << resp.getContentType();  // the content type of response.
-    qDebug() << resp.statusCode;  // the status code of response: 200
-    qDebug() << resp.statusText;  // the status text of response: OK
+    qDebug() << resp.statusCode();  // the status code of response: 200
+    qDebug() << resp.statusText();  // the status text of response: OK
     
 ``HttpResponse`` can handle many data types.
 
 .. code-block:: c++
     :caption: get response content
 
-    qDebug() << resp.text();  // as QString
+    qDebug() << resp.text();  // as UTF8 QString
     qDebug() << resp.json();  // as QJsonDocument
-    qDebug() << resp.html();  // as QString
+    qDebug() << resp.html();  // as UTF8 QString
     qDebug() << resp.body();  // as QByteArray
 
 

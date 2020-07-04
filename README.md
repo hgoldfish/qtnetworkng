@@ -43,7 +43,7 @@ Here comes a simple example to get web pages.
         return 0;
     }
     
-And another exmaple to make tcp connection.
+And another exmaple to make IPv4 tcp connection.
 
     #include "qtnetworkng.h"
     
@@ -56,7 +56,7 @@ And another exmaple to make tcp connection.
         return 0;
     }
 
-To create tcp server.
+To create IPv4 tcp server.
 
     Socket s;
     CoroutineGroup workers;
