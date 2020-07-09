@@ -89,10 +89,11 @@ bool HttpProxy::operator==(const HttpProxy &other) const
 
 QSharedPointer<Socket> HttpProxy::connect(const QString &remoteHost, quint16 port)
 {
+    Q_D(HttpProxy);
     if (remoteHost.isEmpty()) {
         return QSharedPointer<Socket>();
     }
-    QSharedPointer<Socket> connection(Socket::createConnection(remoteHost, port));
+    QSharedPointer<Socket> connection(Socket::createConnection(d->hostName, d->port));
     if (connection.isNull()) {
         return QSharedPointer<Socket>();
     }
