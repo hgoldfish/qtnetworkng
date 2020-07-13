@@ -45,7 +45,7 @@ bool KcptunServer::start()
     }
     s.listen(50);
     while (true) {
-        QSharedPointer<KcpSocket> r = s.accept();
+        QSharedPointer<KcpSocket> r(s.accept());
         if (r.isNull()) {
             return true;
         }
