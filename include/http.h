@@ -117,8 +117,8 @@ public:
     void setVersion(HttpVersion version);
     void setStreamResponse(bool streamResponse);
     bool streamResponse() const;
-    float timeout() const;
-    void setTimeout(float timeout);
+    float connectionTimeout() const;
+    void setConnectionTimeout(float connectionTimeout);
     QSharedPointer<SocketLike> connection() const;
     void useConnection(QSharedPointer<SocketLike> connection);
 public:
@@ -352,6 +352,8 @@ public:
     void setDefaultVersion(HttpVersion defaultVersion);
     float defaultConnnectionTimeout() const;
     void setDefaultConnectionTimeout(float timeout);
+    void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache);
+    QSharedPointer<SocketDnsCache> dnsCache() const;
 
     QSharedPointer<Socks5Proxy> socks5Proxy() const;
     void setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy);

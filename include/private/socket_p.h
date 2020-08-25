@@ -3,6 +3,7 @@
 
 #include <QtCore/qsharedpointer.h>
 #include <QtCore/qstring.h>
+#include <QtCore/qelapsedtimer.h>
 #include <QtCore/qbytearray.h>
 #include <QtNetwork/qhostaddress.h>
 #include "../socket.h"
@@ -162,7 +163,6 @@ SocketType *createConnection(const QString &hostName, quint16 port, Socket::Sock
         }
         return nullptr;
     }
-    bool done = true;
     for (int i = 0; i < addresses.size(); ++i) {
         const QHostAddress &addr = addresses.at(i);
         SocketType *socket = createConnection<SocketType>(addr, port, error, allowProtocol, func);
@@ -196,6 +196,7 @@ SocketType *createServer(const QHostAddress &host, quint16 port, int backlog,
         }
     }
     if (backlog > 0) {
+        socket->setOption(Socket::AddressReusable, true);
         if (!socket->bind(host, port)) {
             delete socket;
             return nullptr;

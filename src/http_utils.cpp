@@ -523,7 +523,7 @@ QByteArray HeaderOperationMixin::header(const QString &headerName, const QByteAr
 {
     for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
-        if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
+        if (header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
             return header.value;
         }
     }
