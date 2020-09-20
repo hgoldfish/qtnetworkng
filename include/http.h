@@ -45,13 +45,15 @@ public:
         queries.append(Query(key, value));
     }
 public:
-    struct Query {
+    struct Query
+    {
         Query(const QString &name, const QString &value)
             : name(name), value(value) {}
         QString name;
         QString value;
     };
-    struct File {
+    struct File
+    {
         File(const QString &name, const QString &filename, const QByteArray &data, const QString &contentType)
             : name(name), filename(filename), data(data), contentType(contentType) {}
         QString name;
@@ -119,6 +121,8 @@ public:
     bool streamResponse() const;
     float connectionTimeout() const;
     void setConnectionTimeout(float connectionTimeout);
+    float timeout() const;
+    void setTimeout(float timeout);
     QSharedPointer<SocketLike> connection() const;
     void useConnection(QSharedPointer<SocketLike> connection);
 public:
@@ -352,6 +356,8 @@ public:
     void setDefaultVersion(HttpVersion defaultVersion);
     float defaultConnnectionTimeout() const;
     void setDefaultConnectionTimeout(float timeout);
+    float defaultTimeout() const;
+    void setDefaultTimeout(float defaultTimeout);
     void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache);
     QSharedPointer<SocketDnsCache> dnsCache() const;
 

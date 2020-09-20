@@ -6,6 +6,7 @@
 #include <QtCore/qendian.h>
 #include <QtCore/qdatastream.h>
 #include <QtCore/qcryptographichash.h>
+#include <QtCore/qelapsedtimer.h>
 #include "../include/private/http_p.h"
 #include "../include/socks5_proxy.h"
 #ifdef QTNG_HAVE_ZLIB
@@ -105,6 +106,7 @@ public:
     int maxBodySize;
     int maxRedirects;
     float connectionTimeout;
+    float timeout;
     HttpRequest::Priority priority;
     HttpVersion version;
     bool streamResponse;
@@ -116,6 +118,7 @@ HttpRequestPrivate::HttpRequestPrivate()
     , maxBodySize(0)
     , maxRedirects(8)
     , connectionTimeout(-1.0)
+    , timeout(-1.0)
     , priority(HttpRequest::NormalPriority)
     , version(Unknown)
     , streamResponse(false)
@@ -327,6 +330,18 @@ float HttpRequest::connectionTimeout() const
 void HttpRequest::setConnectionTimeout(float connectionTimeout)
 {
     d->connectionTimeout = connectionTimeout;
+}
+
+
+float HttpRequest::timeout() const
+{
+    return d->timeout;
+}
+
+
+void HttpRequest::setTimeout(float timeout)
+{
+    d->timeout = timeout;
 }
 
 
@@ -792,6 +807,7 @@ ConnectionPool::ConnectionPool()
     : maxConnectionsPerServer(5)
     , timeToLive(60)
     , defaultConnectionTimeout(10.0)
+    , defaultTimeout(20.0)
     , dnsCache(new SocketDnsCache)
     , operations(new CoroutineGroup)
     , proxySwitcher(new SimpleProxySwitcher)
@@ -1016,7 +1032,7 @@ RequestError *toRequestError(HeaderSplitter::Error error)
     }
 #endif
 inline static QString join(QChar c, const QStringList &l) { return l.join(c); }
-inline static QString join(QChar c, const QList<QString> &l) { return QStringList(l).join(c); }
+//inline static QString join(QChar c, const QList<QString> &l) { return QStringList(l).join(c); }
 
 
 HttpResponse HttpSessionPrivate::send(HttpRequest &request)
@@ -1032,6 +1048,13 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             qDebug() << "invalid scheme" << url.scheme();
         }
         response.setError(new InvalidScheme());
+        return response;
+    }
+    if (request.d->method.isEmpty()) {
+        if (debugLevel > 0) {
+            qDebug() << "empty method";
+        }
+        response.setError(new InvalidHeader());
         return response;
     }
     if (!request.d->query.isEmpty()) {
@@ -1171,7 +1194,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         response.setError(new InvalidHeader());
         return response;
     }
-    response.d->statusText = join(' ', commands.mid(2));
+    response.d->statusText = join(QChar(' '), commands.mid(2));
 
     // parse headers.
     const int MaxHeaders = 64;
@@ -2661,14 +2684,27 @@ inline bool isRedirect(int httpCode)
 HttpResponse HttpSession::send(HttpRequest &request)
 {
     Q_D(HttpSession);
-    HttpResponse response = d->send(request);
-    QList<HttpResponse> history;
+    float requestTimeout = request.timeout() < 0 ? d->defaultTimeout : request.timeout();
+    QElapsedTimer timer;
+    timer.start();
 
+    HttpResponse response;
+    QList<HttpResponse> history;
+    Timeout tiemout(requestTimeout);
+    try {
+        response = d->send(request);
+    } catch (TimeoutException &) {
+        response.setUrl(request.url());
+        response.setError(new class RequestTimeout());
+        response.setElapsed(timer.elapsed());
+        return response;
+    }
     if (request.maxRedirects() > 0 && request.connection().isNull()) {
         int tries = 0;
         while (response.isOk() && isRedirect(response.statusCode())) {
             if (tries > request.maxRedirects()) {
                 response.setError(new TooManyRedirects());
+                response.setElapsed(timer.elapsed());
                 return response;
             }
             HttpRequest newRequest;
@@ -2692,13 +2728,23 @@ HttpResponse HttpSession::send(HttpRequest &request)
                 response.setError(new InvalidURL());
                 return response;
             }
-            HttpResponse newResponse = d->send(newRequest);
-            history.append(response);
-            response = newResponse;
-            ++tries;
+            try {
+                HttpResponse newResponse = d->send(newRequest);
+                history.append(response);
+                response = newResponse;
+                ++tries;
+            } catch (TimeoutException &) {
+                HttpResponse newResponse;
+                newResponse.setUrl(newRequest.url());
+                newResponse.setError(new class RequestTimeout());
+                history.append(response);
+                response = newResponse;
+                break;
+            }
         }
     }
     response.setHistory(history);
+    response.setElapsed(timer.elapsed());
     return response;
 }
 
@@ -2817,6 +2863,20 @@ void HttpSession::setDefaultConnectionTimeout(float timeout)
 {
     Q_D(HttpSession);
     d->defaultConnectionTimeout = timeout;
+}
+
+
+float HttpSession::defaultTimeout() const
+{
+    Q_D(const HttpSession);
+    return d->defaultTimeout;
+}
+
+
+void HttpSession::setDefaultTimeout(float defaultTimeout)
+{
+    Q_D(HttpSession);
+    d->defaultTimeout = defaultTimeout;
 }
 
 

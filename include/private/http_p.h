@@ -44,6 +44,7 @@ public:
     int maxConnectionsPerServer;
     int timeToLive;
     float defaultConnectionTimeout;
+    float defaultTimeout;
     QSharedPointer<SocketDnsCache> dnsCache;
     CoroutineGroup *operations;
     QSharedPointer<BaseProxySwitcher> proxySwitcher;

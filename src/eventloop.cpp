@@ -597,7 +597,7 @@ void TimeoutException::raise()
 
 
 Timeout::Timeout(float secs)
-    : msecs(static_cast<quint32>(secs * 1000)), timeoutId(0)
+    : msecs(static_cast<quint32>((secs > 0.0f ? secs: 0.0f) * 1000)), timeoutId(0)
 {
     if (msecs) {
         restart();
