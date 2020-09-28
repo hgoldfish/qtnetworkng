@@ -370,6 +370,7 @@ void SimpleHttpRequestHandler::doGET()
     }
 }
 
+
 void SimpleHttpRequestHandler::doHEAD()
 {
     QSharedPointer<FileLike> f = serveStaticFiles();
@@ -386,7 +387,7 @@ QSharedPointer<FileLike> SimpleHttpRequestHandler::serveStaticFiles()
 #ifdef DEBUG_HTTP_PROTOCOL
     qDebug() << "serve path" << url.path() << fileInfo.absoluteFilePath();
 #endif
-    if (!fileInfo.exists()) {
+    if (!fileInfo.exists() && !onFileMissing(fileInfo)) {
         sendError(HttpStatus::NotFound, "File not found");
         return QSharedPointer<FileLike>();
     }
@@ -405,6 +406,9 @@ QSharedPointer<FileLike> SimpleHttpRequestHandler::serveStaticFiles()
                 fileInfo = dir.filePath("index.html");
             } else if (dir.exists("index.htm")) {
                 fileInfo = dir.filePath("index.htm");
+            } else if (!enableDirectoryListing) {
+                sendError(HttpStatus::NotFound, QStringLiteral("File Not Found"));
+                return QSharedPointer<FileLike>();
             } else {
                 return listDirectory(dir, p);
             }
@@ -522,6 +526,13 @@ QFileInfo SimpleHttpRequestHandler::translatePath(const QString &path)
     }
     QString normalPath = l.join("/");
     return QFileInfo(rootDir, normalPath);
+}
+
+
+
+bool SimpleHttpRequestHandler::onFileMissing(const QFileInfo &)
+{
+    return false;
 }
 
 

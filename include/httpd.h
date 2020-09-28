@@ -63,7 +63,10 @@ class SimpleHttpRequestHandler: public BaseHttpRequestHandler
 {
 public:
     SimpleHttpRequestHandler()
-        :BaseHttpRequestHandler(), rootDir(QDir::current()) {}
+        : BaseHttpRequestHandler()
+        , rootDir(QDir::current())
+        , enableDirectoryListing(true)
+    {}
 public:
     void setRootDir(const QDir &rootDir) { this->rootDir = rootDir; }
 protected:
@@ -74,7 +77,10 @@ protected:
     void sendFile(QSharedPointer<FileLike> f);
     QFileInfo translatePath(const QString &path);
 protected:
+    virtual bool onFileMissing(const QFileInfo &fileInfo);
+protected:
     QDir rootDir;
+    bool enableDirectoryListing;
 };
 
 

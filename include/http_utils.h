@@ -129,6 +129,7 @@ public:
         MIMEVersionHeader,
         ConnectionHeader,
         UpgradeHeader,
+        HostHeader,
     };
 
     void setContentType(const QString &contentType);

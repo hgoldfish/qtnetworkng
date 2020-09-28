@@ -263,6 +263,7 @@ void HeaderOperationMixin::setContentLength(qint64 contentLength)
     setHeader(QStringLiteral("Content-Length"), QString::number(contentLength).toLatin1());
 }
 
+
 qint32 HeaderOperationMixin::getContentLength() const
 {
     bool ok;
@@ -279,15 +280,18 @@ qint32 HeaderOperationMixin::getContentLength() const
     }
 }
 
+
 void HeaderOperationMixin::setContentType(const QString &contentType)
 {
     setHeader(QStringLiteral("Content-Type"), contentType.toUtf8());
 }
 
+
 QString HeaderOperationMixin::getContentType() const
 {
     return QString::fromUtf8(header(QStringLiteral("Content-Type"), "text/plain"));
 }
+
 
 QUrl HeaderOperationMixin::getLocation() const
 {
@@ -303,10 +307,12 @@ QUrl HeaderOperationMixin::getLocation() const
     }
 }
 
+
 void HeaderOperationMixin::setLocation(const QUrl &url)
 {
     setHeader(QStringLiteral("Location"), url.toEncoded(QUrl::FullyEncoded));
 }
+
 
 // Fast month string to int conversion. This code
 // assumes that the Month name is correct and that
@@ -358,6 +364,7 @@ static int name_to_month(const char* month_str)
     return 0;
 }
 
+
 QDateTime HeaderOperationMixin::fromHttpDate(const QByteArray &value)
 {
     // HTTP dates have three possible formats:
@@ -402,11 +409,13 @@ QDateTime HeaderOperationMixin::fromHttpDate(const QByteArray &value)
     return dt;
 }
 
+
 QByteArray HeaderOperationMixin::toHttpDate(const QDateTime &dt)
 {
     return QLocale::c().toString(dt, QLatin1String("ddd, dd MMM yyyy hh:mm:ss 'GMT'"))
         .toLatin1();
 }
+
 
 QDateTime HeaderOperationMixin::getLastModified() const
 {
@@ -416,6 +425,7 @@ QDateTime HeaderOperationMixin::getLastModified() const
     }
     return fromHttpDate(value);
 }
+
 
 void HeaderOperationMixin::setLastModified(const QDateTime &lastModified)
 {
@@ -427,6 +437,7 @@ void HeaderOperationMixin::setModifiedSince(const QDateTime &modifiedSince)
 {
     setHeader(QStringLiteral("Modified-Since"), toHttpDate(modifiedSince));
 }
+
 
 QDateTime HeaderOperationMixin::getModifedSince() const
 {
@@ -462,6 +473,7 @@ static QStringList knownHeaders = {
     QStringLiteral("Vary"),
     QStringLiteral("X-Frame-Options"),
     QStringLiteral("MIME-Version"),
+    QStringLiteral("Host"),
 };
 
 
@@ -535,51 +547,53 @@ inline QString HeaderOperationMixin::toString(KnownHeader knownHeader)
 {
     switch (knownHeader) {
     case ContentTypeHeader:
-        return "Content-Type";
+        return QStringLiteral("Content-Type");
     case ContentLengthHeader:
-        return "Content-Length";
+        return QStringLiteral("Content-Length");
     case ContentEncodingHeader:
-        return "Content-Encoding";
+        return QStringLiteral("Content-Encoding");
     case TransferEncodingHeader:
-        return "Transfer-Encoding";
+        return QStringLiteral("Transfer-Encoding");
     case LocationHeader:
-        return "Location";
+        return QStringLiteral("Location");
     case LastModifiedHeader:
-        return "Last-Modified";
+        return QStringLiteral("Last-Modified");
     case CookieHeader:
-        return "Cookie";
+        return QStringLiteral("Cookie");
     case SetCookieHeader:
-        return "Set-Cookie";
+        return QStringLiteral("Set-Cookie");
     case ContentDispositionHeader:
-        return "Content-Disposition";
+        return QStringLiteral("Content-Disposition");
     case UserAgentHeader:
-        return "User-Agent";
+        return QStringLiteral("User-Agent");
     case AcceptHeader:
-        return "Accept";
+        return QStringLiteral("Accept");
     case AcceptLanguageHeader:
-        return "Accept-Language";
+        return QStringLiteral("Accept-Language");
     case AcceptEncodingHeader:
-        return "Accept-Encoding";
+        return QStringLiteral("Accept-Encoding");
     case PragmaHeader:
-        return "Pragma";
+        return QStringLiteral("Pragma");
     case CacheControlHeader:
-        return "Cache-Control";
+        return QStringLiteral("Cache-Control");
     case DateHeader:
-        return "Date";
+        return QStringLiteral("Date");
     case AllowHeader:
-        return "Allow";
+        return QStringLiteral("Allow");
     case VaryHeader:
-        return "Vary";
+        return QStringLiteral("Vary");
     case FrameOptionsHeader:
-        return "X-Frame-Options";
+        return QStringLiteral("X-Frame-Options");
     case MIMEVersionHeader:
-        return "MIME-Version";
+        return QStringLiteral("MIME-Version");
     case ServerHeader:
-        return "Server";
+        return QStringLiteral("Server");
     case ConnectionHeader:
-        return "Connection";
+        return QStringLiteral("Connection");
     case UpgradeHeader:
-        return "Upgrade";
+        return QStringLiteral("Upgrade");
+    case HostHeader:
+        return QStringLiteral("Host");
     }
     return QString();
 }
@@ -719,6 +733,7 @@ QList<HttpHeader> HeaderSplitter::headers(int maxHeaders, Error *error)
     *error = HeaderSplitter::ExhausedMaxLine;
     return QList<HttpHeader>();
 }
+
 
 QList<QByteArray> splitBytes(const QByteArray &bs, char sep, int maxSplit)
 {
