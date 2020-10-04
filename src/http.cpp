@@ -1316,7 +1316,7 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
         allHeaders.append(HttpHeader(QStringLiteral("Accept-Encoding"), QByteArray("identity")));
 #endif
     }
-    if (!request.d->cookies.isEmpty() && !request.hasHeader(QStringLiteral("Cookies"))) {
+    if (!request.d->cookies.isEmpty() && !request.hasHeader(QStringLiteral("Cookie"))) {
         QByteArray result;
         bool first = true;
         for (const QNetworkCookie &cookie: request.d->cookies) {
