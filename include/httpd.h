@@ -16,7 +16,7 @@ QTNETWORKNG_NAMESPACE_BEGIN
 #endif
 
 
-class BaseHttpRequestHandler: public BaseRequestHandler, public HeaderOperationMixin
+class BaseHttpRequestHandler: public HeaderOperationMixin<BaseRequestHandler>
 {
 public:
     BaseHttpRequestHandler();
@@ -49,38 +49,50 @@ protected:
     virtual void doCONNECT();
 private:
     QBYTEARRAYLIST headerCache;
+public:
+    static QString normalizePath(const QString &path);
 protected:
-    QString method;
-    QString path;
-    QByteArray body;
-    HttpVersion version;
-    HttpVersion serverVersion;
-    bool closeConnection;
+    QString method;              // sent by client.
+    QString path;                // sent by client.
+    QByteArray body;             // sent by client.
+    HttpVersion version;         // sent by client.
+    HttpVersion serverVersion;   // default to HTTP 1.1
+    float requestTimeout;        // default to 1 hour.
+    bool closeConnection;        // determined by http version and connection header.
 };
 
 
-class SimpleHttpRequestHandler: public BaseHttpRequestHandler
+// we do a nginx.
+class StaticHttpRequestHandler: public BaseHttpRequestHandler
+{
+public:
+    StaticHttpRequestHandler()
+        : enableDirectoryListing(false) {}
+protected:
+    virtual QSharedPointer<FileLike> serveStaticFiles(const QDir &dir, const QString &subPath);
+    virtual QSharedPointer<FileLike> listDirectory(const QDir &dir, const QString &displayDir);
+    virtual void sendFile(QSharedPointer<FileLike> f);
+    virtual QFileInfo translatePath(const QDir &dir, const QString &subPath);
+    virtual bool loadMissingFile(const QFileInfo &fileInfo);
+    virtual QFileInfo getIndexFile(const QDir &dir);
+protected:
+    bool enableDirectoryListing;
+};
+
+
+class SimpleHttpRequestHandler: public StaticHttpRequestHandler
 {
 public:
     SimpleHttpRequestHandler()
-        : BaseHttpRequestHandler()
-        , rootDir(QDir::current())
-        , enableDirectoryListing(true)
-    {}
+        : StaticHttpRequestHandler()
+        , rootDir(QDir::current()) { enableDirectoryListing = true; }
 public:
     void setRootDir(const QDir &rootDir) { this->rootDir = rootDir; }
 protected:
     virtual void doGET() override;
     virtual void doHEAD() override;
-    virtual QSharedPointer<FileLike> serveStaticFiles();
-    virtual QSharedPointer<FileLike> listDirectory(const QDir &dir, const QString &displayDir);
-    void sendFile(QSharedPointer<FileLike> f);
-    QFileInfo translatePath(const QString &path);
-protected:
-    virtual bool onFileMissing(const QFileInfo &fileInfo);
 protected:
     QDir rootDir;
-    bool enableDirectoryListing;
 };
 
 

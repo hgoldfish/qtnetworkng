@@ -31,6 +31,7 @@ public:
     static void msleep(quint32 msecs);
     static void sleep(float secs) { msleep(static_cast<quint32>(secs * 1000)); }
     static Coroutine *spawn(std::function<void()> f);
+    static void preferLibev();
 protected:
     virtual void cleanup() override;
 private:

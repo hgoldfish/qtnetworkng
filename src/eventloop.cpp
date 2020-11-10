@@ -11,6 +11,7 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 Q_GLOBAL_STATIC(CurrentLoopStorage, currentLoopStorage)
+Q_GLOBAL_STATIC(QAtomicInteger<bool>, preferLibevFlag);
 
 
 CurrentLoopStorage *currentLoop()
@@ -43,6 +44,11 @@ Coroutine *Coroutine::spawn(std::function<void()> f)
     Coroutine *c =  new CoroutineSpawnHelper(f);
     c->start();
     return c;
+}
+
+void Coroutine::preferLibev()
+{
+    preferLibevFlag->storeRelease(true);
 }
 
 
@@ -200,24 +206,36 @@ QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::getOrCreate()
     }
     if (eventLoop.isNull()) {
 #ifdef QTNETWOKRNG_USE_EV
-        if (QCoreApplication::instance() && QCoreApplication::instance()->thread() == QThread::currentThread()) {
-            eventLoop.reset(new QtEventLoopCoroutine());
-            eventLoop->setObjectName("qt_eventloop_coroutine");
-            storage.setLocalData(eventLoop);
-        } else {
+        if (preferLibevFlag->loadAcquire()) {
             eventLoop.reset(new EvEventLoopCoroutine());
             eventLoop->setObjectName("libev_eventloop_coroutine");
             storage.setLocalData(eventLoop);
+        } else {
+            if (QCoreApplication::instance() && QCoreApplication::instance()->thread() == QThread::currentThread()) {
+                eventLoop.reset(new QtEventLoopCoroutine());
+                eventLoop->setObjectName("qt_eventloop_coroutine");
+                storage.setLocalData(eventLoop);
+            } else {
+                eventLoop.reset(new EvEventLoopCoroutine());
+                eventLoop->setObjectName("libev_eventloop_coroutine");
+                storage.setLocalData(eventLoop);
+            }
         }
 #elif QTNETWORKNG_USE_WIN
-        if (QCoreApplication::instance() && QCoreApplication::instance()->thread() == QThread::currentThread()) {
-            eventLoop.reset(new QtEventLoopCoroutine());
-            eventLoop->setObjectName("qt_eventloop_coroutine");
-            storage.setLocalData(eventLoop);
-        } else {
+        if (preferLibevFlag->loadAcquire()) {
             eventLoop.reset(new WinEventLoopCoroutine());
             eventLoop->setObjectName("win_eventloop_coroutine");
             storage.setLocalData(eventLoop);
+        } else {
+            if (QCoreApplication::instance() && QCoreApplication::instance()->thread() == QThread::currentThread()) {
+                eventLoop.reset(new QtEventLoopCoroutine());
+                eventLoop->setObjectName("qt_eventloop_coroutine");
+                storage.setLocalData(eventLoop);
+            } else {
+                eventLoop.reset(new WinEventLoopCoroutine());
+                eventLoop->setObjectName("win_eventloop_coroutine");
+                storage.setLocalData(eventLoop);
+            }
         }
 #else
         eventLoop.reset(new QtEventLoopCoroutine());

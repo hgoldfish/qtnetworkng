@@ -269,14 +269,14 @@ QByteArray PublicKeyPrivate::encrypt(const QByteArray &data)
     if (rvalue) {
         size_t outlen = 0;
         rvalue = EVP_PKEY_encrypt(context, nullptr, &outlen,
-                                             reinterpret_cast<const unsigned char *>(data.data()),
-                                             static_cast<unsigned int>(data.size()));
-        if(rvalue && outlen) {
+                                           reinterpret_cast<const unsigned char *>(data.data()),
+                                           static_cast<unsigned int>(data.size()));
+        if (rvalue && outlen) {
             QByteArray result;
             result.resize(static_cast<int>(outlen));
             rvalue = EVP_PKEY_encrypt(context, reinterpret_cast<unsigned char *>(result.data()), &outlen,
                                                  reinterpret_cast<const unsigned char *>(data.data()), static_cast<unsigned int>(data.size()));
-            if(rvalue) {
+            if (rvalue) {
                 result.resize(static_cast<int>(outlen));
                 return result;
             }
@@ -297,12 +297,12 @@ QByteArray PublicKeyPrivate::decrypt(const QByteArray &data)
     if (rvalue) {
         size_t outlen;
         rvalue = EVP_PKEY_decrypt(context, nullptr, &outlen, reinterpret_cast<const unsigned char *>(data.data()), static_cast<unsigned int>(data.size()));
-        if(rvalue && outlen) {
+        if (rvalue && outlen) {
             QByteArray result;
             result.resize(static_cast<int>(outlen));
             rvalue = EVP_PKEY_decrypt(context, reinterpret_cast<unsigned char *>(result.data()),
                                                  &outlen, reinterpret_cast<const unsigned char *>(data.data()), static_cast<unsigned int>(data.size()));
-            if(rvalue) {
+            if (rvalue) {
                 result.resize(static_cast<int>(outlen));
                 return result;
             }
@@ -531,11 +531,11 @@ QByteArray PrivateKeyWriterPrivate::asPem()
     int rvalue;
     if (key.d_ptr->hasPrivate && !publicOnly) {
         // we don't use PEM_write_bio_RSAPrivateKey() & PEM_write_bio_DSAPrivateKey
-        if(!callback.isNull()) {
+        if (!callback.isNull()) {
             //q_PEM_write_bio_PrivateKey
             rvalue = PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(), cipher,
                                                               nullptr, 0, pem_password_cb, callback.data());
-        } else if(!password.isEmpty()) {
+        } else if (!password.isEmpty()) {
             rvalue = PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(), cipher,
                                                               password.data(), password.size(), nullptr, nullptr);
         } else {

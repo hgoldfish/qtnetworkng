@@ -39,7 +39,9 @@ private:
 
 
 BaseStreamServer::BaseStreamServer(const QHostAddress &serverAddress, quint16 serverPort)
-    :started(new Event()), stopped(new Event()), d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
+    : started(new Event())
+    , stopped(new Event())
+    , d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
 {
     started->clear();
     stopped->set();
@@ -47,7 +49,9 @@ BaseStreamServer::BaseStreamServer(const QHostAddress &serverAddress, quint16 se
 
 
 BaseStreamServer::BaseStreamServer(BaseStreamServerPrivate *d)
-    :started(new Event()), stopped(new Event()), d_ptr(d)
+    : started(new Event())
+    , stopped(new Event())
+    , d_ptr(d)
 {
     started->clear();
     stopped->set();

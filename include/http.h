@@ -69,7 +69,7 @@ public:
 
 
 class HttpRequestPrivate;
-class HttpRequest: public HeaderOperationMixin
+class HttpRequest: public WithHeaders
 {
 public:
     enum CacheLoadControl {
@@ -147,7 +147,7 @@ public:
 
 
 class HttpResponsePrivate;
-class HttpResponse: public HeaderOperationMixin
+class HttpResponse: public WithHeaders
 {
 public:
     HttpResponse();

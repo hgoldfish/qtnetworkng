@@ -546,7 +546,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
             return total;
         } else {
             total += r;
-            if(all) {
+            if (all) {
                 continue;
             } else {
                 return total;
@@ -585,7 +585,11 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
                 sent += w;
                 continue;
             }
-        } else if(w < 0) {
+        } else if (w == 0 && type == Socket::TcpSocket) {
+            setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
+            abort();
+            return sent;
+        } else {  // w < 0 || (w == 0 && type == Socket::UdpSocket)
             int e = errno;
             switch(e) {
 #if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN

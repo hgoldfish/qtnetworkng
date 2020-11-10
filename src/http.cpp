@@ -1069,7 +1069,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     if (!cacheManager.isNull() && (request.d->method == "GET"
                                    || request.d->method == "HEAD"
                                    || request.d->method == "OPTION")) {
-        const QByteArray &cacheControlHeader = request.header(HttpRequest::CacheControlHeader);
+        const QByteArray &cacheControlHeader = request.header(KnownHeader::CacheControlHeader);
         if (!cacheControlHeader.contains("no-cache")) {
             if (cacheManager->getResponse(&response)) {
                 return response;
@@ -1237,7 +1237,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         if (!ptrLock.isNull()
                 && connection->isValid()
                 && response.d->statusCode == 200
-                && response.header(HttpResponse::ConnectionHeader).toLower() == "keep-alive"
+                && response.header(KnownHeader::ConnectionHeader).toLower() == "keep-alive"
                 && keepAlive) {
             recycle(response.d->url, connection);
         }
@@ -1253,11 +1253,11 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
                 && !request.streamResponse()
                 ) {
             bool doCache = true;
-            const QByteArray &requestHeader = request.header(HttpResponse::CacheControlHeader).toLower();
+            const QByteArray &requestHeader = request.header(KnownHeader::CacheControlHeader).toLower();
             if (requestHeader.contains("no-cache") || requestHeader.contains("no-store")) {
                 doCache = false;
             } else {
-                const QByteArray &responseHeader = response.header(HttpResponse::CacheControlHeader).toLower();
+                const QByteArray &responseHeader = response.header(KnownHeader::CacheControlHeader).toLower();
                 if (responseHeader.contains("public") || responseHeader.contains("private")) {
                     doCache = true;
                 } else if (responseHeader.contains("no-cache") || responseHeader.contains("no-store")) {

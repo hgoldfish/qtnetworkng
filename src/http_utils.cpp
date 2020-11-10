@@ -257,63 +257,6 @@ bool toMessage(HttpStatus status, QString *shortMessage, QString *longMessage)
     return false;
 }
 
-
-void HeaderOperationMixin::setContentLength(qint64 contentLength)
-{
-    setHeader(QStringLiteral("Content-Length"), QString::number(contentLength).toLatin1());
-}
-
-
-qint32 HeaderOperationMixin::getContentLength() const
-{
-    bool ok;
-    QByteArray s = header(QStringLiteral("Content-Length"));
-    qint32 l = s.toInt(&ok);
-    if(ok) {
-        if (l >= 0) {
-            return l;
-        } else {
-            return -1;
-        }
-    } else {
-        return -1;
-    }
-}
-
-
-void HeaderOperationMixin::setContentType(const QString &contentType)
-{
-    setHeader(QStringLiteral("Content-Type"), contentType.toUtf8());
-}
-
-
-QString HeaderOperationMixin::getContentType() const
-{
-    return QString::fromUtf8(header(QStringLiteral("Content-Type"), "text/plain"));
-}
-
-
-QUrl HeaderOperationMixin::getLocation() const
-{
-    const QByteArray &value = header(QStringLiteral("Location"));
-    if(value.isEmpty()) {
-        return QUrl();
-    }
-    QUrl result = QUrl::fromEncoded(value, QUrl::StrictMode);
-    if (result.isValid()) {
-        return result;
-    } else {
-        return QUrl();
-    }
-}
-
-
-void HeaderOperationMixin::setLocation(const QUrl &url)
-{
-    setHeader(QStringLiteral("Location"), url.toEncoded(QUrl::FullyEncoded));
-}
-
-
 // Fast month string to int conversion. This code
 // assumes that the Month name is correct and that
 // the string is at least three chars long.
@@ -365,7 +308,7 @@ static int name_to_month(const char* month_str)
 }
 
 
-QDateTime HeaderOperationMixin::fromHttpDate(const QByteArray &value)
+QDateTime fromHttpDate(const QByteArray &value)
 {
     // HTTP dates have three possible formats:
     //  RFC 1123/822      -   ddd, dd MMM yyyy hh:mm:ss "GMT"
@@ -410,42 +353,10 @@ QDateTime HeaderOperationMixin::fromHttpDate(const QByteArray &value)
 }
 
 
-QByteArray HeaderOperationMixin::toHttpDate(const QDateTime &dt)
+QByteArray toHttpDate(const QDateTime &dt)
 {
     return QLocale::c().toString(dt, QLatin1String("ddd, dd MMM yyyy hh:mm:ss 'GMT'"))
         .toLatin1();
-}
-
-
-QDateTime HeaderOperationMixin::getLastModified() const
-{
-    const QByteArray &value = header(QStringLiteral("Last-Modified"));
-    if(value.isEmpty()) {
-        return QDateTime();
-    }
-    return fromHttpDate(value);
-}
-
-
-void HeaderOperationMixin::setLastModified(const QDateTime &lastModified)
-{
-    setHeader(QStringLiteral("Last-Modified"), toHttpDate(lastModified));
-}
-
-
-void HeaderOperationMixin::setModifiedSince(const QDateTime &modifiedSince)
-{
-    setHeader(QStringLiteral("Modified-Since"), toHttpDate(modifiedSince));
-}
-
-
-QDateTime HeaderOperationMixin::getModifedSince() const
-{
-    const QByteArray &value = header(QStringLiteral("Modified-Since"));
-    if(value.isEmpty()) {
-        return QDateTime();
-    }
-    return fromHttpDate(value);
 }
 
 
@@ -486,64 +397,7 @@ QString normalizeHeaderName(const QString &headerName) {
     return headerName;
 }
 
-
-bool HeaderOperationMixin::hasHeader(const QString &headerName) const
-{
-    for (int i = 0; i < headers.size(); ++i) {
-        const HttpHeader &header = headers.at(i);
-        if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-
-bool HeaderOperationMixin::removeHeader(const QString &headerName)
-{
-    for (int i = 0; i < headers.size(); ++i) {
-        const HttpHeader &header = headers.at(i);
-        if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
-            headers.removeAt(i);
-            return true;
-        }
-    }
-    return false;
-}
-
-
-void HeaderOperationMixin::setHeader(const QString &name, const QByteArray &value)
-{
-    removeHeader(name);
-    addHeader(name, value);
-}
-
-
-void HeaderOperationMixin::addHeader(const QString &name, const QByteArray &value)
-{
-    headers.append(HttpHeader(normalizeHeaderName(name), value));
-}
-
-
-void HeaderOperationMixin::addHeader(const HttpHeader &header)
-{
-    headers.append(header);
-}
-
-
-QByteArray HeaderOperationMixin::header(const QString &headerName, const QByteArray &defaultValue) const
-{
-    for (int i = 0; i < headers.size(); ++i) {
-        const HttpHeader &header = headers.at(i);
-        if (header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
-            return header.value;
-        }
-    }
-    return defaultValue;
-}
-
-
-inline QString HeaderOperationMixin::toString(KnownHeader knownHeader)
+QString toString(KnownHeader knownHeader)
 {
     switch (knownHeader) {
     case ContentTypeHeader:
@@ -596,46 +450,6 @@ inline QString HeaderOperationMixin::toString(KnownHeader knownHeader)
         return QStringLiteral("Host");
     }
     return QString();
-}
-
-
-QByteArray HeaderOperationMixin::header(KnownHeader knownHeader, const QByteArray &defaultValue) const
-{
-    return header(toString(knownHeader), defaultValue);
-}
-
-
-#if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
-#define QBYTEARRAYLIST QByteArrayList
-#else
-#define QBYTEARRAYLIST QList<QByteArray>
-#endif
-
-QBYTEARRAYLIST HeaderOperationMixin::multiHeader(const QString &headerName) const
-{
-    QBYTEARRAYLIST l;
-    for (int i = 0; i < headers.size(); ++i) {
-        const HttpHeader &header = headers.at(i);
-        if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
-            l.append(header.value);
-        }
-    }
-    return l;
-}
-
-
-QBYTEARRAYLIST HeaderOperationMixin::multiHeader(KnownHeader header) const
-{
-    return multiHeader(toString(header));
-}
-
-
-void HeaderOperationMixin::setHeaders(const QMap<QString, QByteArray> headers)
-{
-    this->headers.clear();
-    for (QMap<QString, QByteArray>::const_iterator itor = headers.constBegin(); itor != headers.constEnd(); ++itor) {
-        this->headers.append(HttpHeader(normalizeHeaderName(itor.key()), itor.value()));
-    }
 }
 
 
@@ -703,7 +517,7 @@ HttpHeader HeaderSplitter::nextHeader(Error *error)
     if (debugLevel > 2) {
         qDebug() << "receiving data:" << line;
     }
-    QBYTEARRAYLIST headerParts = splitBytes(line, ':', 1);
+    QList<QByteArray> headerParts = splitBytes(line, ':', 1);
     if(headerParts.size() != 2) {
         *error = HeaderSplitter::EncodingError;
         return HttpHeader();
