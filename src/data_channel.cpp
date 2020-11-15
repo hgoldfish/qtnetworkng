@@ -403,18 +403,18 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
     } else if (command == CHANNEL_MADE_REQUEST) {
         if (subChannels.contains(channelNumber)) {
             QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
-            if (!channel.isNull()) {
-                return true;
+            if (channel.isNull()) {
+                subChannels.remove(channelNumber);
             } else {
-#ifdef DEBUG_PROTOCOL
-                qDebug() << "channel is gone." << channelNumber;
-#endif
-                return false;
+                return true;
             }
-        } else {
-            qWarning() << "channel is not found." << channelNumber;
-            return false;
         }
+#ifdef DEBUG_PROTOCOL
+        qDebug() << "channel is gone." << channelNumber;
+#endif
+        // the channel is open by me and then closed quickly...
+        sendPacketRawAsync(CommandChannelNumber, packDestoryChannelRequest(channelNumber));
+        return true;
     } else if (command == DESTROY_CHANNEL_REQUEST) {
         takeChannel(channelNumber); // remove channel from pending channels.
         if (subChannels.contains(channelNumber)) {

@@ -4,6 +4,7 @@
 extern "C" {
 #include <openssl/evp.h>
 #include <openssl/x509.h>
+#include <openssl/err.h>
 }
 #include "../md.h"
 #include "../cipher.h"

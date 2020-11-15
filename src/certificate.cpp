@@ -109,7 +109,7 @@ static QDateTime getTimeFromASN1(const ASN1_TIME *aTime)
 
 struct X509Cleaner
 {
-    static inline void cleanup(X509 *x) { if(x) X509_free(x); }
+    static inline void cleanup(X509 *x) { if (x) X509_free(x); }
 };
 
 
@@ -123,10 +123,6 @@ public:
     QDateTime effectiveDate() const;
     QDateTime expiryDate() const;
     bool isBlacklisted() const;
-    bool isSelfSigned() const;
-    QStringList issuerInfo(Certificate::SubjectInfo subject) const;
-    QStringList issuerInfo(const QByteArray &attribute) const;
-    QList<QByteArray> issuerInfoAttributes() const;
     PublicKey publicKey() const;
     QByteArray serialNumber() const;
     QStringList subjectInfo(Certificate::SubjectInfo subjec) const;
@@ -134,6 +130,11 @@ public:
     QList<QByteArray> subjectInfoAttributes() const;
     QString toString() const;
     QByteArray version() const;
+
+    bool isSelfSigned() const;
+    QStringList issuerInfo(Certificate::SubjectInfo subject) const;
+    QStringList issuerInfo(const QByteArray &attribute) const;
+    QList<QByteArray> issuerInfoAttributes() const;
 
     QByteArray save(Ssl::EncodingFormat format) const;
     static Certificate load(const QByteArray &data, Ssl::EncodingFormat format);
@@ -147,8 +148,8 @@ public:
     bool qtParse();
 
     QSharedPointer<X509> x509;
-    QMap<QByteArray, QString> issuerInfoMap;
-    QMap<QByteArray, QString> subjectInfoMap;
+    QMultiMap<QByteArray, QString> issuerInfoMap;
+    QMultiMap<QByteArray, QString> subjectInfoMap;
     QByteArray versionString;
     QDateTime notValidBefore;
     QDateTime notValidAfter;
@@ -174,16 +175,16 @@ static QByteArray asn1ObjectName(ASN1_OBJECT *object)
 }
 
 
-static QMap<QByteArray, QString> _mapFromX509Name(X509_NAME *name)
+static QMultiMap<QByteArray, QString> _mapFromX509Name(X509_NAME *name)
 {
-    QMap<QByteArray, QString> info;
+    QMultiMap<QByteArray, QString> info;
     for (int i = 0; i < X509_NAME_entry_count(name); ++i) {
         X509_NAME_ENTRY *e = X509_NAME_get_entry(name, i);
 
         QByteArray name = asn1ObjectName(X509_NAME_ENTRY_get_object(e));
         unsigned char *data = nullptr;
         int size = ASN1_STRING_to_UTF8(&data, X509_NAME_ENTRY_get_data(e));
-        info.insertMulti(name, QString::fromUtf8(static_cast<char*>(static_cast<void*>(data)), size));
+        info.insert(name, QString::fromUtf8(static_cast<char*>(static_cast<void*>(data)), size));
         CRYPTO_free(data);
     }
 
@@ -321,56 +322,6 @@ bool CertificatePrivate::isBlacklisted() const
 }
 
 
-bool CertificatePrivate::isSelfSigned() const
-{
-    if (x509.isNull())
-        return false;
-    return (X509_check_issued(x509.data(), x509.data()) == X509_V_OK);
-}
-
-
-QByteArray CertificatePrivate::subjectInfoToString(Certificate::SubjectInfo info)
-{
-    QByteArray str;
-    switch (info) {
-    case Certificate::Organization: str = QByteArray("O"); break;
-    case Certificate::CommonName: str = QByteArray("CN"); break;
-    case Certificate::LocalityName: str = QByteArray("L"); break;
-    case Certificate::OrganizationalUnitName: str = QByteArray("OU"); break;
-    case Certificate::CountryName: str = QByteArray("C"); break;
-    case Certificate::StateOrProvinceName: str = QByteArray("ST"); break;
-    case Certificate::DistinguishedNameQualifier: str = QByteArray("dnQualifier"); break;
-    case Certificate::SerialNumber: str = QByteArray("serialNumber"); break;
-    case Certificate::EmailAddress: str = QByteArray("emailAddress"); break;
-    }
-    return str;
-}
-
-
-QStringList CertificatePrivate::issuerInfo(Certificate::SubjectInfo subject) const
-{
-    if (x509.isNull())
-        return QStringList();
-    return issuerInfoMap.values(subjectInfoToString(subject));
-}
-
-
-QStringList CertificatePrivate::issuerInfo(const QByteArray &attribute) const
-{
-    if (x509.isNull())
-        return QStringList();
-    return issuerInfoMap.values(attribute);
-}
-
-
-QList<QByteArray> CertificatePrivate::issuerInfoAttributes() const
-{
-    if (x509.isNull())
-        return QList<QByteArray>();
-    return issuerInfoMap.uniqueKeys();
-}
-
-
 PublicKey CertificatePrivate::publicKey() const
 {
     PublicKey key;
@@ -418,6 +369,56 @@ QList<QByteArray> CertificatePrivate::subjectInfoAttributes() const
 QByteArray CertificatePrivate::version() const
 {
     return versionString;
+}
+
+
+bool CertificatePrivate::isSelfSigned() const
+{
+    if (x509.isNull())
+        return false;
+    return (X509_check_issued(x509.data(), x509.data()) == X509_V_OK);
+}
+
+
+QByteArray CertificatePrivate::subjectInfoToString(Certificate::SubjectInfo info)
+{
+    QByteArray str;
+    switch (info) {
+    case Certificate::Organization: str = QByteArray("O"); break;
+    case Certificate::CommonName: str = QByteArray("CN"); break;
+    case Certificate::LocalityName: str = QByteArray("L"); break;
+    case Certificate::OrganizationalUnitName: str = QByteArray("OU"); break;
+    case Certificate::CountryName: str = QByteArray("C"); break;
+    case Certificate::StateOrProvinceName: str = QByteArray("ST"); break;
+    case Certificate::DistinguishedNameQualifier: str = QByteArray("dnQualifier"); break;
+    case Certificate::SerialNumber: str = QByteArray("serialNumber"); break;
+    case Certificate::EmailAddress: str = QByteArray("emailAddress"); break;
+    }
+    return str;
+}
+
+
+QStringList CertificatePrivate::issuerInfo(Certificate::SubjectInfo subject) const
+{
+    if (x509.isNull())
+        return QStringList();
+    return issuerInfoMap.values(subjectInfoToString(subject));
+}
+
+
+QStringList CertificatePrivate::issuerInfo(const QByteArray &attribute) const
+{
+    if (x509.isNull())
+        return QStringList();
+    return issuerInfoMap.values(attribute);
+}
+
+
+QList<QByteArray> CertificatePrivate::issuerInfoAttributes() const
+{
+    if (x509.isNull())
+        return QList<QByteArray>();
+    return issuerInfoMap.uniqueKeys();
 }
 
 

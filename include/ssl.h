@@ -154,14 +154,12 @@ public:
         SslClientMode = 1,
         SslServerMode = 2,
     };
-
     enum NextProtocolNegotiationStatus
     {
         NextProtocolNegotiationNone = 0,
         NextProtocolNegotiationNegotiated = 1,
         NextProtocolNegotiationUnsupported = 2,
     };
-
 public:
     SslSocket(Socket::NetworkLayerProtocol protocol=Socket::IPv4Protocol, const SslConfiguration &config = SslConfiguration());
     SslSocket(qintptr socketDescriptor, const SslConfiguration &config = SslConfiguration());

@@ -40,17 +40,14 @@ public:
     Certificate(Certificate &&other);
     virtual ~Certificate();
 public:
+    bool isBlacklisted() const;
+    bool isNull() const;
+    bool isValid() const { return !isNull() && !isBlacklisted(); }
+    Qt::HANDLE handle() const;
+
     QByteArray digest(MessageDigest::Algorithm algorithm = MessageDigest::Sha256) const;
     QDateTime effectiveDate() const;
     QDateTime expiryDate() const;
-    Qt::HANDLE handle() const;
-    bool isBlacklisted() const;
-    bool isNull() const;
-    bool isValid() const { return !isNull(); }
-    bool isSelfSigned() const;
-    QStringList issuerInfo(SubjectInfo subject) const;
-    QStringList issuerInfo(const QByteArray &attribute) const;
-    QList<QByteArray> issuerInfoAttributes() const;
     PublicKey publicKey() const;
     QByteArray serialNumber() const;
     QMultiMap<AlternativeNameEntryType, QString> subjectAlternativeNames() const;
@@ -59,6 +56,11 @@ public:
     QList<QByteArray> subjectInfoAttributes() const;
     QString toString() const;
     QByteArray version() const;
+
+    bool isSelfSigned() const;
+    QStringList issuerInfo(SubjectInfo subject) const;
+    QStringList issuerInfo(const QByteArray &attribute) const;
+    QList<QByteArray> issuerInfoAttributes() const;
 public:
     inline void swap(Certificate &other) { qSwap(d, other.d); }
     Certificate &operator=(Certificate &&other) { swap(other); return *this; }
@@ -79,11 +81,13 @@ private:
     friend uint qHash(const Certificate &key, uint seed);
 };
 
+
 class CertificateRequest
 {
 public:
     Certificate certificate() const;
 };
+
 
 QDebug &operator<<(QDebug &debug, const Certificate &certificate);
 QDebug &operator<<(QDebug &debug, Certificate::SubjectInfo info);
