@@ -138,7 +138,7 @@ QDataStream &operator >>(QDataStream &ds, HttpHeader &header);
 QDataStream &operator <<(QDataStream &ds, const HttpHeader &header);
 
 template<typename Base>
-class HeaderOperationMixin: public Base
+class WithHttpHeaders: public Base
 {
 public:
     void setContentType(const QString &contentType);
@@ -177,18 +177,18 @@ protected:
     QList<HttpHeader> headers;
 };
 class EmptyClass {};
-class WithHeaders: public HeaderOperationMixin<EmptyClass> {};
+class HttpHeaderManager: public WithHttpHeaders<EmptyClass> {};
 
 
 template<typename Base>
-void HeaderOperationMixin<Base>::setContentLength(qint64 contentLength)
+void WithHttpHeaders<Base>::setContentLength(qint64 contentLength)
 {
     setHeader(QStringLiteral("Content-Length"), QString::number(contentLength).toLatin1());
 }
 
 
 template<typename Base>
-qint32 HeaderOperationMixin<Base>::getContentLength() const
+qint32 WithHttpHeaders<Base>::getContentLength() const
 {
     bool ok;
     QByteArray s = header(QStringLiteral("Content-Length"));
@@ -206,21 +206,21 @@ qint32 HeaderOperationMixin<Base>::getContentLength() const
 
 
 template<typename Base>
-void HeaderOperationMixin<Base>::setContentType(const QString &contentType)
+void WithHttpHeaders<Base>::setContentType(const QString &contentType)
 {
     setHeader(QStringLiteral("Content-Type"), contentType.toUtf8());
 }
 
 
 template<typename Base>
-QString HeaderOperationMixin<Base>::getContentType() const
+QString WithHttpHeaders<Base>::getContentType() const
 {
     return QString::fromUtf8(header(QStringLiteral("Content-Type"), "text/plain"));
 }
 
 
 template<typename Base>
-QUrl HeaderOperationMixin<Base>::getLocation() const
+QUrl WithHttpHeaders<Base>::getLocation() const
 {
     const QByteArray &value = header(QStringLiteral("Location"));
     if(value.isEmpty()) {
@@ -236,14 +236,14 @@ QUrl HeaderOperationMixin<Base>::getLocation() const
 
 
 template<typename Base>
-void HeaderOperationMixin<Base>::setLocation(const QUrl &url)
+void WithHttpHeaders<Base>::setLocation(const QUrl &url)
 {
     setHeader(QStringLiteral("Location"), url.toEncoded(QUrl::FullyEncoded));
 }
 
 
 template<typename Base>
-QDateTime HeaderOperationMixin<Base>::getLastModified() const
+QDateTime WithHttpHeaders<Base>::getLastModified() const
 {
     const QByteArray &value = header(QStringLiteral("Last-Modified"));
     if(value.isEmpty()) {
@@ -254,21 +254,21 @@ QDateTime HeaderOperationMixin<Base>::getLastModified() const
 
 
 template<typename Base>
-void HeaderOperationMixin<Base>::setLastModified(const QDateTime &lastModified)
+void WithHttpHeaders<Base>::setLastModified(const QDateTime &lastModified)
 {
     setHeader(QStringLiteral("Last-Modified"), toHttpDate(lastModified));
 }
 
 
 template<typename Base>
-void HeaderOperationMixin<Base>::setModifiedSince(const QDateTime &modifiedSince)
+void WithHttpHeaders<Base>::setModifiedSince(const QDateTime &modifiedSince)
 {
     setHeader(QStringLiteral("Modified-Since"), toHttpDate(modifiedSince));
 }
 
 
 template<typename Base>
-QDateTime HeaderOperationMixin<Base>::getModifedSince() const
+QDateTime WithHttpHeaders<Base>::getModifedSince() const
 {
     const QByteArray &value = header(QStringLiteral("Modified-Since"));
     if(value.isEmpty()) {
@@ -279,7 +279,7 @@ QDateTime HeaderOperationMixin<Base>::getModifedSince() const
 
 
 template<typename Base>
-bool HeaderOperationMixin<Base>::hasHeader(const QString &headerName) const
+bool WithHttpHeaders<Base>::hasHeader(const QString &headerName) const
 {
     for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
@@ -292,7 +292,7 @@ bool HeaderOperationMixin<Base>::hasHeader(const QString &headerName) const
 
 
 template<typename Base>
-bool HeaderOperationMixin<Base>::removeHeader(const QString &headerName)
+bool WithHttpHeaders<Base>::removeHeader(const QString &headerName)
 {
     for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
@@ -306,7 +306,7 @@ bool HeaderOperationMixin<Base>::removeHeader(const QString &headerName)
 
 
 template<typename Base>
-void HeaderOperationMixin<Base>::setHeader(const QString &name, const QByteArray &value)
+void WithHttpHeaders<Base>::setHeader(const QString &name, const QByteArray &value)
 {
     removeHeader(name);
     addHeader(name, value);
@@ -314,49 +314,49 @@ void HeaderOperationMixin<Base>::setHeader(const QString &name, const QByteArray
 
 
 template<typename Base>
-void HeaderOperationMixin<Base>::addHeader(const QString &name, const QByteArray &value)
+void WithHttpHeaders<Base>::addHeader(const QString &name, const QByteArray &value)
 {
     headers.append(HttpHeader(normalizeHeaderName(name), value));
 }
 
 
 template<typename Base>
-void HeaderOperationMixin<Base>::addHeader(const HttpHeader &header)
+void WithHttpHeaders<Base>::addHeader(const HttpHeader &header)
 {
     headers.append(header);
 }
 
 
 template<typename Base>
-void HeaderOperationMixin<Base>::setHeader(KnownHeader header, const QByteArray &value)
+void WithHttpHeaders<Base>::setHeader(KnownHeader header, const QByteArray &value)
 {
     setHeader(toString(header), value);
 }
 
 
 template<typename Base>
-void HeaderOperationMixin<Base>::addHeader(KnownHeader header, const QByteArray &value)
+void WithHttpHeaders<Base>::addHeader(KnownHeader header, const QByteArray &value)
 {
     addHeader(toString(header), value);
 }
 
 
 template<typename Base>
-bool HeaderOperationMixin<Base>::hasHeader(KnownHeader header) const
+bool WithHttpHeaders<Base>::hasHeader(KnownHeader header) const
 {
     return hasHeader(toString(header));
 }
 
 
 template<typename Base>
-bool HeaderOperationMixin<Base>::removeHeader(KnownHeader header)
+bool WithHttpHeaders<Base>::removeHeader(KnownHeader header)
 {
     return removeHeader(toString(header));
 }
 
 
 template<typename Base>
-QByteArray HeaderOperationMixin<Base>::header(const QString &headerName, const QByteArray &defaultValue) const
+QByteArray WithHttpHeaders<Base>::header(const QString &headerName, const QByteArray &defaultValue) const
 {
     for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
@@ -369,7 +369,7 @@ QByteArray HeaderOperationMixin<Base>::header(const QString &headerName, const Q
 
 
 template<typename Base>
-QByteArray HeaderOperationMixin<Base>::header(KnownHeader knownHeader, const QByteArray &defaultValue) const
+QByteArray WithHttpHeaders<Base>::header(KnownHeader knownHeader, const QByteArray &defaultValue) const
 {
     return header(toString(knownHeader), defaultValue);
 }
@@ -383,7 +383,7 @@ QByteArray HeaderOperationMixin<Base>::header(KnownHeader knownHeader, const QBy
 
 
 template<typename Base>
-QBYTEARRAYLIST HeaderOperationMixin<Base>::multiHeader(const QString &headerName) const
+QBYTEARRAYLIST WithHttpHeaders<Base>::multiHeader(const QString &headerName) const
 {
     QBYTEARRAYLIST l;
     for (int i = 0; i < headers.size(); ++i) {
@@ -397,7 +397,7 @@ QBYTEARRAYLIST HeaderOperationMixin<Base>::multiHeader(const QString &headerName
 
 
 template<typename Base>
-QBYTEARRAYLIST HeaderOperationMixin<Base>::multiHeader(KnownHeader header) const
+QBYTEARRAYLIST WithHttpHeaders<Base>::multiHeader(KnownHeader header) const
 {
     return multiHeader(toString(header));
 }
@@ -406,7 +406,7 @@ QBYTEARRAYLIST HeaderOperationMixin<Base>::multiHeader(KnownHeader header) const
 #undef QBYTEARRAYLIST
 
 template<typename Base>
-void HeaderOperationMixin<Base>::setHeaders(const QMap<QString, QByteArray> headers)
+void WithHttpHeaders<Base>::setHeaders(const QMap<QString, QByteArray> headers)
 {
     this->headers.clear();
     for (QMap<QString, QByteArray>::const_iterator itor = headers.constBegin(); itor != headers.constEnd(); ++itor) {

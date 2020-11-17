@@ -16,7 +16,7 @@ QTNETWORKNG_NAMESPACE_BEGIN
 #endif
 
 
-class BaseHttpRequestHandler: public HeaderOperationMixin<BaseRequestHandler>
+class BaseHttpRequestHandler: public WithHttpHeaders<BaseRequestHandler>
 {
 public:
     BaseHttpRequestHandler();

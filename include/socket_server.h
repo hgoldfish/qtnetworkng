@@ -20,7 +20,7 @@ public:
 protected:
     // these two virtual functions should be overrided by subclass.
     virtual QSharedPointer<SocketLike> serverCreate() = 0;
-    virtual void processRequest(QSharedPointer<SocketLike> request);
+    virtual void processRequest(QSharedPointer<SocketLike> request) = 0;
 public:
     bool allowReuseAddress() const;                    // default to true,
     void setAllowReuseAddress(bool b);
@@ -45,6 +45,7 @@ protected:
     virtual void serverClose();                         // close()
     virtual bool serviceActions();                      // default to nothing, called before accept next request.
     virtual QSharedPointer<SocketLike> getRequest();    // accept();
+    virtual QSharedPointer<SocketLike> prepareRequest(QSharedPointer<SocketLike> request);  // ssl handshake, default to nothing for tcp
     virtual bool verifyRequest(QSharedPointer<SocketLike> request);
     virtual void handleError(QSharedPointer<SocketLike> request);
     virtual void shutdownRequest(QSharedPointer<SocketLike> request);
@@ -121,52 +122,145 @@ void KcpServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> reques
 
 #ifndef QTNG_NO_CRYPTO
 
-class BaseSslServerPrivate;
-class BaseSslServer: public BaseStreamServer
+
+template<typename ServerType>
+class WithSsl: public ServerType
 {
 public:
-    BaseSslServer(const QHostAddress &serverAddress, quint16 serverPort);
-    BaseSslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
-    BaseSslServer(quint16 serverPort)
-        : BaseSslServer(QHostAddress::Any, serverPort) {}
-    BaseSslServer(quint16 serverPort, const SslConfiguration &configuration)
-        : BaseSslServer(QHostAddress::Any, serverPort, configuration) {}
+    WithSsl(const QHostAddress &serverAddress, quint16 serverPort);
+    WithSsl(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
+    WithSsl(quint16 serverPort);
+    WithSsl(quint16 serverPort, const SslConfiguration &configuration);
 public:
     void setSslConfiguration(const SslConfiguration &configuration);
-    SslConfiguration sslConfiguratino() const;
+    SslConfiguration sslConfiguration() const;
+    void setSslHandshakeTimeout(float sslHandshakeTimeout);
+    float sslHandshakeTimeout() const;
     virtual bool isSecure() const override;
 protected:
-    virtual QSharedPointer<SocketLike> serverCreate() override;
+    virtual QSharedPointer<SocketLike> prepareRequest(QSharedPointer<SocketLike> request) override;
 private:
-    Q_DECLARE_PRIVATE(BaseSslServer)
+    SslConfiguration _configuration;
+    float _sslHandshakeTimeout;
 };
 
 
+template<typename ServerType>
+WithSsl<ServerType>::WithSsl(const QHostAddress &serverAddress, quint16 serverPort)
+    : ServerType(serverAddress, serverPort)
+    , _sslHandshakeTimeout(5.0)
+{
+    _configuration = SslConfiguration::testPurpose("SslServer", "CN", "QtNetworkNg");
+}
+
+
+template<typename ServerType>
+WithSsl<ServerType>::WithSsl(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
+    : ServerType(serverAddress, serverPort)
+    , _configuration(configuration)
+    , _sslHandshakeTimeout(5.0)
+{}
+
+
+template<typename ServerType>
+WithSsl<ServerType>::WithSsl(quint16 serverPort)
+    : ServerType(QHostAddress::Any, serverPort)
+    , _sslHandshakeTimeout(5.0)
+{
+    _configuration = SslConfiguration::testPurpose("SslServer", "CN", "QtNetworkNg");
+}
+
+
+template<typename ServerType>
+WithSsl<ServerType>::WithSsl(quint16 serverPort, const SslConfiguration &configuration)
+    : ServerType(QHostAddress::Any, serverPort)
+    , _configuration(configuration)
+    , _sslHandshakeTimeout(5.0)
+{}
+
+
+template<typename ServerType>
+void WithSsl<ServerType>::setSslConfiguration(const SslConfiguration &configuration)
+{
+    this->_configuration = configuration;
+}
+
+
+template<typename ServerType>
+SslConfiguration WithSsl<ServerType>::sslConfiguration() const
+{
+    return this->_configuration;
+}
+
+
+
+template<typename ServerType>
+void WithSsl<ServerType>::setSslHandshakeTimeout(float sslHandshakeTimeout)
+{
+    this->_sslHandshakeTimeout = sslHandshakeTimeout;
+}
+
+
+template<typename ServerType>
+float WithSsl<ServerType>::sslHandshakeTimeout() const
+{
+    return this->_sslHandshakeTimeout;
+}
+
+
+template<typename ServerType>
+bool WithSsl<ServerType>::isSecure() const
+{
+    return true;
+}
+
+
+template<typename ServerType>
+QSharedPointer<SocketLike> WithSsl<ServerType>::prepareRequest(QSharedPointer<SocketLike> request)
+{
+    try {
+        Timeout timeout(_sslHandshakeTimeout);
+        QSharedPointer<SslSocket> s = QSharedPointer<SslSocket>::create(request, _configuration);
+        if (s->handshake(true)) {
+            return asSocketLike(s);
+        }
+    }  catch (TimeoutException &) {
+        //
+    }
+    return QSharedPointer<SocketLike>();
+}
+
+
 template<typename RequestHandler>
-class SslServer: public BaseSslServer
+class SslServer: public WithSsl<TcpServer<RequestHandler>>
 {
 public:
-    SslServer(const QHostAddress &serverAddress, quint16 serverPort)
-        :BaseSslServer(serverAddress, serverPort) {}
-    SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
-        :BaseSslServer(serverAddress, serverPort, configuration) {}
-    SslServer(quint16 serverPort)
-        :BaseSslServer(QHostAddress::Any, serverPort) {}
-    SslServer(quint16 serverPort, const SslConfiguration &configuration)
-        :BaseSslServer(QHostAddress::Any, serverPort, configuration) {}
-protected:
-    virtual void processRequest(QSharedPointer<SocketLike> request) override;
+    SslServer(const QHostAddress &serverAddress, quint16 serverPort);
+    SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
+    SslServer(quint16 serverPort);
+    SslServer(quint16 serverPort, const SslConfiguration &configuration);
 };
 
 
 template<typename RequestHandler>
-void SslServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
-{
-    RequestHandler handler;
-    handler.request = request;
-    handler.server = this;
-    handler.run();
-}
+SslServer<RequestHandler>::SslServer(const QHostAddress &serverAddress, quint16 serverPort)
+    : WithSsl<TcpServer<RequestHandler>>(serverAddress, serverPort) {}
+
+
+template<typename RequestHandler>
+SslServer<RequestHandler>::SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
+    : WithSsl<TcpServer<RequestHandler>>(serverAddress, serverPort, configuration) {}
+
+
+template<typename RequestHandler>
+SslServer<RequestHandler>::SslServer(quint16 serverPort)
+    : WithSsl<TcpServer<RequestHandler>>(serverPort) {}
+
+
+template<typename RequestHandler>
+SslServer<RequestHandler>::SslServer(quint16 serverPort, const SslConfiguration &configuration)
+    : WithSsl<TcpServer<RequestHandler>>(serverPort, configuration) {}
+
 
 #endif
 

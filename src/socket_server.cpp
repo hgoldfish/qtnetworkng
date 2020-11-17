@@ -23,7 +23,6 @@ public:
     {}
     ~BaseStreamServerPrivate() { delete operations; }
     void serveForever();
-    void handleRequest(QSharedPointer<SocketLike> request);
 public:
     QSharedPointer<SocketLike> serverSocket;
     CoroutineGroup *operations;
@@ -144,11 +143,21 @@ void BaseStreamServerPrivate::serveForever()
         }
         if (q->verifyRequest(request)) {
             operations->spawn([this, request] {
-                handleRequest(request);
+                Q_Q(BaseStreamServer);
+                QSharedPointer<SocketLike> sslRequest = q->prepareRequest(request);
+                if (!sslRequest.isNull()) {
+                    try {
+                        q->processRequest(sslRequest); // close request.
+                        q->shutdownRequest(sslRequest);
+                    } catch (CoroutineExitException &) {
+                    } catch (...) {
+                        q->handleError(sslRequest);
+                    }
+                    q->closeRequest(sslRequest);
+                }
             });
         } else {
-            q->shutdownRequest(request);
-            q->closeRequest(request);
+            request->close();
         }
         if (!q->serviceActions()) {
             break;
@@ -157,22 +166,6 @@ void BaseStreamServerPrivate::serveForever()
     q->serverClose();
     q->started->clear();
     q->stopped->set();
-}
-
-
-void BaseStreamServerPrivate::handleRequest(QSharedPointer<SocketLike> request)
-{
-    Q_Q(BaseStreamServer);
-    try {
-        q->processRequest(request); // close request.
-    } catch (CoroutineExitException &) {
-        q->shutdownRequest(request);
-        q->closeRequest(request);
-    } catch (...) {
-        q->handleError(request);
-        q->shutdownRequest(request);
-        q->closeRequest(request);
-    }
 }
 
 
@@ -275,15 +268,15 @@ bool BaseStreamServer::serviceActions()
 }
 
 
-bool BaseStreamServer::verifyRequest(QSharedPointer<SocketLike>)
+QSharedPointer<SocketLike> BaseStreamServer::prepareRequest(QSharedPointer<SocketLike> request)
 {
-    return true;
+    return request;
 }
 
 
-void BaseStreamServer::processRequest(QSharedPointer<SocketLike>)
+bool BaseStreamServer::verifyRequest(QSharedPointer<SocketLike>)
 {
-
+    return true;
 }
 
 
@@ -308,67 +301,6 @@ void BaseStreamServer::closeRequest(QSharedPointer<SocketLike> request)
 {
     request->close();
 }
-
-
-#ifndef QTNG_NO_CRYPTO
-
-class BaseSslServerPrivate: public BaseStreamServerPrivate
-{
-public:
-    BaseSslServerPrivate(BaseSslServer *q, const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
-        :BaseStreamServerPrivate(q, serverAddress, serverPort), configuration(configuration) {}
-public:
-    SslConfiguration configuration;
-};
-
-
-BaseSslServer::BaseSslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
-    :BaseStreamServer (new BaseSslServerPrivate(this, serverAddress, serverPort, configuration))
-{
-}
-
-
-BaseSslServer::BaseSslServer(const QHostAddress &serverAddress, quint16 serverPort)
-    :BaseStreamServer (new BaseSslServerPrivate(this, serverAddress, serverPort, SslConfiguration()))
-{
-    Q_D(BaseSslServer);
-    d->configuration = SslConfiguration::testPurpose("SslServer", "CN", "QtNetworkNg");
-}
-
-
-void BaseSslServer::setSslConfiguration(const SslConfiguration &configuration)
-{
-    Q_D(BaseSslServer);
-    d->configuration = configuration;
-}
-
-
-SslConfiguration BaseSslServer::sslConfiguratino() const
-{
-    Q_D(const BaseSslServer);
-    return d->configuration;
-}
-
-
-bool BaseSslServer::isSecure() const
-{
-    return true;
-}
-
-
-QSharedPointer<SocketLike> BaseSslServer::serverCreate()
-{
-    Q_D(BaseSslServer);
-    QAbstractSocket::NetworkLayerProtocol protocol = serverAddress().protocol();
-    if (protocol == QAbstractSocket::IPv6Protocol || protocol == QAbstractSocket::AnyIPProtocol) {
-        return asSocketLike(new SslSocket(Socket::IPv6Protocol, d->configuration));
-    } else {
-        return asSocketLike(new SslSocket(Socket::IPv4Protocol, d->configuration));
-    }
-}
-
-
-#endif  // QTNG_NO_CRYPTO
 
 
 BaseRequestHandler::BaseRequestHandler()

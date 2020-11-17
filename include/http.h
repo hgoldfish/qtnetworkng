@@ -69,7 +69,7 @@ public:
 
 
 class HttpRequestPrivate;
-class HttpRequest: public WithHeaders
+class HttpRequest: public HttpHeaderManager
 {
 public:
     enum CacheLoadControl {
@@ -147,7 +147,7 @@ public:
 
 
 class HttpResponsePrivate;
-class HttpResponse: public WithHeaders
+class HttpResponse: public HttpHeaderManager
 {
 public:
     HttpResponse();

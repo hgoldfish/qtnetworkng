@@ -7,7 +7,7 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 class HttpProxyPrivate;
-class HttpProxy: public WithHeaders
+class HttpProxy: public HttpHeaderManager
 {
 public:
     enum Capability
