@@ -589,7 +589,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
             setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
             abort();
             return sent;
-        } else {  // w < 0 || (w == 0 && type == Socket::UdpSocket)
+        } else {  // w < 0 || (w == 0 && type != Socket::TcpSocket)
             int e = errno;
             switch(e) {
 #if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN

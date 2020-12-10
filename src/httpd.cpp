@@ -408,7 +408,7 @@ void BaseHttpRequestHandler::logRequest(HttpStatus status, int bodySize)
 
 void BaseHttpRequestHandler::logError(HttpStatus status, const QString &shortMessage, const QString &)
 {
-    QString msg = QStringLiteral("%1 %2 %3 %4").arg(method).arg(path).arg(static_cast<int>(status)).arg(shortMessage);
+    QString msg = QStringLiteral("%1 %2 %3 -1").arg(method).arg(path).arg(static_cast<int>(status)).arg(shortMessage);
     msg = QStringLiteral("%1 -- %2 %3").arg(request->peerAddress().toString()).arg(QDateTime::currentDateTime().toString(Qt::ISODate)).arg(msg);
     printf("%s\n", qPrintable(msg));
 }
