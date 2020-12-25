@@ -38,6 +38,8 @@ public:
     bool willFlushWrites();
     void setLengthLimit(quint32 limit);
     quint32 lengthLimit() const;
+    void setVersion(int version);
+    int version() const;
 
     MsgPackStream &operator>>(bool &b);
     MsgPackStream &operator>>(quint8 &u8);

@@ -50,6 +50,7 @@ public:
     QIODevice *dev;
     MsgPackStream::Status status;
     quint32 limit;
+    int version;
     bool owndev;
     bool flushWrites;
 
@@ -66,18 +67,32 @@ public:
 };
 
 MsgPackStreamPrivate::MsgPackStreamPrivate()
-    :dev(nullptr), status(MsgPackStream::Ok), limit(std::numeric_limits<quint32>::max()), owndev(false), flushWrites(false)
+    : dev(nullptr)
+    , status(MsgPackStream::Ok)
+    , limit(std::numeric_limits<quint32>::max())
+    , version(0)
+    , owndev(false)
+    , flushWrites(false)
 {
 }
 
+
 MsgPackStreamPrivate::MsgPackStreamPrivate(QIODevice *d)
-    :dev(d), status(MsgPackStream::Ok), limit(std::numeric_limits<quint32>::max()), owndev(false), flushWrites(false)
+    : dev(d)
+    , status(MsgPackStream::Ok)
+    , limit(std::numeric_limits<quint32>::max())
+    , version(0)
+    , owndev(false)
+    , flushWrites(false)
 {
 }
 
 
 MsgPackStreamPrivate::MsgPackStreamPrivate(QByteArray *a, QIODevice::OpenMode mode)
-    :status(MsgPackStream::Ok), owndev(true), flushWrites(false)
+    : status(MsgPackStream::Ok)
+    , version(0)
+    , owndev(true)
+    , flushWrites(false)
 {
     QBuffer *buf = new QBuffer(a);
     buf->open(mode);
@@ -91,13 +106,18 @@ MsgPackStreamPrivate::MsgPackStreamPrivate(QByteArray *a, QIODevice::OpenMode mo
 
 
 MsgPackStreamPrivate::MsgPackStreamPrivate(const QByteArray &a)
-    :status(MsgPackStream::Ok), limit(a.size()), owndev(true), flushWrites(false)
+    : status(MsgPackStream::Ok)
+    , limit(a.size())
+    , version(0)
+    , owndev(true)
+    , flushWrites(false)
 {
     QBuffer *buf = new QBuffer();
     buf->setData(a);
     buf->open(QIODevice::ReadOnly);
     dev = buf;
 }
+
 
 MsgPackStreamPrivate::~MsgPackStreamPrivate()
 {
@@ -135,10 +155,12 @@ bool MsgPackStreamPrivate::readBytes(char *data, qint64 len)
     return true;
 }
 
+
 bool MsgPackStreamPrivate::readBytes(quint8 *data, int len)
 {
     return readBytes(static_cast<char*>(static_cast<void*>(data)), len);
 }
+
 
 bool MsgPackStreamPrivate::readExtHeader(quint32 &len, quint8 &msgpackType)
 {
@@ -183,6 +205,7 @@ bool MsgPackStreamPrivate::readExtHeader(quint32 &len, quint8 &msgpackType)
     msgpackType = p[5];
     return true;
 }
+
 
 bool MsgPackStreamPrivate::unpack_longlong(qint64 &i64)
 {
@@ -247,6 +270,7 @@ bool MsgPackStreamPrivate::unpack_longlong(qint64 &i64)
     }
     return true;
 }
+
 
 bool MsgPackStreamPrivate::unpack_ulonglong(quint64 &u64)
 {
@@ -327,6 +351,7 @@ bool MsgPackStreamPrivate::unpack_ulonglong(quint64 &u64)
     return true;
 }
 
+
 bool MsgPackStreamPrivate::unpackString(QString &s)
 {
     quint8 p[5];
@@ -375,6 +400,7 @@ bool MsgPackStreamPrivate::unpackString(QString &s)
     s = QString::fromUtf8(buf);
     return true;
 }
+
 
 bool MsgPackStreamPrivate::unpack(QVariant &v)
 {
@@ -744,6 +770,7 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
     return true;
 }
 
+
 bool MsgPackStreamPrivate::writeBytes(const char *data, qint64 len)
 {
     if (status != MsgPackStream::Ok) {
@@ -778,10 +805,12 @@ bool MsgPackStreamPrivate::writeBytes(const char *data, qint64 len)
     return true;
 }
 
+
 bool MsgPackStreamPrivate::writeBytes(const quint8 *data, int len)
 {
     return writeBytes(static_cast<const char*>(static_cast<const void*>(data)), len);
 }
+
 
 bool MsgPackStreamPrivate::writeExtHeader(quint32 len, quint8 msgpackType)
 {
@@ -836,14 +865,18 @@ bool MsgPackStreamPrivate::writeExtHeader(quint32 len, quint8 msgpackType)
 MsgPackStream::MsgPackStream()
     :d_ptr(new MsgPackStreamPrivate()) {}
 
+
 MsgPackStream::MsgPackStream(QIODevice *d)
     :d_ptr(new MsgPackStreamPrivate(d)) {}
+
 
 MsgPackStream::MsgPackStream(QByteArray *a, QIODevice::OpenMode mode)
     :d_ptr(new MsgPackStreamPrivate(a, mode)) {}
 
+
 MsgPackStream::MsgPackStream(const QByteArray &a)
     :d_ptr(new MsgPackStreamPrivate(a)) {}
+
 
 MsgPackStream::~MsgPackStream()
 {
@@ -861,11 +894,13 @@ void MsgPackStream::setDevice(QIODevice *dev)
     d->owndev = false;
 }
 
+
 QIODevice *MsgPackStream::device() const
 {
     Q_D(const MsgPackStream);
     return d->dev;
 }
+
 
 bool MsgPackStream::atEnd() const
 {
@@ -873,11 +908,13 @@ bool MsgPackStream::atEnd() const
     return d->dev ? d->dev->atEnd() : true;
 }
 
+
 MsgPackStream::Status MsgPackStream::status() const
 {
     Q_D(const MsgPackStream);
     return d->status;
 }
+
 
 void MsgPackStream::resetStatus()
 {
@@ -885,11 +922,13 @@ void MsgPackStream::resetStatus()
     d->status = Ok;
 }
 
+
 void MsgPackStream::setStatus(Status status)
 {
     Q_D(MsgPackStream);
     d->status = status;
 }
+
 
 void MsgPackStream::setFlushWrites(bool flush)
 {
@@ -897,11 +936,13 @@ void MsgPackStream::setFlushWrites(bool flush)
     d->flushWrites = flush;
 }
 
+
 bool MsgPackStream::willFlushWrites()
 {
     Q_D(const MsgPackStream);
     return d->flushWrites;
 }
+
 
 void MsgPackStream::setLengthLimit(quint32 limit)
 {
@@ -909,10 +950,25 @@ void MsgPackStream::setLengthLimit(quint32 limit)
     d->limit = limit;
 }
 
+
 quint32 MsgPackStream::lengthLimit() const
 {
     Q_D(const MsgPackStream);
     return d->limit;
+}
+
+
+void MsgPackStream::setVersion(int version)
+{
+    Q_D(MsgPackStream);
+    d->version = version;
+}
+
+
+int MsgPackStream::version() const
+{
+    Q_D(const MsgPackStream);
+    return d->version;
 }
 
 
@@ -935,6 +991,7 @@ MsgPackStream &MsgPackStream::operator>>(bool &b)
     return *this;
 }
 
+
 MsgPackStream &MsgPackStream::operator >>(quint8 &u8)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -949,6 +1006,7 @@ MsgPackStream &MsgPackStream::operator >>(quint8 &u8)
     }
     return *this;
 }
+
 
 MsgPackStream &MsgPackStream::operator>>(quint16 &u16)
 {
@@ -965,6 +1023,7 @@ MsgPackStream &MsgPackStream::operator>>(quint16 &u16)
     return *this;
 }
 
+
 MsgPackStream &MsgPackStream::operator>>(quint32 &u32)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -980,12 +1039,14 @@ MsgPackStream &MsgPackStream::operator>>(quint32 &u32)
     return *this;
 }
 
+
 MsgPackStream &MsgPackStream::operator>>(quint64 &u64)
 {
     CHECK_STREAM_PRECOND(*this);
     d->unpack_ulonglong(u64);
     return *this;
 }
+
 
 MsgPackStream &MsgPackStream::operator>>(qint8 &i8)
 {
@@ -1002,6 +1063,7 @@ MsgPackStream &MsgPackStream::operator>>(qint8 &i8)
     return *this;
 }
 
+
 MsgPackStream &MsgPackStream::operator>>(qint16 &i16)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1016,6 +1078,7 @@ MsgPackStream &MsgPackStream::operator>>(qint16 &i16)
     }
     return *this;
 }
+
 
 MsgPackStream &MsgPackStream::operator>>(qint32 &i32)
 {
@@ -1032,12 +1095,14 @@ MsgPackStream &MsgPackStream::operator>>(qint32 &i32)
     return *this;
 }
 
+
 MsgPackStream &MsgPackStream::operator>>(qint64 &i64)
 {
     CHECK_STREAM_PRECOND(*this);
     d->unpack_longlong(i64);
     return *this;
 }
+
 
 MsgPackStream &MsgPackStream::operator>>(float &f)
 {
@@ -1057,6 +1122,7 @@ MsgPackStream &MsgPackStream::operator>>(float &f)
     f = *((float *) &i32);
     return *this;
 }
+
 
 MsgPackStream &MsgPackStream::operator>>(double &f)
 {
@@ -1078,12 +1144,14 @@ MsgPackStream &MsgPackStream::operator>>(double &f)
     return *this;
 }
 
+
 MsgPackStream &MsgPackStream::operator>>(QString &str)
 {
     Q_D(MsgPackStream);
     d->unpackString(str);
     return *this;
 }
+
 
 MsgPackStream &MsgPackStream::operator>>(QByteArray &array)
 {
@@ -1165,6 +1233,7 @@ MsgPackStream &MsgPackStream::operator>>(MsgPackExtData &ext)
     return *this;
 }
 
+
 MsgPackStream &MsgPackStream::operator>>(QVariant &v)
 {
     Q_D(MsgPackStream);
@@ -1172,18 +1241,19 @@ MsgPackStream &MsgPackStream::operator>>(QVariant &v)
     return *this;
 }
 
+
 bool MsgPackStream::readBytes(char *data, qint64 len)
 {
     Q_D(MsgPackStream);
     return d->readBytes(data, len);
 }
 
+
 bool MsgPackStream::readExtHeader(quint32 &len, quint8 msgpackType)
 {
     Q_D(MsgPackStream);
     return d->readExtHeader(len, msgpackType);
 }
-
 
 
 MsgPackStream &MsgPackStream::operator<<(bool b)
@@ -1210,6 +1280,7 @@ MsgPackStream &MsgPackStream::operator<<(quint8 u8)
     }
     return *this;
 }
+
 
 MsgPackStream &MsgPackStream::operator<<(quint16 u16)
 {
@@ -1240,6 +1311,7 @@ MsgPackStream &MsgPackStream::operator<<(quint32 u32)
     return *this;
 }
 
+
 MsgPackStream &MsgPackStream::operator<<(quint64 u64)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1253,6 +1325,7 @@ MsgPackStream &MsgPackStream::operator<<(quint64 u64)
     }
     return *this;
 }
+
 
 MsgPackStream &MsgPackStream::operator<<(qint8 i8)
 {
@@ -1290,6 +1363,7 @@ MsgPackStream &MsgPackStream::operator<<(qint16 i16)
     return *this;
 }
 
+
 MsgPackStream &MsgPackStream::operator<<(qint32 i32)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1308,6 +1382,7 @@ MsgPackStream &MsgPackStream::operator<<(qint32 i32)
     }
     return *this;
 }
+
 
 MsgPackStream &MsgPackStream::operator<<(qint64 i64)
 {
@@ -1341,6 +1416,7 @@ MsgPackStream &MsgPackStream::operator<<(float f)
     d->writeBytes(p, 5);
     return *this;
 }
+
 
 MsgPackStream &MsgPackStream::operator<<(double f)
 {
@@ -1412,6 +1488,7 @@ MsgPackStream &MsgPackStream::operator<<(const QByteArray &array)
     return *this;
 }
 
+
 static QByteArray packDatetime(const QDateTime &dt)
 {
     if(!dt.isValid()) {
@@ -1428,6 +1505,7 @@ static QByteArray packDatetime(const QDateTime &dt)
     return bs;
 }
 
+
 MsgPackStream &MsgPackStream::operator<<(const QDateTime &dt)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1443,6 +1521,7 @@ MsgPackStream &MsgPackStream::operator<<(const QDateTime &dt)
     return *this;
 }
 
+
 MsgPackStream &MsgPackStream::operator<<(const MsgPackExtData &ext)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1453,6 +1532,7 @@ MsgPackStream &MsgPackStream::operator<<(const MsgPackExtData &ext)
     d->writeBytes(ext.payload.data(), ext.payload.size());
     return *this;
 }
+
 
 MsgPackStream &MsgPackStream::operator<<(const QVariant &v)
 {
