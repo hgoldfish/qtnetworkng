@@ -525,7 +525,7 @@ SslConfiguration SslConfiguration::testPurpose(const QString &commonName, const 
     info.insert(Certificate::CountryName, countryCode);
     info.insert(Certificate::Organization, organization);
     const QDateTime &now = QDateTime::currentDateTime();
-    const Certificate &cert = Certificate::generate(key, MessageDigest::Sha256,
+    const Certificate &cert = Certificate::selfSign(key, MessageDigest::Sha256,
                                                     293424, now, now.addYears(10), info);
     SslConfiguration config;
     config.setPrivateKey(key);

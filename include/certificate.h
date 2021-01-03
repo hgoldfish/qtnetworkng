@@ -69,11 +69,17 @@ public:
     bool operator==(const Certificate &other) const;
 public:
     static Certificate load(const QByteArray& data, Ssl::EncodingFormat format = Ssl::Pem);
-    static Certificate generate(const PrivateKey &key, MessageDigest::Algorithm signAlgo,
+    static Certificate generate(const PublicKey &publickey, const PrivateKey &caKey,
+                                MessageDigest::Algorithm signAlgo,
                                 long serialNumber,
                                 const QDateTime &effectiveDate,
                                 const QDateTime &expiryDate,
                                 const QMultiMap<SubjectInfo, QString> &subjectInfoes);
+    static Certificate selfSign(const PrivateKey &key, MessageDigest::Algorithm signAlgo,
+                                long serialNumber, const QDateTime &effectiveDate, const QDateTime &expiryDate,
+                                const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
+    { return generate(key, key, signAlgo, serialNumber, effectiveDate, expiryDate, subjectInfoes); }
+
     QByteArray save(Ssl::EncodingFormat format = Ssl::Pem) const;
 private:
     QSharedDataPointer<CertificatePrivate> d;

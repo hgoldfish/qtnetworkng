@@ -316,7 +316,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
         int result;
         do {
             result = ::connect(fd, &aa.a, sockAddrSize);
-        } while(result < 0 && errno == EINTR);
+        } while (result < 0 && errno == EINTR);
         if (result >= 0) {
             state = Socket::ConnectedState;
             fetchConnectionParameters();

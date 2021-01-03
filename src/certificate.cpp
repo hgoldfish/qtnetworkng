@@ -138,7 +138,7 @@ public:
 
     QByteArray save(Ssl::EncodingFormat format) const;
     static Certificate load(const QByteArray &data, Ssl::EncodingFormat format);
-    static Certificate generate(const PrivateKey &key, MessageDigest::Algorithm signAlgo,
+    static Certificate generate(const PublicKey &publickey, const PrivateKey &caKey, MessageDigest::Algorithm signAlgo,
                                       long serialNumber, const QDateTime &effectiveDate,
                                       const QDateTime &expiryDate, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes);
     static QByteArray subjectInfoToString(Certificate::SubjectInfo info);
@@ -594,7 +594,7 @@ struct Asn1TimeCleaner
 };
 
 
-Certificate CertificatePrivate::generate(const PrivateKey &key, MessageDigest::Algorithm signAlgo,
+Certificate CertificatePrivate::generate(const PublicKey &publickey, const PrivateKey &caKey, MessageDigest::Algorithm signAlgo,
                                   long serialNumber, const QDateTime &effectiveDate,
                                   const QDateTime &expiryDate, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
 {
@@ -611,7 +611,7 @@ Certificate CertificatePrivate::generate(const PrivateKey &key, MessageDigest::A
         return cert;
     }
     ASN1_INTEGER_set(i, serialNumber);
-    X509_set_pubkey(x509.data(), static_cast<EVP_PKEY*>(key.handle()));
+    X509_set_pubkey(x509.data(), static_cast<EVP_PKEY*>(publickey.handle()));
     if (!setSubjectInfos(x509.data(), subjectInfoes)) {
         qDebug() << "can not set subject infos.";
         return cert;
@@ -647,7 +647,7 @@ Certificate CertificatePrivate::generate(const PrivateKey &key, MessageDigest::A
         qDebug() << "can not find md.";
         return cert;
     }
-    r = X509_sign(x509.data(), static_cast<EVP_PKEY*>(key.handle()), md);
+    r = X509_sign(x509.data(), static_cast<EVP_PKEY*>(caKey.handle()), md);
     if (!r) {
         qDebug() << "can not sign certificate.";
         return cert;
@@ -997,11 +997,11 @@ Certificate Certificate::load(const QByteArray& data, Ssl::EncodingFormat format
 }
 
 
-Certificate Certificate::generate(const PrivateKey &key, MessageDigest::Algorithm signAlgo,
+Certificate Certificate::generate(const PublicKey &publickey, const PrivateKey &caKey, MessageDigest::Algorithm signAlgo,
                                   long serialNumber, const QDateTime &effectiveDate,
                                   const QDateTime &expiryDate, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
 {
-    return CertificatePrivate::generate(key, signAlgo, serialNumber, effectiveDate, expiryDate, subjectInfoes);
+    return CertificatePrivate::generate(publickey, caKey, signAlgo, serialNumber, effectiveDate, expiryDate, subjectInfoes);
 }
 
 
