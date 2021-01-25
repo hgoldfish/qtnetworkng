@@ -1153,20 +1153,33 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         response.setError(new ConnectionError());
         return response;
     }
+
+    HeaderSplitter headerSplitter(connection, debugLevel);
+    HeaderSplitter::Error headerSplitterError;
     if (!request.d->body.isEmpty()) {
         if (debugLevel > 3) {
             qDebug() << "sending body:" << request.d->body;
         } else if (debugLevel > 0) {
             qDebug() << "sending body:" << request.d->body.size();
         }
-        if (connection->sendall(request.d->body) != request.d->body.size()) {
-            response.setError(new ConnectionError());
-            return response;
+        QByteArray body = request.d->body;
+
+        std::function<int()> send_fun = [body, connection] {
+            return connection->sendall(body);
+        };
+        std::function<QByteArray()> recv_fun = [connection] {
+            return connection->recv(1024 * 8);
+        };
+        std::tuple<int, QByteArray> r = when(send_fun, recv_fun);
+        if (std::get<1>(r).isEmpty()) {
+            if (std::get<0>(r) != request.d->body.size()) {
+                response.setError(new ConnectionError());
+                return response;
+            }
+        } else {
+            headerSplitter.buf = std::get<1>(r);
         }
     }
-
-    HeaderSplitter headerSplitter(connection, debugLevel);
-    HeaderSplitter::Error headerSplitterError;
 
     // parse first line.
     QByteArray firstLine = headerSplitter.nextLine(&headerSplitterError);

@@ -315,7 +315,7 @@ QSharedPointer<SSL_CTX> SslConfigurationPrivate::makeContext(const SslConfigurat
             qDebug() << "can not set ssl private key.";
         }
     }
-    const Certificate localCertificate = config.localCertificate();
+    const Certificate &localCertificate = config.localCertificate();
     if (localCertificate.isValid()) {
         int r = SSL_CTX_use_certificate(ctx.data(), static_cast<X509 *>(localCertificate.handle()));
         if(!r) {

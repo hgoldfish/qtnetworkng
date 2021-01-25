@@ -65,7 +65,6 @@ private:
 // useful for qt application.
 int startQtLoop();
 
-
 QTNETWORKNG_NAMESPACE_END
 
 #endif // QTNG_EVENTLOOP_H

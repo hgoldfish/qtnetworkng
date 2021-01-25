@@ -150,6 +150,60 @@ std::tuple<ARG1, ARGS...> qAwait(const Obj *obj,
     }
 }
 
+
+inline Coroutine *when(Coroutine *c1, Coroutine *c2)
+{
+    QSharedPointer<ValueEvent<BaseCoroutine *>> v(new ValueEvent<BaseCoroutine *>());
+    std::function<void(BaseCoroutine*)> f = [v] (BaseCoroutine *c) { v->send(c); };
+    c1->finished.addCallback(f);
+    c2->finished.addCallback(f);
+    return static_cast<Coroutine *>(v->wait());
+}
+
+
+inline Coroutine *when(Coroutine *c1, Coroutine *c2, Coroutine *c3)
+{
+    QSharedPointer<ValueEvent<BaseCoroutine *>> v(new ValueEvent<BaseCoroutine *>());
+    std::function<void(BaseCoroutine*)> f = [v] (BaseCoroutine *c) { v->send(c); };
+    c1->finished.addCallback(f);
+    c2->finished.addCallback(f);
+    c3->finished.addCallback(f);
+    return static_cast<Coroutine *>(v->wait());
+}
+
+
+inline Coroutine *when(Coroutine *c1, Coroutine *c2, Coroutine *c3, Coroutine *c4)
+{
+    QSharedPointer<ValueEvent<BaseCoroutine *>> v(new ValueEvent<BaseCoroutine *>());
+    std::function<void(BaseCoroutine*)> f = [v] (BaseCoroutine *c) { v->send(c); };
+    c1->finished.addCallback(f);
+    c2->finished.addCallback(f);
+    c3->finished.addCallback(f);
+    c4->finished.addCallback(f);
+    return static_cast<Coroutine *>(v->wait());
+}
+
+
+template<typename T1, typename T2>
+std::tuple<T1, T2> when(std::function<T1()> f1, std::function<T2()> f2)
+{
+    QSharedPointer<T2> v2(new T2());
+    QPointer<Coroutine> c1(Coroutine::current());
+    QScopedPointer<Coroutine> c2(Coroutine::spawn([c1, v2, f2] {
+        *v2 = f2();
+        if (c1) {
+            c1->kill(new CoroutineInterruptedException());
+        }
+    }));
+    try {
+        return std::make_tuple(f1(), *v2);
+    }  catch (CoroutineInterruptedException &) {
+        return std::make_tuple(T1(), *v2);
+    }
+
+}
+
+
 // XXX DO NOT DELETE ANYTHING IN CHILD THREADS.
 class DeferCallThread: public QThread
 {

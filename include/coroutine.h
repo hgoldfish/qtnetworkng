@@ -90,6 +90,7 @@ private:
 
 QDebug &operator <<(QDebug &out, const BaseCoroutine& coroutine);
 
+
 QTNETWORKNG_NAMESPACE_END
 
 #endif // QTNG_COROUTINE_H

@@ -175,6 +175,7 @@ bool BaseCoroutinePrivate::yield()
     if (e) {
         old->d_func()->exception = nullptr;
         e->raise();
+        // do not delete the exception, as it's owned by the old coroutine.
     }
     return true;
 }
