@@ -1162,22 +1162,11 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         } else if (debugLevel > 0) {
             qDebug() << "sending body:" << request.d->body.size();
         }
-        QByteArray body = request.d->body;
-
-        std::function<int()> send_fun = [body, connection] {
-            return connection->sendall(body);
-        };
-        std::function<QByteArray()> recv_fun = [connection] {
-            return connection->recv(1024 * 8);
-        };
-        std::tuple<int, QByteArray> r = when(send_fun, recv_fun);
-        if (std::get<1>(r).isEmpty()) {
-            if (std::get<0>(r) != request.d->body.size()) {
-                response.setError(new ConnectionError());
-                return response;
-            }
-        } else {
-            headerSplitter.buf = std::get<1>(r);
+        const QByteArray &body = request.d->body;
+        qint32 sentBytes = connection->sendall(body);
+        if (sentBytes != body.size()) {
+            response.setError(new ConnectionError());
+            return response;
         }
     }
 

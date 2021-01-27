@@ -76,6 +76,7 @@ static void qt_ignore_sigpipe()
     }
 }
 
+
 static inline void qt_socket_getPortAndAddress(const qt_sockaddr *s, quint16 *port, QHostAddress *addr)
 {
     if (s->a.sa_family == AF_INET6) {
@@ -565,7 +566,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 {
     if (!checkState()) {
-        return 0;
+        return -1;
     }
     qint32 sent = 0;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
@@ -603,7 +604,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
             case EACCES:
                 setError(Socket::SocketAccessError, AccessErrorString);
                 abort();
-                return sent;
+                return -1;
             case EBADF:
             case EFAULT:
             case EINVAL:
@@ -611,21 +612,21 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
             case ENOTSOCK:
                 setError(Socket::UnsupportedSocketOperationError, InvalidSocketErrorString);
                 abort();
-                return sent;
+                return -1;
             case EMSGSIZE:
             case ENOBUFS:
             case ENOMEM:
                 setError(Socket::DatagramTooLargeError, DatagramTooLargeErrorString);
-                return sent;
+                return -1;
             case EPIPE:
             case ECONNRESET:
                 setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                 abort();
-                return sent;
+                return -1;
             default:
                 setError(Socket::UnknownSocketError, UnknownSocketErrorString);
                 abort();
-                return sent;
+                return -1;
             }
         }
         watcher.start();
@@ -767,6 +768,7 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
             case EMSGSIZE:
                 setError(Socket::DatagramTooLargeError, DatagramTooLargeErrorString);
                 return -1;
+            case EPIPE:
             case ECONNRESET:
             case ENOTSOCK:
                 if(type == Socket::TcpSocket) {

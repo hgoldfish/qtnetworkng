@@ -92,10 +92,12 @@ private:
     Q_DECLARE_PRIVATE_D(dd_ptr, EventLoopCoroutine)
 };
 
+
 inline QDebug &operator <<(QDebug &out, const EventLoopCoroutine& el)
 {
     return out << QString::fromLatin1("EventLoopCoroutine(id=%1)").arg(el.id());
 }
+
 
 class ScopedIoWatcher
 {
@@ -106,6 +108,7 @@ public:
 private:
     int watcherId;
 };
+
 
 class EventLoopCoroutinePrivate
 {

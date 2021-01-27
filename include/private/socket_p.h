@@ -71,7 +71,7 @@ public:
     bool setNonblocking();
     QVariant option(Socket::SocketOption option) const;
     qint32 recv(char *data, qint32 size, bool all);
-    qint32 send(const char *data, qint32 size, bool all = true);
+    qint32 send(const char *data, qint32 size, bool all);
     qint32 recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port);
     qint32 sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port);
     bool fetchConnectionParameters();

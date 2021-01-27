@@ -1189,6 +1189,7 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
     }
 }
 
+
 QVariant SocketPrivate::option(Socket::SocketOption option) const
 {
     if (!checkState())

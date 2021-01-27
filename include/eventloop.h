@@ -44,8 +44,9 @@ class TimeoutException: public CoroutineException
 {
 public:
     explicit TimeoutException();
-    virtual QString what() const;
-    virtual void raise();
+    virtual QString what() const override;
+    virtual void raise() override;
+    virtual CoroutineException *clone() const override;
 };
 
 class Timeout: public QObject

@@ -337,7 +337,12 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel(quint32 channelNu
     while (!pendingChannels.isEmpty()) {
         QSharedPointer<VirtualChannel> channel = pendingChannels.get();
         if (channel->channelNumber() == channelNumber) {
+            for (QSharedPointer<VirtualChannel> t: tmp) {
+                pendingChannels.returnsForcely(t);
+            }
             return channel;
+        } else {
+            tmp.prepend(channel);
         }
     }
     return QSharedPointer<VirtualChannel>();
@@ -349,7 +354,7 @@ QByteArray DataChannelPrivate::recvPacket()
     if (receivingQueue.isEmpty() && broken) {
         return QByteArray();
     }
-    QByteArray packet = receivingQueue.get();
+    const QByteArray &packet = receivingQueue.get();
     if (packet.isNull()) {
         return QByteArray();
     }

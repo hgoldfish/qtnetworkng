@@ -614,6 +614,12 @@ void TimeoutException::raise()
 }
 
 
+CoroutineException *TimeoutException::clone() const
+{
+    return new TimeoutException();
+}
+
+
 Timeout::Timeout(float secs)
     : msecs(static_cast<quint32>((secs > 0.0f ? secs: 0.0f) * 1000)), timeoutId(0)
 {

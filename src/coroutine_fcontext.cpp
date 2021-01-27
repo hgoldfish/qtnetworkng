@@ -121,6 +121,7 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
     }
     if (exception) {
         qWarning("BaseCoroutine->exception should always be kept null.");
+        // XXX we do not own the exception.
         //delete exception;
     }
 

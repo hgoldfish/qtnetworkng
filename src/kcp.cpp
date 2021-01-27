@@ -207,7 +207,7 @@ int kcp_callback(const char *buf, int len, ikcpcb *, void *user)
         if (sentBytes != packet.size()) {  // but why this happens?
             if (p->error == Socket::NoError) {
                 p->error = Socket::SocketAccessError;
-                p->errorString = QStringLiteral("can not send udp packet");
+                p->errorString = QString("can not send udp packet");
             }
 #ifdef DEBUG_PROTOCOL
             qWarning() << "can not send packet.";
@@ -325,16 +325,15 @@ qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
         return -1;
     }
 
-    bool ok = sendingQueueNotFull->wait();
-    if (!ok) {
-        return -1;
-    }
-
     int count = 0;
     while (count < size) {
         if (state != Socket::ConnectedState) {
             error = Socket::SocketAccessError;
-            errorString = QStringLiteral("KcpSocket is not connected.");
+            errorString = QString("KcpSocket is not connected.");
+            return -1;
+        }
+        bool ok = sendingQueueNotFull->wait();
+        if (!ok) {
             return -1;
         }
         ScopedLock<RLock> l(kcpLock); Q_UNUSED(l);
@@ -367,7 +366,7 @@ qint32 KcpSocketPrivate::recv(char *data, qint32 size, bool all)
     while (true) {
         if (state != Socket::ConnectedState) {
             error = Socket::SocketAccessError;
-            errorString = QStringLiteral("KcpSocket is not connected.");
+            errorString = QString("KcpSocket is not connected.");
             return -1;
         }
         int peeksize = ikcp_peeksize(kcp);
@@ -444,7 +443,7 @@ void KcpSocketPrivate::doUpdate()
             qDebug() << "tearDown!";
 #endif
             error = Socket::SocketTimeoutError;
-            errorString = QStringLiteral("KcpSocket is timeout.");
+            errorString = QString("KcpSocket is timeout.");
             close(true);
             return;
         }
@@ -852,7 +851,7 @@ void MasterKcpSocketPrivate::doAccept()
                 if (rawSocket->sendto(closePacket, addr, port) != closePacket.size()) {
                     if (error == Socket::NoError) {
                         error = Socket::SocketResourceError;
-                        errorString = QStringLiteral("KcpSocket can not send udp packet.");
+                        errorString = QString("KcpSocket can not send udp packet.");
                     }
 #ifdef DEBUG_PROTOCOL
                     qDebug() << errorString;
@@ -872,7 +871,7 @@ void MasterKcpSocketPrivate::doAccept()
                     if (rawSocket->sendto(multiPathPacket, addr, port) != multiPathPacket.size()) {
                         if (error == Socket::NoError) {
                             error = Socket::SocketResourceError;
-                            errorString = QStringLiteral("KcpSocket can not send udp packet.");
+                            errorString = QString("KcpSocket can not send udp packet.");
                         }
 #ifdef DEBUG_PROTOCOL
                         qDebug() << errorString;
@@ -1868,7 +1867,6 @@ qint32 SocketLikeImpl::sendall(const QByteArray &data)
 {
     return s->sendall(data);
 }
-
 
 }
 
