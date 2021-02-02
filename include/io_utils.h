@@ -42,6 +42,8 @@ private:
 };
 
 
+bool sendall(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile);
+
 QTNETWORKNG_NAMESPACE_END
 
 #endif  // QTNG_IO_UTILS_H

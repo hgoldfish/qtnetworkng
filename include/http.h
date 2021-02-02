@@ -104,8 +104,9 @@ public:
     void setQuery(const QUrlQuery &query);
     QList<QNetworkCookie> cookies() const;
     void setCookies(const QList<QNetworkCookie> &cookies);
-    QByteArray body() const;
+    QSharedPointer<FileLike> body() const;
     void setBody(const QByteArray &body);
+    void setBody(QSharedPointer<FileLike> body);
     QString userAgent() const;
     void setUserAgent(const QString &userAgent);
     int maxBodySize() const;

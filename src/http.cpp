@@ -34,6 +34,7 @@ FormData::FormData()
     boundary = QByteArray("----WebKitFormBoundary") + randomPart;
 }
 
+
 QByteArray formatHeaderParam(const QString &name, const QString &value)
 {
     QTextCodec *asciiCodec = QTextCodec::codecForName("latin1");
@@ -54,6 +55,7 @@ QByteArray formatHeaderParam(const QString &name, const QString &value)
     }
     return data;
 }
+
 
 QByteArray FormData::toByteArray() const
 {
@@ -101,7 +103,7 @@ public:
     QUrl url;
     QUrlQuery query;
     QList<QNetworkCookie> cookies;
-    QByteArray body;
+    QSharedPointer<FileLike> body;
     QString userAgent;
     int maxBodySize;
     int maxRedirects;
@@ -237,13 +239,19 @@ void HttpRequest::setCookies(const QList<QNetworkCookie> &cookies)
 }
 
 
-QByteArray HttpRequest::body() const
+QSharedPointer<FileLike> HttpRequest::body() const
 {
     return d->body;
 }
 
 
 void HttpRequest::setBody(const QByteArray &body)
+{
+    d->body = FileLike::bytes(body);
+}
+
+
+void HttpRequest::setBody(QSharedPointer<FileLike> body)
 {
     d->body = body;
 }
@@ -366,28 +374,28 @@ void HttpRequest::setBody(const FormData &formData)
     if (!hasHeader(mimeHeader)) {
         setHeader(mimeHeader, QByteArray("1.0"));
     }
-    d->body = formData.toByteArray();
+    setBody(formData.toByteArray());
 }
 
 
 void HttpRequest::setBody(const QJsonDocument &json)
 {
     setHeader(QStringLiteral("Content-Type"), "application/json");
-    d->body = json.toJson();
+    setBody(json.toJson());
 }
 
 
 void HttpRequest::setBody(const QJsonObject &json)
 {
     setHeader(QStringLiteral("Content-Type"), "application/json");
-    d->body = QJsonDocument(json).toJson();
+    setBody(QJsonDocument(json).toJson());
 }
 
 
 void HttpRequest::setBody(const QJsonArray &json)
 {
     setHeader(QStringLiteral("Content-Type"), "application/json");
-    d->body = QJsonDocument(json).toJson();
+    setBody(QJsonDocument(json).toJson());
 }
 
 
@@ -404,7 +412,7 @@ void HttpRequest::setBody(const QMap<QString, QString> form)
 void HttpRequest::setBody(const QUrlQuery &form)
 {
     setHeader(QStringLiteral("Content-Type"), "application/x-www-form-urlencoded");
-    d->body = form.toString(QUrl::FullyEncoded).toUtf8();
+    setBody(form.toString(QUrl::FullyEncoded).toUtf8());
 }
 
 
@@ -1035,6 +1043,41 @@ inline static QString join(QChar c, const QStringList &l) { return l.join(c); }
 //inline static QString join(QChar c, const QList<QString> &l) { return QStringList(l).join(c); }
 
 
+class SendRequestBodyCoroutine: public Coroutine
+{
+public:
+    SendRequestBodyCoroutine(QPointer<Coroutine> parentCoroutine,
+                             QSharedPointer<SocketLike> connection,
+                             QSharedPointer<FileLike> body);
+public:
+    virtual void run() override;
+private:
+    QPointer<Coroutine> parentCoroutine;
+    QSharedPointer<SocketLike> connection;
+    QSharedPointer<FileLike> body;
+};
+
+
+SendRequestBodyCoroutine::SendRequestBodyCoroutine(QPointer<Coroutine> parentCoroutine,
+                                                   QSharedPointer<SocketLike> connection,
+                                                   QSharedPointer<FileLike> body)
+    : Coroutine()
+    , parentCoroutine(parentCoroutine)
+    , connection(connection)
+    , body(body)
+{}
+
+
+void SendRequestBodyCoroutine::run()
+{
+    if (!sendall(body, connection.dynamicCast<FileLike>())) {
+        if (!parentCoroutine.isNull()) {
+            parentCoroutine->kill(new CoroutineInterruptedException());
+        }
+    }
+}
+
+
 HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 {
     RequestError *error = nullptr;
@@ -1156,22 +1199,26 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 
     HeaderSplitter headerSplitter(connection, debugLevel);
     HeaderSplitter::Error headerSplitterError;
-    if (!request.d->body.isEmpty()) {
+    QScopedPointer<Coroutine> sendingReuqestBodyCoroutine(new SendRequestBodyCoroutine(Coroutine::current(), connection, request.d->body));
+    if (!request.d->body.isNull()) {
         if (debugLevel > 3) {
             qDebug() << "sending body:" << request.d->body;
         } else if (debugLevel > 0) {
-            qDebug() << "sending body:" << request.d->body.size();
+            qDebug() << "sending body:" << request.d->body->size();
         }
-        const QByteArray &body = request.d->body;
-        qint32 sentBytes = connection->sendall(body);
-        if (sentBytes != body.size()) {
+        sendingReuqestBodyCoroutine->start();
+        try {
+            headerSplitter.buf = connection->recv(1024 * 8);
+            sendingReuqestBodyCoroutine->kill();
+            sendingReuqestBodyCoroutine->join();
+        }  catch (CoroutineInterruptedException &) {
             response.setError(new ConnectionError());
             return response;
         }
     }
 
     // parse first line.
-    QByteArray firstLine = headerSplitter.nextLine(&headerSplitterError);
+    const QByteArray &firstLine = headerSplitter.nextLine(&headerSplitterError);
     error = toRequestError(headerSplitterError);
     if (error != nullptr) {
         response.setError(error);
@@ -1288,8 +1335,11 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
             allHeaders.prepend(HttpHeader(QStringLiteral("Connection"), QByteArray("close")));
         }
     }
-    if (!request.hasHeader(QStringLiteral("Content-Length")) && !request.d->body.isEmpty()) {
-        allHeaders.prepend(HttpHeader(QStringLiteral("Content-Length"), QByteArray::number(request.d->body.size())));
+    if (!request.hasHeader(QStringLiteral("Content-Length")) && !request.d->body.isNull()) {
+        qint64 requestBodySize = request.d->body->size();
+        if (requestBodySize > 0) {
+            allHeaders.prepend(HttpHeader(QStringLiteral("Content-Length"), QByteArray::number(requestBodySize)));
+        }
     }
     if (!request.hasHeader(QStringLiteral("User-Agent"))) {
         if (request.userAgent().isEmpty()) {
