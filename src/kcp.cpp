@@ -2,6 +2,9 @@
 #include <QtCore/qelapsedtimer.h>
 #include <QtCore/qbytearray.h>
 #include <QtCore/qendian.h>
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+#include <QtCore/qrandom.h>
+#endif
 #include "../include/kcp.h"
 #include "../include/socket_utils.h"
 #include "../include/coroutine_utils.h"
@@ -530,7 +533,11 @@ QByteArray KcpSocketPrivate::makeDataPacket(const char *data, qint32 size)
 QByteArray KcpSocketPrivate::makeShutdownPacket()
 {
     // should be larger than 5 bytes. tail bytes are discard.
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+    QByteArray packet = randomBytes(QRandomGenerator::global()->bounded(5, 64));
+#else
     QByteArray packet = randomBytes(5 + qrand() % (64 - 5));
+#endif
     packet.data()[0] = PACKET_TYPE_CLOSE;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     qToBigEndian<quint32>(this->connectionId, packet.data() + 1);
@@ -544,7 +551,11 @@ QByteArray KcpSocketPrivate::makeShutdownPacket()
 QByteArray KcpSocketPrivate::makeShutdownPacket(quint32 connectionId)
 {
     // should be larger than 5 bytes. tail bytes are discard.
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+    QByteArray packet = randomBytes(QRandomGenerator::global()->bounded(5, 64));
+#else
     QByteArray packet = randomBytes(5 + qrand() % (64 - 5));
+#endif
     packet.data()[0] = PACKET_TYPE_CLOSE;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     qToBigEndian<quint32>(connectionId, packet.data() + 1);
@@ -558,7 +569,11 @@ QByteArray KcpSocketPrivate::makeShutdownPacket(quint32 connectionId)
 QByteArray KcpSocketPrivate::makeKeepalivePacket()
 {
     // should be larger than 5 bytes. tail bytes are discard.
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+    QByteArray packet = randomBytes(QRandomGenerator::global()->bounded(5, 64));
+#else
     QByteArray packet = randomBytes(5 + qrand() % (64 - 5));
+#endif
     packet.data()[0] = PACKET_TYPE_KEEPALIVE;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     qToBigEndian<quint32>(this->connectionId, packet.data() + 1);
@@ -572,7 +587,11 @@ QByteArray KcpSocketPrivate::makeKeepalivePacket()
 QByteArray KcpSocketPrivate::makeMultiPathPacket(quint32 connectionId)
 {
     // should be larger than 5 bytes. tail bytes are discard.
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+    QByteArray packet = randomBytes(QRandomGenerator::global()->bounded(5, 64));
+#else
     QByteArray packet = randomBytes(5 + qrand() % (64 - 5));
+#endif
     packet.data()[0] = PACKET_TYPE_CREATE_MULTIPATH;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     qToBigEndian<quint32>(connectionId, packet.data() + 1);

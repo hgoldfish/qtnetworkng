@@ -160,7 +160,7 @@ QSharedPointer<FileLike> FileLike::bytes(const QByteArray &data)
 }
 
 
-bool sendall(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile)
+bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile)
 {
     if (inputFile.isNull() || outputFile.isNull()) {
         return false;

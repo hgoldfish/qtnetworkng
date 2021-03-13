@@ -7,6 +7,9 @@
 #include <QtCore/qdatastream.h>
 #include <QtCore/qcryptographichash.h>
 #include <QtCore/qelapsedtimer.h>
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+#include <QtCore/qrandom.h>
+#endif
 #include "../include/private/http_p.h"
 #include "../include/socks5_proxy.h"
 #ifdef QTNG_HAVE_ZLIB
@@ -26,9 +29,13 @@ FormData::FormData()
 
     QByteArray randomPart;
     for (int i=0; i<randomPartLength; ++i) {
-       int index = qrand() % possibleCharacters.length();
-       char nextChar = possibleCharacters.at(index);
-       randomPart.append(nextChar);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+        int index = QRandomGenerator::global()->bounded(possibleCharacters.length());
+#else
+        int index = qrand() % possibleCharacters.length();
+#endif
+        char nextChar = possibleCharacters.at(index);
+        randomPart.append(nextChar);
     }
 
     boundary = QByteArray("----WebKitFormBoundary") + randomPart;
@@ -1070,7 +1077,7 @@ SendRequestBodyCoroutine::SendRequestBodyCoroutine(QPointer<Coroutine> parentCor
 
 void SendRequestBodyCoroutine::run()
 {
-    if (!sendall(body, connection.dynamicCast<FileLike>())) {
+    if (!sendfile(body, connection.dynamicCast<FileLike>())) {
         if (!parentCoroutine.isNull()) {
             parentCoroutine->kill(new CoroutineInterruptedException());
         }
@@ -1212,6 +1219,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             sendingReuqestBodyCoroutine->kill();
             sendingReuqestBodyCoroutine->join();
         }  catch (CoroutineInterruptedException &) {
+            sendingReuqestBodyCoroutine->join();
             response.setError(new ConnectionError());
             return response;
         }

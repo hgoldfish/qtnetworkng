@@ -369,7 +369,7 @@ void ExchangerPrivate::sendOutgoing()
             return;
         } else {
             while (!outgoing.isEmpty()) {
-                buf.append(outgoing.get());
+                buf.append(outgoing.get());  // 这里又碰到 buf is empty 的话怎么办？
             }
         }
         qint32 len;
@@ -419,7 +419,7 @@ void ExchangerPrivate::in2out()
         qint32 len = request->recv(buf.data(), buf.size());
         if (len <= 0) {
             forward->close();
-            operations->kill("out2in");
+            operations->kill("out2in", false);
             return;
         }
         qint32 sentBytes = -1;
@@ -431,7 +431,7 @@ void ExchangerPrivate::in2out()
         }
         if (sentBytes != len) {
             forward->close();
-            operations->kill("out2in");
+            operations->kill("out2in", false);
             return;
         }
     }
@@ -445,7 +445,7 @@ void ExchangerPrivate::out2in()
         qint32 len = forward->recv(buf.data(), buf.size());
         if (len <= 0) {
             request->close();
-            operations->kill("in2out");
+            operations->kill("in2out", false);
             return;
         }
         qint32 sentBytes = -1;
@@ -457,7 +457,7 @@ void ExchangerPrivate::out2in()
         }
         if (sentBytes != len) {
             request->close();
-            operations->kill("in2out");
+            operations->kill("in2out", false);
             return;
         }
     }
