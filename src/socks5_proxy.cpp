@@ -76,7 +76,7 @@ public:
 public:
     QSharedPointer<Socket> getControlSocket() const;
     QSharedPointer<Socket> connect(const QString &hostName, quint16 port) const;
-    QSharedPointer<Socket> connect(const QHostAddress &host, quint16 port) const;
+    QSharedPointer<Socket> connect(const HostAddress &host, quint16 port) const;
     QSharedPointer<SocketLike> listen(quint16 port) const;
 public:
     QString hostName;
@@ -172,20 +172,20 @@ static QByteArray makeConnectRequest()
    inserts the host address in buf at pos and updates pos.
    if the func fails the data in buf and the vallue of pos is undefined
 */
-static bool qt_socks5_set_host_address_and_port(const QHostAddress &address, quint16 port, QByteArray *pBuf)
+static bool qt_socks5_set_host_address_and_port(const HostAddress &address, quint16 port, QByteArray *pBuf)
 {
     union {
         quint16 port;
         quint32 ipv4;
-        QIPv6Address ipv6;
+        IPv6Address ipv6;
         char ptr;
     } data;
 
-    if (address.protocol() == QAbstractSocket::IPv4Protocol) {
-        data.ipv4 = qToBigEndian<quint32>(address.toIPv4Address());
+    if (address.protocol() == HostAddress::IPv4Protocol) {
+        data.ipv4 = qToBigEndian<quint32>(address.toIPv4Address(nullptr));
         pBuf->append(S5_IP_V4);
         pBuf->append(QByteArray::fromRawData(&data.ptr, sizeof(data.ipv4)));
-    } else if (address.protocol() == QAbstractSocket::IPv6Protocol) {
+    } else if (address.protocol() == HostAddress::IPv6Protocol) {
         data.ipv6 = address.toIPv6Address();
         pBuf->append(S5_IP_V6);
         pBuf->append(QByteArray::fromRawData(&data.ptr, sizeof data.ipv6));
@@ -270,7 +270,7 @@ static QSharedPointer<Socket> sendConnectRequest(QSharedPointer<Socket> s, const
         if(ipv4.size() < 4) {
             throw Socks5Exception(Socks5Exception::ProxyProtocolError);
         }
-        QHostAddress boundIp;
+        HostAddress boundIp;
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
         boundIp.setAddress(qFromBigEndian<quint32>(reinterpret_cast<const void*>(ipv4.constData())));
 #else
@@ -281,7 +281,7 @@ static QSharedPointer<Socket> sendConnectRequest(QSharedPointer<Socket> s, const
         if(ipv6.size() < 16) {
             throw Socks5Exception(Socks5Exception::ProxyProtocolError);
         }
-        QHostAddress boundIp;
+        HostAddress boundIp;
         boundIp.setAddress(reinterpret_cast<quint8*>(ipv6.data()));
     } else if(addressType.at(1) == S5_DOMAINNAME) {
         const QByteArray &len = s->recvall(1);
@@ -325,7 +325,7 @@ QSharedPointer<Socket> Socks5ProxyPrivate::connect(const QString &hostName, quin
 }
 
 
-QSharedPointer<Socket> Socks5ProxyPrivate::connect(const QHostAddress &host, quint16 port) const
+QSharedPointer<Socket> Socks5ProxyPrivate::connect(const HostAddress &host, quint16 port) const
 {
     QSharedPointer<Socket> s = getControlSocket();
     QByteArray connectRequest = makeConnectRequest();
@@ -473,7 +473,7 @@ QSharedPointer<Socket> Socks5Proxy::connect(const QString &hostName, quint16 por
 }
 
 
-QSharedPointer<Socket> Socks5Proxy::connect(const QHostAddress &host, quint16 port)
+QSharedPointer<Socket> Socks5Proxy::connect(const HostAddress &host, quint16 port)
 {
     Q_D(const Socks5Proxy);
     return d->connect(host, port);

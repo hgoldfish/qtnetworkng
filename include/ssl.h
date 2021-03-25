@@ -161,7 +161,7 @@ public:
         NextProtocolNegotiationUnsupported = 2,
     };
 public:
-    SslSocket(Socket::NetworkLayerProtocol protocol=Socket::IPv4Protocol, const SslConfiguration &config = SslConfiguration());
+    SslSocket(HostAddress::NetworkLayerProtocol protocol=HostAddress::IPv4Protocol, const SslConfiguration &config = SslConfiguration());
     SslSocket(qintptr socketDescriptor, const SslConfiguration &config = SslConfiguration());
     SslSocket(QSharedPointer<Socket> rawSocket, const SslConfiguration &config = SslConfiguration());
     SslSocket(QSharedPointer<SocketLike> rawSocket, const SslConfiguration &config = SslConfiguration());
@@ -188,21 +188,21 @@ public:
     Socket::SocketError error() const;
     QString errorString() const;
     bool isValid() const;
-    QHostAddress localAddress() const;
+    HostAddress localAddress() const;
     quint16 localPort() const;
-    QHostAddress peerAddress() const;
+    HostAddress peerAddress() const;
     QString peerName() const;
     quint16 peerPort() const;
     virtual qintptr	fileno() const;
     Socket::SocketType type() const;
     Socket::SocketState state() const;
-    Socket::NetworkLayerProtocol protocol() const;
+    HostAddress::NetworkLayerProtocol protocol() const;
 
     SslSocket *accept();
     Socket *acceptRaw();
-    bool bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
+    bool bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
     bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
-    bool connect(const QHostAddress &addr, quint16 port);
+    bool connect(const HostAddress &addr, quint16 port);
     bool connect(const QString &hostName, quint16 port,
                  QSharedPointer<SocketDnsCache> dnsCache=QSharedPointer<SocketDnsCache>());
     void close();
@@ -220,16 +220,16 @@ public:
     qint32 send(const QByteArray &data);
     qint32 sendall(const QByteArray &data);
 
-    static SslSocket *createConnection(const QHostAddress &host, quint16 port,
+    static SslSocket *createConnection(const HostAddress &host, quint16 port,
                     const SslConfiguration &config = SslConfiguration(),
                     Socket::SocketError *error = nullptr,
-                    int allowProtocol = Socket::IPv4Protocol | Socket::IPv6Protocol);
+                    int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
     static SslSocket *createConnection(const QString &hostName, quint16 port,
                     const SslConfiguration &config = SslConfiguration(),
                     Socket::SocketError *error = nullptr,
                     QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>(),
-                    int allowProtocol = Socket::IPv4Protocol | Socket::IPv6Protocol);
-    static SslSocket *createServer(const QHostAddress &host, quint16 port,
+                    int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
+    static SslSocket *createServer(const HostAddress &host, quint16 port,
                                                   const SslConfiguration &config = SslConfiguration(),
                                                   int backlog = 50);
 private:

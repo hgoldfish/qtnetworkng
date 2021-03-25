@@ -18,7 +18,7 @@ public:
         Loopback,
     };
 public:
-    explicit KcpSocket(Socket::NetworkLayerProtocol protocol = Socket::IPv4Protocol);
+    explicit KcpSocket(HostAddress::NetworkLayerProtocol protocol = HostAddress::IPv4Protocol);
     explicit KcpSocket(qintptr socketDescriptor);
     explicit KcpSocket(QSharedPointer<Socket> rawSocket);
     virtual ~KcpSocket();
@@ -36,23 +36,23 @@ public:
     Socket::SocketError error() const;
     QString errorString() const;
     bool isValid() const;
-    QHostAddress localAddress() const;
+    HostAddress localAddress() const;
     quint16 localPort() const;
-    QHostAddress peerAddress() const;
+    HostAddress peerAddress() const;
     QString peerName() const;
     quint16 peerPort() const;
     Socket::SocketType type() const;
     Socket::SocketState state() const;
-    Socket::NetworkLayerProtocol protocol() const;
+    HostAddress::NetworkLayerProtocol protocol() const;
 
     KcpSocket *accept();
-    KcpSocket *accept(const QHostAddress &addr, quint16 port);
+    KcpSocket *accept(const HostAddress &addr, quint16 port);
     KcpSocket *accept(const QString &hostName, quint16 port,
                                      QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>());
 
-    bool bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
+    bool bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
     bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
-    bool connect(const QHostAddress &addr, quint16 port);
+    bool connect(const HostAddress &addr, quint16 port);
     bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>());
     void close();
     void abort();
@@ -69,20 +69,20 @@ public:
     qint32 send(const QByteArray &data);
     qint32 sendall(const QByteArray &data);
 
-    virtual bool filter(char *data, qint32 *len, QHostAddress *addr, quint16 *port);
-    qint32 udpSend(const char *data, qint32 size, const QHostAddress &addr, quint16 port);
-    qint32 udpSend(const QByteArray &packet, const QHostAddress &addr, quint16 port)
+    virtual bool filter(char *data, qint32 *len, HostAddress *addr, quint16 *port);
+    qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port);
+    qint32 udpSend(const QByteArray &packet, const HostAddress &addr, quint16 port)
         { return udpSend(packet.constData(), packet.size(), addr, port); }
 
-    static KcpSocket *createConnection(const QHostAddress &host, quint16 port, Socket::SocketError *error = nullptr,
-                                      int allowProtocol = Socket::IPv4Protocol | Socket::IPv6Protocol);
+    static KcpSocket *createConnection(const HostAddress &host, quint16 port, Socket::SocketError *error = nullptr,
+                                      int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
     static KcpSocket *createConnection(const QString &hostName, quint16 port, Socket::SocketError *error = nullptr,
                                   QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>(),
-                                  int allowProtocol = Socket::IPv4Protocol | Socket::IPv6Protocol);
-    static KcpSocket *createServer(const QHostAddress &host, quint16 port, int backlog = 50);
+                                  int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
+    static KcpSocket *createServer(const HostAddress &host, quint16 port, int backlog = 50);
 private:
     // for create SlaveKcpSocket.
-    KcpSocket(KcpSocketPrivate *d, const QHostAddress &addr, const quint16 port, KcpSocket::Mode mode);
+    KcpSocket(KcpSocketPrivate *d, const HostAddress &addr, const quint16 port, KcpSocket::Mode mode);
     friend class SlaveKcpSocketPrivate;
 private:
     KcpSocketPrivate * const d_ptr;

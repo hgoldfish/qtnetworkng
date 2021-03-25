@@ -59,7 +59,7 @@ public:
     ~Socks5Proxy();
 public:
     QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port);
-    QSharedPointer<Socket> connect(const QHostAddress &remoteHost, quint16 port);
+    QSharedPointer<Socket> connect(const HostAddress &remoteHost, quint16 port);
     QSharedPointer<SocketLike> listen(quint16 port);
 
     bool isNull() const;

@@ -192,7 +192,7 @@ public:
     void doSend();
     void doReceive();
     void doKeepalive();
-    QHostAddress getPeerAddress();
+    HostAddress getPeerAddress();
 
     const QSharedPointer<SocketLike> connection;
     Queue<WritingPacket> sendingQueue;
@@ -1105,21 +1105,21 @@ public:
     virtual Socket::SocketError error() const override;
     virtual QString errorString() const override;
     virtual bool isValid() const override;
-    virtual QHostAddress localAddress() const override;
+    virtual HostAddress localAddress() const override;
     virtual quint16 localPort() const override;
-    virtual QHostAddress peerAddress() const override;
+    virtual HostAddress peerAddress() const override;
     virtual QString peerName() const override;
     virtual quint16 peerPort() const override;
     virtual qintptr	fileno() const override;
     virtual Socket::SocketType type() const override;
     virtual Socket::SocketState state() const override;
-    virtual Socket::NetworkLayerProtocol protocol() const override;
+    virtual HostAddress::NetworkLayerProtocol protocol() const override;
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
-    virtual bool bind(const QHostAddress &address, quint16 port, Socket::BindMode mode) override;
+    virtual bool bind(const HostAddress &address, quint16 port, Socket::BindMode mode) override;
     virtual bool bind(quint16 port, Socket::BindMode mode) override;
-    virtual bool connect(const QHostAddress &addr, quint16 port) override;
+    virtual bool connect(const HostAddress &addr, quint16 port) override;
     virtual bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache) override;
     virtual void abort() override;
     virtual bool listen(int backlog) override;
@@ -1182,11 +1182,11 @@ bool SocketLikeImpl::isValid() const
 }
 
 
-QHostAddress SocketLikeImpl::localAddress() const
+HostAddress SocketLikeImpl::localAddress() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
-        return QHostAddress();
+        return HostAddress();
     } else {
         return backend->localAddress();
     }
@@ -1204,11 +1204,11 @@ quint16 SocketLikeImpl::localPort() const
 }
 
 
-QHostAddress SocketLikeImpl::peerAddress() const
+HostAddress SocketLikeImpl::peerAddress() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
-        return QHostAddress();
+        return HostAddress();
     } else {
         return backend->peerAddress();
     }
@@ -1270,11 +1270,11 @@ Socket::SocketState SocketLikeImpl::state() const
 }
 
 
-Socket::NetworkLayerProtocol SocketLikeImpl::protocol() const
+HostAddress::NetworkLayerProtocol SocketLikeImpl::protocol() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
-        return Socket::UnknownNetworkLayerProtocol;
+        return HostAddress::UnknownNetworkLayerProtocol;
     } else {
         return backend->protocol();
     }
@@ -1293,7 +1293,7 @@ QSharedPointer<SocketLike> SocketLikeImpl::accept()
 }
 
 
-bool SocketLikeImpl::bind(const QHostAddress &, quint16, Socket::BindMode)
+bool SocketLikeImpl::bind(const HostAddress &, quint16, Socket::BindMode)
 {
     return false;
 }
@@ -1305,7 +1305,7 @@ bool SocketLikeImpl::bind(quint16, Socket::BindMode)
 }
 
 
-bool SocketLikeImpl::connect(const QHostAddress &, quint16)
+bool SocketLikeImpl::connect(const HostAddress &, quint16)
 {
     return false;
 }

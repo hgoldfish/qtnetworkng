@@ -5,14 +5,15 @@
 #include <QtCore/qstring.h>
 #include <QtCore/qelapsedtimer.h>
 #include <QtCore/qbytearray.h>
-#include <QtNetwork/qhostaddress.h>
 #include "../socket.h"
+#include "../hostaddress.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
 union qt_sockaddr;
 
 class EventLoopCoroutine;
+class HostAddress;
 
 class SocketPrivate
 {
@@ -49,7 +50,7 @@ class SocketPrivate
         UnknownSocketErrorString = -1
     };
 public:
-    SocketPrivate(Socket::NetworkLayerProtocol protocol, Socket::SocketType type, Socket *parent);
+    SocketPrivate(HostAddress::NetworkLayerProtocol protocol, Socket::SocketType type, Socket *parent);
     SocketPrivate(qintptr socketDescriptor, Socket *parent);
     virtual ~SocketPrivate();
 public:
@@ -60,9 +61,9 @@ public:
     bool isValid() const;
 
     Socket *accept();
-    bool bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
+    bool bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
     bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform);
-    bool connect(const QHostAddress &host, quint16 port);
+    bool connect(const HostAddress &host, quint16 port);
     bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache);
     void close();
     void abort();
@@ -72,23 +73,23 @@ public:
     QVariant option(Socket::SocketOption option) const;
     qint32 recv(char *data, qint32 size, bool all);
     qint32 send(const char *data, qint32 size, bool all);
-    qint32 recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port);
-    qint32 sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port);
+    qint32 recvfrom(char *data, qint32 size, HostAddress *addr, quint16 *port);
+    qint32 sendto(const char *data, qint32 size, const HostAddress &addr, quint16 port);
     bool fetchConnectionParameters();
 private:
-    bool setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, int *sockAddrSize);
+    bool setPortAndAddress(quint16 port, const HostAddress &address, qt_sockaddr *aa, int *sockAddrSize);
     bool createSocket();
 protected:
     Socket *q_ptr;
 private:
-    Socket::NetworkLayerProtocol protocol;
+    HostAddress::NetworkLayerProtocol protocol;
     Socket::SocketType type;
     Socket::SocketError error;
     QString errorString;
     Socket::SocketState state;
-    QHostAddress localAddress;
+    HostAddress localAddress;
     quint16 localPort;
-    QHostAddress peerAddress;
+    HostAddress peerAddress;
     quint16 peerPort;
 #ifdef Q_OS_WIN
     qintptr fd;
@@ -101,15 +102,11 @@ private:
     Q_DECLARE_PUBLIC(Socket)
 };
 
-#ifdef Q_OS_WIN
-void initWinSock();
-void freeWinSock();
-#endif
 
 
 template<typename SocketType>
-SocketType *createConnection(const QHostAddress &addr, quint16 port, Socket::SocketError *error,
-                             int allowProtocol, std::function<SocketType*(Socket::NetworkLayerProtocol)> func)
+SocketType *createConnection(const HostAddress &addr, quint16 port, Socket::SocketError *error,
+                             int allowProtocol, std::function<SocketType*(HostAddress::NetworkLayerProtocol)> func)
 {
     SocketType *socket = nullptr;
     if (addr.isNull() || port == 0) {
@@ -117,10 +114,10 @@ SocketType *createConnection(const QHostAddress &addr, quint16 port, Socket::Soc
     }
     bool isIPv4Address;
     addr.toIPv4Address(&isIPv4Address);
-    if (isIPv4Address && (allowProtocol & Socket::IPv4Protocol)) {
-        socket = func(Socket::IPv4Protocol);
-    } else if (!isIPv4Address && (allowProtocol & Socket::IPv6Protocol)) {
-        socket = func(Socket::IPv6Protocol);
+    if (isIPv4Address && (allowProtocol & HostAddress::IPv4Protocol)) {
+        socket = func(HostAddress::IPv4Protocol);
+    } else if (!isIPv4Address && (allowProtocol & HostAddress::IPv6Protocol)) {
+        socket = func(HostAddress::IPv6Protocol);
     }
     if (socket) {
         bool done = socket->connect(addr, port);
@@ -143,10 +140,10 @@ SocketType *createConnection(const QHostAddress &addr, quint16 port, Socket::Soc
 template<typename SocketType>
 SocketType *createConnection(const QString &hostName, quint16 port, Socket::SocketError *error,
                            QSharedPointer<SocketDnsCache> dnsCache, int allowProtocol,
-                           std::function<SocketType*(Socket::NetworkLayerProtocol)> func)
+                           std::function<SocketType*(HostAddress::NetworkLayerProtocol)> func)
 {
-    QList<QHostAddress> addresses;
-    QHostAddress t;
+    QList<HostAddress> addresses;
+    HostAddress t;
     if (t.setAddress(hostName)) {
         addresses.append(t);
     } else {
@@ -164,7 +161,7 @@ SocketType *createConnection(const QString &hostName, quint16 port, Socket::Sock
         return nullptr;
     }
     for (int i = 0; i < addresses.size(); ++i) {
-        const QHostAddress &addr = addresses.at(i);
+        const HostAddress &addr = addresses.at(i);
         SocketType *socket = createConnection<SocketType>(addr, port, error, allowProtocol, func);
         if (socket) {
             return socket;
@@ -178,21 +175,21 @@ SocketType *createConnection(const QString &hostName, quint16 port, Socket::Sock
 
 
 template<typename SocketType>
-SocketType *createServer(const QHostAddress &host, quint16 port, int backlog,
-                         std::function<SocketType*(Socket::NetworkLayerProtocol)> func)
+SocketType *createServer(const HostAddress &host, quint16 port, int backlog,
+                         std::function<SocketType*(HostAddress::NetworkLayerProtocol)> func)
 {
     SocketType *socket;
-    if (host == QHostAddress(QHostAddress::AnyIPv4) || host == QHostAddress(QHostAddress::Any)) {
-        socket = func(Socket::IPv4Protocol);
-    } else if (host == QHostAddress(QHostAddress::AnyIPv6)) {
-        socket = func(Socket::IPv6Protocol);
+    if (host == HostAddress::AnyIPv4 || host == HostAddress::Any) {
+        socket = func(HostAddress::IPv4Protocol);
+    } else if (host == HostAddress::AnyIPv6) {
+        socket = func(HostAddress::IPv6Protocol);
     } else {
         bool isIPv4Address;
         host.toIPv4Address(&isIPv4Address);
         if (isIPv4Address) {
-            socket = func(Socket::IPv4Protocol);
+            socket = func(HostAddress::IPv4Protocol);
         } else {
-            socket = func(Socket::IPv6Protocol);
+            socket = func(HostAddress::IPv6Protocol);
         }
     }
     if (backlog > 0) {
@@ -210,7 +207,7 @@ SocketType *createServer(const QHostAddress &host, quint16 port, int backlog,
 }
 
 template<typename SocketType>
-SocketType *MakeSocketType(Socket::NetworkLayerProtocol protocol)
+SocketType *MakeSocketType(HostAddress::NetworkLayerProtocol protocol)
 {
     return new SocketType(protocol);
 }

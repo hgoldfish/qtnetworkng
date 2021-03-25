@@ -52,6 +52,7 @@ set(QTNETWORKNG_SRC
     src/socks5_proxy.cpp
     src/msgpack.cpp
     src/data_channel.cpp
+    src/hostaddress.cpp
 
     src/socket_server.cpp
     src/httpd.cpp
@@ -82,6 +83,7 @@ set(QTNETWORKNG_INCLUDE
     include/msgpack.h
     include/data_channel.h
     include/kcp.h
+    include/hostaddress.h
 )
 
 SET(QTNETWORKNG_PRIVATE_INCLUDE

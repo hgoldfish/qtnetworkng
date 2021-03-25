@@ -7,7 +7,7 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-SocketPrivate::SocketPrivate(Socket::NetworkLayerProtocol protocol,
+SocketPrivate::SocketPrivate(HostAddress::NetworkLayerProtocol protocol,
         Socket::SocketType type, Socket *parent)
     :q_ptr(parent), protocol(protocol), type(type), error(Socket::NoError),
       state(Socket::UnconnectedState), readLock(new Lock), writeLock(new Lock)
@@ -40,7 +40,7 @@ SocketPrivate::SocketPrivate(qintptr socketDescriptor, Socket *parent)
     if (!checkState())
         return;
     // FIXME determine the type and state of socket
-    protocol = Socket::IPv4Protocol;
+    protocol = HostAddress::IPv4Protocol;
     type = Socket::TcpSocket;
     state = Socket::ConnectedState;
     fetchConnectionParameters();
@@ -60,7 +60,7 @@ SocketPrivate::~SocketPrivate()
 
 bool SocketPrivate::bind(quint16 port, Socket::BindMode mode)
 {
-    return bind(QHostAddress(QHostAddress::Any), port, mode);
+    return bind(HostAddress(HostAddress::Any), port, mode);
 }
 
 
@@ -182,8 +182,8 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, QSharedPointe
     }
     Socket::SocketState oldState = state;
     state = Socket::HostLookupState;
-    QList<QHostAddress> addresses;
-    QHostAddress t;
+    QList<HostAddress> addresses;
+    HostAddress t;
     if (t.setAddress(hostName)) {
         addresses.append(t);
     } else {
@@ -201,11 +201,11 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, QSharedPointe
     }
     bool done = false;
     for (int i = 0; i < addresses.size(); ++i) {
-        const QHostAddress &addr = addresses.at(i);
-        if (protocol == Socket::IPv4Protocol && addr.protocol() == QAbstractSocket::IPv6Protocol) {
+        const HostAddress &addr = addresses.at(i);
+        if (protocol == HostAddress::IPv4Protocol && addr.protocol() == HostAddress::IPv6Protocol) {
             continue;
         }
-        if (protocol == Socket::IPv6Protocol && addr.protocol() == QAbstractSocket::IPv4Protocol) {
+        if (protocol == HostAddress::IPv6Protocol && addr.protocol() == HostAddress::IPv4Protocol) {
             continue;
         }
         state = oldState;
@@ -221,7 +221,7 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, QSharedPointe
 }
 
 
-Socket::Socket(NetworkLayerProtocol protocol, SocketType type)
+Socket::Socket(HostAddress::NetworkLayerProtocol protocol, SocketType type)
     :dd_ptr(new SocketPrivate(protocol, type, this))
 {
 
@@ -266,7 +266,7 @@ bool Socket::isValid() const
 }
 
 
-QHostAddress Socket::localAddress() const
+HostAddress Socket::localAddress() const
 {
     Q_D(const Socket);
     return d->localAddress;
@@ -280,7 +280,7 @@ quint16 Socket::localPort() const
 }
 
 
-QHostAddress Socket::peerAddress() const
+HostAddress Socket::peerAddress() const
 {
     Q_D(const Socket);
     return d->peerAddress;
@@ -321,7 +321,7 @@ Socket::SocketState Socket::state() const
 }
 
 
-Socket::NetworkLayerProtocol Socket::protocol() const
+HostAddress::NetworkLayerProtocol Socket::protocol() const
 {
     Q_D(const Socket);
     return d->protocol;
@@ -339,7 +339,7 @@ Socket *Socket::accept()
 }
 
 
-bool Socket::bind(const QHostAddress &address, quint16 port, Socket::BindMode mode)
+bool Socket::bind(const HostAddress &address, quint16 port, Socket::BindMode mode)
 {
     Q_D(Socket);
     return d->bind(address, port, mode);
@@ -353,7 +353,7 @@ bool Socket::bind(quint16 port, Socket::BindMode mode)
 }
 
 
-bool Socket::connect(const QHostAddress &host, quint16 port)
+bool Socket::connect(const HostAddress &host, quint16 port)
 {
     Q_D(Socket);
     ScopedLock<Lock> lock(d->writeLock);
@@ -473,7 +473,7 @@ qint32 Socket::sendall(const char *data, qint32 size)
 }
 
 
-qint32 Socket::recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port)
+qint32 Socket::recvfrom(char *data, qint32 size, HostAddress *addr, quint16 *port)
 {
     Q_D(Socket);
     ScopedLock<Lock> lock(d->readLock);
@@ -484,7 +484,7 @@ qint32 Socket::recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *po
 }
 
 
-qint32 Socket::sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
+qint32 Socket::sendto(const char *data, qint32 size, const HostAddress &addr, quint16 port)
 {
     Q_D(Socket);
     ScopedLock<Lock> lock(d->writeLock);
@@ -556,7 +556,7 @@ qint32 Socket::sendall(const QByteArray &data)
 }
 
 
-QByteArray Socket::recvfrom(qint32 size, QHostAddress *addr, quint16 *port)
+QByteArray Socket::recvfrom(qint32 size, HostAddress *addr, quint16 *port)
 {
     Q_D(Socket);
     ScopedLock<Lock> lock(d->readLock);
@@ -573,7 +573,7 @@ QByteArray Socket::recvfrom(qint32 size, QHostAddress *addr, quint16 *port)
 }
 
 
-qint32 Socket::sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
+qint32 Socket::sendto(const QByteArray &data, const HostAddress &addr, quint16 port)
 {
     Q_D(Socket);
     ScopedLock<Lock> lock(d->writeLock);
@@ -584,27 +584,26 @@ qint32 Socket::sendto(const QByteArray &data, const QHostAddress &addr, quint16 
 }
 
 
-QList<QHostAddress> Socket::resolve(const QString &hostName)
+QList<HostAddress> Socket::resolve(const QString &hostName)
 {
-    QHostAddress tmp;
+    HostAddress tmp;
     if (tmp.setAddress(hostName)) {
-        QList<QHostAddress> result;
+        QList<HostAddress> result;
         result.append(tmp);
         return result;
     }
 
-    std::function<QHostInfo()> task = [hostName](){
-        const QHostInfo &info = QHostInfo::fromName(hostName);
-        return info;
+    std::function<QList<HostAddress>()> task = [hostName](){
+        QList<HostAddress> addr = HostAddress::getHostAddressByName(hostName);
+        return addr;
     };
 
-    QHostInfo hostInfo = callInThread<QHostInfo>(task);
-    const QList<QHostAddress> &result = hostInfo.addresses();
-    return result;
+    QList<HostAddress> addr = callInThread<QList<HostAddress>>(task);
+    return addr;
 }
 
 
-Socket *Socket::createConnection(const QHostAddress &host, quint16 port, Socket::SocketError *error, int allowProtocol)
+Socket *Socket::createConnection(const HostAddress &host, quint16 port, Socket::SocketError *error, int allowProtocol)
 {
     return QTNETWORKNG_NAMESPACE::createConnection<Socket>(host, port, error, allowProtocol, MakeSocketType<Socket>);
 }
@@ -617,7 +616,7 @@ Socket *Socket::createConnection(const QString &hostName, quint16 port, Socket::
 }
 
 
-Socket *Socket::createServer(const QHostAddress &host, quint16 port, int backlog)
+Socket *Socket::createServer(const HostAddress &host, quint16 port, int backlog)
 {
     return QTNETWORKNG_NAMESPACE::createServer<Socket>(host, port, backlog, MakeSocketType<Socket>);
 }
@@ -771,7 +770,7 @@ public:
     {
     }
 
-    QCache<QString, QList<QHostAddress>> cache;
+    QCache<QString, QList<HostAddress>> cache;
 };
 
 SocketDnsCache::SocketDnsCache()
@@ -786,17 +785,17 @@ SocketDnsCache::~SocketDnsCache()
 }
 
 
-QList<QHostAddress> SocketDnsCache::resolve(const QString &hostName)
+QList<HostAddress> SocketDnsCache::resolve(const QString &hostName)
 {
     Q_D(SocketDnsCache);
     if (d->cache.contains(hostName)) {
         return *(d->cache.object(hostName));
     }
-    const QList<QHostAddress> &addresses = Socket::resolve(hostName);
+    const QList<HostAddress> &addresses = Socket::resolve(hostName);
     if (addresses.isEmpty()) {
-        return QList<QHostAddress>();
+        return QList<HostAddress>();
     } else {
-        d->cache.insert(hostName, new QList<QHostAddress>(addresses));
+        d->cache.insert(hostName, new QList<HostAddress>(addresses));
         return addresses;
     }
 }

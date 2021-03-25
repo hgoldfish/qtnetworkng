@@ -22,7 +22,7 @@ QByteArray randomBytes(int numBytes)
 {
     QByteArray b;
     b.reserve(numBytes);
-    QRandomGenerator *generator = QRandomGenerator->global();
+    QRandomGenerator *generator = QRandomGenerator::global();
     for (int i = 0; i < numBytes; ++i) {
         b.append(static_cast<char>(generator->bounded(0xff)));
     }

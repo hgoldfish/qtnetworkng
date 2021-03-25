@@ -36,8 +36,8 @@ public:
 public:
     void handleRequest();
     bool handshake();
-    bool parseAddress(QString *hostName, QHostAddress *addr, quint16 *port);
-    void handleConnectCommand(const QString &hostName, const QHostAddress &addr, quint16 port);
+    bool parseAddress(QString *hostName, HostAddress *addr, quint16 *port);
+    void handleConnectCommand(const QString &hostName, const HostAddress &addr, quint16 port);
 private:
     Socks5RequestHandler * const q_ptr;
     Q_DECLARE_PUBLIC(Socks5RequestHandler)
@@ -61,21 +61,21 @@ void Socks5RequestHandlerPrivate::handleRequest()
     // parse command.
     const QByteArray &commandHeader = q->request->recvall(2);
     if (commandHeader.size() < 2 || commandHeader.at(0) != S5_VERSION_5){
-        q->log(QString(), QHostAddress(), 0, false);
+        q->log(QString(), HostAddress(), 0, false);
         return;
     }
 
     QString hostName;
-    QHostAddress addr;
+    HostAddress addr;
     quint16 port;
 
     if (!parseAddress(&hostName, &addr, &port)) {
-        q->log(QString(), QHostAddress(), 0, false);
+        q->log(QString(), HostAddress(), 0, false);
         return;
     }
 
     if ((hostName.isEmpty() && addr.isNull()) || port == 0) {
-        q->log(QString(), QHostAddress(), 0, false);
+        q->log(QString(), HostAddress(), 0, false);
         return;
     }
 
@@ -130,7 +130,7 @@ bool Socks5RequestHandlerPrivate::handshake()
 }
 
 
-bool Socks5RequestHandlerPrivate::parseAddress(QString *hostName, QHostAddress *addr, quint16 *port)
+bool Socks5RequestHandlerPrivate::parseAddress(QString *hostName, HostAddress *addr, quint16 *port)
 {
     Q_Q(Socks5RequestHandler);
     const QByteArray &addressType = q->request->recvall(2);
@@ -182,7 +182,7 @@ bool Socks5RequestHandlerPrivate::parseAddress(QString *hostName, QHostAddress *
 }
 
 
-void Socks5RequestHandlerPrivate::handleConnectCommand(const QString &hostName, const QHostAddress &addr, quint16 port)
+void Socks5RequestHandlerPrivate::handleConnectCommand(const QString &hostName, const HostAddress &addr, quint16 port)
 {
     Q_Q(Socks5RequestHandler);
     QSharedPointer<Socket> forward;
@@ -228,14 +228,14 @@ Socks5RequestHandler::Socks5RequestHandler()
 Socks5RequestHandler::~Socks5RequestHandler() {}
 
 
-void Socks5RequestHandler::doConnect(const QString &hostName, const QHostAddress &hostAddress, quint16 port)
+void Socks5RequestHandler::doConnect(const QString &hostName, const HostAddress &hostAddress, quint16 port)
 {
     Q_D(Socks5RequestHandler);
     d->handleConnectCommand(hostName, hostAddress, port);
 }
 
 
-bool Socks5RequestHandler::sendConnectReply(const QHostAddress &hostAddress, quint16 port)
+bool Socks5RequestHandler::sendConnectReply(const HostAddress &hostAddress, quint16 port)
 {
     bool ok;
     if (hostAddress.isNull()) {
@@ -248,7 +248,7 @@ bool Socks5RequestHandler::sendConnectReply(const QHostAddress &hostAddress, qui
     quint32 ipv4 = hostAddress.toIPv4Address();
     ok = (ipv4 != 0);
 #endif
-    if (!ok && hostAddress.protocol() == QAbstractSocket::IPv4Protocol) {
+    if (!ok && hostAddress.protocol() == HostAddress::IPv4Protocol) {
         return false;
     }
     if (ok && ipv4) {
@@ -264,9 +264,9 @@ bool Socks5RequestHandler::sendConnectReply(const QHostAddress &hostAddress, qui
         qToBigEndian<quint32>(ipv4, reinterpret_cast<uchar*>(reply.data() + 4));
         qToBigEndian<quint16>(port, reinterpret_cast<uchar*>(reply.data() + 4 + 4));
     #endif
-    } else if (hostAddress.protocol() == QAbstractSocket::IPv6Protocol) {
+    } else if (hostAddress.protocol() == HostAddress::IPv6Protocol) {
         reply.resize(22);
-        Q_IPV6ADDR ipv6 = hostAddress.toIPv6Address();
+        IPv6Address ipv6 = hostAddress.toIPv6Address();
         reply[0] = S5_VERSION_5;
         reply[1] = S5_SUCCESS;
         reply[2] = 0x00;
@@ -283,7 +283,7 @@ bool Socks5RequestHandler::sendConnectReply(const QHostAddress &hostAddress, qui
 }
 
 
-void Socks5RequestHandler::log(const QString &hostName, const QHostAddress &hostAddress, quint16 port, bool success)
+void Socks5RequestHandler::log(const QString &hostName, const HostAddress &hostAddress, quint16 port, bool success)
 {
     QString status = success? QStringLiteral("OK"): QStringLiteral("FAIL");
     const QDateTime &now = QDateTime::currentDateTime();
@@ -298,7 +298,7 @@ void Socks5RequestHandler::log(const QString &hostName, const QHostAddress &host
 }
 
 
-void Socks5RequestHandler::doFailed(const QString &hostName, const QHostAddress &hostAddress, quint16 port)
+void Socks5RequestHandler::doFailed(const QString &hostName, const HostAddress &hostAddress, quint16 port)
 {
     QByteArray reply(3, Qt::Uninitialized);
     reply[0] = S5_VERSION_5;

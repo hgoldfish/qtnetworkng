@@ -60,7 +60,7 @@ To create IPv4 tcp server.
     
     Socket s;
     CoroutineGroup workers;
-    s.bind(QHostAddress::AnyIPv4, 8000);
+    s.bind(HostAddress::AnyIPv4, 8000);
     s.listen(100);
     while(true) {
         QSharedPointer<Socket> request(s.accept());
