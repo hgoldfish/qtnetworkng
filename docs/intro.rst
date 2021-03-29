@@ -319,7 +319,7 @@ Combine ``Socket`` and ``Coroutine``, you can create socket server in few lines 
 .. code-block:: c++
     :caption: tcp server
     
-    QScopedPointer<Socket> s(Socket::createServer(QHostAddress::AnyIPv4, 8000, 100));
+    QScopedPointer<Socket> s(Socket::createServer(HostAddress::AnyIPv4, 8000, 100));
     CoroutineGroup operations;
     while(true) {
         QSharedPointer<Socket> request(s->accept());

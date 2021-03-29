@@ -12,6 +12,9 @@
     #include <ws2tcpip.h>
 #else
     #include <netinet/in.h>
+    #include <arpa/inet.h>
+    #include <sys/socket.h>
+	#include <netdb.h>
 #endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -638,6 +641,34 @@ HostAddress::HostAddress(HostAddress::SpecialAddress address)
 {
     setAddress(address);
 }
+
+#ifdef QT_NETWORK_LIB
+HostAddress::HostAddress(const QHostAddress& address)
+    :d(new HostAddressPrivate())
+{
+    switch (address.protocol()){
+    case QAbstractSocket::IPv4Protocol:
+        setAddress(address.toIPv4Address());
+        break;
+    case QAbstractSocket::IPv6Protocol:
+        Q_IPV6ADDR a6;
+        a6 = address.toIPv6Address();
+        setAddress(a6.c);
+        break;
+    case QAbstractSocket::AnyIPProtocol:
+        setAddress(Any);
+        break;
+    case QAbstractSocket::UnknownNetworkLayerProtocol:
+        break;
+    }
+}
+
+HostAddress::HostAddress(QHostAddress::SpecialAddress address)
+    :d(new HostAddressPrivate())
+{
+    setAddress(static_cast<HostAddress::SpecialAddress>(address));
+}
+#endif
 
 HostAddress::~HostAddress()
 {

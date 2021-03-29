@@ -14,7 +14,7 @@ enum ParserResult
 struct Configure
 {
     QString password;
-    QHostAddress localAddress;
+    HostAddress localAddress;
     QString remoteAddress;
     quint16 localPort;
     quint16 remotePort;
@@ -124,7 +124,7 @@ ParserResult parseArguments(Configure *configure, QString *errorMessage)
 
     QString localAddressStr = parser.value(localAddressOption);
     if (localAddressStr.isEmpty()) {
-        configure->localAddress.setAddress(QHostAddress::LocalHost);
+        configure->localAddress.setAddress(HostAddress::LocalHost);
     } else {
         configure->localAddress.setAddress(localAddressStr);
         if (configure->localAddress.isNull()) {

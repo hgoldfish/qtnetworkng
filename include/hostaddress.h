@@ -6,6 +6,9 @@
 #include <QtCore/QList>
 #include "config.h"
 
+#ifdef QT_NETWORK_LIB
+#include <QtNetwork>
+#endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -60,6 +63,10 @@ public:
     HostAddress();
     HostAddress(const HostAddress& copy);
     HostAddress(SpecialAddress address);
+#ifdef QT_NETWORK_LIB
+    HostAddress(const QHostAddress& address);
+    HostAddress(QHostAddress::SpecialAddress address);
+#endif
     ~HostAddress();
 
     HostAddress &operator=(HostAddress &&other) noexcept

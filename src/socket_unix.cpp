@@ -77,13 +77,13 @@ static void qt_ignore_sigpipe()
 }
 
 
-static inline void qt_socket_getPortAndAddress(const qt_sockaddr *s, quint16 *port, QHostAddress *addr)
+static inline void qt_socket_getPortAndAddress(const qt_sockaddr *s, quint16 *port, HostAddress *addr)
 {
     if (s->a.sa_family == AF_INET6) {
-        Q_IPV6ADDR tmp;
+        IPv6Address tmp;
         memcpy(&tmp, &s->a6.sin6_addr, sizeof(tmp));
         if (addr) {
-            QHostAddress tmpAddress;
+            HostAddress tmpAddress;
             tmpAddress.setAddress(tmp);
             *addr = tmpAddress;
             if (s->a6.sin6_scope_id) {
@@ -99,7 +99,7 @@ static inline void qt_socket_getPortAndAddress(const qt_sockaddr *s, quint16 *po
             *port = ntohs(s->a6.sin6_port);
     } else if (s->a.sa_family == AF_INET) {
         if (addr) {
-            QHostAddress tmpAddress;
+            HostAddress tmpAddress;
             tmpAddress.setAddress(ntohl(s->a4.sin_addr.s_addr));
             *addr = tmpAddress;
         }
@@ -110,10 +110,18 @@ static inline void qt_socket_getPortAndAddress(const qt_sockaddr *s, quint16 *po
     }
 }
 
-#ifdef SOCK_CLOEXEC
-#define CREATE_FLAGS SOCK_NONBLOCK | SOCK_CLOEXEC
+#ifdef Q_OS_MAC
+    #ifdef SOCK_CLOEXEC
+        #define CREATE_FLAGS SOCK_CLOEXEC
+    #else
+        #define CREATE_FLAGS 0
+    #endif
 #else
-#define CREATE_FLAGS SOCK_NONBLOCK
+    #ifdef SOCK_CLOEXEC
+        #define CREATE_FLAGS SOCK_NONBLOCK | SOCK_CLOEXEC
+    #else
+        #define CREATE_FLAGS SOCK_NONBLOCK
+    #endif
 #endif
 
 bool SocketPrivate::createSocket()
@@ -121,7 +129,7 @@ bool SocketPrivate::createSocket()
     qt_ignore_sigpipe();
     int flags = CREATE_FLAGS;
     int family = AF_INET;
-    if (protocol == Socket::IPv6Protocol) {
+    if (protocol == HostAddress::IPv6Protocol) {
         family = AF_INET6;
     }
     if (type == Socket::TcpSocket) {
@@ -150,8 +158,16 @@ bool SocketPrivate::createSocket()
         default:
             break;
         }
+
+        return false;
     }
-    return fd > 0;
+#ifdef Q_OS_MAC
+    if(!setNonblocking()) {
+        close();
+        return false;
+    }
+#endif
+    return true;
 }
 
 inline uint scopeIdFromString(const QString scopeId)
@@ -177,23 +193,23 @@ namespace SetSALen {
 }
 
 
-bool SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, int *sockAddrSize)
+bool SocketPrivate::setPortAndAddress(quint16 port, const HostAddress &address, qt_sockaddr *aa, int *sockAddrSize)
 {
-    if ((address.protocol() == QAbstractSocket::IPv6Protocol
-        || address.protocol() == QAbstractSocket::AnyIPProtocol)
-        && protocol == Socket::IPv6Protocol) {
+    if ((address.protocol() == HostAddress::IPv6Protocol
+        || address.protocol() == HostAddress::AnyIPProtocol)
+        && protocol == HostAddress::IPv6Protocol) {
         memset(&aa->a6, 0, sizeof(sockaddr_in6));
         aa->a6.sin6_family = AF_INET6;
         aa->a6.sin6_scope_id = scopeIdFromString(address.scopeId());
         aa->a6.sin6_port = htons(port);
-        Q_IPV6ADDR tmp = address.toIPv6Address();
+        IPv6Address tmp = address.toIPv6Address();
         memcpy(&aa->a6.sin6_addr, &tmp, sizeof(tmp));
         *sockAddrSize = sizeof(sockaddr_in6);
         SetSALen::set(&aa->a, sizeof(sockaddr_in6));
         return true;
-    } else if ((address.protocol() == QAbstractSocket::IPv4Protocol
-                || address.protocol() == QAbstractSocket::AnyIPProtocol)
-               && protocol == Socket::IPv4Protocol){
+    } else if ((address.protocol() == HostAddress::IPv4Protocol
+                || address.protocol() == HostAddress::AnyIPProtocol)
+               && protocol == HostAddress::IPv4Protocol){
         memset(&aa->a, 0, sizeof(sockaddr_in));
         aa->a4.sin_family = AF_INET;
         aa->a4.sin_port = htons(port);
@@ -220,7 +236,7 @@ bool SocketPrivate::isValid() const
 }
 
 
-bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::BindMode mode)
+bool SocketPrivate::bind(const HostAddress &address, quint16 port, Socket::BindMode mode)
 {
     if (!checkState())  {
         return false;
@@ -253,7 +269,7 @@ bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::Bind
         // retry with v4
         aa.a4.sin_family = AF_INET;
         aa.a4.sin_port = htons(port);
-        aa.a4.sin_addr.s_addr = htonl(address.toIPv4Address());
+        aa.a4.sin_addr.s_addr = htonl(address.toIPv4Address(nullptr));
         sockAddrSize = sizeof(aa.a4);
         bindResult = ::bind(fd, &aa.a, sockAddrSize);
     }
@@ -283,7 +299,7 @@ bool SocketPrivate::bind(const QHostAddress &address, quint16 port, Socket::Bind
 }
 
 
-bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
+bool SocketPrivate::connect(const HostAddress &address, quint16 port)
 {
     //if (!checkState()) { // not require NoError
     if (fd == 0) {
@@ -301,7 +317,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
     }
     sockAddrSize = static_cast<QT_SOCKLEN_T>(t);
 #ifdef IPV6_V6ONLY
-    if (protocol == Socket::IPv6Protocol) {
+    if (protocol == HostAddress::IPv6Protocol) {
         int ipv6only = 1;
         //default value of this socket option varies depending on unix variant (or system configuration on BSD), so always set it explicitly
         ::setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, static_cast<void*>(&ipv6only), sizeof(ipv6only) );
@@ -464,13 +480,13 @@ bool SocketPrivate::fetchConnectionParameters()
         switch (sa.a.sa_family)
         {
         case AF_INET:
-            protocol = Socket::IPv4Protocol;
+            protocol = HostAddress::IPv4Protocol;
             break;
         case AF_INET6:
-            protocol = Socket::IPv6Protocol;
+            protocol = HostAddress::IPv6Protocol;
             break;
         default:
-            protocol = Socket::UnknownNetworkLayerProtocol;
+            protocol = HostAddress::UnknownNetworkLayerProtocol;
             break;
         }
     } else if (errno == EBADF) {
@@ -635,7 +651,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 }
 
 
-qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, quint16 *port)
+qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, HostAddress *addr, quint16 *port)
 {
     if (!checkState()) {
         return -1;
@@ -717,7 +733,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, QHostAddress *addr, q
 }
 
 
-qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
+qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &addr, quint16 port)
 {
     if (!checkState()) {
         return -1;
@@ -803,7 +819,7 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &
 
 
 static void convertToLevelAndOption(Socket::SocketOption opt,
-                                    Socket::NetworkLayerProtocol socketProtocol, int *level, int *n)
+                                    HostAddress::NetworkLayerProtocol socketProtocol, int *level, int *n)
 {
     *n = -1;
     *level = SOL_SOCKET; // default
@@ -832,7 +848,7 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         *n = SO_KEEPALIVE;
         break;
     case Socket::MulticastTtlOption:
-        if (socketProtocol == Socket::IPv6Protocol) {
+        if (socketProtocol == HostAddress::IPv6Protocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_MULTICAST_HOPS;
         } else {
@@ -841,7 +857,7 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         }
         break;
     case Socket::MulticastLoopbackOption:
-        if (socketProtocol == Socket::IPv6Protocol) {
+        if (socketProtocol == HostAddress::IPv6Protocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_MULTICAST_LOOP;
         } else {
@@ -850,13 +866,13 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         }
         break;
     case Socket::TypeOfServiceOption:
-        if (socketProtocol == Socket::IPv4Protocol) {
+        if (socketProtocol == HostAddress::IPv4Protocol) {
             *level = IPPROTO_IP;
             *n = IP_TOS;
         }
         break;
     case Socket::ReceivePacketInformation:
-        if (socketProtocol == Socket::IPv6Protocol) {
+        if (socketProtocol == HostAddress::IPv6Protocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_RECVPKTINFO;
         } else {
@@ -871,7 +887,7 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         }
         break;
     case Socket::ReceiveHopLimit:
-        if (socketProtocol == Socket::IPv6Protocol) {
+        if (socketProtocol == HostAddress::IPv6Protocol) {
             *level = IPPROTO_IPV6;
             *n = IPV6_RECVHOPLIMIT;
         } else {
