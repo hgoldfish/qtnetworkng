@@ -2,8 +2,8 @@
 #define QTNG_HOSTADDRESS_H
 
 #include <QtCore/qobject.h>
-#include <QtCore/QSharedDataPointer>
-#include <QtCore/QList>
+#include <QtCore/qshareddata.h>
+#include <QtCore/qlist.h>
 #include "config.h"
 
 #ifdef QT_NETWORK_LIB

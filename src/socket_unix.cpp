@@ -265,7 +265,7 @@ bool SocketPrivate::bind(const HostAddress &address, quint16 port, Socket::BindM
 #endif
 
     int bindResult = ::bind(fd, &aa.a, sockAddrSize);
-    if (bindResult < 0 && errno == EAFNOSUPPORT && address.protocol() == QAbstractSocket::AnyIPProtocol) {
+    if (bindResult < 0 && errno == EAFNOSUPPORT && address.protocol() == HostAddress::AnyIPProtocol) {
         // retry with v4
         aa.a4.sin_family = AF_INET;
         aa.a4.sin_port = htons(port);
