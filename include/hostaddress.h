@@ -96,9 +96,11 @@ public:
     void setAddress(const IPv6Address &ipv6);
     void setAddress(const quint8* ipv6);
     bool setAddress(const QString &ipString);
+    void setAddress(SpecialAddress address);
 
     bool isNull() const;
     NetworkLayerProtocol protocol() const;
+    IPv4Address toIPv4Address() const { return toIPv4Address(nullptr); }
     IPv4Address toIPv4Address(bool *ok) const;
     IPv6Address toIPv6Address() const;
 

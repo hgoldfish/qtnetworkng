@@ -1139,6 +1139,43 @@ bool HostAddress::setAddress(const QString &ipString)
 }
 
 
+void HostAddress::setAddress(HostAddress::SpecialAddress address)
+{
+    clear();
+
+    IPv6Address ip6;
+    memset(&ip6, 0, sizeof ip6);
+    quint32 ip4 = INADDR_ANY;
+
+    switch (address) {
+    case Null:
+        return;
+
+    case Broadcast:
+        ip4 = INADDR_BROADCAST;
+        break;
+    case LocalHost:
+        ip4 = INADDR_LOOPBACK;
+        break;
+    case AnyIPv4:
+        break;
+
+    case LocalHostIPv6:
+        ip6[15] = 1;
+        Q_FALLTHROUGH();
+    case AnyIPv6:
+        d->setAddress(ip6);
+        return;
+    case Any:
+        d->protocol = AnyIPProtocol;
+        return;
+    }
+
+    // common IPv4 part
+    d->setAddress(ip4);
+}
+
+
 bool HostAddress::isNull() const
 {
     return d->protocol == HostAddress::UnknownNetworkLayerProtocol;
@@ -1167,6 +1204,7 @@ IPv6Address HostAddress::toIPv6Address() const
 {
     return d->ipv6.a6;
 }
+
 
 bool HostAddress::isInSubnet(const HostAddress &subnet, int netmask) const
 {
