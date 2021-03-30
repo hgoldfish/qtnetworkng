@@ -548,7 +548,11 @@ void StaticHttpRequestHandler::sendFile(QSharedPointer<FileLike> f)
 QFileInfo StaticHttpRequestHandler::translatePath(const QDir &dir, const QString &subPath)
 {
     // remove '.' && '.."
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+    const QStringList &list = subPath.split("/", Qt::SkipEmptyParts);
+#else
     const QStringList &list = subPath.split("/", QString::SkipEmptyParts);
+#endif
     QStringList l;
     for (const QString &part: list) {
         if (part == ".") { // if part contains space, it is not dot dir.

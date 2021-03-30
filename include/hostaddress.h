@@ -10,6 +10,8 @@
 #include <QtNetwork/qhostaddress.h>
 #endif
 
+struct sockaddr;
+
 QTNETWORKNG_NAMESPACE_BEGIN
 
 struct  IPv6Address
@@ -82,6 +84,10 @@ public:
     bool isEqual(const HostAddress &address, ConversionMode mode = TolerantConversion) const;
     bool operator ==(const HostAddress &address) const;
     bool operator ==(SpecialAddress address) const;
+    inline bool operator !=(const HostAddress &address) const
+    { return !operator==(address); }
+    inline bool operator !=(SpecialAddress address) const
+    { return !operator==(address); }
 
     void swap(HostAddress &other) noexcept;
     void clear();
@@ -96,12 +102,26 @@ public:
     IPv4Address toIPv4Address(bool *ok) const;
     IPv6Address toIPv6Address() const;
 
+    bool isInSubnet(const HostAddress &subnet, int netmask) const;
+    bool isInSubnet(const QPair<HostAddress, int> &subnet) const;
+    static QPair<HostAddress, int> parseSubnet(const QString &subnet);
+
+    bool isLoopback() const;
+    bool isGlobal() const;
+    bool isLinkLocal() const;
+    bool isSiteLocal() const;
+    bool isUniqueLocalUnicast() const;
+    bool isMulticast() const;
+    bool isBroadcast() const;
+
     QString toString() const;
 
     QString scopeId() const;
     void setScopeId(const QString &id);
 
     static QList<HostAddress> getHostAddressByName(const QString &hostName);
+
+    friend uint qHash(const HostAddress &key, uint seed) noexcept;
 
 private:
     friend class HostAddressPrivate;

@@ -534,6 +534,155 @@ static void IPAddresstoString(QString &appendTo, const IPv6Address address)
     }
 }
 
+enum AddressClassification {
+    LoopbackAddress = 1,
+    LocalNetAddress,                // RFC 1122
+    LinkLocalAddress,               // RFC 4291 (v6), RFC 3927 (v4)
+    MulticastAddress,               // RFC 4291 (v6), RFC 3171 (v4)
+    BroadcastAddress,               // RFC 919, 922
+
+    GlobalAddress = 16,
+    TestNetworkAddress,             // RFC 3849 (v6), RFC 5737 (v4),
+    PrivateNetworkAddress,          // RFC 1918
+    UniqueLocalAddress,             // RFC 4193
+    SiteLocalAddress,               // RFC 4291 (deprecated by RFC 3879, should be treated as global)
+
+    UnknownAddress = 0              // unclassified or reserved
+};
+
+class Netmask
+{
+    // stores 0-32 for IPv4, 0-128 for IPv6, or 255 for invalid
+    quint8 length;
+public:
+    Netmask() : length(255) {}
+
+    bool setAddress(const HostAddress &address);
+    HostAddress address(HostAddress::NetworkLayerProtocol protocol) const;
+
+    int prefixLength() const { return length == 255 ? -1 : length; }
+    void setPrefixLength(HostAddress::NetworkLayerProtocol proto, int len)
+    {
+        int maxlen = -1;
+        if (proto == HostAddress::IPv4Protocol)
+            maxlen = 32;
+        else if (proto == HostAddress::IPv6Protocol)
+            maxlen = 128;
+        if (len > maxlen || len < 0)
+            length = 255U;
+        else
+            length = unsigned(len);
+    }
+
+    friend bool operator==(Netmask n1, Netmask n2)
+    { return n1.length == n2.length; }
+};
+
+
+bool Netmask::setAddress(const HostAddress &address)
+{
+    static const quint8 zeroes[16] = { 0 };
+    union {
+        quint32 v4;
+        quint8 v6[16];
+    } ip;
+
+    int netmask = 0;
+    quint8 *ptr = ip.v6;
+    quint8 *end;
+    length = 255;
+
+    if (address.protocol() == HostAddress::IPv4Protocol) {
+        ip.v4 = qToBigEndian(address.toIPv4Address(nullptr));
+        end = ptr + 4;
+    } else if (address.protocol() == HostAddress::IPv6Protocol) {
+        memcpy(ip.v6, address.toIPv6Address().c, 16);
+        end = ptr + 16;
+    } else {
+        return false;
+    }
+
+    while (ptr < end) {
+        switch (*ptr) {
+        case 255:
+            netmask += 8;
+            ++ptr;
+            continue;
+
+        default:
+            return false;       // invalid IP-style netmask
+
+        case 254:
+            ++netmask;
+            Q_FALLTHROUGH();
+        case 252:
+            ++netmask;
+            Q_FALLTHROUGH();
+        case 248:
+            ++netmask;
+            Q_FALLTHROUGH();
+        case 240:
+            ++netmask;
+            Q_FALLTHROUGH();
+        case 224:
+            ++netmask;
+            Q_FALLTHROUGH();
+        case 192:
+            ++netmask;
+            Q_FALLTHROUGH();
+        case 128:
+            ++netmask;
+            Q_FALLTHROUGH();
+        case 0:
+            break;
+        }
+        break;
+    }
+
+    // confirm that the rest is only zeroes
+    if (ptr < end && memcmp(ptr + 1, zeroes, end - ptr - 1) != 0)
+        return false;
+
+    length = netmask;
+    return true;
+}
+
+static void clearBits(quint8 *where, int start, int end)
+{
+    Q_ASSERT(end == 32 || end == 128);
+    if (start == end)
+        return;
+
+    // for the byte where 'start' is, clear the lower bits only
+    quint8 bytemask = 256 - (1 << (8 - (start & 7)));
+    where[start / 8] &= bytemask;
+
+    // for the tail part, clear everything
+    memset(where + (start + 7) / 8, 0, end / 8 - (start + 7) / 8);
+}
+
+HostAddress Netmask::address(HostAddress::NetworkLayerProtocol protocol) const
+{
+    if (length == 255 || protocol == HostAddress::AnyIPProtocol ||
+            protocol == HostAddress::UnknownNetworkLayerProtocol) {
+        return HostAddress();
+    } else if (protocol == HostAddress::IPv4Protocol) {
+        quint32 a;
+        if (length == 0)
+            a = 0;
+        else if (length == 32)
+            a = quint32(0xffffffff);
+        else
+            a = quint32(0xffffffff) >> (32 - length) << (32 - length);
+        return HostAddress(a);
+    } else {
+        IPv6Address a6;
+        memset(a6.c, 0xFF, sizeof(a6));
+        clearBits(a6.c, length, 128);
+        return HostAddress(a6);
+    }
+}
+
 
 class HostAddressPrivate : public QSharedData
 {
@@ -554,6 +703,10 @@ public:
     } ipv6;// IPv6 address
     IPv4Address ipv4;    // IPv4 address
     qint8 protocol;
+
+    AddressClassification classify() const;
+    static AddressClassification classify(const HostAddress &address)
+    { return address.d->classify(); }
 
     friend class HostAddress;
 };
@@ -600,6 +753,76 @@ void HostAddressPrivate::clear()
     ipv4 = 0;
     protocol = HostAddress::UnknownNetworkLayerProtocol;
     memset(&ipv6, 0, sizeof(ipv6));
+}
+
+AddressClassification HostAddressPrivate::classify() const
+{
+    if (ipv4) {
+            // This is an IPv4 address or an IPv6 v4-mapped address includes all
+            // IPv6 v4-compat addresses, except for ::ffff:0.0.0.0 (because `a' is
+            // zero). See setAddress(quint8*) below, which calls convertToIpv4(),
+            // for details.
+            // Source: RFC 5735
+            if ((ipv4 & 0xff000000U) == 0x7f000000U)   // 127.0.0.0/8
+                return LoopbackAddress;
+            if ((ipv4 & 0xf0000000U) == 0xe0000000U)   // 224.0.0.0/4
+                return MulticastAddress;
+            if ((ipv4 & 0xffff0000U) == 0xa9fe0000U)   // 169.254.0.0/16
+                return LinkLocalAddress;
+            if ((ipv4 & 0xff000000U) == 0)             // 0.0.0.0/8 except 0.0.0.0 (handled below)
+                return LocalNetAddress;
+            if ((ipv4 & 0xf0000000U) == 0xf0000000U) { // 240.0.0.0/4
+                if (ipv4 == 0xffffffffU)               // 255.255.255.255
+                    return BroadcastAddress;
+                return UnknownAddress;
+            }
+
+            // Not testing for PrivateNetworkAddress and TestNetworkAddress
+            // since we don't need them yet.
+            return GlobalAddress;
+        }
+
+        // As `a' is zero, this address is either ::ffff:0.0.0.0 or a non-v4-mapped IPv6 address.
+        // Source: https://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.xhtml
+        if (ipv6.a6_64.c[0]) {
+            quint32 high16 = qFromBigEndian(ipv6.a6_32.c[0]) >> 16;
+            switch (high16 >> 8) {
+            case 0xff:                          // ff00::/8
+                return MulticastAddress;
+            case 0xfe:
+                switch (high16 & 0xffc0) {
+                case 0xfec0:                    // fec0::/10
+                    return SiteLocalAddress;
+
+                case 0xfe80:                    // fe80::/10
+                    return LinkLocalAddress;
+
+                default:                        // fe00::/9
+                    return UnknownAddress;
+                }
+            case 0xfd:                          // fc00::/7
+            case 0xfc:
+                return UniqueLocalAddress;
+            default:
+                return GlobalAddress;
+            }
+        }
+
+        quint64 low64 = qFromBigEndian(ipv6.a6_64.c[1]);
+        if (low64 == 1)                             // ::1
+            return LoopbackAddress;
+        if (low64 >> 32 == 0xffff) {                // ::ffff:0.0.0.0/96
+            Q_ASSERT(quint32(low64) == 0);
+            return LocalNetAddress;
+        }
+        if (low64)                                  // not ::
+            return GlobalAddress;
+
+        if (protocol == HostAddress::UnknownNetworkLayerProtocol)
+            return UnknownAddress;
+
+        // only :: and 0.0.0.0 remain now
+        return LocalNetAddress;
 }
 
 
@@ -945,6 +1168,193 @@ IPv6Address HostAddress::toIPv6Address() const
     return d->ipv6.a6;
 }
 
+bool HostAddress::isInSubnet(const HostAddress &subnet, int netmask) const
+{
+    if (subnet.protocol() != d->protocol || netmask < 0)
+        return false;
+
+    union {
+        quint32 ip;
+        quint8 data[4];
+    } ip4, net4;
+    const quint8 *ip;
+    const quint8 *net;
+    if (d->protocol == HostAddress::IPv4Protocol) {
+        if (netmask > 32)
+            netmask = 32;
+        ip4.ip = qToBigEndian(d->ipv4);
+        net4.ip = qToBigEndian(subnet.d->ipv4);
+        ip = ip4.data;
+        net = net4.data;
+    } else if (d->protocol == HostAddress::IPv6Protocol) {
+        if (netmask > 128)
+            netmask = 128;
+        ip = d->ipv6.a6.c;
+        net = subnet.d->ipv6.a6.c;
+    } else {
+        return false;
+    }
+
+    if (netmask >= 8 && memcmp(ip, net, netmask / 8) != 0)
+        return false;
+    if ((netmask & 7) == 0)
+        return true;
+
+    // compare the last octet now
+    quint8 bytemask = 256 - (1 << (8 - (netmask & 7)));
+    quint8 ipbyte = ip[netmask / 8];
+    quint8 netbyte = net[netmask / 8];
+    return (ipbyte & bytemask) == (netbyte & bytemask);
+}
+
+
+bool HostAddress::isInSubnet(const QPair<HostAddress, int> &subnet) const
+{
+    return isInSubnet(subnet.first, subnet.second);
+}
+
+
+QPair<HostAddress, int> HostAddress::parseSubnet(const QString &subnet)
+{
+    // We support subnets in the form:
+    //   ddd.ddd.ddd.ddd/nn
+    //   ddd.ddd.ddd/nn
+    //   ddd.ddd/nn
+    //   ddd/nn
+    //   ddd.ddd.ddd.
+    //   ddd.ddd.ddd
+    //   ddd.ddd.
+    //   ddd.ddd
+    //   ddd.
+    //   ddd
+    //   <ipv6-address>/nn
+    //
+    //  where nn can be an IPv4-style netmask for the IPv4 forms
+
+    const QPair<HostAddress, int> invalid = qMakePair(HostAddress(), -1);
+    if (subnet.isEmpty())
+        return invalid;
+
+    int slash = subnet.indexOf(QLatin1Char('/'));
+    QStringRef netStr(&subnet);
+    if (slash != -1)
+        netStr.truncate(slash);
+
+    int netmask = -1;
+    bool isIpv6 = netStr.contains(QLatin1Char(':'));
+
+    if (slash != -1) {
+        // is the netmask given in IP-form or in bit-count form?
+        if (!isIpv6 && subnet.indexOf(QLatin1Char('.'), slash + 1) != -1) {
+            // IP-style, convert it to bit-count form
+            HostAddress mask;
+            Netmask parser;
+            if (!mask.setAddress(subnet.mid(slash + 1)))
+                return invalid;
+            if (!parser.setAddress(mask))
+                return invalid;
+            netmask = parser.prefixLength();
+        } else {
+            bool ok;
+            netmask = subnet.midRef(slash + 1).toUInt(&ok);
+            if (!ok)
+                return invalid;     // failed to parse the subnet
+        }
+    }
+
+    if (isIpv6) {
+        // looks like it's an IPv6 address
+        if (netmask > 128)
+            return invalid;     // invalid netmask
+        if (netmask < 0)
+            netmask = 128;
+
+        HostAddress net;
+        if (!net.setAddress(netStr.toString()))
+            return invalid;     // failed to parse the IP
+
+        clearBits(net.d->ipv6.a6.c, netmask, 128);
+        return qMakePair(net, netmask);
+    }
+
+    if (netmask > 32)
+        return invalid;         // invalid netmask
+
+    // parse the address manually
+    auto parts = netStr.split(QLatin1Char('.'));
+    if (parts.isEmpty() || parts.count() > 4)
+        return invalid;         // invalid IPv4 address
+
+    if (parts.constLast().isEmpty())
+        parts.removeLast();
+
+    quint32 addr = 0;
+    for (int i = 0; i < parts.count(); ++i) {
+        bool ok;
+        uint byteValue = parts.at(i).toUInt(&ok);
+        if (!ok || byteValue > 255)
+            return invalid;     // invalid IPv4 address
+
+        addr <<= 8;
+        addr += byteValue;
+    }
+    addr <<= 8 * (4 - parts.count());
+    if (netmask == -1) {
+        netmask = 8 * parts.count();
+    } else if (netmask == 0) {
+        // special case here
+        // x86's instructions "shr" and "shl" do not operate when
+        // their argument is 32, so the code below doesn't work as expected
+        addr = 0;
+    } else if (netmask != 32) {
+        // clear remaining bits
+        quint32 mask = quint32(0xffffffff) >> (32 - netmask) << (32 - netmask);
+        addr &= mask;
+    }
+
+    return qMakePair(HostAddress(addr), netmask);
+}
+
+
+bool HostAddress::isLoopback() const
+{
+    return d->classify() == LoopbackAddress;
+}
+
+
+bool HostAddress::isGlobal() const
+{
+    return d->classify() & GlobalAddress;   // GlobalAddress is a bit
+}
+
+bool HostAddress::isLinkLocal() const
+{
+    return d->classify() == LinkLocalAddress;
+}
+
+
+bool HostAddress::isSiteLocal() const
+{
+    return d->classify() == SiteLocalAddress;
+}
+
+bool HostAddress::isUniqueLocalUnicast() const
+{
+    return d->classify() == UniqueLocalAddress;
+}
+
+
+bool HostAddress::isMulticast() const
+{
+    return d->classify() == MulticastAddress;
+}
+
+
+bool HostAddress::isBroadcast() const
+{
+    return d->classify() == BroadcastAddress;
+}
+
 
 QString HostAddress::toString() const
 {
@@ -1042,6 +1452,15 @@ QList<HostAddress> HostAddress::getHostAddressByName(const QString &hostName)
     freeWinSock();
 #endif
     return addresses;
+}
+
+uint qHash(const HostAddress &key, uint seed) noexcept
+{
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
+    return qHashBits(key.d->ipv6.a6.c, 16, seed);
+#else
+    return qHash(QByteArray(reinterpret_cast<const char*>(key.d->ipv6.a6.c), 16), seed);
+#endif
 }
 
 QTNETWORKNG_NAMESPACE_END

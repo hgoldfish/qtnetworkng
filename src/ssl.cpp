@@ -57,7 +57,9 @@ SslCipher SslCipherPrivate::from_SSL_CIPHER(const SSL_CIPHER *cipher)
     }
     QString descriptionOneLine = QString::fromLatin1(description);
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+    const QVector<QStringRef> &descriptionList = descriptionOneLine.splitRef(QLatin1Char(' '), Qt::SkipEmptyParts);
+#elif (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
     const QVector<QStringRef> &descriptionList = descriptionOneLine.splitRef(QLatin1Char(' '), QString::SkipEmptyParts);
 #else
     const QStringList &descriptionList = descriptionOneLine.split(QLatin1Char(' '), QString::SkipEmptyParts);
