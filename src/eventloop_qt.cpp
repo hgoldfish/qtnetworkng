@@ -25,7 +25,8 @@ struct IoWatcher: public QtWatcher
     IoWatcher(qintptr fd, EventLoopCoroutine::EventType event, Functor *callback);
     virtual ~IoWatcher();
 
-    QSharedPointer<QSocketNotifier> notifier;
+    QSharedPointer<QSocketNotifier> readNotifier;
+    QSharedPointer<QSocketNotifier> writeNotifier;
     Functor *callback;
     qintptr fd;
     EventLoopCoroutine::EventType event;
@@ -196,19 +197,20 @@ void QtEventLoopCoroutinePrivate::startWatcher(int watcherId)
     IoWatcher *w = dynamic_cast<IoWatcher*>(watchers.value(watcherId));
     if (w) {
         if (w->event & EventLoopCoroutine::Read) {
-            if (w->notifier.isNull()) {
-                w->notifier.reset(new QSocketNotifier(w->fd, QSocketNotifier::Read));
-                w->notifier->setProperty("parent", QVariant::fromValue(static_cast<void*>(w)));
-                QObject::connect(w->notifier.data(), SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
+            if (w->readNotifier.isNull()) {
+                w->readNotifier.reset(new QSocketNotifier(w->fd, QSocketNotifier::Read));
+                w->readNotifier->setProperty("parent", QVariant::fromValue(static_cast<void*>(w)));
+                QObject::connect(w->readNotifier.data(), SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
             }
-            w->notifier->setEnabled(true);
-        } else if (w->event & EventLoopCoroutine::Write) {
-            if (w->notifier.isNull()) {
-                w->notifier.reset(new QSocketNotifier(w->fd, QSocketNotifier::Write));
-                w->notifier->setProperty("parent", QVariant::fromValue(static_cast<void*>(w)));
-                QObject::connect(w->notifier.data(), SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
+            w->readNotifier->setEnabled(true);
+        }
+        if (w->event & EventLoopCoroutine::Write) {
+            if (w->writeNotifier.isNull()) {
+                w->writeNotifier.reset(new QSocketNotifier(w->fd, QSocketNotifier::Write));
+                w->writeNotifier->setProperty("parent", QVariant::fromValue(static_cast<void*>(w)));
+                QObject::connect(w->writeNotifier.data(), SIGNAL(activated(int)), this->helper, SLOT(handleIoEvent(int)), Qt::DirectConnection);
             }
-            w->notifier->setEnabled(true);
+            w->writeNotifier->setEnabled(true);
         }
     }
 }
@@ -217,8 +219,11 @@ void QtEventLoopCoroutinePrivate::startWatcher(int watcherId)
 void QtEventLoopCoroutinePrivate::stopWatcher(int watcherId)
 {
     IoWatcher *w = dynamic_cast<IoWatcher*>(watchers.value(watcherId));
-    if (w && !w->notifier.isNull()) {
-        w->notifier->setEnabled(false);
+    if (w && !w->readNotifier.isNull()) {
+        w->readNotifier->setEnabled(false);
+    }
+    if (w && !w->writeNotifier.isNull()) {
+        w->writeNotifier->setEnabled(false);
     }
 }
 
@@ -266,8 +271,11 @@ void QtEventLoopCoroutinePrivate::triggerIoWatchers(qintptr fd)
     for (QMap<int, QtWatcher*>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
         IoWatcher *w = dynamic_cast<IoWatcher*>(itor.value());
         if (w && w->fd == fd) {
-            if (!w->notifier.isNull()) {
-                w->notifier->setEnabled(false);
+            if (!w->readNotifier.isNull()) {
+                w->readNotifier->setEnabled(false);
+            }
+            if (!w->writeNotifier.isNull()) {
+                w->writeNotifier->setEnabled(false);
             }
             callLater(0, new TriggerIoWatchersArgumentsFunctor(itor.key(), q));
         }

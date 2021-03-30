@@ -837,7 +837,7 @@ static unsigned int ev_backend(struct ev_loop *loop)
 }
 
 
-static void loop_init (struct ev_loop *loop, unsigned int flags)
+static void loop_init(struct ev_loop *loop, unsigned int flags)
 {
     (void) flags;
     if (!loop->backend) {

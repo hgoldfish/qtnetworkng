@@ -7,21 +7,19 @@
 #include "config.h"
 
 #ifdef QT_NETWORK_LIB
-#include <QtNetwork>
+#include <QtNetwork/qhostaddress.h>
 #endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-struct  IPv6Addr
+struct  IPv6Address
 {
-public:
     inline quint8 &operator [](int index) { return c[index]; }
     inline quint8 operator [](int index) const { return c[index]; }
     quint8 c[16];
 };
 
 typedef quint32 IPv4Address;
-typedef IPv6Addr IPv6Address;
 
 #ifdef Q_OS_WIN
 void initWinSock();
@@ -63,9 +61,16 @@ public:
     HostAddress();
     HostAddress(const HostAddress& copy);
     HostAddress(SpecialAddress address);
+    HostAddress(const QString &address);
+    HostAddress(quint32 ip4Addr);
+    HostAddress(quint8 *ip6Addr);
+    HostAddress(const quint8 *ip6Addr);
+    HostAddress(const IPv6Address &ip6Addr);
+    HostAddress(const sockaddr *sockaddr);
 #ifdef QT_NETWORK_LIB
     HostAddress(const QHostAddress& address);
     HostAddress(QHostAddress::SpecialAddress address);
+    HostAddress(const QIPv6Address &ip6Addr);
 #endif
     ~HostAddress();
 

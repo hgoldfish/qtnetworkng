@@ -63,6 +63,7 @@ static bool convertToIpv4(IPv4Address& a, const IPv6Address& a6, const HostAddre
 static QString qulltoa(qulonglong l, int base, const QChar _zero);
 static QString number(quint8 val, int base = 10);
 
+
 unsigned long long qt_strtoull(const char * nptr, char **endptr, int base)
 {
     const char *s;
@@ -135,6 +136,7 @@ noconv:
     return (acc);
 }
 
+
 static unsigned long long qstrtoull(const char * nptr, const char **endptr, int base, bool *ok)
 {
     // strtoull accepts negative numbers. We don't.
@@ -162,6 +164,7 @@ static unsigned long long qstrtoull(const char * nptr, const char **endptr, int 
     return result;
 }
 
+
 static const QChar *checkedToAscii(Buffer &buffer, const QChar *begin, const QChar *end)
 {
     const ushort *const ubegin = reinterpret_cast<const ushort *>(begin);
@@ -180,6 +183,7 @@ static const QChar *checkedToAscii(Buffer &buffer, const QChar *begin, const QCh
     return nullptr;
 }
 
+
 static bool parseIp4(IPv4Address &address, const QChar *begin, const QChar *end)
 {
     Q_ASSERT(begin != end);
@@ -190,6 +194,7 @@ static bool parseIp4(IPv4Address &address, const QChar *begin, const QChar *end)
     const char *ptr = buffer.data();
     return parseIp4Internal(address, ptr, true);
 }
+
 
 static bool parseIp4Internal(IPv4Address &address, const char *ptr, bool acceptLeadingZero)
 {
@@ -234,6 +239,7 @@ static bool parseIp4Internal(IPv4Address &address, const char *ptr, bool acceptL
     }
     return false;
 }
+
 
 static const QChar *parseIp6(IPv6Address &address, const QChar *begin, const QChar *end)
 {
@@ -337,6 +343,7 @@ static const QChar *parseIp6(IPv6Address &address, const QChar *begin, const QCh
     return pos == 16 ? nullptr : end;
 }
 
+
 /// parses v4-mapped addresses or the AnyIPv6 address and stores in \a a;
 /// returns true if the address was one of those
 static bool convertToIpv4(IPv4Address& a, const IPv6Address& a6, const HostAddress::ConversionMode mode)
@@ -372,6 +379,7 @@ static bool convertToIpv4(IPv4Address& a, const IPv6Address& a6, const HostAddre
     return false;
 }
 
+
 static QString qulltoa(qulonglong l, int base, const QChar _zero)
 {
     ushort buff[65]; // length of MAX_ULLONG in base 2
@@ -404,22 +412,26 @@ static QString qulltoa(qulonglong l, int base, const QChar _zero)
     return QString(reinterpret_cast<QChar *>(p), 65 - (p - buff));
 }
 
+
 static QString number(quint8 val, int base)
 {
     QChar zero(0x30);
     return val ? qulltoa(val, base, zero) : zero;
 }
 
+
 static QChar toHex(uchar c)
 {
     return QChar::fromLatin1("0123456789abcdef"[c & 0xF]);
 }
+
 
 static void IPAddresstoString(QString &appendTo, IPv4Address address)
 {
     appendTo += QStringLiteral("%1.%2.%3.%4").arg(number(address >> 24, 10)).arg(number(address >> 16, 10)) \
                     .arg(number(address >> 8, 10)).arg(number(address, 10));
 }
+
 
 static void IPAddresstoString(QString &appendTo, const IPv6Address address)
 {
@@ -522,6 +534,7 @@ static void IPAddresstoString(QString &appendTo, const IPv6Address address)
     }
 }
 
+
 class HostAddressPrivate : public QSharedData
 {
 public:
@@ -538,12 +551,13 @@ public:
         IPv6Address a6;
         struct { quint64 c[2]; } a6_64;
         struct { quint32 c[4]; } a6_32;
-    }ipv6;// IPv6 address
+    } ipv6;// IPv6 address
     IPv4Address ipv4;    // IPv4 address
     qint8 protocol;
 
     friend class HostAddress;
 };
+
 
 HostAddressPrivate::HostAddressPrivate()
     : ipv4(0)
@@ -551,6 +565,7 @@ HostAddressPrivate::HostAddressPrivate()
 {
     memset(&ipv6, 0, sizeof(ipv6));
 }
+
 
 void HostAddressPrivate::setAddress(const IPv4Address ipv4_)
 {
@@ -567,6 +582,7 @@ void HostAddressPrivate::setAddress(const IPv4Address ipv4_)
     }
 }
 
+
 void HostAddressPrivate::setAddress(const IPv6Address ipv6_)
 {
     protocol = HostAddress::IPv6Protocol;
@@ -577,6 +593,7 @@ void HostAddressPrivate::setAddress(const IPv6Address ipv6_)
     convertToIpv4(ipv4, ipv6.a6, HostAddress::ConversionMode(HostAddress::ConvertV4MappedToIPv4)
                   | HostAddress::ConversionMode(HostAddress::ConvertUnspecifiedAddress));
 }
+
 
 void HostAddressPrivate::clear()
 {
@@ -598,6 +615,7 @@ static bool parseIp6(const QString &address, IPv6Address &addr, QString *scopeId
     }
     return parseIp6(addr, tmp.constBegin(), tmp.constEnd()) == nullptr;
 }
+
 
 bool HostAddressPrivate::parse(const QString &ipString)
 {
@@ -624,27 +642,87 @@ bool HostAddressPrivate::parse(const QString &ipString)
     return false;
 }
 
+
 HostAddress::HostAddress()
-    :d(new HostAddressPrivate())
+    : d(new HostAddressPrivate())
 {
 
 }
+
 
 HostAddress::HostAddress(const HostAddress &copy)
-    :d(copy.d)
+    : d(copy.d)
 {
 
 }
 
+
 HostAddress::HostAddress(HostAddress::SpecialAddress address)
-    :d(new HostAddressPrivate())
+    : d(new HostAddressPrivate())
 {
     setAddress(address);
 }
 
+
+HostAddress::HostAddress(const QString &address)
+    : d(new HostAddressPrivate())
+{
+    setAddress(address);
+}
+
+
+HostAddress::HostAddress(quint32 ip4Addr)
+    : d(new HostAddressPrivate())
+{
+    setAddress(ip4Addr);
+}
+
+
+HostAddress::HostAddress(quint8 *ip6Addr)
+    : d(new HostAddressPrivate())
+{
+    setAddress(ip6Addr);
+}
+
+
+HostAddress::HostAddress(const quint8 *ip6Addr)
+    : d(new HostAddressPrivate())
+{
+    setAddress(ip6Addr);
+}
+
+
+HostAddress::HostAddress(const IPv6Address &ip6Addr)
+    : d(new HostAddressPrivate())
+{
+    setAddress(ip6Addr);
+}
+
+
+HostAddress::HostAddress(const sockaddr *sockaddr)
+    : d(new HostAddressPrivate())
+{
+    switch (sockaddr->sa_family) {
+    case AF_INET: {
+        setAddress(ntohl(((sockaddr_in *) sockaddr)->sin_addr.s_addr));
+        break;
+    }
+    case AF_INET6: {
+        sockaddr_in6 *sa6 = (sockaddr_in6 *) sockaddr;
+        setAddress(sa6->sin6_addr.s6_addr);
+        if (sa6->sin6_scope_id)
+            setScopeId(QString::number(sa6->sin6_scope_id));
+        break;
+    }
+    default:
+        qWarning() << "Unknown address type when get hostname";
+    }
+}
+
+
 #ifdef QT_NETWORK_LIB
 HostAddress::HostAddress(const QHostAddress& address)
-    :d(new HostAddressPrivate())
+    : d(new HostAddressPrivate())
 {
     switch (address.protocol()){
     case QAbstractSocket::IPv4Protocol:
@@ -663,17 +741,31 @@ HostAddress::HostAddress(const QHostAddress& address)
     }
 }
 
+
 HostAddress::HostAddress(QHostAddress::SpecialAddress address)
-    :d(new HostAddressPrivate())
+    : d(new HostAddressPrivate())
 {
     setAddress(static_cast<HostAddress::SpecialAddress>(address));
 }
+
+
+HostAddress::HostAddress(const QIPv6Address &ip6Addr)
+    : d(new HostAddressPrivate())
+{
+    IPv6Address t;
+    Q_ASSERT(sizeof(t.c) == sizeof(ip6Addr.c));
+    memcpy(t.c, ip6Addr.c, sizeof(ip6Addr.c));
+}
+
+
 #endif
+
 
 HostAddress::~HostAddress()
 {
 
 }
+
 
 HostAddress &HostAddress::operator=(const HostAddress &address)
 {
@@ -681,11 +773,13 @@ HostAddress &HostAddress::operator=(const HostAddress &address)
     return *this;
 }
 
+
 HostAddress &HostAddress::operator=(SpecialAddress address)
 {
     setAddress(address);
     return *this;
 }
+
 
 bool HostAddress::isEqual(const HostAddress &other, ConversionMode mode) const
 {
@@ -712,7 +806,7 @@ bool HostAddress::isEqual(const HostAddress &other, ConversionMode mode) const
             quint32 a4;
             return convertToIpv4(a4, d->ipv6.a6, mode) && (a4 == other.d->ipv4);
         case IPv6Protocol:
-            return memcmp(&d->ipv6, &other.d->ipv6, sizeof(IPv6Addr)) == 0;
+            return memcmp(&d->ipv6, &other.d->ipv6, sizeof(IPv6Address)) == 0;
         case AnyIPProtocol:
             return (mode & ConvertUnspecifiedAddress)
                 && (other.d->ipv6.a6_64.c[0] == 0) && (other.d->ipv6.a6_64.c[1] == 0);
@@ -736,10 +830,12 @@ bool HostAddress::isEqual(const HostAddress &other, ConversionMode mode) const
     return d->protocol == other.d->protocol;
 }
 
+
 bool HostAddress::operator ==(const HostAddress &other) const
 {
     return d == other.d || isEqual(other, StrictConversion);
 }
+
 
 bool HostAddress::operator ==(SpecialAddress other) const
 {
@@ -775,10 +871,12 @@ bool HostAddress::operator ==(SpecialAddress other) const
     return d->protocol == IPv4Protocol && d->ipv4 == ip4;
 }
 
+
 void HostAddress::swap(HostAddress &other) noexcept
 {
     d.swap(other.d);
 }
+
 
 void HostAddress::clear()
 {
@@ -786,17 +884,20 @@ void HostAddress::clear()
     d->clear();
 }
 
+
 void HostAddress::setAddress(const IPv4Address ipv4)
 {
     d.detach();
     d->setAddress(ipv4);
 }
 
+
 void HostAddress::setAddress(const IPv6Address &ipv6)
 {
     d.detach();
     d->setAddress(ipv6);
 }
+
 
 void HostAddress::setAddress(const quint8* ipv6)
 {
@@ -807,21 +908,25 @@ void HostAddress::setAddress(const quint8* ipv6)
     d->setAddress(ip);
 }
 
+
 bool HostAddress::setAddress(const QString &ipString)
 {
     d.detach();
     return d->parse(ipString);
 }
 
+
 bool HostAddress::isNull() const
 {
     return d->protocol == HostAddress::UnknownNetworkLayerProtocol;
 }
 
+
 HostAddress::NetworkLayerProtocol HostAddress::protocol() const
 {
     return HostAddress::NetworkLayerProtocol(d->protocol);
 }
+
 
 IPv4Address HostAddress::toIPv4Address(bool *ok) const
 {
@@ -834,10 +939,12 @@ IPv4Address HostAddress::toIPv4Address(bool *ok) const
     return d->ipv4;
 }
 
+
 IPv6Address HostAddress::toIPv6Address() const
 {
     return d->ipv6.a6;
 }
+
 
 QString HostAddress::toString() const
 {
@@ -854,10 +961,12 @@ QString HostAddress::toString() const
     return s;
 }
 
+
 QString HostAddress::scopeId() const
 {
     return (d->protocol == IPv6Protocol) ? d->scopeId : QString();
 }
+
 
 void HostAddress::setScopeId(const QString &id)
 {
@@ -865,6 +974,7 @@ void HostAddress::setScopeId(const QString &id)
     if (d->protocol == IPv6Protocol)
         d->scopeId = id;
 }
+
 
 QList<HostAddress> HostAddress::getHostAddressByName(const QString &hostName)
 {
