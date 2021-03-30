@@ -21,21 +21,21 @@ public:
     virtual Socket::SocketError error() const = 0;
     virtual QString errorString() const = 0;
     virtual bool isValid() const = 0;
-    virtual QHostAddress localAddress() const = 0;
+    virtual HostAddress localAddress() const = 0;
     virtual quint16 localPort() const = 0;
-    virtual QHostAddress peerAddress() const = 0;
+    virtual HostAddress peerAddress() const = 0;
     virtual QString peerName() const = 0;
     virtual quint16 peerPort() const = 0;
     virtual qintptr	fileno() const = 0;
     virtual Socket::SocketType type() const = 0;
     virtual Socket::SocketState state() const = 0;
-    virtual Socket::NetworkLayerProtocol protocol() const = 0;
+    virtual HostAddress::NetworkLayerProtocol protocol() const = 0;
 
     virtual QSharedPointer<SocketLike> accept() = 0;
     virtual Socket *acceptRaw() = 0;
-    virtual bool bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform) = 0;
+    virtual bool bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform) = 0;
     virtual bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform) = 0;
-    virtual bool connect(const QHostAddress &addr, quint16 port) = 0;
+    virtual bool connect(const HostAddress &addr, quint16 port) = 0;
     virtual bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>()) = 0;
 //    virtual void close() override = 0;  // from FileLike
     virtual void abort() = 0;

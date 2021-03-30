@@ -14,8 +14,8 @@ class BaseStreamServerPrivate;
 class BaseStreamServer
 {
 public:
-    BaseStreamServer(const QHostAddress &serverAddress, quint16 serverPort);
-    BaseStreamServer(quint16 serverPort) : BaseStreamServer(QHostAddress::Any, serverPort) {}
+    BaseStreamServer(const HostAddress &serverAddress, quint16 serverPort);
+    BaseStreamServer(quint16 serverPort) : BaseStreamServer(HostAddress::Any, serverPort) {}
     virtual ~BaseStreamServer();
 protected:
     // these two virtual functions should be overrided by subclass.
@@ -35,7 +35,7 @@ public:
     void *userData() const;
 public:
     quint16 serverPort() const;
-    QHostAddress serverAddress() const;
+    HostAddress serverAddress() const;
 public:
     QSharedPointer<Event> started;
     QSharedPointer<Event> stopped;
@@ -62,10 +62,10 @@ template<typename RequestHandler>
 class TcpServer: public BaseStreamServer
 {
 public:
-    TcpServer(const QHostAddress &serverAddress, quint16 serverPort)
+    TcpServer(const HostAddress &serverAddress, quint16 serverPort)
         : BaseStreamServer(serverAddress, serverPort) {}
     TcpServer(quint16 serverPort)
-        : BaseStreamServer(QHostAddress::Any, serverPort) {}
+        : BaseStreamServer(HostAddress::Any, serverPort) {}
 protected:
     virtual QSharedPointer<SocketLike> serverCreate() override;
     virtual void processRequest(QSharedPointer<SocketLike> request) override;
@@ -93,10 +93,10 @@ template<typename RequestHandler>
 class KcpServer: public BaseStreamServer
 {
 public:
-    KcpServer(const QHostAddress &serverAddress, quint16 serverPort)
+    KcpServer(const HostAddress &serverAddress, quint16 serverPort)
         :BaseStreamServer(serverAddress, serverPort) {}
     KcpServer(quint16 serverPort)
-        : BaseStreamServer(QHostAddress::Any, serverPort) {}
+        : BaseStreamServer(HostAddress::Any, serverPort) {}
 protected:
     virtual QSharedPointer<SocketLike> serverCreate() override;
     virtual void processRequest(QSharedPointer<SocketLike> request) override;
@@ -127,8 +127,8 @@ template<typename ServerType>
 class WithSsl: public ServerType
 {
 public:
-    WithSsl(const QHostAddress &serverAddress, quint16 serverPort);
-    WithSsl(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
+    WithSsl(const HostAddress &serverAddress, quint16 serverPort);
+    WithSsl(const HostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
     WithSsl(quint16 serverPort);
     WithSsl(quint16 serverPort, const SslConfiguration &configuration);
 public:
@@ -146,7 +146,7 @@ private:
 
 
 template<typename ServerType>
-WithSsl<ServerType>::WithSsl(const QHostAddress &serverAddress, quint16 serverPort)
+WithSsl<ServerType>::WithSsl(const HostAddress &serverAddress, quint16 serverPort)
     : ServerType(serverAddress, serverPort)
     , _sslHandshakeTimeout(5.0)
 {
@@ -155,7 +155,7 @@ WithSsl<ServerType>::WithSsl(const QHostAddress &serverAddress, quint16 serverPo
 
 
 template<typename ServerType>
-WithSsl<ServerType>::WithSsl(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
+WithSsl<ServerType>::WithSsl(const HostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
     : ServerType(serverAddress, serverPort)
     , _configuration(configuration)
     , _sslHandshakeTimeout(5.0)
@@ -164,7 +164,7 @@ WithSsl<ServerType>::WithSsl(const QHostAddress &serverAddress, quint16 serverPo
 
 template<typename ServerType>
 WithSsl<ServerType>::WithSsl(quint16 serverPort)
-    : ServerType(QHostAddress::Any, serverPort)
+    : ServerType(HostAddress::Any, serverPort)
     , _sslHandshakeTimeout(5.0)
 {
     _configuration = SslConfiguration::testPurpose("SslServer", "CN", "QtNetworkNg");
@@ -173,7 +173,7 @@ WithSsl<ServerType>::WithSsl(quint16 serverPort)
 
 template<typename ServerType>
 WithSsl<ServerType>::WithSsl(quint16 serverPort, const SslConfiguration &configuration)
-    : ServerType(QHostAddress::Any, serverPort)
+    : ServerType(HostAddress::Any, serverPort)
     , _configuration(configuration)
     , _sslHandshakeTimeout(5.0)
 {}
@@ -235,20 +235,20 @@ template<typename RequestHandler>
 class SslServer: public WithSsl<TcpServer<RequestHandler>>
 {
 public:
-    SslServer(const QHostAddress &serverAddress, quint16 serverPort);
-    SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
+    SslServer(const HostAddress &serverAddress, quint16 serverPort);
+    SslServer(const HostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
     SslServer(quint16 serverPort);
     SslServer(quint16 serverPort, const SslConfiguration &configuration);
 };
 
 
 template<typename RequestHandler>
-SslServer<RequestHandler>::SslServer(const QHostAddress &serverAddress, quint16 serverPort)
+SslServer<RequestHandler>::SslServer(const HostAddress &serverAddress, quint16 serverPort)
     : WithSsl<TcpServer<RequestHandler>>(serverAddress, serverPort) {}
 
 
 template<typename RequestHandler>
-SslServer<RequestHandler>::SslServer(const QHostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
+SslServer<RequestHandler>::SslServer(const HostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
     : WithSsl<TcpServer<RequestHandler>>(serverAddress, serverPort, configuration) {}
 
 
@@ -297,11 +297,11 @@ public:
     Socks5RequestHandler();
     virtual ~Socks5RequestHandler() override;
 protected:
-    virtual void doConnect(const QString &hostName, const QHostAddress &hostAddress, quint16 port);
-    bool sendConnectReply(const QHostAddress &hostAddress, quint16 port);
-    virtual void doFailed(const QString &hostName, const QHostAddress &hostAddress, quint16 port);
+    virtual void doConnect(const QString &hostName, const HostAddress &hostAddress, quint16 port);
+    bool sendConnectReply(const HostAddress &hostAddress, quint16 port);
+    virtual void doFailed(const QString &hostName, const HostAddress &hostAddress, quint16 port);
     bool sendFailedReply();
-    virtual void log(const QString &hostName, const QHostAddress &hostAddress, quint16 port, bool success);
+    virtual void log(const QString &hostName, const HostAddress &hostAddress, quint16 port, bool success);
 protected:
     virtual void handle() override;
 private:

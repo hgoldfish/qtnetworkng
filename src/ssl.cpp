@@ -1284,7 +1284,7 @@ bool SslSocketPrivate::isValid() const
 }
 
 
-SslSocket::SslSocket(Socket::NetworkLayerProtocol protocol, const SslConfiguration &config)
+SslSocket::SslSocket(HostAddress::NetworkLayerProtocol protocol, const SslConfiguration &config)
     :d_ptr(new SslSocketPrivate(config))
 {
     Q_D(SslSocket);
@@ -1449,7 +1449,7 @@ Socket *SslSocket::acceptRaw()
 }
 
 
-bool SslSocket::bind(const QHostAddress &address, quint16 port, Socket::BindMode mode)
+bool SslSocket::bind(const HostAddress &address, quint16 port, Socket::BindMode mode)
 {
     Q_D(SslSocket);
     return d->rawSocket->bind(address, port, mode);
@@ -1463,7 +1463,7 @@ bool SslSocket::bind(quint16 port, Socket::BindMode mode)
 }
 
 
-bool SslSocket::connect(const QHostAddress &addr, quint16 port)
+bool SslSocket::connect(const HostAddress &addr, quint16 port)
 {
     Q_D(SslSocket);
     if (!d->rawSocket->connect(addr, port)) {
@@ -1546,7 +1546,7 @@ bool SslSocket::isValid() const
 }
 
 
-QHostAddress SslSocket::localAddress() const
+HostAddress SslSocket::localAddress() const
 {
     Q_D(const SslSocket);
     return d->rawSocket->localAddress();
@@ -1560,7 +1560,7 @@ quint16 SslSocket::localPort() const
 }
 
 
-QHostAddress SslSocket::peerAddress() const
+HostAddress SslSocket::peerAddress() const
 {
     Q_D(const SslSocket);
     return d->rawSocket->peerAddress();
@@ -1602,7 +1602,7 @@ Socket::SocketState SslSocket::state() const
 }
 
 
-Socket::NetworkLayerProtocol SslSocket::protocol() const
+HostAddress::NetworkLayerProtocol SslSocket::protocol() const
 {
     Q_D(const SslSocket);
     return d->rawSocket->protocol();
@@ -1686,10 +1686,10 @@ qint32 SslSocket::sendall(const QByteArray &data)
 }
 
 
-SslSocket *SslSocket::createConnection(const QHostAddress &host, quint16 port,
+SslSocket *SslSocket::createConnection(const HostAddress &host, quint16 port,
               const SslConfiguration &config, Socket::SocketError *error, int allowProtocol)
 {
-    std::function<SslSocket*(Socket::NetworkLayerProtocol)> func = [config] (Socket::NetworkLayerProtocol protocol) -> SslSocket * {
+    std::function<SslSocket*(HostAddress::NetworkLayerProtocol)> func = [config] (HostAddress::NetworkLayerProtocol protocol) -> SslSocket * {
         return new SslSocket(protocol, config);
     };
     return QTNETWORKNG_NAMESPACE::createConnection<SslSocket>(host, port, error, allowProtocol, func);
@@ -1700,17 +1700,17 @@ SslSocket *SslSocket::createConnection(const QString &hostName, quint16 port,
               const SslConfiguration &config, Socket::SocketError *error,
               QSharedPointer<SocketDnsCache> dnsCache, int allowProtocol)
 {
-    std::function<SslSocket*(Socket::NetworkLayerProtocol)> func = [config] (Socket::NetworkLayerProtocol protocol) -> SslSocket * {
+    std::function<SslSocket*(HostAddress::NetworkLayerProtocol)> func = [config] (HostAddress::NetworkLayerProtocol protocol) -> SslSocket * {
         return new SslSocket(protocol, config);
     };
     return QTNETWORKNG_NAMESPACE::createConnection<SslSocket>(hostName, port, error, dnsCache, allowProtocol, func);
 }
 
 
-SslSocket *SslSocket::createServer(const QHostAddress &host, quint16 port,
+SslSocket *SslSocket::createServer(const HostAddress &host, quint16 port,
                                                   const SslConfiguration &config, int backlog)
 {
-    std::function<SslSocket*(Socket::NetworkLayerProtocol)> func = [config] (Socket::NetworkLayerProtocol protocol) -> SslSocket * {
+    std::function<SslSocket*(HostAddress::NetworkLayerProtocol)> func = [config] (HostAddress::NetworkLayerProtocol protocol) -> SslSocket * {
         return new SslSocket(protocol, config);
     };
     return QTNETWORKNG_NAMESPACE::createServer<SslSocket>(host, port, backlog, func);
@@ -1727,21 +1727,21 @@ public:
     virtual Socket::SocketError error() const override;
     virtual QString errorString() const override;
     virtual bool isValid() const override;
-    virtual QHostAddress localAddress() const override;
+    virtual HostAddress localAddress() const override;
     virtual quint16 localPort() const override;
-    virtual QHostAddress peerAddress() const override;
+    virtual HostAddress peerAddress() const override;
     virtual QString peerName() const override;
     virtual quint16 peerPort() const override;
     virtual qintptr	fileno() const override;
     virtual Socket::SocketType type() const override;
     virtual Socket::SocketState state() const override;
-    virtual Socket::NetworkLayerProtocol protocol() const override;
+    virtual HostAddress::NetworkLayerProtocol protocol() const override;
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
-    virtual bool bind(const QHostAddress &address, quint16 port, Socket::BindMode mode) override;
+    virtual bool bind(const HostAddress &address, quint16 port, Socket::BindMode mode) override;
     virtual bool bind(quint16 port, Socket::BindMode mode) override;
-    virtual bool connect(const QHostAddress &addr, quint16 port) override;
+    virtual bool connect(const HostAddress &addr, quint16 port) override;
     virtual bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache) override;
     virtual void close() override;
     virtual void abort() override;
@@ -1784,7 +1784,7 @@ bool SocketLikeImpl::isValid() const
 }
 
 
-QHostAddress SocketLikeImpl::localAddress() const
+HostAddress SocketLikeImpl::localAddress() const
 {
     return s->localAddress();
 }
@@ -1796,7 +1796,7 @@ quint16 SocketLikeImpl::localPort() const
 }
 
 
-QHostAddress SocketLikeImpl::peerAddress() const
+HostAddress SocketLikeImpl::peerAddress() const
 {
     return s->peerAddress();
 }
@@ -1832,7 +1832,7 @@ Socket::SocketState SocketLikeImpl::state() const
 }
 
 
-Socket::NetworkLayerProtocol SocketLikeImpl::protocol() const
+HostAddress::NetworkLayerProtocol SocketLikeImpl::protocol() const
 {
     return s->protocol();
 }
@@ -1850,7 +1850,7 @@ QSharedPointer<SocketLike> SocketLikeImpl::accept()
 }
 
 
-bool SocketLikeImpl::bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
+bool SocketLikeImpl::bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
 {
     return s->bind(address, port, mode);
 }
@@ -1862,7 +1862,7 @@ bool SocketLikeImpl::bind(quint16 port, Socket::BindMode mode)
 }
 
 
-bool SocketLikeImpl::connect(const QHostAddress &addr, quint16 port)
+bool SocketLikeImpl::connect(const HostAddress &addr, quint16 port)
 {
     return s->connect(addr, port);
 }
@@ -1983,21 +1983,21 @@ public:
     virtual Socket::SocketError error() const override;
     virtual QString errorString() const override;
     virtual bool isValid() const override;
-    virtual QHostAddress localAddress() const override;
+    virtual HostAddress localAddress() const override;
     virtual quint16 localPort() const override;
-    virtual QHostAddress peerAddress() const override;
+    virtual HostAddress peerAddress() const override;
     virtual QString peerName() const override;
     virtual quint16 peerPort() const override;
     virtual qintptr	fileno() const override;
     virtual Socket::SocketType type() const override;
     virtual Socket::SocketState state() const override;
-    virtual Socket::NetworkLayerProtocol protocol() const override;
+    virtual HostAddress::NetworkLayerProtocol protocol() const override;
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
-    virtual bool bind(const QHostAddress &address, quint16 port, Socket::BindMode mode) override;
+    virtual bool bind(const HostAddress &address, quint16 port, Socket::BindMode mode) override;
     virtual bool bind(quint16 port, Socket::BindMode mode) override;
-    virtual bool connect(const QHostAddress &addr, quint16 port) override;
+    virtual bool connect(const HostAddress &addr, quint16 port) override;
     virtual bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache) override;
     virtual void close() override;
     virtual void abort() override;
@@ -2054,7 +2054,7 @@ bool EncryptedSocketLike::isValid() const
 }
 
 
-QHostAddress EncryptedSocketLike::localAddress() const
+HostAddress EncryptedSocketLike::localAddress() const
 {
     return s->localAddress();
 }
@@ -2066,7 +2066,7 @@ quint16 EncryptedSocketLike::localPort() const
 }
 
 
-QHostAddress EncryptedSocketLike::peerAddress() const
+HostAddress EncryptedSocketLike::peerAddress() const
 {
     return s->peerAddress();
 }
@@ -2102,7 +2102,7 @@ Socket::SocketState EncryptedSocketLike::state() const
 }
 
 
-Socket::NetworkLayerProtocol EncryptedSocketLike::protocol() const
+HostAddress::NetworkLayerProtocol EncryptedSocketLike::protocol() const
 {
     return s->protocol();
 }
@@ -2120,7 +2120,7 @@ QSharedPointer<SocketLike> EncryptedSocketLike::accept()
 }
 
 
-bool EncryptedSocketLike::bind(const QHostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
+bool EncryptedSocketLike::bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
 {
     return s->bind(address, port, mode);
 }
@@ -2132,7 +2132,7 @@ bool EncryptedSocketLike::bind(quint16 port, Socket::BindMode mode)
 }
 
 
-bool EncryptedSocketLike::connect(const QHostAddress &addr, quint16 port)
+bool EncryptedSocketLike::connect(const HostAddress &addr, quint16 port)
 {
     return s->connect(addr, port);
 }

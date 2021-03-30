@@ -1,6 +1,3 @@
-QT += core network
-QT -= gui
-
 TARGET = qtnetworkng
 CONFIG += console staticlib
 CONFIG -= app_bundle

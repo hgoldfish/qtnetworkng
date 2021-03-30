@@ -4,9 +4,9 @@
 #include <QtCore/qstring.h>
 #include <QtCore/qbytearray.h>
 #include <QtCore/qobject.h>
-#include <QtNetwork/qhostaddress.h>
 #include <QtNetwork/qhostinfo.h>
 
+#include "hostaddress.h"
 #include "private/eventloop_p.h"
 #include "locks.h"
 
@@ -18,6 +18,7 @@ QTNETWORKNG_NAMESPACE_BEGIN
 
 class SocketPrivate;
 class SocketDnsCache;
+class HostAddress;
 
 class Socket: public QObject
 {
@@ -32,12 +33,7 @@ public:
         UnknownSocketType = -1
     };
     Q_ENUMS(SocketType)
-    enum NetworkLayerProtocol {
-        IPv4Protocol = 1,
-        IPv6Protocol = 2,
-        UnknownNetworkLayerProtocol = -1
-    };
-    Q_ENUMS(NetworkLayerProtocol)
+
     enum SocketError {
         ConnectionRefusedError = 1,
         RemoteHostClosedError = 2,
@@ -105,27 +101,27 @@ public:
     };
     Q_DECLARE_FLAGS(BindMode, BindFlag)
 public:
-    explicit Socket(NetworkLayerProtocol protocol = IPv4Protocol, SocketType type = TcpSocket);
+    explicit Socket(HostAddress::NetworkLayerProtocol protocol = HostAddress::IPv4Protocol, SocketType type = TcpSocket);
     explicit Socket(qintptr socketDescriptor);
     virtual ~Socket();
 public:
     SocketError error() const;
     QString errorString() const;
     bool isValid() const;
-    QHostAddress localAddress() const;
+    HostAddress localAddress() const;
     quint16 localPort() const;
-    QHostAddress peerAddress() const;
+    HostAddress peerAddress() const;
     QString peerName() const;
     quint16 peerPort() const;
     qintptr fileno() const;
     SocketType type() const;
     SocketState state() const;
-    NetworkLayerProtocol protocol() const;
+    HostAddress::NetworkLayerProtocol protocol() const;
 
     Socket *accept();
-    bool bind(const QHostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform);
+    bool bind(const HostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool bind(quint16 port = 0, BindMode mode = DefaultForPlatform);
-    bool connect(const QHostAddress &host, quint16 port);
+    bool connect(const HostAddress &host, quint16 port);
     bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>());
     void close();
     void abort();
@@ -137,23 +133,23 @@ public:
     qint32 recvall(char *data, qint32 size);
     qint32 send(const char *data, qint32 size);
     qint32 sendall(const char *data, qint32 size);
-    qint32 recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port);
-    qint32 sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port);
+    qint32 recvfrom(char *data, qint32 size, HostAddress *addr, quint16 *port);
+    qint32 sendto(const char *data, qint32 size, const HostAddress &addr, quint16 port);
 
     QByteArray recvall(qint32 size);
     QByteArray recv(qint32 size);
     qint32 send(const QByteArray &data);
     qint32 sendall(const QByteArray &data);
-    QByteArray recvfrom(qint32 size, QHostAddress *addr, quint16 *port);
-    qint32 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port);
+    QByteArray recvfrom(qint32 size, HostAddress *addr, quint16 *port);
+    qint32 sendto(const QByteArray &data, const HostAddress &addr, quint16 port);
 
-    static QList<QHostAddress> resolve(const QString &hostName);
-    static Socket *createConnection(const QHostAddress &host, quint16 port, Socket::SocketError *error = nullptr,
-                                  int allowProtocol = IPv4Protocol | IPv6Protocol);
+    static QList<HostAddress> resolve(const QString &hostName);
+    static Socket *createConnection(const HostAddress &host, quint16 port, Socket::SocketError *error = nullptr,
+                                  int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
     static Socket *createConnection(const QString &hostName, quint16 port, Socket::SocketError *error = nullptr,
                                   QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>(),
-                                  int allowProtocol = IPv4Protocol | IPv6Protocol);
-    static Socket *createServer(const QHostAddress &host, quint16 port, int backlog = 50);
+                                  int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
+    static Socket *createServer(const HostAddress &host, quint16 port, int backlog = 50);
 private:
     SocketPrivate * const dd_ptr;
     Q_DECLARE_PRIVATE_D(dd_ptr, Socket)
@@ -191,7 +187,7 @@ public:
     SocketDnsCache();
     virtual ~SocketDnsCache();
 public:
-    QList<QHostAddress> resolve(const QString &hostName);
+    QList<HostAddress> resolve(const QString &hostName);
 private:
     SocketDnsCachePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(SocketDnsCache)

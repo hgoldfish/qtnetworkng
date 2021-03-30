@@ -845,7 +845,7 @@ Create socket is very simple, just instantiate ``Socket`` class. Or pass the pla
 .. code-block:: c++
     :caption: Socket constructor
     
-    Socket(NetworkLayerProtocol protocol = AnyIPProtocol, SocketType type = TcpSocket);
+    Socket(HostAddress::NetworkLayerProtocol protocol = AnyIPProtocol, SocketType type = TcpSocket);
     
     Socket(qintptr socketDescriptor);
     
@@ -861,7 +861,7 @@ These are the member functions of ``Socket`` type.
 
     If the socket is currently listening, ``accept()`` block current coroutine, and return new ``Socket`` object after new client connected. The returned new ``Socket`` object has connected to the new client. This function returns ``0`` to indicate the socket is closed by other coroutine.
 
-.. method:: bool bind(QHostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform)
+.. method:: bool bind(HostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform)
 
     Bind the socket to ``address`` and ``port``. If the parameter ``port`` is ommited, the Operating System choose an unused random port for you. The chosen port can obtained from ``port()`` function later. The parameter ``mode`` is not used now. 
     
@@ -871,13 +871,13 @@ These are the member functions of ``Socket`` type.
 
     Bind the socket to any address and ``port``. This function overloads ``bind(address, port)``.
 
-.. method:: bool connect(const QHostAddress &host, quint16 port)
+.. method:: bool connect(const HostAddress &host, quint16 port)
 
     Connect to remote host specified by parameters ``host`` and ``port``. Block current coroutine until the connection is established or failed.
     
     This function returns true if the connection is established.
 
-.. method:: bool connect(const QString &hostName, quint16 port, NetworkLayerProtocol protocol = AnyIPProtocol)
+.. method:: bool connect(const QString &hostName, quint16 port, HostAddress::NetworkLayerProtocol protocol = AnyIPProtocol)
 
     Connect to remote host specified by parameters ``hostName`` and ``port``, using ``protocol``. If ``hostName`` is not an IP address, QtNetworkNg will make a DNS query before connecting. Block current coroutine until the connection is established or failed.
     
@@ -977,7 +977,7 @@ These are the member functions of ``Socket`` type.
     
     If some error occured, this function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. method:: qint32 recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port)
+.. method:: qint32 recvfrom(char *data, qint32 size, HostAddress *addr, quint16 *port)
 
     Receive not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
     
@@ -987,7 +987,7 @@ These are the member functions of ``Socket`` type.
     
     If some error occured, function returns `-1`. You can use ``error()`` and ``errorString()`` to get the error message.
 
-.. method:: qint32 sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
+.. method:: qint32 sendto(const char *data, qint32 size, const HostAddress &addr, quint16 port)
 
     Send ``size`` of ``data`` to remote host specified by ``addr`` and ``port``. Block current coroutine until some data sent.
     
@@ -1039,7 +1039,7 @@ These are the member functions of ``Socket`` type.
     
     This function overloads ``sendall(char*, qint32)``.
 
-.. method:: QByteArray recvfrom(qint32 size, QHostAddress *addr, quint16 *port)
+.. method:: QByteArray recvfrom(qint32 size, HostAddress *addr, quint16 *port)
 
     Receive not more than ``size`` of data from connection. Blocks current coroutine until some data arrived.
     
@@ -1049,9 +1049,9 @@ These are the member functions of ``Socket`` type.
     
     This function can not indicate whether there is any error occured. If this function returns empty data, use ``error()`` to check error, and ``errorString()`` to get the error message.
     
-    This function overloads ``recvfrom(char*, qint32, QHostAddress*, quint16*)``.
+    This function overloads ``recvfrom(char*, qint32, HostAddress*, quint16*)``.
 
-.. method:: qint32 sendto(const QByteArray &data, const QHostAddress &addr, quint16 port)
+.. method:: qint32 sendto(const QByteArray &data, const HostAddress &addr, quint16 port)
 
     Send ``data`` to remote host specified by ``addr`` and ``port``. Block current coroutine until some data sent.
     
@@ -1075,19 +1075,19 @@ These are the member functions of ``Socket`` type.
 
     Return true if the socket is not closed.
     
-.. method:: QHostAddress localAddress() const
+.. method:: HostAddress localAddress() const
 
-    Return the host address of the local socket if available; otherwise returns ``QHostAddress::Null``.
+    Return the host address of the local socket if available; otherwise returns ``HostAddress::Null``.
     
-    This is normally the main IP address of the host, but can be ``QHostAddress::LocalHost`` (127.0.0.1) for connections to the local host.
+    This is normally the main IP address of the host, but can be ``HostAddress::LocalHost`` (127.0.0.1) for connections to the local host.
 
 .. method:: quint16 localPort() const
 
     Return the host port number (in native byte order) of the local socket if available; otherwise returns `0`.
     
-.. method:: QHostAddress peerAddress() const
+.. method:: HostAddress peerAddress() const
 
-    Return the address of the connected peer if the socket is in ``ConnectedState``; otherwise returns ``QHostAddress::Null``.
+    Return the address of the connected peer if the socket is in ``ConnectedState``; otherwise returns ``HostAddress::Null``.
     
 .. method:: QString peerName() const
 
@@ -1117,7 +1117,7 @@ These are the member functions of ``Socket`` type.
 
     Return the protocol of the socket.
 
-.. method:: static QList<QHostAddress> resolve(const QString &hostName)
+.. method:: static QList<HostAddress> resolve(const QString &hostName)
 
     Make a DNS query to resolve the ``hostName``. If the ``hostName`` is an IP address, return the IP immediately.
     
@@ -1135,7 +1135,7 @@ There are three constructors to create ``SslSocket``.
 .. code-block:: c++
     :caption: the constructors of SslSocket
     
-    SslSocket(Socket::NetworkLayerProtocol protocol = Socket::AnyIPProtocol, 
+    SslSocket(HostAddress::NetworkLayerProtocol protocol = Socket::AnyIPProtocol,
             const SslConfiguration &config = SslConfiguration());
     
     SslSocket(qintptr socketDescriptor, const SslConfiguration &config = SslConfiguration());
@@ -1275,7 +1275,7 @@ The second constructor use the ``hostName`` and ``port`` to create a valid Socks
     
     The DNS query of ``remoteHost`` is made at the proxy server.
     
-.. method:: QSharedPointer<Socket> connect(const QHostAddress &remoteHost, quint16 port)
+.. method:: QSharedPointer<Socket> connect(const HostAddress &remoteHost, quint16 port)
 
     Connect to ``remoteHost`` at ``port`` via this proxy.
     

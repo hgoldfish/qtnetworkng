@@ -12,7 +12,7 @@ QTNETWORKNG_NAMESPACE_BEGIN
 class BaseStreamServerPrivate
 {
 public:
-    BaseStreamServerPrivate(BaseStreamServer *q, const QHostAddress &serverAddress, quint16 serverPort)
+    BaseStreamServerPrivate(BaseStreamServer *q, const HostAddress &serverAddress, quint16 serverPort)
         : operations(new CoroutineGroup)
         , serverAddress(serverAddress)
         , userData(nullptr)
@@ -26,7 +26,7 @@ public:
 public:
     QSharedPointer<SocketLike> serverSocket;
     CoroutineGroup *operations;
-    QHostAddress serverAddress;
+    HostAddress serverAddress;
     void *userData;
     int requestQueueSize;
     quint16 serverPort;
@@ -37,7 +37,7 @@ private:
 };
 
 
-BaseStreamServer::BaseStreamServer(const QHostAddress &serverAddress, quint16 serverPort)
+BaseStreamServer::BaseStreamServer(const HostAddress &serverAddress, quint16 serverPort)
     : started(new Event())
     , stopped(new Event())
     , d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
@@ -255,7 +255,7 @@ quint16 BaseStreamServer::serverPort() const
 }
 
 
-QHostAddress BaseStreamServer::serverAddress() const
+HostAddress BaseStreamServer::serverAddress() const
 {
     Q_D(const BaseStreamServer);
     return d->serverAddress;

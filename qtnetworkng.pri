@@ -1,4 +1,5 @@
 QT += core network
+QT -= gui
 
 CONFIG += c++11
 
@@ -27,7 +28,8 @@ SOURCES += \
     $$PWD/src/socket_server.cpp \
     $$PWD/src/httpd.cpp \
     $$PWD/src/socks5_server.cpp \
-    $$PWD/src/random.cpp
+    $$PWD/src/random.cpp \
+    $$PWD/src/hostaddress.cpp
 
     
 PRIVATE_HEADERS += \
@@ -55,7 +57,8 @@ HEADERS += \
     $$PWD/include/kcp.h \
     $$PWD/include/socket_server.h \
     $$PWD/include/httpd.h \
-    $$PWD/include/random.h
+    $$PWD/include/random.h \
+    $$PWD/include/hostaddress.h
 
     
 win32 {

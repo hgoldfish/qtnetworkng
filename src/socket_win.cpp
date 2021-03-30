@@ -159,49 +159,19 @@ union qt_sockaddr {
 };
 
 
-static QAtomicInt refcount;
-
-void initWinSock()
-{
-    if(refcount.fetchAndAddAcquire(1) > 0) {
-        return;
-    }
-    WORD wVersionRequested;
-    WSADATA wsaData;
-    int err;
-
-    /* Use the MAKEWORD(lowbyte, highbyte) macro declared in Windef.h */
-    wVersionRequested = MAKEWORD(2, 2);
-
-    err = WSAStartup(wVersionRequested, &wsaData);
-    if (err != 0) {
-        /* Tell the user that we could not find a usable */
-        /* Winsock DLL.                                  */
-        qDebug("WSAStartup failed with error: %d\n", err);
-    }
-}
-
-void freeWinSock()
-{
-    if(refcount.fetchAndSubAcquire(1) > 0) {
-        return;
-    }
-    WSACleanup();
-}
-
 /*
     Extracts the port and address from a sockaddr, and stores them in
     \a port and \a addr if they are non-null.
 */
-static inline void qt_socket_getPortAndAddress(SOCKET socketDescriptor, const qt_sockaddr *sa, quint16 *port, QHostAddress *address)
+static inline void qt_socket_getPortAndAddress(SOCKET socketDescriptor, const qt_sockaddr *sa, quint16 *port, HostAddress *address)
 {
     if (sa->a.sa_family == AF_INET6) {
         const sockaddr_in6 *sa6 = &sa->a6;
-        Q_IPV6ADDR tmp;
+        IPv6Address tmp;
         for (int i = 0; i < 16; ++i)
             tmp.c[i] = sa6->sin6_addr.s6_addr[i];
         if (address) {
-            QHostAddress a;
+            HostAddress a;
             a.setAddress(tmp);
             if (sa6->sin6_scope_id)
                 a.setScopeId(QString::number(sa6->sin6_scope_id));
@@ -213,7 +183,7 @@ static inline void qt_socket_getPortAndAddress(SOCKET socketDescriptor, const qt
         const sockaddr_in *sa4 = &sa->a4;
         unsigned long addr;
         WSANtohl(socketDescriptor, sa4->sin_addr.s_addr, &addr);
-        QHostAddress a;
+        HostAddress a;
         a.setAddress(addr);
         if (address)
             *address = a;
@@ -225,7 +195,7 @@ static inline void qt_socket_getPortAndAddress(SOCKET socketDescriptor, const qt
 }
 
 static void convertToLevelAndOption(Socket::SocketOption opt,
-                                    Socket::NetworkLayerProtocol socketProtocol, int &level, int &n)
+                                    HostAddress::NetworkLayerProtocol socketProtocol, int &level, int &n)
 {
     n = 0;
     level = SOL_SOCKET; // default
@@ -262,7 +232,7 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         n = SO_KEEPALIVE;
         break;
     case Socket::MulticastTtlOption:
-        if (socketProtocol == Socket::IPv6Protocol) {
+        if (socketProtocol == HostAddress::IPv6Protocol) {
             level = IPPROTO_IPV6;
             n = IPV6_MULTICAST_HOPS;
         } else {
@@ -271,7 +241,7 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         }
         break;
     case Socket::MulticastLoopbackOption:
-        if (socketProtocol == Socket::IPv6Protocol) {
+        if (socketProtocol == HostAddress::IPv6Protocol) {
             level = IPPROTO_IPV6;
             n = IPV6_MULTICAST_LOOP;
         } else {
@@ -280,7 +250,7 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         }
         break;
     case Socket::ReceivePacketInformation:
-        if (socketProtocol == Socket::IPv6Protocol) {
+        if (socketProtocol == HostAddress::IPv6Protocol) {
             level = IPPROTO_IPV6;
             n = IPV6_PKTINFO;
         } else {
@@ -289,7 +259,7 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         }
         break;
     case Socket::ReceiveHopLimit:
-        if (socketProtocol == Socket::IPv6Protocol) {
+        if (socketProtocol == HostAddress::IPv6Protocol) {
             level = IPPROTO_IPV6;
             n = IPV6_HOPLIMIT;
         } else {
@@ -336,23 +306,23 @@ namespace SetSALen {
 }
 }
 
-bool SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address, qt_sockaddr *aa, int *sockAddrSize)
+bool SocketPrivate::setPortAndAddress(quint16 port, const HostAddress &address, qt_sockaddr *aa, int *sockAddrSize)
 {
-    if ((address.protocol() == QAbstractSocket::IPv6Protocol 
-        || address.protocol() == QAbstractSocket::AnyIPProtocol)
-        && protocol == Socket::IPv6Protocol) {
+    if ((address.protocol() == HostAddress::IPv6Protocol
+        || address.protocol() == HostAddress::AnyIPProtocol)
+        && protocol == HostAddress::IPv6Protocol) {
         memset(&aa->a6, 0, sizeof(sockaddr_in6));
         aa->a6.sin6_family = AF_INET6;
         aa->a6.sin6_scope_id = scopeIdFromString(address.scopeId());
         aa->a6.sin6_port = htons(port);
-        Q_IPV6ADDR tmp = address.toIPv6Address();
+        IPv6Address tmp = address.toIPv6Address();
         memcpy(&aa->a6.sin6_addr, &tmp, sizeof(tmp));
         *sockAddrSize = sizeof(sockaddr_in6);
         SetSALen::set(&aa->a, sizeof(sockaddr_in6));
         return true;
-    } else if ((address.protocol() == QAbstractSocket::IPv4Protocol
-        || address.protocol() == QAbstractSocket::AnyIPProtocol)
-        && protocol == Socket::IPv4Protocol) {
+    } else if ((address.protocol() == HostAddress::IPv4Protocol
+        || address.protocol() == HostAddress::AnyIPProtocol)
+        && protocol == HostAddress::IPv4Protocol) {
         memset(&aa->a, 0, sizeof(sockaddr_in));
         aa->a4.sin_family = AF_INET;
         aa->a4.sin_port = htons(port);
@@ -369,7 +339,7 @@ bool SocketPrivate::setPortAndAddress(quint16 port, const QHostAddress &address,
 bool SocketPrivate::createSocket()
 {
     //Windows XP and 2003 support IPv6 but not dual stack sockets
-    int protocol = this->protocol == Socket::IPv6Protocol ? AF_INET6 : AF_INET;
+    int protocol = this->protocol == HostAddress::IPv6Protocol ? AF_INET6 : AF_INET;
     int type = (this->type == Socket::UdpSocket) ? SOCK_DGRAM : SOCK_STREAM;
 
     // MSDN KB179942 states that on winnt 4 WSA_FLAG_OVERLAPPED is needed if socket is to be non blocking
@@ -470,7 +440,7 @@ bool SocketPrivate::isValid() const
 }
 
 
-bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode mode)
+bool SocketPrivate::bind(const HostAddress &a, quint16 port, Socket::BindMode mode)
 {
     Q_UNUSED(mode);
     if (!checkState())  {
@@ -480,11 +450,11 @@ bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode m
         return false;
     }
 
-    QHostAddress address = a;
-    if (address.protocol() == QAbstractSocket::IPv4Protocol) {
-        if ((address.toIPv4Address() & 0xffff0000) == 0xefff0000) {
+    HostAddress address = a;
+    if (address.protocol() == HostAddress::IPv4Protocol) {
+        if ((address.toIPv4Address(nullptr) & 0xffff0000) == 0xefff0000) {
             // binding to a multicast address
-            address = QHostAddress(QHostAddress::AnyIPv4);
+            address = HostAddress(HostAddress::AnyIPv4);
         }
     }
 
@@ -495,7 +465,7 @@ bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode m
         return false;
     }
 
-    if (protocol == Socket::IPv6Protocol) {
+    if (protocol == HostAddress::IPv6Protocol) {
         if (QSysInfo::windowsVersion() >= QSysInfo::WV_6_0) {
             // The default may change in future, so set it explicitly
             int ipv6only = 1;
@@ -506,11 +476,11 @@ bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode m
 
     int bindResult = ::bind(static_cast<SOCKET>(fd), &aa.a, sockAddrSize);
     if (bindResult == SOCKET_ERROR && WSAGetLastError() == WSAEAFNOSUPPORT
-            && address.protocol() == QAbstractSocket::AnyIPProtocol) {
+            && address.protocol() == HostAddress::AnyIPProtocol) {
         // retry with v4
         aa.a4.sin_family = AF_INET;
         aa.a4.sin_port = htons(port);
-        aa.a4.sin_addr.s_addr = htonl(address.toIPv4Address());
+        aa.a4.sin_addr.s_addr = htonl(address.toIPv4Address(nullptr));
         sockAddrSize = sizeof(aa.a4);
         bindResult = ::bind(static_cast<SOCKET>(fd), &aa.a, sockAddrSize);
     }
@@ -552,7 +522,7 @@ bool SocketPrivate::bind(const QHostAddress &a, quint16 port, Socket::BindMode m
 }
 
 
-bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
+bool SocketPrivate::connect(const HostAddress &address, quint16 port)
 {
     //if (!checkState()) {
     if (fd == 0) {
@@ -568,7 +538,7 @@ bool SocketPrivate::connect(const QHostAddress &address, quint16 port)
         return false;
     }
 
-    if (protocol == Socket::IPv6Protocol) {
+    if (protocol == HostAddress::IPv6Protocol) {
         //IPV6_V6ONLY option must be cleared to connect to a V4 mapped address
         if (QSysInfo::windowsVersion() >= QSysInfo::WV_6_0) {
             DWORD ipv6only = 1;
@@ -789,13 +759,13 @@ bool SocketPrivate::fetchConnectionParameters()
         // Determine protocol family
         switch (sa.a.sa_family) {
         case AF_INET:
-            this->protocol = Socket::IPv4Protocol;
+            this->protocol = HostAddress::IPv4Protocol;
             break;
         case AF_INET6:
-            this->protocol = Socket::IPv6Protocol;
+            this->protocol = HostAddress::IPv6Protocol;
             break;
         default:
-            this->protocol = Socket::UnknownNetworkLayerProtocol;
+            this->protocol = HostAddress::UnknownNetworkLayerProtocol;
             break;
         }
     } else {
@@ -808,15 +778,15 @@ bool SocketPrivate::fetchConnectionParameters()
         }
     }
 
-    // Some Windows kernels return a v4-mapped QHostAddress::AnyIPv4 as a
+    // Some Windows kernels return a v4-mapped HostAddress::AnyIPv4 as a
     // local address of the socket which bound on both IPv4 and IPv6 interfaces.
     // This address does not match to any special address and should not be used
-    // to send the data. So, replace it with QHostAddress::Any.
-    if (this->protocol == Socket::IPv6Protocol) {
+    // to send the data. So, replace it with HostAddress::Any.
+    if (this->protocol == HostAddress::IPv6Protocol) {
         bool ok = false;
         const quint32 localIPv4 = localAddress.toIPv4Address(&ok);
         if (ok && localIPv4 == INADDR_ANY) {
-            localAddress = QHostAddress::Any;
+            localAddress = HostAddress::Any;
         }
     }
 
@@ -831,8 +801,8 @@ bool SocketPrivate::fetchConnectionParameters()
 
 #if defined (SOCKET_DEBUG)
     QString socketProtocolStr = "UnknownProtocol";
-    if (protocol == Socket::IPv4Protocol) socketProtocolStr = "IPv4Protocol";
-    else if (protocol == Socket::IPv6Protocol) socketProtocolStr = "IPv6Protocol";
+    if (protocol == HostAddress::IPv4Protocol) socketProtocolStr = "IPv4Protocol";
+    else if (protocol == HostAddress::IPv6Protocol) socketProtocolStr = "IPv6Protocol";
 
     QString socketTypeStr = "UnknownSocketType";
     if (type == Socket::TcpSocket) socketTypeStr = "TcpSocket";
@@ -1001,7 +971,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 }
 
 
-qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quint16 *port)
+qint32 SocketPrivate::recvfrom(char *data, qint32 size, HostAddress *addr, quint16 *port)
 {
     if (!checkState() || size < 0) {
         return -1;
@@ -1105,7 +1075,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, QHostAddress *addr, quin
     }
 }
 
-qint32 SocketPrivate::sendto(const char *data, qint32 size, const QHostAddress &addr, quint16 port)
+qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &addr, quint16 port)
 {
     if (!checkState()) {
         return -1;

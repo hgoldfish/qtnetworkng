@@ -138,13 +138,13 @@ QSharedPointer<Socket> HttpProxy::connect(const QString &remoteHost, quint16 por
 }
 
 
-QSharedPointer<Socket> HttpProxy::connect(const QHostAddress &remoteHost, quint16 port)
+QSharedPointer<Socket> HttpProxy::connect(const HostAddress &remoteHost, quint16 port)
 {
     if (remoteHost.isNull()) {
         return QSharedPointer<Socket>();
     }
     QString hostName;
-    if (remoteHost.protocol() == QAbstractSocket::IPv6Protocol) {
+    if (remoteHost.protocol() == HostAddress::IPv6Protocol) {
         hostName = QStringLiteral("[%1]").arg(remoteHost.toString());
     } else {
         hostName = remoteHost.toString();

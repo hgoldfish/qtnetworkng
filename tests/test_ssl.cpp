@@ -76,7 +76,7 @@ void TestSsl::testServer()
     QVERIFY(port != 0);
     QSharedPointer<Coroutine> clientCoroutine(Coroutine::spawn([port]{
         SslSocket client;
-        bool success = client.connect(QHostAddress::LocalHost, port);
+        bool success = client.connect(HostAddress::LocalHost, port);
         if (!success) {
             return;
         }

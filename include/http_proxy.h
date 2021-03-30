@@ -24,7 +24,7 @@ public:
     ~HttpProxy();
 public:
     QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port);
-    QSharedPointer<Socket> connect(const QHostAddress &remoteHost, quint16 port);
+    QSharedPointer<Socket> connect(const HostAddress &remoteHost, quint16 port);
 public:
     QString hostName() const;
     quint16 port() const;

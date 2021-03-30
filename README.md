@@ -60,7 +60,7 @@ To create IPv4 tcp server.
 
     Socket s;
     CoroutineGroup workers;
-    s.bind(QHostAddress::Any, 8000);
+    s.bind(HostAddress::Any, 8000);
     s.listen(100);
     while (true) {
         QSharedPointer<Socket> request(s.accept());
@@ -75,7 +75,7 @@ To create IPv4 tcp server.
 
 To create HTTP server is even more simpler:
 
-    TcpServer<SimpleHttpRequestHandler> httpd(QHostAddress::LocalHost, 8000);
+    TcpServer<SimpleHttpRequestHandler> httpd(HostAddress::LocalHost, 8000);
     httpd.serveForever();
 
 A Qt GUI example to fetch web page.
