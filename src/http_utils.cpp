@@ -575,7 +575,11 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
     QByteArray numBytes;
     bool expectingLineBreak = false;
     while(buf.size() < MaxLineLength && !buf.contains('\n')) {
-        buf.append(connection->recv(1024 * 8)); // most server send the header at one tcp block.
+        const QByteArray &t = connection->recv(1024 * 8);
+        if (t.isEmpty()) {
+            break;
+        }
+        buf.append(t); // most server send the header at one tcp block.
     }
     if(buf.size() < 3) { // 0\r\n
         *error = ChunkedBlockReader::ChunkedEncodingError;
