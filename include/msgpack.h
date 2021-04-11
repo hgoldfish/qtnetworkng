@@ -192,8 +192,62 @@ MsgPackStream& operator<<(MsgPackStream& s, const QList<T> &list)
 }
 
 
+template <typename T>
+MsgPackStream& operator<<(MsgPackStream& s, const QVector<T> &list)
+{
+    quint32 len = list.size();
+    quint8 p[5];
+    if (len <= 15) {
+        p[0] = FirstByte::FIXARRAY | len;
+        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 1);
+    } else if (len <= std::numeric_limits<quint16>::max()) {
+        p[0] = FirstByte::ARRAY16;
+        _msgpack_store16(p + 1, static_cast<quint16>(len));
+        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 3);
+    } else {
+        p[0] = FirstByte::ARRAY32;
+        _msgpack_store32(p + 1, len);
+        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 5);
+    }
+    if (s.status() != MsgPackStream::Ok)
+        return s;
+    for (int i = 0; i < list.size(); ++i)
+        s << list[i];
+    return s;
+}
+
+
 template<typename K, typename V>
 MsgPackStream &operator<<(MsgPackStream &s, const QMap<K, V> &map)
+{
+    quint32 len = map.size();
+    quint8 p[5];
+    if (len <= 15) {
+        p[0] = FirstByte::FIXMAP | len;
+        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 1);
+    } else if (len <= std::numeric_limits<quint16>::max()) {
+        p[0] = FirstByte::MAP16;
+        _msgpack_store16(p + 1, static_cast<quint16>(len));
+        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 3);
+    } else {
+        p[0] = FirstByte::MAP32;
+        _msgpack_store32(p + 1, len);
+        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 5);
+    }
+    if (s.status() != MsgPackStream::Ok)
+        return s;
+    QMapIterator<K, V> itor(map);
+    while(itor.hasNext()) {
+        itor.next();
+        s << itor.key();
+        s << itor.value();
+    }
+    return s;
+}
+
+
+template<typename K, typename V>
+MsgPackStream &operator<<(MsgPackStream &s, const QHash<K, V> &map)
 {
     quint32 len = map.size();
     quint8 p[5];
@@ -240,6 +294,38 @@ MsgPackStream& operator>>(MsgPackStream& s, QList<T> &list)
         s.setStatus(MsgPackStream::ReadCorruptData);
         return s;
     }
+    list.reserve(len);
+    for (quint32 i = 0; i < len; ++i) {
+        T t;
+        s >> t;
+        list.append(t);
+        if (s.atEnd())
+            break;
+    }
+    return s;
+}
+
+
+template <typename T>
+MsgPackStream& operator>>(MsgPackStream& s, QVector<T> &list)
+{
+    list.clear();
+    quint8 p[5];
+    quint32 len = 0;
+    s.readBytes((char *)p, 1);
+    if (p[0] >= FirstByte::FIXARRAY && p[0] <= (FirstByte::FIXARRAY + 0xf)) {
+        len = p[0] & 0xf;
+    } else if (p[0] == FirstByte::ARRAY16) {
+        s.readBytes((char *)p + 1, 2);
+        len = _msgpack_load16(p + 1);
+    } else if (p[0] == FirstByte::ARRAY32) {
+        s.readBytes((char *)p + 1, 4);
+        len = _msgpack_load32(p + 1);
+    } else {
+        s.setStatus(MsgPackStream::ReadCorruptData);
+        return s;
+    }
+    list.reserve(len);
     for (quint32 i = 0; i < len; ++i) {
         T t;
         s >> t;
@@ -285,6 +371,44 @@ MsgPackStream& operator>>(MsgPackStream& s, QMap<K, V> &map)
     }
     return s;
 }
+
+
+template <typename K, typename V>
+MsgPackStream& operator>>(MsgPackStream& s, QHash<K, V> &map)
+{
+    map.clear();
+    quint8 p[5];
+    quint32 len = 0;
+    s.readBytes((char *)p, 1);
+    if (p[0] >= FirstByte::FIXMAP && p[0] <= (FirstByte::FIXMAP + 0xf)) {
+        len = p[0] & 0xf;
+    } else if (p[0] == FirstByte::MAP16) {
+        s.readBytes((char *)p + 1, 2);
+        len = _msgpack_load16(p + 1);
+    } else if (p[0] == FirstByte::MAP32) {
+        s.readBytes((char *)p + 1, 4);
+        len = _msgpack_load32(p + 1);
+    } else {
+        s.setStatus(MsgPackStream::ReadCorruptData);
+        return s;
+    }
+    map.reserve(len);
+    for (quint32 i = 0; i < len; ++i) {
+        K k;
+        s >> k;
+        if (s.status() != MsgPackStream::Ok) {
+            break;
+        }
+        V v;
+        s >> v;
+        if (s.status() != MsgPackStream::Ok) {
+            break;
+        }
+        map.insert(k, v);
+    }
+    return s;
+}
+
 
 QTNETWORKNG_NAMESPACE_END
 
