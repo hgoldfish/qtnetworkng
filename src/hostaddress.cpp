@@ -15,6 +15,7 @@
     #include <arpa/inet.h>
     #include <sys/socket.h>
 	#include <netdb.h>
+    #include <errno.h>
 #endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
