@@ -1,4 +1,4 @@
-#include "../include/hostaddress.h"
+﻿#include "../include/hostaddress.h"
 #include "../include/socket.h"
 #include "../include/private/socket_p.h"
 #include <QtCore/QSharedData>
@@ -156,7 +156,7 @@ static unsigned long long qstrtoull(const char * nptr, const char **endptr, int 
     unsigned long long result = qt_strtoull(nptr, &endptr2, base);
     if (endptr)
         *endptr = endptr2;
-    if ((result == 0 || result == std::numeric_limits<unsigned long long>::max())
+    if ((result == 0 || result == (std::numeric_limits<unsigned long long>::max)())
             && (errno || endptr2 == nptr)) {
         *ok = false;
         return 0;
