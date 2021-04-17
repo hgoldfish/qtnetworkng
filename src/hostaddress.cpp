@@ -837,7 +837,7 @@ static bool parseIp6(const QString &address, IPv6Address &addr, QString *scopeId
     } else {
         scopeId->clear();
     }
-    return parseIp6(addr, tmp.constBegin(), tmp.constEnd()) == nullptr;
+    return parseIp6(addr, tmp.cbegin(), tmp.cend()) == nullptr;
 }
 
 
