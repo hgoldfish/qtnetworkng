@@ -2,6 +2,7 @@ include_directories(
 	.
 	../crypto/modes
 	../crypto/asn1
+	../crypto/x509
 	../ssl
 	../tls
 	../apps/openssl
@@ -25,7 +26,7 @@ add_test(aes_wrap aes_wrap)
 
 # arc4randomforktest
 # Windows/mingw does not have fork, but Cygwin does.
-if(NOT CMAKE_HOST_WIN32 AND NOT CMAKE_SYSTEM_NAME MATCHES "MINGW")
+if(NOT (WIN32 OR (CMAKE_SYSTEM_NAME MATCHES "MINGW")))
 	add_executable(arc4randomforktest arc4randomforktest.c)
 	target_link_libraries(arc4randomforktest ${OPENSSL_LIBS})
 	add_test(arc4randomforktest ${CMAKE_CURRENT_SOURCE_DIR}/arc4randomforktest.sh)
@@ -69,6 +70,13 @@ add_executable(bnaddsub bnaddsub.c)
 target_link_libraries(bnaddsub ${OPENSSL_LIBS})
 add_test(bnaddsub bnaddsub)
 
+# bn_rand_interval
+if(NOT BUILD_SHARED_LIBS)
+	add_executable(bn_rand_interval bn_rand_interval.c)
+	target_link_libraries(bn_rand_interval ${OPENSSL_LIBS})
+	add_test(bn_rand_interval bn_rand_interval)
+endif()
+
 # bntest
 if(NOT BUILD_SHARED_LIBS)
 	add_executable(bntest bntest.c)
@@ -76,6 +84,20 @@ if(NOT BUILD_SHARED_LIBS)
 		-ULIBRESSL_INTERNAL)
 	target_link_libraries(bntest ${OPENSSL_LIBS})
 	add_test(bntest bntest)
+endif()
+
+# bn_to_string
+if(NOT BUILD_SHARED_LIBS)
+	add_executable(bn_to_string bn_to_string.c)
+	target_link_libraries(bn_to_string ${OPENSSL_LIBS})
+	add_test(bn_to_string bn_to_string)
+endif()
+
+# buffertest
+if(NOT BUILD_SHARED_LIBS)
+	add_executable(buffertest buffertest.c)
+	target_link_libraries(buffertest ${OPENSSL_LIBS})
+	add_test(buffertest buffertest)
 endif()
 
 # bytestringtest
@@ -102,20 +124,35 @@ if(NOT BUILD_SHARED_LIBS)
 	add_test(cipher_list cipher_list)
 endif()
 
-# cipherstest
-add_executable(cipherstest cipherstest.c)
-target_link_libraries(cipherstest ${OPENSSL_LIBS})
-add_test(cipherstest cipherstest)
+if(NOT BUILD_SHARED_LIBS)
+	# cipherstest
+	add_executable(cipherstest cipherstest.c)
+	target_link_libraries(cipherstest ${OPENSSL_LIBS})
+	add_test(cipherstest cipherstest)
+endif()
 
 # clienttest
-add_executable(clienttest clienttest.c)
-target_link_libraries(clienttest ${OPENSSL_LIBS})
-add_test(clienttest clienttest)
+# disabled
+#add_executable(clienttest clienttest.c)
+#target_link_libraries(clienttest ${OPENSSL_LIBS})
+#add_test(clienttest clienttest)
+
+# cmstest
+add_executable(cmstest cmstest.c)
+target_link_libraries(cmstest ${OPENSSL_LIBS})
+add_test(cmstest cmstest)
 
 # configtest
 add_executable(configtest configtest.c)
 target_link_libraries(configtest ${OPENSSL_LIBS})
 add_test(configtest configtest)
+
+# constraints
+if(NOT BUILD_SHARED_LIBS)
+	add_executable(constraints constraints.c)
+	target_link_libraries(constraints ${OPENSSL_LIBS})
+	add_test(constraints constraints)
+endif()
 
 # cts128test
 add_executable(cts128test cts128test.c)
@@ -198,6 +235,13 @@ add_executable(gost2814789t gost2814789t.c)
 target_link_libraries(gost2814789t ${OPENSSL_LIBS})
 add_test(gost2814789t gost2814789t)
 
+# handshake_table
+if(NOT BUILD_SHARED_LIBS)
+	add_executable(handshake_table handshake_table.c)
+	target_link_libraries(handshake_table ${OPENSSL_LIBS})
+	add_test(handshake_table handshake_table)
+endif()
+
 # hkdf_test
 add_executable(hkdf_test hkdf_test.c)
 target_link_libraries(hkdf_test ${OPENSSL_LIBS})
@@ -220,6 +264,10 @@ add_test(igetest igetest)
 
 # keypairtest
 if(NOT BUILD_SHARED_LIBS)
+	add_executable(key_schedule key_schedule.c)
+	target_link_libraries(key_schedule ${OPENSSL_LIBS})
+	add_test(key_schedule key_schedule)
+
 	add_executable(keypairtest keypairtest.c)
 	target_link_libraries(keypairtest ${OPENSSL_LIBS})
 	add_test(keypairtest keypairtest
@@ -314,6 +362,20 @@ add_executable(rc4test rc4test.c)
 target_link_libraries(rc4test ${OPENSSL_LIBS})
 add_test(rc4test rc4test)
 
+# recordtest
+if(NOT BUILD_SHARED_LIBS)
+	add_executable(recordtest recordtest.c)
+	target_link_libraries(recordtest ${OPENSSL_LIBS})
+	add_test(recordtest recordtest)
+endif()
+
+# record_layer_test
+if(NOT BUILD_SHARED_LIBS)
+	add_executable(record_layer_test record_layer_test.c)
+	target_link_libraries(record_layer_test ${OPENSSL_LIBS})
+	add_test(record_layer_test record_layer_test)
+endif()
+
 # rfc5280time
 add_executable(rfc5280time rfc5280time.c)
 target_link_libraries(rfc5280time ${OPENSSL_LIBS})
@@ -334,14 +396,16 @@ target_link_libraries(rsa_test ${OPENSSL_LIBS})
 add_test(rsa_test rsa_test)
 
 # servertest
-add_executable(servertest servertest.c)
-target_link_libraries(servertest ${OPENSSL_LIBS})
-if(NOT MSVC)
-	add_test(NAME servertest COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/servertest.sh)
-else()
-	add_test(NAME servertest COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/servertest.bat $<TARGET_FILE:servertest>)
+if(NOT BUILD_SHARED_LIBS)
+	add_executable(servertest servertest.c)
+	target_link_libraries(servertest ${OPENSSL_LIBS})
+	if(NOT MSVC)
+		add_test(NAME servertest COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/servertest.sh)
+	else()
+		add_test(NAME servertest COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/servertest.bat $<TARGET_FILE:servertest>)
+	endif()
+	set_tests_properties(servertest PROPERTIES ENVIRONMENT "srcdir=${TEST_SOURCE_DIR}")
 endif()
-set_tests_properties(servertest PROPERTIES ENVIRONMENT "srcdir=${TEST_SOURCE_DIR}")
 
 # sha1test
 add_executable(sha1test sha1test.c)
@@ -357,6 +421,16 @@ add_test(sha256test sha256test)
 add_executable(sha512test sha512test.c)
 target_link_libraries(sha512test ${OPENSSL_LIBS})
 add_test(sha512test sha512test)
+
+# sm3test
+add_executable(sm3test sm3test.c)
+target_link_libraries(sm3test ${OPENSSL_LIBS})
+add_test(sm3test sm3test)
+
+# sm4test
+add_executable(sm4test sm4test.c)
+target_link_libraries(sm4test ${OPENSSL_LIBS})
+add_test(sm4test sm4test)
 
 # ssl_versions
 if(NOT BUILD_SHARED_LIBS)
@@ -450,6 +524,13 @@ if(NOT BUILD_SHARED_LIBS)
 	add_test(utf8test utf8test)
 endif()
 
+# valid_handshakes_terminate
+if(NOT BUILD_SHARED_LIBS)
+	add_executable(valid_handshakes_terminate valid_handshakes_terminate.c)
+	target_link_libraries(valid_handshakes_terminate ${OPENSSL_LIBS})
+	add_test(valid_handshakes_terminate valid_handshakes_terminate)
+endif()
+
 # verifytest
 if(NOT BUILD_SHARED_LIBS)
 	add_executable(verifytest verifytest.c)
@@ -461,6 +542,21 @@ endif()
 add_executable(x25519test x25519test.c)
 target_link_libraries(x25519test ${OPENSSL_LIBS})
 add_test(x25519test x25519test)
+
+# x509attribute
+add_executable(x509attribute x509attribute.c)
+target_link_libraries(x509attribute ${OPENSSL_LIBS})
+add_test(x509attribute x509attribute)
+
+# x509_info
+add_executable(x509_info x509_info.c)
+target_link_libraries(x509_info ${OPENSSL_LIBS})
+add_test(x509_info x509_info)
+
+# x509name
+add_executable(x509name x509name.c)
+target_link_libraries(x509name ${OPENSSL_LIBS})
+add_test(x509name x509name)
 
 if(BUILD_SHARED_LIBS)
 	add_custom_command(TARGET x25519test POST_BUILD

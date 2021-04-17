@@ -1,10 +1,10 @@
-.\" $OpenBSD: SSL_CTX_set_cipher_list.3,v 1.7 2018/04/10 21:37:20 schwarze Exp $
+.\" $OpenBSD: SSL_CTX_set_cipher_list.3,v 1.15 2020/04/25 14:03:38 schwarze Exp $
 .\" full merge up to: OpenSSL b97fdb57 Nov 11 09:33:09 2016 +0100
 .\"
 .\" This file is a derived work.
 .\" The changes are covered by the following Copyright and license:
 .\"
-.\" Copyright (c) 2018 Ingo Schwarze <schwarze@openbsd.org>
+.\" Copyright (c) 2018, 2020 Ingo Schwarze <schwarze@openbsd.org>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
 .\" purpose with or without fee is hereby granted, provided that the above
@@ -65,7 +65,7 @@
 .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 .\" OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd $Mdocdate: April 10 2018 $
+.Dd $Mdocdate: April 25 2020 $
 .Dt SSL_CTX_SET_CIPHER_LIST 3
 .Os
 .Sh NAME
@@ -134,10 +134,16 @@ An alias for
 .Cm ALL No :! Cm aNULL No :! Cm eNULL .
 .Sm on
 It can only be used as the first word.
+The
+.Cm DEFAULT
+cipher list can be displayed with the
+.Xr openssl 1
+.Cm ciphers
+command.
 .It Cm @STRENGTH
 Sort the list by decreasing encryption strength,
 preserving the order of cipher suites that have the same strength.
-It is usally given as the last word.
+It is usually given as the last word.
 .El
 .Pp
 The following words can be used to select groups of cipher suites,
@@ -151,17 +157,14 @@ is selected.
 Cipher suites using ephemeral DH for key exchange
 without doing any server authentication.
 Equivalent to
-.Cm kEDH Ns + Ns Cm aNULL .
-.It Cm aDSS
-Cipher suites using DSS server authentication.
-LibreSSL does not provide any such cipher suites.
+.Cm DH Ns + Ns Cm aNULL .
 .It Cm AEAD
 Cipher suites using Authenticated Encryption with Additional Data.
 .It Cm AECDH
 Cipher suites using ephemeral ECDH for key exchange
 without doing any server authentication.
 Equivalent to
-.Cm kEECDH Ns + Ns Cm aNULL .
+.Cm ECDH Ns + Ns Cm aNULL .
 .It Cm aECDSA
 Cipher suites using ECDSA server authentication.
 .It Cm AES
@@ -210,44 +213,31 @@ Currently similar to
 except for the order of the cipher suites which are
 .Em not
 selected.
-.It Cm DES
-Cipher suites using single DES for symmetric encryption.
 .It Cm 3DES
 Cipher suites using triple DES for symmetric encryption.
 .It Cm DH
-An alias for
-.Cm kEDH .
+Cipher suites using ephemeral DH for key exchange.
 .It Cm DHE
 Cipher suites using ephemeral DH for key exchange,
 but excluding those that don't do any server authentication.
 Similar to
-.Cm kEDH Ns :! Ns Cm aNULL
+.Cm DH Ns :! Ns Cm aNULL
 except for the order of the cipher suites which are
 .Em not
 selected.
-.It Cm DSS
-An alias for
-.Cm aDSS .
 .It Cm ECDH
-An alias for
-.Cm kEECHD .
+Cipher suites using ephemeral ECDH for key exchange.
 .It Cm ECDHE
 Cipher suites using ephemeral ECDH for key exchange,
 but excluding those that don't do any server authentication.
 Similar to
-.Cm kEECDH Ns :! Ns Cm aNULL
+.Cm ECDH Ns :! Ns Cm aNULL
 except for the order of the cipher suites which are
 .Em not
 selected.
 .It Cm ECDSA
 An alias for
 .Cm aECDSA .
-.It Cm EDH
-An alias for
-.Cm DHE .
-.It Cm EECHD
-An alias for
-.Cm ECDHE .
 .It Cm eNULL
 Cipher suites that do not use any encryption.
 Not enabled by
@@ -262,36 +252,16 @@ Cipher suites using HMAC based on GOST R 34.11-94
 for message authentication.
 .It Cm HIGH
 Cipher suites of high strength.
-Currently, these are cipher suites using
-.Cm CHACHA20 ,
-.Cm AES ,
-.Cm CAMELLIA ,
-or GOST-28178-89-CNT symmetric encryption.
-.It Cm IDEA
-Cipher suites using IDEA for symmetric encryption.
-LibreSSL does not provide any such cipher suites.
-.It Cm kEDH
-Cipher suites using ephemeral DH for key exchange.
-.It Cm kEECDH
-Cipher suites using ephemeral ECDH for key exchange.
 .It Cm kGOST
 Cipher suites using VKO 34.10 key exchange, specified in RFC 4357.
 .It Cm kRSA
 Cipher suites using RSA key exchange.
 .It Cm LOW
 Cipher suites of low strength.
-Currently, these are cipher suites using
-.Cm DES
-or
-.Cm RC4
-symmetric encryption.
 .It Cm MD5
 Cipher suites using MD5 for message authentication.
 .It Cm MEDIUM
 Cipher suites of medium strength.
-Currently, these are cipher suites using
-.Cm 3DES
-symmetric encryption.
 .It Cm NULL
 An alias for
 .Cm eNULL .
@@ -316,15 +286,46 @@ An alias for
 .It Cm STREEBOG256
 Cipher suites using STREEBOG256 for message authentication.
 .It Cm TLSv1
-Cipher suites usable with any TLS protocol.
+Cipher suites usable with the TLSv1.0, TLSv1.1, and TLSv1.2 protocols.
 .It Cm TLSv1.2
 Cipher suites for the TLSv1.2 protocol.
+.It Cm TLSv1.3
+Cipher suites for the TLSv1.3 protocol.
+If the
+.Fa control
+string selects at least one cipher suite but neither contains the word
+.Cm TLSv1.3
+nor specifically includes nor excludes any TLSv1.3 cipher suites, all the
+.Cm TLSv1.3
+cipher suites are made available, too.
 .El
 .Pp
 The full words returned by the
 .Xr openssl 1
 .Cm ciphers
 command can be used to select individual cipher suites.
+.Pp
+The following words do not match anything because
+LibreSSL no longer provides any such cipher suites:
+.Pp
+.Bl -tag -width Ds -compact
+.It Cm DES
+Cipher suites using single DES for symmetric encryption.
+.It Cm DSS
+Cipher suites using DSS server authentication.
+.It Cm IDEA
+Cipher suites using IDEA for symmetric encryption.
+.El
+.Pp
+The following are deprecated aliases:
+.Pp
+.Bl -column kEECDH ECDHE -compact -offset indent
+.It    avoid: Ta    use:
+.It Cm EDH    Ta Cm DHE
+.It Cm EECDH  Ta Cm ECDHE
+.It Cm kEDH   Ta Cm DH
+.It Cm kEECDH Ta Cm ECDH
+.El
 .Pp
 Unknown words are silently ignored, selecting no cipher suites.
 Failure is only flagged if the
@@ -338,7 +339,7 @@ On the server side, all cipher suites have additional requirements.
 ADH ciphers don't need a certificate, but DH-parameters must have been set.
 All other cipher suites need a corresponding certificate and key.
 .Pp
-A RSA cipher can only be chosen when a RSA certificate is available.
+A RSA cipher can only be chosen when an RSA certificate is available.
 RSA ciphers using DHE need a certificate and key and additional DH-parameters
 (see
 .Xr SSL_CTX_set_tmp_dh_callback 3 ) .
@@ -371,3 +372,14 @@ and
 .Fn SSL_set_cipher_list
 first appeared in SSLeay 0.5.2 and have been available since
 .Ox 2.4 .
+.Sh CAVEATS
+In LibreSSL,
+.Fn SSL_CTX_set_cipher_list
+and
+.Fn SSL_set_cipher_list
+can be used to configure the list of available cipher suites for
+all versions of the TLS protocol, whereas in OpenSSL, they only
+control cipher suites for protocols up to TLSv1.2.
+If compatibility with OpenSSL is required, the list of
+available TLSv1.3 cipher suites can only be changed with
+.Fn SSL_set_ciphersuites .

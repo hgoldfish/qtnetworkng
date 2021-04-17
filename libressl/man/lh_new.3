@@ -1,4 +1,4 @@
-.\"	$OpenBSD: lh_new.3,v 1.4 2018/03/27 17:35:50 schwarze Exp $
+.\"	$OpenBSD: lh_new.3,v 1.7 2020/03/28 22:40:58 schwarze Exp $
 .\"	OpenSSL 1bc74519 May 20 08:11:46 2016 -0400
 .\"
 .\" --------------------------------------------------------------------------
@@ -115,7 +115,7 @@
 .\" copied and put under another distribution licence
 .\" [including the GNU Public Licence.]
 .\"
-.Dd $Mdocdate: March 27 2018 $
+.Dd $Mdocdate: March 28 2020 $
 .Dt LH_NEW 3
 .Os
 .Sh NAME
@@ -402,12 +402,6 @@ otherwise.
 .Pp
 .Fn lh_<type>_error
 returns 1 if an error occurred in the last operation, or 0 otherwise.
-.Pp
-.Fn lh_<type>_free ,
-.Fn lh_<type>_doall ,
-and
-.Fn lh_<type>_doall_arg
-return no values.
 .Sh NOTES
 The various LHASH macros and callback types exist to make it possible to
 write type-checked code without resorting to function-prototype casting
@@ -464,7 +458,7 @@ The lhash library implements a hash table described in the
 in 1991.
 What makes this hash table different is that as the table fills,
 the hash table is increased (or decreased) in size via
-.Xr OPENSSL_realloc 3 .
+.Xr reallocarray 3 .
 When a 'resize' is done, instead of all hashes being redistributed over
 twice as many 'buckets', one bucket is split.
 So when an 'expand' is done, there is only a minimal cost to
@@ -523,6 +517,7 @@ routine would not normally be passed to
 rather it would be used in the function passed to
 .Fn lh_<type>_new .
 .Sh SEE ALSO
+.Xr crypto 3 ,
 .Xr lh_stats 3
 .Sh HISTORY
 .Fn lh_new ,

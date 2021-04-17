@@ -1,4 +1,4 @@
-/* $OpenBSD: rsa.c,v 1.10 2018/02/07 05:47:55 jsing Exp $ */
+/* $OpenBSD: rsa.c,v 1.14 2019/07/14 03:30:46 guenther Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -109,7 +109,7 @@ rsa_opt_cipher(int argc, char **argv, int *argsused)
 	return (0);
 }
 
-static struct option rsa_options[] = {
+static const struct option rsa_options[] = {
 	{
 		.name = "check",
 		.desc = "Check consistency of RSA private key",
@@ -235,16 +235,10 @@ static struct option rsa_options[] = {
 };
 
 static void
-show_ciphers(const OBJ_NAME *name, void *arg)
-{
-	static int n;
-
-	fprintf(stderr, " -%-24s%s", name->name, (++n % 3 ? "" : "\n"));
-}
-
-static void
 rsa_usage()
 {
+	int n = 0;
+
 	fprintf(stderr,
 	    "usage: rsa [-ciphername] [-check] [-in file] "
 	    "[-inform fmt]\n"
@@ -255,7 +249,7 @@ rsa_usage()
 	fprintf(stderr, "\n");
 
 	fprintf(stderr, "Valid ciphername values:\n\n");
-	OBJ_NAME_do_all_sorted(OBJ_NAME_TYPE_CIPHER_METH, show_ciphers, NULL);
+	OBJ_NAME_do_all_sorted(OBJ_NAME_TYPE_CIPHER_METH, show_cipher, &n);
 	fprintf(stderr, "\n");
 }
 

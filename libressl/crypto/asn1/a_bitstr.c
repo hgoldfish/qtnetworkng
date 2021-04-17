@@ -1,4 +1,4 @@
-/* $OpenBSD: a_bitstr.c,v 1.28 2018/05/13 13:48:08 jsing Exp $ */
+/* $OpenBSD: a_bitstr.c,v 1.30 2020/09/03 17:19:27 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -118,10 +118,11 @@ i2c_ASN1_BIT_STRING(ASN1_BIT_STRING *a, unsigned char **pp)
 
 	*(p++) = (unsigned char)bits;
 	d = a->data;
-	memcpy(p, d, len);
-	p += len;
-	if (len > 0)
-		p[-1]&=(0xff << bits);
+	if (len > 0) {
+		memcpy(p, d, len);
+		p += len;
+		p[-1] &= 0xff << bits;
+	}
 	*pp = p;
 	return (ret);
 }
@@ -214,8 +215,6 @@ ASN1_BIT_STRING_set_bit(ASN1_BIT_STRING *a, int n, int value)
 			ASN1error(ERR_R_MALLOC_FAILURE);
 			return 0;
 		}
-		if (w + 1 - a->length > 0)
-			memset(c + a->length, 0, w + 1 - a->length);
 		a->data = c;
 		a->length = w + 1;
 	}

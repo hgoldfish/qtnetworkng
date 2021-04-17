@@ -28,6 +28,600 @@ history is also available from Git.
 
 LibreSSL Portable Release Notes:
 
+3.3.1 - Security fix
+
+	* Malformed ASN.1 in a certificate revocation list or a timestamp
+	  response token can lead to a NULL pointer dereference.
+
+3.3.0 - Development release
+
+	* Make openssl(1) s_server ignore -4 and -6 for compatibility with
+	  OpenSSL.
+
+	* Further cleanup of the DTLS record handling.
+
+	* Continue the replacement of the TLSv1.2 record layer by
+	  reimplementing the read side of the TLSv1.2 record handling.
+
+	* Replace DTLSv1_enc_data() with TLSv1_1_enc_data().
+
+	* Merge d1_{clnt,srvr}.c into ssl_{clnt,srvr}.c.
+
+	* When switching from the TLSv1.3 stack to the legacy stack include
+	  a TLS record header. This is necessary if there is more than one
+	  handshake message in the TLS plaintext record.
+
+	* Set SO_REUSEADDR on the server socket in the openssl(1) ocsp
+	  command.
+
+	* Fix resource handling on error in OCSP_request_add0_id().
+
+	* Add const to ssl_ciphers and tls1[23]_sigalgs* to push them into
+	  .data.rel.ro and .rodata, respectively.
+
+	* Add a const qualifier to srtp_known_profiles.
+
+	* Simplify TLS method by removing the client and server specific
+	  methods internally.
+
+	* Avoid casting away const in ssl_ctx_make_profiles().
+
+	* Make sure there is enough room for stashing the handshake message
+	  when switching to the legacy TLS stack.
+
+	* Avoid explicitly conditioning an assert on DTLS1_VERSION to make
+	  the assert work for newer DTLS versions.
+
+	* Merge SSL_ENC_METHOD into SSL_METHOD_INTERNAL.
+
+	* Send a host header with OCSP queries to make openssl(1) ocsp
+	  work with some widely used OCSP responders.
+
+	* Fix a memory leak in the openssl(1) s_client.
+
+	* Add a flag to mark DTLS methods as DTLS to have an easy way to
+	  recognize DTLS methods that avoids inspecting the version number.
+
+	* Implement SSL_is_dtls() and use it internally in place of the
+	  SSL_IS_DTLS macro.
+
+	* Unbreak DTLS retransmissions for flights that include a CCS.
+
+	* Add ability to ocspcheck(8) to parse a port in the specified
+	  OCSP URL.
+
+	* Refactor and clean up ocspcheck(8) and add regression tests.
+
+	* If x509_verify() fails, ensure that the error is set on both
+	  the x509_verify_ctx() and its store context to make some failures
+	  visible from SSL_get_verify_result().
+
+	* Use the X509_STORE_CTX get_issuer() callback from the new X.509
+	  verifier to fix hashed certificate directories.
+
+	* Only check BIO_should_read() on read and BIO_should_write() on
+	  write.  Previously, BIO_should_write() was also checked after read
+	  and BIO_should_read() after write which could cause stalls in
+	  software that uses the same BIO for read and write.
+
+	* In openssl(1) verify, also check for error on the store context
+	  since the return value of X509_verify_cert() is unreliable in
+	  presence of a callback that returns 1 too often.
+
+	* Update getentropy on Windows to use Cryptography Next Generation
+	  (CNG). wincrypt is deprecated and no longer works with newer Windows
+	  environments, such as in Windows Store apps.
+
+	* Implement auto chain for the TLSv1.3 server since some software
+	  relies on this.
+
+	* Handle additional certificate error cases in the new X.509 verifier.
+	  Keep track of the errors encountered if a verify callback tells the
+	  verifier to continue and report them back via the error on the store
+	  context. This mimics the behavior of the old verifier that would
+	  persist the first error encountered while building the chain.
+
+	* Report specific failures for "self signed certificates" in a way
+	  compatible with the old verifier since software relies on the
+	  error code.
+
+	* Implement key exporter for TLSv1.3.
+
+	* Plug a large memory leak in the new verifier caused by calling
+	  X509_policy_check() repeatedly.
+
+	* Avoid leaking memory in x509_verify_chain_dup().
+
+	* Various documentation improvements, particularly around TLS methods.
+
+3.2.3 - Security fix
+
+	* Malformed ASN.1 in a certificate revocation list or a timestamp
+	  response token can lead to a NULL pointer dereference.
+
+3.2.2 - Stable release
+
+	* This is the first stable release with the new TLSv1.3
+	  implementation enabled by default for both client and server. The
+	  OpenSSL 1.1 TLSv1.3 API is not yet available and will be provided
+	  in an upcoming release.
+
+	* New X509 certificate chain validator that correctly handles
+	  multiple paths through intermediate certificates. Loosely based on
+	  Go's X509 validator.
+
+	* New name constraints verification implementation which passes the
+	  bettertls.com certificate validation check suite.
+
+	* Improve the handling of BIO_read()/BIO_write() failures in the
+	  TLSv1.3 stack.
+
+	* Start replacing the existing TLSv1.2 record layer.
+
+	* Define OPENSSL_NO_SSL_TRACE in opensslfeatures.h.
+
+	* Make SSL_CTX_get_ciphers(NULL) return NULL rather than crash.
+
+	* Send alert on ssl_get_prev_session() failure.
+
+	* Zero out variable on the stack to avoid leaving garbage in the tail
+	  of short session IDs.
+
+	* Move state initialization from SSL_clear() to ssl3_clear() to ensure
+	  that it gets correctly reinitialized across a SSL_set_ssl_method()
+	  call.
+
+	* Avoid an out-of-bounds write in BN_rand().
+
+	* Fix numerous leaks in the UI_dup_* functions. Simplify and tidy up
+	  the code in ui_lib.c.
+
+	* Correctly track selected ALPN length to avoid a potential segmentation
+	  fault with SSL_get0_alpn_selected() when alpn_selected is NULL.
+
+	* Include machine/endian.h gost2814789.c in order to pick up the
+	  __STRICT_ALIGNMENT define.
+
+	* Simplify SSL method lookups.
+
+	* Clean up and simplify SSL_get_ciphers(), SSL_set_session(),
+	  SSL_set_ssl_method() and several internal functions.
+
+	* Correctly handle ssl_cert_dup() failure in SSL_set_SSL_CTX().
+
+	* Refactor dtls1_new(), dtls1_hm_fragment_new(),
+	  dtls1_drain_fragments(), dtls1_clear_queues().
+
+	* Copy the session ID directly in ssl_get_prev_session() instead of
+	  handing it through several functions for copying.
+
+	* Clean up and refactor ssl_get_prev_session(); simplify
+	  tls_decrypt_ticket() and tls1_process_ticket() exit paths.
+
+	* Avoid memset() before memcpy() in CBS_add_bytes().
+
+	* Rewrite X509_INFO_{new,free}() more idiomatically.
+
+	* Remove unnecessary zeroing after recallocarray() in
+	  ASN1_BIT_STRING_set_bit().
+
+	* Convert openssl(1) ocsp new option handling.
+
+	* Document SSL_set1_host(3), SSL_set_SSL_CTX(3).
+
+	* Document return value from EC_KEY_get0_public_key(3).
+
+	* Greatly expanded test coverage via the tlsfuzzer test scripts.
+
+	* Expanded test coverage via the bettertls certificate test suite.
+
+	* Test interoperability with the Botan TLS client.
+
+	* Make pthread_mutex static initialisation work on Windows.
+
+	* Get __STRICT_ALIGNMENT from machine/endian.h with portable build.
+
+3.2.1 - Development release
+
+	* Propagate alerts from the read half of the TLSv1.3 record layer to I/O
+	  functions.
+
+	* Send a record overflow alert for TLSv1.3 messages having overlong
+	  plaintext or inner plaintext.
+
+	* Send an illegal parameter alert if a client sends an invalid DH key
+	  share.
+
+	* Document PKCS7_final(3), PKCS7_add_attribute(3).
+
+	* Collapse x509v3 directory into x509.
+
+	* Improve TLSv1.3 client certificate selection to allow EC certificates
+	  instead of only RSA certificates.
+
+	* Fail on receiving an invalid NID in X509_ATTRIBUTE_create() instead
+	  of constructing a broken objects that may cause NULL pointer accesses.
+
+	* Add support for additional GOST curves from RFC 7836 and
+	  draft-deremin-rfc4491-bis.
+
+	* Add OIDs for HMAC using the Streebog hash function.
+
+	* Allow GOST R 34.11-2012 in PBE/PBKDF2/PKCS#5.
+
+	* Enable GOST_SIG_FORMAT_RS_LE when verifying certificate signatures.
+
+	* Handle GOST in ssl_cert_dup().
+
+	* Stop sending GOST R 34.10-94 as a CertificateType.
+
+	* Use IANA allocated GOST ClientCertificateTypes.
+
+	* Add a custom copy handler for AES keywrap to fix a use-after-free.
+
+	* Enforce in the TLSv1.3 server that that ClientHello messages after
+	  a HelloRetryRequest match the original ClientHello as per RFC 8446
+	  section 4.1.2
+
+	* Document more PKCS7 attribute functions.
+
+	* Document PKCS7_get_signer_info(3).
+
+	* Document PEM_ASN1_read(3) and PEM_ASN1_read_bio(3).
+
+	* Document PEM_def_callback(3).
+
+	* Document EVP_read_pw_string_min(3).
+
+	* Merge documentation of X509_get0_serialNumber from OpenSSL 1.1.1.
+
+	* Document error handling of X509_PUBKEY_get0(3) and X509_PUBKEY_get(3)
+
+	* Document X509_get0_pubkey_bitstr(3).
+
+	* Fix an off-by-one in the CBC padding removal. From BoringSSL.
+
+	* Enforce restrictions on extensions present in the ClientHello as per
+	  RFC 8446, section 9.2.
+
+	* Add new CMAC_Init(3) and ChaCha(3) manual pages.
+
+	* Fix SSL_shutdown behavior to match the legacy stack.  The previous
+	  behavior could cause a hang.
+
+	* Add initial support for openbsd/powerpc64.
+
+	* Make the message type available in the internal TLS extensions API
+	  functions.
+
+	* Enable TLSv1.3 for the generic TLS_method().
+
+	* Convert openssl(1) s_client option handling.
+
+	* Document openssl(1) certhash.
+
+	* Convert openssl(1) verify option handling.
+
+	* Fix a longstanding bug in PEM_X509_INFO_read_bio(3) that could cause
+	  use-after-free and double-free issues in calling programs.
+
+	* Document PEM_X509_INFO_read(3) and PEM_X509_INFO_read_bio(3).
+
+	* Handle SSL_MODE_AUTO_RETRY being changed during a TLSv1.3 session.
+
+	* Convert openssl(1) s_server option handling.
+
+	* Add minimal info callback support for TLSv1.3.
+
+	* Refactor, clean up and simplify some SSL3/DTLS1 record writing code.
+
+	* Correctly handle server requests for an OCSP response.
+
+	* Add the P-521 curve to the list of curves supported by default
+	  in the client.
+
+	* Convert openssl(1) req option handling.
+
+	* Avoid calling freezero with a negative size if a server sends a
+	  malformed plaintext of all zeroes.
+
+	* Send an unexpected message alert if no valid content type is found
+	  in a TLSv1.3 record.
+
+3.2.0 - Development release
+
+	* Enable TLS 1.3 server side in addition to client by default.
+	  With this change TLS 1.3 is handled entirely on the new stack
+	  and state machine, with fallback to the legacy stack and
+	  state machine for older versions. Note that the OpenSSL TLS 1.3
+	  API is not yet visible/available.
+
+	* Improve length checks in the TLS 1.3 record layer and provide
+	  appropriate alerts for violations of record layer limits.
+
+	* Enforce that SNI hostnames received by the TLS server are correctly
+	  formed as per RFC 5890 and RFC 6066, responding with illegal parameter
+	  for a nonconformant host name.
+
+	* Support SSL_MODE_AUTO_RETRY in TLS 1.3 to allow the automatic
+	  retry of handshake messages.
+
+	* Modify I/O behavior so that SSL_MODE_AUTO_RETRY is the default
+	  similar to new OpenSSL releases.
+
+	* Modify openssl(1) to clear SSL_MODE_AUTO_RETRY appropriately in
+	  various commands.
+
+	* Add tlsfuzzer based regression tests.
+
+	* Support sending certificate status requests from the TLS 1.3
+	  client to request OCSP staples for leaf certificates.
+
+	* Support sending certificate status replies from the TLS 1.3 server
+	  in order to send OCSP staples for leaf certificates.
+
+	* Send correct alerts when handling failed key share extensions
+	  on the TLS 1.3 server.
+
+	* Various compatibility fixes for TLS 1.3 to 1.2 fallback for
+	  switching from the new to legacy stacks.
+
+	* Support TLS 1.3 options in the openssl(1) command.
+
+	* Many alert cleanups in TLS 1.3 to provide expected alerts in failure
+	  conditions.
+
+	* Modify "openssl x509" to display invalid certificate times as
+	  invalid, and correctly deal with the failing return case from
+	  X509_cmp_time so that a certificate with an invalid NotAfter does
+	  not appear valid.
+
+	* Support sending dummy change_cipher_spec records for TLS 1.3 middlebox
+	  compatibility.
+
+	* Ensure only PSS signatures are used with RSA in TLS 1.3.
+
+	* Ensure that TLS 1.3 clients advertise exactly the "null" compression
+	  method in its legacy_compression_methods.
+
+	* Correct use of sockaddr_storage instead of sockaddr in openssl(1)
+	  s_client, which could lead to using 14 bytes of stack garbage instead
+ 	  of an IPv6 address in DTLS mode.
+
+	* Use non-expired certificates first when building a certificate chain.
+
+3.1.5 - Security fix
+
+	* Malformed ASN.1 in a certificate revocation list or a timestamp
+	  response token can lead to a NULL pointer dereference.
+
+3.1.4 - Interoperability and bug fixes for the TLSv1.3 client:
+
+	* Improve client certificate selection to allow EC certificates
+	  instead of only RSA certificates.
+
+	* Do not error out if a TLSv1.3 server requests an OCSP response as
+	  part of a certificate request.
+
+	* Fix SSL_shutdown behavior to match the legacy stack.  The previous
+	  behaviour could cause a hang.
+
+	* Fix a memory leak and add a missing error check in the handling of
+	  the key update message.
+
+	* Fix a memory leak in tls13_record_layer_set_traffic_key.
+
+	* Avoid calling freezero with a negative size if a server sends a
+	  malformed plaintext of all zeroes.
+
+	* Ensure that only PSS may be used with RSA in TLSv1.3 in order
+	  to avoid using PKCS1-based signatures.
+
+	* Add the P-521 curve to the list of curves supported by default
+	  in the client.
+
+3.1.3 - Bug fix
+
+	* libcrypto may fail to build a valid certificate chain due to
+	  expired untrusted issuer certificates.
+
+3.1.2 - Bug fix
+
+	* A TLS client with peer verification disabled may crash when
+	  contacting a server that sends an empty certificate list.
+
+3.1.1 - Stable release
+
+	* Improved cipher suite handling to automatically include TLSv1.3
+	  cipher suites when they are not explicitly referred to in the
+	  cipher string.
+
+	* Improved handling of TLSv1.3 HelloRetryRequests, simplifying
+	  state transitions and ensuring that the legacy session identifer
+	  retains the same value across the handshake.
+
+	* Provided TLSv1.3 cipher suite aliases to match the names used
+	  in RFC 8446.
+
+	* Improved TLSv1.3 client key share handling to allow the use of
+	  any groups in our configured NID list.
+
+	* Fixed printing the serialNumber with X509_print_ex() fall back to
+	  the colon separated hex bytes in case greater than int value.
+
+	* Fix to disallow setting the AES-GCM IV length to zero.
+
+	* Added -groups option to openssl(1) s_server subcommand.
+
+	* Fix to show TLSv1.3 extension types with openssl(1) -tlsextdebug.
+
+	* Improved portable builds to support the use of static MSVC runtimes.
+
+	* Fixed portable builds to avoid exporting a sleep() symbol.
+
+3.1.0 - Development release
+
+	* Completed initial TLS 1.3 implementation with a completely new state
+	  machine and record layer. TLS 1.3 is now enabled by default for the
+	  client side, with the server side to be enabled in a future release.
+	  Note that the OpenSSL TLS 1.3 API is not yet visible/available.
+
+	* Many more code cleanups, fixes, and improvements to memory handling
+	  and protocol parsing.
+
+	* Added RSA-PSS and RSA-OAEP methods from OpenSSL 1.1.1.
+
+	* Ported Cryptographic Message Syntax (CMS) implementation from OpenSSL
+	  1.1.1 and enabled by default.
+
+	* Improved compatibility by backporting functionality and documentation
+	  from OpenSSL 1.1.1.
+
+	* Added many new additional crypto test vectors.
+
+	* Adjusted EVP_chacha20()'s behavior to match OpenSSL's semantics.
+
+	* Default CA bundle location is now configurable in portable builds.
+
+	* Added cms subcommand to openssl(1).
+
+	* Added -addext option to openssl(1) req subcommand.
+
+3.0.2 - Stable release
+
+	* Use a valid curve when constructing an EC_KEY that looks like X25519.
+	  The recent EC group cofactor change results in stricter validation,
+	  which causes the EC_GROUP_set_generator() call to fail.
+	  Issue reported and fix tested by rsadowski@
+
+	* Fixed a padding oracle in PKCS7_dataDecode and CMS_decrypt_set1_pkey.
+	  (Note that the CMS code is currently disabled)
+	  Port of Edlinger's Fix for CVE-2019-1563 from OpenSSL 1.1.1 (old license) 
+
+	* Avoid a path traversal bug in s_server on Windows when run with the -WWW
+	  or -HTTP options, due to incomplete path check logic.
+	  Issue reported and fix tested by Jobert Abma
+
+3.0.1 - Development release
+
+	* Ported Billy Brumley's fix for CVE-2019-1547 in OpenSSL 1.1.1. If a NULL
+	  or zero cofactor is passed to EC_GROUP_set_generator(), try to compute
+	  it using Hasse's bound. This works as long as the cofactor is small
+	  enough.
+
+	* Fixed a memory leak in error paths for eckey_type2param().
+
+	* Initial work on supporting Cryptographic Message Syntax (CMS) in
+	  libcrypto (not enabled).
+
+	* Various manual page improvements and additions.
+
+	* Added a CMake check for an existing uninstall target, facilitating
+	  embedding LibreSSL in larger CMake projects, from Matthew Albrecht.
+
+3.0.0 - Development release
+
+	* Completed the port of RSA_METHOD accessors from the OpenSSL 1.1 API.
+
+	* Documented undescribed options and removed unfunctional options
+	  description in openssl(1) manual.
+
+	* A plethora of small fixes due to regular oss-fuzz testing.
+
+	* Various side channels in DSA and ECDSA were addressed.  These are some of
+	  the many issues found in an extensive systematic analysis of bignum usage
+	  by Samuel Weiser, David Schrammel et al.
+
+	* Enabled openssl(1) speed subcommand on Windows platform.
+
+	* Enabled performance optimizations when building with Visual Studio on Windows.
+
+	* Fixed incorrect carry operation in 512 addition for Streebog.
+
+	* Fixed -modulus option with openssl(1) dsa subcommand.
+
+	* Fixed PVK format output issue with openssl(1) dsa and rsa subcommand.
+
+2.9.2 - Bug fixes
+
+	* Fixed portable builds with older versions of MacOS,
+	  Android targets < API 21, and Solaris 10
+
+	* Fixed SRTP profile advertisement for DTLS servers.
+
+2.9.1 - Stable release
+
+	* Added support for XChaCha20 and XChaCha20-Poly1305.
+
+	* Added support for AES key wrap constructions via the EVP interface.
+
+	* Partial port of the OpenSSL EC_KEY_METHOD API for use by OpenSSH.
+
+	* Added pbkdf2 key derivation support to openssl(1)
+
+	* Removed SHA224 based handshake signatures from consideration for use in a TLS 1.2 handshake.
+
+	* Changed the default digest type of openssl(1) enc to to sha256.
+
+	* Changed the default digest type of openssl(1) dgst to sha256.
+
+	* Changed the default digest type of openssl(1) x509 -fingerprint to sha256.
+
+	* Changed the default digest type of openssl(1) crl -fingerprint to sha256.
+
+	* Improved Windows, Android, and ARM compatibility, including assembly
+	  optimizations on Mingw-w64 targets.
+
+2.9.0 - Development release
+
+	* Added the SM4 block cipher from the Chinese standard GB/T 32907-2016.
+
+	* Fixed warnings about clock_gettime on Windows Visual Studio builds.
+
+	* Fixed CMake builds on systems where getpagesize is defined as an
+	  inline function.
+
+	* CRYPTO_LOCK is now automatically initialized, with the legacy
+	  callbacks stubbed for compatibility.
+
+	* Added the SM3 hash function from the Chinese standard GB/T 32905-2016.
+
+	* Added more OPENSSL_NO_* macros for compatibility with OpenSSL.
+
+	* Added extensive interoperability tests between LibreSSL and OpenSSL
+	  1.0 and 1.1.
+
+	* Added additional Wycheproof tests and related bug fixes.
+
+	* Simplified sigalgs option processing and handshake signing algorithm
+
+	* Added the ability to use the RSA PSS algorithm for handshake
+	  signatures.
+
+	* Added bn_rand_interval() and use it in code needing ranges of random
+	  bn values.
+
+	* Added functionality to derive early, handshake, and application
+	  secrets as per RFC8446.
+
+	* Added handshake state machine from RFC8446.
+
+	* Removed some ASN.1 related code from libcrypto that had not been used
+	  since around 2000.
+
+	* Unexported internal symbols and internalized more record layer structs.
+
+	* Added support for assembly optimizations on 32-bit ARM ELF targets.
+
+	* Improved protection against timing side channels in ECDSA signature
+	  generation.
+
+	* Coordinate blinding was added to some elliptic curves. This is the
+	  last bit of the work by Brumley et al. to protect against the
+	  Portsmash vulnerability.
+
+	* Ensure transcript handshake is always freed with TLS 1.2.
+
 2.8.2 - Stable release
 
 	* Added Wycheproof support for ECDH and ECDSA Web Crypto test vectors,

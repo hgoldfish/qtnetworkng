@@ -1,5 +1,7 @@
-.\"	$OpenBSD: PEM_read_bio_PrivateKey.3,v 1.13 2018/03/27 17:35:50 schwarze Exp $
-.\"	OpenSSL 99d63d46 Oct 26 13:56:48 2016 -0400
+.\" $OpenBSD: PEM_read_bio_PrivateKey.3,v 1.19 2020/07/23 17:34:53 schwarze Exp $
+.\" full merge up to:
+.\" OpenSSL man3/PEM_read_bio_PrivateKey.pod 18bad535 Apr 9 15:13:55 2019 +0100
+.\" OpenSSL man3/PEM_read_CMS.pod 83cf7abf May 29 13:07:08 2018 +0100
 .\"
 .\" This file was written by Dr. Stephen Henson <steve@openssl.org>.
 .\" Copyright (c) 2001-2004, 2009, 2013-2016 The OpenSSL Project.
@@ -49,7 +51,7 @@
 .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 .\" OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd $Mdocdate: March 27 2018 $
+.Dd $Mdocdate: July 23 2020 $
 .Dt PEM_READ_BIO_PRIVATEKEY 3
 .Os
 .Sh NAME
@@ -138,7 +140,11 @@
 .Nm PEM_read_bio_NETSCAPE_CERT_SEQUENCE ,
 .Nm PEM_read_NETSCAPE_CERT_SEQUENCE ,
 .Nm PEM_write_bio_NETSCAPE_CERT_SEQUENCE ,
-.Nm PEM_write_NETSCAPE_CERT_SEQUENCE
+.Nm PEM_write_NETSCAPE_CERT_SEQUENCE ,
+.Nm PEM_read_CMS ,
+.Nm PEM_read_bio_CMS ,
+.Nm PEM_write_CMS ,
+.Nm PEM_write_bio_CMS
 .Nd PEM routines
 .Sh SYNOPSIS
 .In openssl/pem.h
@@ -712,25 +718,55 @@
 .Fa "FILE *fp"
 .Fa "NETSCAPE_CERT_SEQUENCE *x"
 .Fc
+.In openssl/cms.h
+.Ft CMS_ContentInfo *
+.Fo PEM_read_CMS
+.Fa "FILE *fp"
+.Fa "CMS_ContentInfo **x"
+.Fa "pem_password_cb *cb"
+.Fa "void *u"
+.Fc
+.Ft CMS_ContentInfo *
+.Fo PEM_read_bio_CMS
+.Fa "BIO *bp"
+.Fa "CMS_ContentInfo **x"
+.Fa "pem_password_cb *cb"
+.Fa "void *u"
+.Fc
+.Ft int
+.Fo PEM_write_CMS
+.Fa "FILE *fp"
+.Fa "const CMS_ContentInfo *x"
+.Fc
+.Ft int
+.Fo PEM_write_bio_CMS
+.Fa "BIO *bp"
+.Fa "const CMS_ContentInfo *x"
+.Fc
 .Sh DESCRIPTION
 The PEM functions read or write structures in PEM format.
 In this sense PEM format is simply base64-encoded data surrounded by
-header lines.
+header lines; see
+.Xr PEM_read 3
+for more details.
 .Pp
 For more details about the meaning of arguments see the
 .Sx PEM function arguments
 section.
 .Pp
 Each operation has four functions associated with it.
-For clarity the term
-.Dq Sy foobar No functions
+For brevity the term
+.Dq Ar TYPE No functions
 will be used to collectively refer to the
-.Fn PEM_read_bio_foobar ,
-.Fn PEM_read_foobar ,
-.Fn PEM_write_bio_foobar ,
+.Fn PEM_read_bio_TYPE ,
+.Fn PEM_read_TYPE ,
+.Fn PEM_write_bio_TYPE ,
 and
-.Fn PEM_write_foobar
+.Fn PEM_write_TYPE
 functions.
+If no set of specific functions exists for a given type,
+.Xr PEM_ASN1_read 3
+can be used instead.
 .Pp
 The
 .Sy PrivateKey
@@ -927,6 +963,12 @@ functions process a Netscape Certificate Sequence using a
 .Vt NETSCAPE_CERT_SEQUENCE
 structure.
 .Pp
+The
+.Sy CMS
+functions process a
+.Vt CMS_ContentInfo
+structure.
+.Pp
 The old
 .Sy PrivateKey
 write routines are retained for compatibility.
@@ -1002,10 +1044,14 @@ If this parameter is set to
 .Dv NULL ,
 then the private key is written in unencrypted form.
 .Pp
-The
+The optional arguments
+.Fa u
+and
 .Fa cb
-argument is the callback to use when querying for the passphrase used
-for encrypted PEM structures (normally only private keys).
+are a passphrase used for encrypting a PEM structure
+or a callback to obtain the passphrase; see
+.Xr pem_password_cb 3
+for details.
 .Pp
 For the PEM write routines, if the
 .Fa kstr
@@ -1018,62 +1064,6 @@ bytes at
 are used as the passphrase and
 .Fa cb
 is ignored.
-.Pp
-If the
-.Fa cb
-parameter is set to
-.Dv NULL
-and the
-.Fa u
-parameter is not
-.Dv NULL ,
-then the
-.Fa u
-parameter is interpreted as a null terminated string to use as the
-passphrase.
-If both
-.Fa cb
-and
-.Fa u
-are
-.Dv NULL ,
-then the default callback routine is used, which will typically
-prompt for the passphrase on the current terminal with echoing
-turned off.
-.Pp
-The default passphrase callback is sometimes inappropriate (for example
-in a GUI application) so an alternative can be supplied.
-The callback routine has the following form:
-.Bd -filled -offset inset
-.Ft int
-.Fo cb
-.Fa "char *buf"
-.Fa "int size"
-.Fa "int rwflag"
-.Fa "void *u"
-.Fc
-.Ed
-.Pp
-.Fa buf
-is the buffer to write the passphrase to.
-.Fa size
-is the maximum length of the passphrase, i.e. the size of
-.Fa buf .
-.Fa rwflag
-is a flag which is set to 0 when reading and 1 when writing.
-A typical routine will ask the user to verify the passphrase (for
-example by prompting for it twice) if
-.Fa rwflag
-is 1.
-The
-.Fa u
-parameter has the same value as the
-.Fa u
-parameter passed to the PEM routine.
-It allows arbitrary data to be passed to the callback by the application
-(for example a window handle in a GUI application).
-The callback must return the number of characters in the passphrase
-or 0 if an error occurred.
 .Ss PEM encryption format
 This old
 .Sy PrivateKey
@@ -1193,18 +1183,24 @@ Skeleton pass phrase callback:
 int
 pass_cb(char *buf, int size, int rwflag, void *u)
 {
-	int len;
-	char *tmp;
+	char	*tmp;
+	size_t	 len;
 
 	/* We'd probably do something else if 'rwflag' is 1 */
 	printf("Enter pass phrase for \e"%s\e"\en", u);
 
-	/* get pass phrase, length 'len' into 'tmp' */
+	/*
+	 * Instead of the following line, get the passphrase
+	 * from the user in some way.
+	 */
 	tmp = "hello";
-	len = strlen(tmp);
+	if (tmp == NULL) /* An error occurred. */
+		return -1;
 
-	if (len == 0)
-		return 0;
+	len = strlen(tmp);
+	if (len == 0) /* Treat an empty passphrase as an error, too. */
+		return -1;
+
 	/* if too long, truncate */
 	if (len > size)
 		len = size;
@@ -1214,8 +1210,18 @@ pass_cb(char *buf, int size, int rwflag, void *u)
 .Ed
 .Sh SEE ALSO
 .Xr BIO_new 3 ,
+.Xr DSA_new 3 ,
+.Xr PEM_ASN1_read 3 ,
 .Xr PEM_bytes_read_bio 3 ,
-.Xr PEM_read 3
+.Xr PEM_read 3 ,
+.Xr PEM_read_SSL_SESSION 3 ,
+.Xr PEM_write_bio_CMS_stream 3 ,
+.Xr PEM_write_bio_PKCS7_stream 3 ,
+.Xr PEM_X509_INFO_read 3 ,
+.Xr RSA_new 3 ,
+.Xr X509_CRL_new 3 ,
+.Xr X509_REQ_new 3 ,
+.Xr X509_SIG_new 3
 .Sh HISTORY
 .Fn PEM_read_X509
 and
@@ -1329,6 +1335,14 @@ and
 .Fn PEM_write_EC_PUBKEY
 first appeared in OpenSSL 0.9.8 and have been available since
 .Ox 4.5 .
+.Pp
+.Fn PEM_read_CMS ,
+.Fn PEM_read_bio_CMS ,
+.Fn PEM_write_CMS ,
+and
+.Fn PEM_write_bio_CMS
+first appeared in OpenSSL 0.9.8h and have been available since
+.Ox 6.7 .
 .Sh CAVEATS
 A frequent cause of problems is attempting to use the PEM routines like
 this:
@@ -1340,6 +1354,10 @@ PEM_read_bio_X509(bp, &x, 0, NULL);
 This is a bug because an attempt will be made to reuse the data at
 .Fa x ,
 which is an uninitialised pointer.
+.Pp
+These functions make no assumption regarding the pass phrase received
+from the password callback.
+It will simply be treated as a byte sequence.
 .Sh BUGS
 The PEM read routines in some versions of OpenSSL will not correctly
 reuse an existing structure.

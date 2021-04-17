@@ -1,4 +1,4 @@
-/* $OpenBSD: ssl_packet.c,v 1.6 2017/05/06 16:18:36 jsing Exp $ */
+/* $OpenBSD: ssl_packet.c,v 1.9 2020/10/14 16:57:33 jsing Exp $ */
 /*
  * Copyright (c) 2016, 2017 Joel Sing <jsing@openbsd.org>
  *
@@ -120,7 +120,7 @@ ssl_convert_sslv2_client_hello(SSL *s)
 	if (n != record_length + 2)
 		return n;
 
-	tls1_finish_mac(s, s->internal->packet + 2,
+	tls1_transcript_record(s, s->internal->packet + 2,
 	    s->internal->packet_length - 2);
 	s->internal->mac_packet = 0;
 
@@ -210,10 +210,10 @@ ssl_convert_sslv2_client_hello(SSL *s)
 	if (!CBB_finish(&cbb, &data, &data_len))
 		goto err;
 
-	if (data_len > s->s3->rbuf.len)
+	if (data_len > S3I(s)->rbuf.len)
 		goto err;
 
-	s->internal->packet = s->s3->rbuf.buf;
+	s->internal->packet = S3I(s)->rbuf.buf;
 	s->internal->packet_length = data_len;
 	memcpy(s->internal->packet, data, data_len);
 	ret = 1;
@@ -238,7 +238,7 @@ ssl_server_legacy_first_packet(SSL *s)
 	const char *data;
 	CBS header;
 
-	if (SSL_IS_DTLS(s))
+	if (SSL_is_dtls(s))
 		return 1;
 
 	CBS_init(&header, s->internal->packet, SSL3_RT_HEADER_LENGTH);

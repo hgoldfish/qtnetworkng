@@ -1,4 +1,4 @@
-/* $OpenBSD: apps.c,v 1.49 2018/08/16 16:56:51 tb Exp $ */
+/* $OpenBSD: apps.c,v 1.57 2020/10/26 11:48:39 tb Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -216,7 +216,6 @@ chopup_args(ARGS *arg, char *buf, int *argc, char **argv[])
 	*argc = 0;
 	*argv = NULL;
 
-	i = 0;
 	if (arg->count == 0) {
 		arg->count = 20;
 		arg->data = reallocarray(NULL, arg->count, sizeof(char *));
@@ -1328,7 +1327,7 @@ save_serial(char *serialfile, char *suffix, BIGNUM *serial,
 	else
 		n = snprintf(serialpath, sizeof serialpath, "%s.%s",
 		    serialfile, suffix);
-	if (n == -1 || n >= sizeof(serialpath)) {
+	if (n < 0 || n >= sizeof(serialpath)) {
 		BIO_printf(bio_err, "serial too long\n");
 		goto err;
 	}
@@ -1377,7 +1376,7 @@ rotate_serial(char *serialfile, char *new_suffix, char *old_suffix)
 		goto err;
 	}
 
-	if (rename(serialfile, opath) < 0 &&
+	if (rename(serialfile, opath) == -1 &&
 	    errno != ENOENT && errno != ENOTDIR) {
 		BIO_printf(bio_err, "unable to rename %s to %s\n",
 		    serialfile, opath);
@@ -1386,11 +1385,11 @@ rotate_serial(char *serialfile, char *new_suffix, char *old_suffix)
 	}
 
 
-	if (rename(npath, serialfile) < 0) {
+	if (rename(npath, serialfile) == -1) {
 		BIO_printf(bio_err, "unable to rename %s to %s\n",
 		    npath, serialfile);
 		perror("reason");
-		if (rename(opath, serialfile) < 0) {
+		if (rename(opath, serialfile) == -1) {
 			BIO_printf(bio_err, "unable to rename %s to %s\n",
 			    opath, serialfile);
 			perror("reason");
@@ -1599,18 +1598,18 @@ rotate_index(const char *dbfile, const char *new_suffix, const char *old_suffix)
 		goto err;
 	}
 
-	if (rename(dbfile, odbpath) < 0 && errno != ENOENT && errno != ENOTDIR) {
+	if (rename(dbfile, odbpath) == -1 && errno != ENOENT && errno != ENOTDIR) {
 		BIO_printf(bio_err, "unable to rename %s to %s\n",
 		    dbfile, odbpath);
 		perror("reason");
 		goto err;
 	}
 
-	if (rename(dbpath, dbfile) < 0) {
+	if (rename(dbpath, dbfile) == -1) {
 		BIO_printf(bio_err, "unable to rename %s to %s\n",
 		    dbpath, dbfile);
 		perror("reason");
-		if (rename(odbpath, dbfile) < 0) {
+		if (rename(odbpath, dbfile) == -1) {
 			BIO_printf(bio_err, "unable to rename %s to %s\n",
 			    odbpath, dbfile);
 			perror("reason");
@@ -1618,16 +1617,16 @@ rotate_index(const char *dbfile, const char *new_suffix, const char *old_suffix)
 		goto err;
 	}
 
-	if (rename(attrpath, oattrpath) < 0 && errno != ENOENT && errno != ENOTDIR) {
+	if (rename(attrpath, oattrpath) == -1 && errno != ENOENT && errno != ENOTDIR) {
 		BIO_printf(bio_err, "unable to rename %s to %s\n",
 		    attrpath, oattrpath);
 		perror("reason");
-		if (rename(dbfile, dbpath) < 0) {
+		if (rename(dbfile, dbpath) == -1) {
 			BIO_printf(bio_err, "unable to rename %s to %s\n",
 			    dbfile, dbpath);
 			perror("reason");
 		}
-		if (rename(odbpath, dbfile) < 0) {
+		if (rename(odbpath, dbfile) == -1) {
 			BIO_printf(bio_err, "unable to rename %s to %s\n",
 			    odbpath, dbfile);
 			perror("reason");
@@ -1635,21 +1634,21 @@ rotate_index(const char *dbfile, const char *new_suffix, const char *old_suffix)
 		goto err;
 	}
 
-	if (rename(nattrpath, attrpath) < 0) {
+	if (rename(nattrpath, attrpath) == -1) {
 		BIO_printf(bio_err, "unable to rename %s to %s\n",
 		    nattrpath, attrpath);
 		perror("reason");
-		if (rename(oattrpath, attrpath) < 0) {
+		if (rename(oattrpath, attrpath) == -1) {
 			BIO_printf(bio_err, "unable to rename %s to %s\n",
 			    oattrpath, attrpath);
 			perror("reason");
 		}
-		if (rename(dbfile, dbpath) < 0) {
+		if (rename(dbfile, dbpath) == -1) {
 			BIO_printf(bio_err, "unable to rename %s to %s\n",
 			    dbfile, dbpath);
 			perror("reason");
 		}
-		if (rename(odbpath, dbfile) < 0) {
+		if (rename(odbpath, dbfile) == -1) {
 			BIO_printf(bio_err, "unable to rename %s to %s\n",
 			    odbpath, dbfile);
 			perror("reason");
@@ -1917,6 +1916,8 @@ args_verify(char ***pargs, int *pargc, int *badarg, BIO *err,
 		flags |= X509_V_FLAG_POLICY_CHECK;
 	else if (!strcmp(arg, "-explicit_policy"))
 		flags |= X509_V_FLAG_EXPLICIT_POLICY;
+	else if (!strcmp(arg, "-legacy_verify"))
+		flags |= X509_V_FLAG_LEGACY_VERIFY;
 	else if (!strcmp(arg, "-inhibit_any"))
 		flags |= X509_V_FLAG_INHIBIT_ANY;
 	else if (!strcmp(arg, "-inhibit_map"))
@@ -2122,7 +2123,7 @@ app_isdir(const char *name)
 #define OPTION_WIDTH 18
 
 void
-options_usage(struct option *opts)
+options_usage(const struct option *opts)
 {
 	const char *p, *q;
 	char optstr[32];
@@ -2149,11 +2150,11 @@ options_usage(struct option *opts)
 }
 
 int
-options_parse(int argc, char **argv, struct option *opts, char **unnamed,
+options_parse(int argc, char **argv, const struct option *opts, char **unnamed,
     int *argsused)
 {
 	const char *errstr;
-	struct option *opt;
+	const struct option *opt;
 	long long val;
 	char *arg, *p;
 	int fmt, used;
@@ -2299,6 +2300,10 @@ options_parse(int argc, char **argv, struct option *opts, char **unnamed,
 			*opt->opt.value |= opt->value;
 			break;
 
+		case OPTION_UL_VALUE_OR:
+			*opt->opt.ulvalue |= opt->ulvalue;
+			break;
+
 		default:
 			fprintf(stderr, "option %s - unknown type %i\n",
 			    opt->name, opt->type);
@@ -2320,3 +2325,15 @@ options_parse(int argc, char **argv, struct option *opts, char **unnamed,
 	fprintf(stderr, "unknown option '%s'\n", arg);
 	return (1);
 }
+
+void
+show_cipher(const OBJ_NAME *name, void *arg)
+{
+	int *n = arg;
+
+	if (!islower((unsigned char)*name->name))
+		return;
+
+	fprintf(stderr, " -%-24s%s", name->name, (++*n % 3 != 0 ? "" : "\n"));
+}
+

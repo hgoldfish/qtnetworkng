@@ -1,4 +1,4 @@
-.\" $OpenBSD: ASN1_time_parse.3,v 1.7 2018/03/23 23:18:17 schwarze Exp $
+.\" $OpenBSD: ASN1_time_parse.3,v 1.9 2020/11/02 17:45:35 tb Exp $
 .\"
 .\" Copyright (c) 2016 Bob Beck <beck@openbsd.org>
 .\"
@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: March 23 2018 $
+.Dd $Mdocdate: November 2 2020 $
 .Dt ASN1_TIME_PARSE 3
 .Os
 .Sh NAME
@@ -84,7 +84,7 @@ a new
 .Vt ASN1_TIME
 structure is allocated and returned.
 .Sh RETURN VALUES
-.Fn ASN1_parse_time
+.Fn ASN1_time_parse
 returns
 .Bl -bullet -offset four
 .It
@@ -125,6 +125,10 @@ returns a pointer to an
 structure or
 .Dv NULL
 if an error occurred.
+.Sh SEE ALSO
+.Xr ASN1_TIME_new 3 ,
+.Xr ASN1_TIME_set 3 ,
+.Xr X509_cmp_time 3
 .Sh HISTORY
 .Fn ASN1_time_parse
 and

@@ -1,4 +1,4 @@
-/* $OpenBSD: dsa.c,v 1.11 2018/02/07 05:47:55 jsing Exp $ */
+/* $OpenBSD: dsa.c,v 1.15 2019/07/14 03:30:45 guenther Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -58,7 +58,6 @@
 
 #include <openssl/opensslconf.h>	/* for OPENSSL_NO_DSA */
 
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -106,7 +105,7 @@ dsa_opt_enc(int argc, char **argv, int *argsused)
 	return (1);
 }
 
-static struct option dsa_options[] = {
+static const struct option dsa_options[] = {
 	{
 		.name = "in",
 		.argname = "file",
@@ -121,6 +120,12 @@ static struct option dsa_options[] = {
 		    " format)",
 		.type = OPTION_ARG_FORMAT,
 		.opt.value = &dsa_config.informat,
+	},
+	{
+		.name = "modulus",
+		.desc = "Print the DSA public value",
+		.type = OPTION_FLAG,
+		.opt.flag = &dsa_config.modulus,
 	},
 	{
 		.name = "noout",
@@ -205,21 +210,12 @@ static struct option dsa_options[] = {
 };
 
 static void
-show_ciphers(const OBJ_NAME *name, void *arg)
-{
-	static int n;
-
-	if (!islower((unsigned char)*name->name))
-		return;
-
-	fprintf(stderr, " -%-24s%s", name->name, (++n % 3 ? "" : "\n"));
-}
-
-static void
 dsa_usage(void)
 {
+	int n = 0;
+
 	fprintf(stderr,
-	    "usage: dsa [-in file] [-inform format] [-noout]\n"
+	    "usage: dsa [-in file] [-inform format] [-modulus] [-noout]\n"
 	    "    [-out file] [-outform format] [-passin src] [-passout src]\n"
 	    "    [-pubin] [-pubout] [-pvk-none | -pvk-strong | -pvk-weak]\n"
 	    "    [-text] [-ciphername]\n\n");
@@ -227,7 +223,7 @@ dsa_usage(void)
 	fprintf(stderr, "\n");
 
 	fprintf(stderr, "Valid ciphername values:\n\n");
-	OBJ_NAME_do_all_sorted(OBJ_NAME_TYPE_CIPHER_METH, show_ciphers, NULL);
+	OBJ_NAME_do_all_sorted(OBJ_NAME_TYPE_CIPHER_METH, show_cipher, &n);
 	fprintf(stderr, "\n");
 }
 

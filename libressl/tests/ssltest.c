@@ -181,8 +181,6 @@
 #define TEST_CLIENT_CERT "../apps/client.pem"
 
 static int verify_callback(int ok, X509_STORE_CTX *ctx);
-static RSA *tmp_rsa_cb(SSL *s, int is_export, int keylength);
-static void free_tmp_rsa(void);
 static int app_verify_callback(X509_STORE_CTX *ctx, void *arg);
 #define APP_CALLBACK_STRING "Test Callback Argument"
 struct app_verify_arg {
@@ -350,6 +348,7 @@ sv_usage(void)
 	fprintf(stderr, " -no_ecdhe     - disable ECDHE\n");
 	fprintf(stderr, " -dtls1        - use DTLSv1\n");
 	fprintf(stderr, " -tls1         - use TLSv1\n");
+	fprintf(stderr, " -tls1_2       - use TLSv1.2\n");
 	fprintf(stderr, " -CApath arg   - PEM format directory of CA's\n");
 	fprintf(stderr, " -CAfile arg   - PEM format file of CA's\n");
 	fprintf(stderr, " -cert arg     - Server certificate file\n");
@@ -403,60 +402,6 @@ print_details(SSL *c_ssl, const char *prefix)
 	BIO_printf(bio_stdout, "\n");
 }
 
-static void
-lock_dbg_cb(int mode, int type, const char *file, int line)
-{
-	static int modes[CRYPTO_NUM_LOCKS]; /* = {0, 0, ... } */
-	const char *errstr = NULL;
-	int rw;
-
-	rw = mode & (CRYPTO_READ|CRYPTO_WRITE);
-	if (!((rw == CRYPTO_READ) || (rw == CRYPTO_WRITE))) {
-		errstr = "invalid mode";
-		goto err;
-	}
-
-	if (type < 0 || type >= CRYPTO_NUM_LOCKS) {
-		errstr = "type out of bounds";
-		goto err;
-	}
-
-	if (mode & CRYPTO_LOCK) {
-		if (modes[type]) {
-			errstr = "already locked";
-			/* must not happen in a single-threaded program
-			 * (would deadlock) */
-			goto err;
-		}
-
-		modes[type] = rw;
-	} else if (mode & CRYPTO_UNLOCK) {
-		if (!modes[type]) {
-			errstr = "not locked";
-			goto err;
-		}
-
-		if (modes[type] != rw) {
-			errstr = (rw == CRYPTO_READ) ?
-			    "CRYPTO_r_unlock on write lock" :
-			    "CRYPTO_w_unlock on read lock";
-		}
-
-		modes[type] = 0;
-	} else {
-		errstr = "invalid mode";
-		goto err;
-	}
-
-err:
-	if (errstr) {
-		/* we cannot use bio_err here */
-		fprintf(stderr,
-		    "openssl (lock_dbg_cb): %s (mode=%d, type=%d) at %s:%d\n",
-		    errstr, mode, type, file, line);
-	}
-}
-
 int
 main(int argc, char *argv[])
 {
@@ -464,7 +409,7 @@ main(int argc, char *argv[])
 	int badop = 0;
 	int bio_pair = 0;
 	int force = 0;
-	int tls1 = 0, dtls1 = 0, ret = 1;
+	int tls1 = 0, tls1_2 = 0, dtls1 = 0, ret = 1;
 	int client_auth = 0;
 	int server_auth = 0, i;
 	struct app_verify_arg app_verify_arg =
@@ -495,8 +440,6 @@ main(int argc, char *argv[])
 
 	bio_err = BIO_new_fp(stderr, BIO_NOCLOSE|BIO_FP_TEXT);
 
-	CRYPTO_set_locking_callback(lock_dbg_cb);
-
 	bio_stdout = BIO_new_fp(stdout, BIO_NOCLOSE|BIO_FP_TEXT);
 
 	argc--;
@@ -504,7 +447,7 @@ main(int argc, char *argv[])
 
 	while (argc >= 1) {
 		if (!strcmp(*argv, "-F")) {
-			fprintf(stderr, "not compiled with FIPS support, so exitting without running.\n");
+			fprintf(stderr, "not compiled with FIPS support, so exiting without running.\n");
 			exit(0);
 		} else if (strcmp(*argv, "-server_auth") == 0)
 			server_auth = 1;
@@ -534,6 +477,8 @@ main(int argc, char *argv[])
 			dtls1 = 1;
 		else if (strcmp(*argv, "-tls1") == 0)
 			tls1 = 1;
+		else if (strcmp(*argv, "-tls1_2") == 0)
+			tls1_2 = 1;
 		else if (strncmp(*argv, "-num", 4) == 0) {
 			if (--argc < 1)
 				goto bad;
@@ -637,12 +582,11 @@ bad:
 		goto end;
 	}
 
-	if (!dtls1 && !tls1 &&
-	    number > 1 && !reuse && !force) {
+	if (!dtls1 && !tls1 && !tls1_2 && number > 1 && !reuse && !force) {
 		fprintf(stderr,
 		    "This case cannot work.  Use -f to perform "
 		    "the test anyway (and\n-d to see what happens), "
-		    "or add one of -dtls1, -tls1, -reuse\n"
+		    "or add one of -dtls1, -tls1, -tls1_2, -reuse\n"
 		    "to avoid protocol mismatch.\n");
 		exit(1);
 	}
@@ -665,8 +609,10 @@ bad:
 		meth = DTLSv1_method();
 	else if (tls1)
 		meth = TLSv1_method();
+	else if (tls1_2)
+		meth = TLSv1_2_method();
 	else
-		meth = SSLv23_method();
+		meth = TLS_method();
 
 	c_ctx = SSL_CTX_new(meth);
 	s_ctx = SSL_CTX_new(meth);
@@ -713,8 +659,6 @@ bad:
 		SSL_CTX_set_options(s_ctx, SSL_OP_SINGLE_ECDH_USE);
 		EC_KEY_free(ecdh);
 	}
-
-	SSL_CTX_set_tmp_rsa_callback(s_ctx, tmp_rsa_cb);
 
 	if (!SSL_CTX_use_certificate_file(s_ctx, server_cert,
 	    SSL_FILETYPE_PEM)) {
@@ -828,7 +772,6 @@ end:
 	SSL_CTX_free(c_ctx);
 	BIO_free(bio_stdout);
 
-	free_tmp_rsa();
 #ifndef OPENSSL_NO_ENGINE
 	ENGINE_cleanup();
 #endif
@@ -1898,44 +1841,6 @@ app_verify_callback(X509_STORE_CTX *ctx, void *arg)
 		}
 	}
 	return (ok);
-}
-
-static RSA *rsa_tmp = NULL;
-
-static RSA *
-tmp_rsa_cb(SSL *s, int is_export, int keylength)
-{
-	BIGNUM *bn = NULL;
-	if (rsa_tmp == NULL) {
-		bn = BN_new();
-		rsa_tmp = RSA_new();
-		if (!bn || !rsa_tmp || !BN_set_word(bn, RSA_F4)) {
-			BIO_printf(bio_err, "Memory error...");
-			goto end;
-		}
-		BIO_printf(bio_err, "Generating temp (%d bit) RSA key...", keylength);
-		(void)BIO_flush(bio_err);
-		if (!RSA_generate_key_ex(rsa_tmp, keylength, bn, NULL)) {
-			BIO_printf(bio_err, "Error generating key.");
-			RSA_free(rsa_tmp);
-			rsa_tmp = NULL;
-		}
-end:
-		BIO_printf(bio_err, "\n");
-		(void)BIO_flush(bio_err);
-	}
-	if (bn)
-		BN_free(bn);
-	return (rsa_tmp);
-}
-
-static void
-free_tmp_rsa(void)
-{
-	if (rsa_tmp != NULL) {
-		RSA_free(rsa_tmp);
-		rsa_tmp = NULL;
-	}
 }
 
 /* These DH parameters have been generated as follows:

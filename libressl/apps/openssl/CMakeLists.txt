@@ -6,6 +6,7 @@ set(
 	ciphers.c
 	crl.c
 	crl2p7.c
+	cms.c
 	dgst.c
 	dh.c
 	dhparam.c
@@ -65,6 +66,13 @@ if(HAVE_STRTONUM)
 	add_definitions(-DHAVE_STRTONUM)
 else()
 	set(OPENSSL_SRC ${OPENSSL_SRC} compat/strtonum.c)
+endif()
+
+if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
+        check_function_exists(clock_gettime HAVE_CLOCK_GETTIME)
+        if(NOT HAVE_CLOCK_GETTIME)
+                set(OPENSSL_SRC ${OPENSSL_SRC} compat/clock_gettime_osx.c)
+        endif()
 endif()
 
 add_executable(openssl ${OPENSSL_SRC})

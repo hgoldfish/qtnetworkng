@@ -1,4 +1,4 @@
-/* $OpenBSD: tls.c,v 1.80 2018/04/07 16:30:59 jsing Exp $ */
+/* $OpenBSD: tls.c,v 1.85 2020/05/24 15:12:54 jsing Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -256,7 +256,9 @@ tls_configure(struct tls *ctx, struct tls_config *config)
 	if (config == NULL)
 		config = tls_config_default;
 
+	pthread_mutex_lock(&config->mutex);
 	config->refcount++;
+	pthread_mutex_unlock(&config->mutex);
 
 	tls_config_free(ctx->config);
 
@@ -403,6 +405,8 @@ tls_configure_ssl_keypair(struct tls *ctx, SSL_CTX *ssl_ctx,
 int
 tls_configure_ssl(struct tls *ctx, SSL_CTX *ssl_ctx)
 {
+	SSL_CTX_clear_mode(ssl_ctx, SSL_MODE_AUTO_RETRY);
+
 	SSL_CTX_set_mode(ssl_ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
 	SSL_CTX_set_mode(ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
@@ -412,6 +416,7 @@ tls_configure_ssl(struct tls *ctx, SSL_CTX *ssl_ctx)
 	SSL_CTX_clear_options(ssl_ctx, SSL_OP_NO_TLSv1);
 	SSL_CTX_clear_options(ssl_ctx, SSL_OP_NO_TLSv1_1);
 	SSL_CTX_clear_options(ssl_ctx, SSL_OP_NO_TLSv1_2);
+	SSL_CTX_clear_options(ssl_ctx, SSL_OP_NO_TLSv1_3);
 
 	if ((ctx->config->protocols & TLS_PROTOCOL_TLSv1_0) == 0)
 		SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_TLSv1);
@@ -419,6 +424,8 @@ tls_configure_ssl(struct tls *ctx, SSL_CTX *ssl_ctx)
 		SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_TLSv1_1);
 	if ((ctx->config->protocols & TLS_PROTOCOL_TLSv1_2) == 0)
 		SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_TLSv1_2);
+	if ((ctx->config->protocols & TLS_PROTOCOL_TLSv1_3) == 0)
+		SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_TLSv1_3);
 
 	if (ctx->config->alpn != NULL) {
 		if (SSL_CTX_set_alpn_protos(ssl_ctx, ctx->config->alpn,
@@ -501,7 +508,7 @@ tls_configure_ssl_verify(struct tls *ctx, SSL_CTX *ssl_ctx, int verify)
 
 	/* If no CA has been specified, attempt to load the default. */
 	if (ctx->config->ca_mem == NULL && ctx->config->ca_path == NULL) {
-		if (tls_config_load_file(&ctx->error, "CA", _PATH_SSL_CA_FILE,
+		if (tls_config_load_file(&ctx->error, "CA", tls_default_ca_cert_file(),
 		    &ca_mem, &ca_len) != 0)
 			goto err;
 		ca_free = ca_mem;

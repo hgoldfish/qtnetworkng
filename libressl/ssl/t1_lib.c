@@ -1,4 +1,4 @@
-/* $OpenBSD: t1_lib.c,v 1.144 2018/08/24 18:10:25 jsing Exp $ */
+/* $OpenBSD: t1_lib.c,v 1.179 2020/12/05 19:33:38 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -119,35 +119,11 @@
 #include "ssl_locl.h"
 
 #include "bytestring.h"
+#include "ssl_sigalgs.h"
 #include "ssl_tlsext.h"
 
-static int tls_decrypt_ticket(SSL *s, const unsigned char *tick, int ticklen,
-    const unsigned char *sess_id, int sesslen,
+static int tls_decrypt_ticket(SSL *s, CBS *ticket, int *alert,
     SSL_SESSION **psess);
-
-SSL3_ENC_METHOD TLSv1_enc_data = {
-	.enc = tls1_enc,
-	.enc_flags = 0,
-};
-
-SSL3_ENC_METHOD TLSv1_1_enc_data = {
-	.enc = tls1_enc,
-	.enc_flags = SSL_ENC_FLAG_EXPLICIT_IV,
-};
-
-SSL3_ENC_METHOD TLSv1_2_enc_data = {
-	.enc = tls1_enc,
-	.enc_flags = SSL_ENC_FLAG_EXPLICIT_IV|SSL_ENC_FLAG_SIGALGS|
-	    SSL_ENC_FLAG_SHA256_PRF|SSL_ENC_FLAG_TLS1_2_CIPHERS,
-};
-
-long
-tls1_default_timeout(void)
-{
-	/* 2 hours, the 24 hours mentioned in the TLSv1 spec
-	 * is way too long for http, the cache would over fill */
-	return (60 * 60 * 2);
-}
 
 int
 tls1_new(SSL *s)
@@ -175,7 +151,7 @@ tls1_clear(SSL *s)
 	s->version = s->method->internal->version;
 }
 
-static int nid_list[] = {
+static const int nid_list[] = {
 	NID_sect163k1,		/* sect163k1 (1) */
 	NID_sect163r1,		/* sect163r1 (2) */
 	NID_sect163r2,		/* sect163r2 (3) */
@@ -253,7 +229,14 @@ static const uint16_t eccurves_list[] = {
 };
 #endif
 
-static const uint16_t eccurves_default[] = {
+static const uint16_t eccurves_client_default[] = {
+	29,			/* X25519 (29) */
+	23,			/* secp256r1 (23) */
+	24,			/* secp384r1 (24) */
+	25,			/* secp521r1 (25) */
+};
+
+static const uint16_t eccurves_server_default[] = {
 	29,			/* X25519 (29) */
 	23,			/* secp256r1 (23) */
 	24,			/* secp384r1 (24) */
@@ -361,25 +344,31 @@ tls1_get_formatlist(SSL *s, int client_formats, const uint8_t **pformats,
 }
 
 /*
- * Return the appropriate curve list. If client_curves is non-zero, return
- * the client/session curves. Otherwise return the custom curve list if one
- * exists, or the default curves if a custom list has not been specified.
+ * Return the appropriate group list. If client_groups is non-zero, return
+ * the client/session groups. Otherwise return the custom group list if one
+ * exists, or the default groups if a custom list has not been specified.
  */
 void
-tls1_get_curvelist(SSL *s, int client_curves, const uint16_t **pcurves,
-    size_t *pcurveslen)
+tls1_get_group_list(SSL *s, int client_groups, const uint16_t **pgroups,
+    size_t *pgroupslen)
 {
-	if (client_curves != 0) {
-		*pcurves = SSI(s)->tlsext_supportedgroups;
-		*pcurveslen = SSI(s)->tlsext_supportedgroups_length;
+	if (client_groups != 0) {
+		*pgroups = SSI(s)->tlsext_supportedgroups;
+		*pgroupslen = SSI(s)->tlsext_supportedgroups_length;
 		return;
 	}
 
-	*pcurves = s->internal->tlsext_supportedgroups;
-	*pcurveslen = s->internal->tlsext_supportedgroups_length;
-	if (*pcurves == NULL) {
-		*pcurves = eccurves_default;
-		*pcurveslen = sizeof(eccurves_default) / 2;
+	*pgroups = s->internal->tlsext_supportedgroups;
+	*pgroupslen = s->internal->tlsext_supportedgroups_length;
+	if (*pgroups != NULL)
+		return;
+
+	if (!s->server) {
+		*pgroups = eccurves_client_default;
+		*pgroupslen = sizeof(eccurves_client_default) / 2;
+	} else {
+		*pgroups = eccurves_server_default;
+		*pgroupslen = sizeof(eccurves_server_default) / 2;
 	}
 }
 
@@ -410,7 +399,7 @@ tls1_set_groups(uint16_t **out_group_ids, size_t *out_group_ids_len,
 }
 
 int
-tls1_set_groups_list(uint16_t **out_group_ids, size_t *out_group_ids_len,
+tls1_set_group_list(uint16_t **out_group_ids, size_t *out_group_ids_len,
     const char *groups)
 {
 	uint16_t *new_group_ids, *group_ids = NULL;
@@ -461,13 +450,13 @@ tls1_set_groups_list(uint16_t **out_group_ids, size_t *out_group_ids_len,
 int
 tls1_check_curve(SSL *s, const uint16_t curve_id)
 {
-	const uint16_t *curves;
-	size_t curveslen, i;
+	const uint16_t *groups;
+	size_t groupslen, i;
 
-	tls1_get_curvelist(s, 0, &curves, &curveslen);
+	tls1_get_group_list(s, 0, &groups, &groupslen);
 
-	for (i = 0; i < curveslen; i++) {
-		if (curves[i] == curve_id)
+	for (i = 0; i < groupslen; i++) {
+		if (groups[i] == curve_id)
 			return (1);
 	}
 	return (0);
@@ -486,8 +475,8 @@ tls1_get_shared_curve(SSL *s)
 
 	/* Return first preference shared curve. */
 	server_pref = (s->internal->options & SSL_OP_CIPHER_SERVER_PREFERENCE);
-	tls1_get_curvelist(s, (server_pref == 0), &pref, &preflen);
-	tls1_get_curvelist(s, (server_pref != 0), &supp, &supplen);
+	tls1_get_group_list(s, (server_pref == 0), &pref, &preflen);
+	tls1_get_group_list(s, (server_pref != 0), &supp, &supplen);
 
 	for (i = 0; i < preflen; i++) {
 		for (j = 0; j < supplen; j++) {
@@ -504,43 +493,38 @@ tls1_set_ec_id(uint16_t *curve_id, uint8_t *comp_id, EC_KEY *ec)
 {
 	const EC_GROUP *grp;
 	const EC_METHOD *meth;
-	int is_prime = 0;
-	int nid, id;
+	int prime_field;
+	int nid;
 
 	if (ec == NULL)
 		return (0);
 
-	/* Determine if it is a prime field. */
+	/* Determine whether the curve is defined over a prime field. */
 	if ((grp = EC_KEY_get0_group(ec)) == NULL)
 		return (0);
 	if ((meth = EC_GROUP_method_of(grp)) == NULL)
 		return (0);
-	if (EC_METHOD_get_field_type(meth) == NID_X9_62_prime_field)
-		is_prime = 1;
+	prime_field = (EC_METHOD_get_field_type(meth) == NID_X9_62_prime_field);
 
-	/* Determine curve ID. */
+	/* Determine curve ID - NID_undef results in a curve ID of zero. */
 	nid = EC_GROUP_get_curve_name(grp);
-	id = tls1_ec_nid2curve_id(nid);
-
 	/* If we have an ID set it, otherwise set arbitrary explicit curve. */
-	if (id != 0)
-		*curve_id = id;
-	else
-		*curve_id = is_prime ? 0xff01 : 0xff02;
+	if ((*curve_id = tls1_ec_nid2curve_id(nid)) == 0)
+		*curve_id = prime_field ? 0xff01 : 0xff02;
+
+	if (comp_id == NULL)
+		return (1);
 
 	/* Specify the compression identifier. */
-	if (comp_id != NULL) {
-		if (EC_KEY_get0_public_key(ec) == NULL)
-			return (0);
-
-		if (EC_KEY_get_conv_form(ec) == POINT_CONVERSION_COMPRESSED) {
-			*comp_id = is_prime ?
-			    TLSEXT_ECPOINTFORMAT_ansiX962_compressed_prime :
-			    TLSEXT_ECPOINTFORMAT_ansiX962_compressed_char2;
-		} else {
-			*comp_id = TLSEXT_ECPOINTFORMAT_uncompressed;
-		}
+	if (EC_KEY_get0_public_key(ec) == NULL)
+		return (0);
+	*comp_id = TLSEXT_ECPOINTFORMAT_uncompressed;
+	if (EC_KEY_get_conv_form(ec) == POINT_CONVERSION_COMPRESSED) {
+		*comp_id = TLSEXT_ECPOINTFORMAT_ansiX962_compressed_char2;
+		if (prime_field)
+			*comp_id = TLSEXT_ECPOINTFORMAT_ansiX962_compressed_prime;
 	}
+
 	return (1);
 }
 
@@ -548,8 +532,8 @@ tls1_set_ec_id(uint16_t *curve_id, uint8_t *comp_id, EC_KEY *ec)
 static int
 tls1_check_ec_key(SSL *s, const uint16_t *curve_id, const uint8_t *comp_id)
 {
-	size_t curveslen, formatslen, i;
-	const uint16_t *curves;
+	size_t groupslen, formatslen, i;
+	const uint16_t *groups;
 	const uint8_t *formats;
 
 	/*
@@ -569,13 +553,13 @@ tls1_check_ec_key(SSL *s, const uint16_t *curve_id, const uint8_t *comp_id)
 	/*
 	 * Check curve list if present, otherwise everything is supported.
 	 */
-	tls1_get_curvelist(s, 1, &curves, &curveslen);
-	if (curve_id != NULL && curves != NULL) {
-		for (i = 0; i < curveslen; i++) {
-			if (curves[i] == *curve_id)
+	tls1_get_group_list(s, 1, &groups, &groupslen);
+	if (curve_id != NULL && groups != NULL) {
+		for (i = 0; i < groupslen; i++) {
+			if (groups[i] == *curve_id)
 				break;
 		}
-		if (i == curveslen)
+		if (i == groupslen)
 			return (0);
 	}
 
@@ -602,63 +586,6 @@ tls1_check_ec_server_key(SSL *s)
 		return (0);
 
 	return tls1_check_ec_key(s, &curve_id, &comp_id);
-}
-
-/* Check EC temporary key is compatible with client extensions. */
-int
-tls1_check_ec_tmp_key(SSL *s)
-{
-	EC_KEY *ec = s->cert->ecdh_tmp;
-	uint16_t curve_id;
-
-	/* Need a shared curve. */
-	if (tls1_get_shared_curve(s) != NID_undef)
-		return (1);
-
-	if (ec == NULL)
-		return (0);
-
-	if (tls1_set_ec_id(&curve_id, NULL, ec) != 1)
-		return (0);
-
-	return tls1_check_ec_key(s, &curve_id, NULL);
-}
-
-/*
- * List of supported signature algorithms and hashes. Should make this
- * customisable at some point, for now include everything we support.
- */
-
-static unsigned char tls12_sigalgs[] = {
-	TLSEXT_hash_sha512, TLSEXT_signature_rsa,
-	TLSEXT_hash_sha512, TLSEXT_signature_ecdsa,
-#ifndef OPENSSL_NO_GOST
-	TLSEXT_hash_streebog_512, TLSEXT_signature_gostr12_512,
-#endif
-
-	TLSEXT_hash_sha384, TLSEXT_signature_rsa,
-	TLSEXT_hash_sha384, TLSEXT_signature_ecdsa,
-
-	TLSEXT_hash_sha256, TLSEXT_signature_rsa,
-	TLSEXT_hash_sha256, TLSEXT_signature_ecdsa,
-
-#ifndef OPENSSL_NO_GOST
-	TLSEXT_hash_streebog_256, TLSEXT_signature_gostr12_256,
-	TLSEXT_hash_gost94, TLSEXT_signature_gostr01,
-#endif
-
-	TLSEXT_hash_sha224, TLSEXT_signature_rsa,
-	TLSEXT_hash_sha224, TLSEXT_signature_ecdsa,
-
-	TLSEXT_hash_sha1, TLSEXT_signature_rsa,
-	TLSEXT_hash_sha1, TLSEXT_signature_ecdsa,
-};
-
-void
-tls12_get_req_sig_algs(SSL *s, unsigned char **sigalgs, size_t *sigalgs_len)
-{
-	*sigalgs = tls12_sigalgs;
-	*sigalgs_len = sizeof(tls12_sigalgs);
 }
 
 int
@@ -689,7 +616,6 @@ ssl_check_clienthello_tlsext_early(SSL *s)
 		ssl3_send_alert(s, SSL3_AL_WARNING, al);
 		return 1;
 	case SSL_TLSEXT_ERR_NOACK:
-		s->internal->servername_done = 0;
 	default:
 		return 1;
 	}
@@ -777,12 +703,11 @@ ssl_check_serverhello_tlsext(SSL *s)
 	if ((s->tlsext_status_type != -1) && !(s->internal->tlsext_status_expected) &&
 	    s->ctx && s->ctx->internal->tlsext_status_cb) {
 		int r;
-		/* Set resp to NULL, resplen to -1 so callback knows
- 		 * there is no response.
- 		 */
+
 		free(s->internal->tlsext_ocsp_resp);
 		s->internal->tlsext_ocsp_resp = NULL;
-		s->internal->tlsext_ocsp_resplen = -1;
+		s->internal->tlsext_ocsp_resp_len = 0;
+
 		r = s->ctx->internal->tlsext_status_cb(s,
 		    s->ctx->internal->tlsext_status_arg);
 		if (r == 0) {
@@ -798,14 +723,11 @@ ssl_check_serverhello_tlsext(SSL *s)
 	switch (ret) {
 	case SSL_TLSEXT_ERR_ALERT_FATAL:
 		ssl3_send_alert(s, SSL3_AL_FATAL, al);
-
 		return -1;
 	case SSL_TLSEXT_ERR_ALERT_WARNING:
 		ssl3_send_alert(s, SSL3_AL_WARNING, al);
-
 		return 1;
 	case SSL_TLSEXT_ERR_NOACK:
-		s->internal->servername_done = 0;
 	default:
 		return 1;
 	}
@@ -815,8 +737,6 @@ ssl_check_serverhello_tlsext(SSL *s)
  * ClientHello, and other operations depend on the result, we need to handle
  * any TLS session ticket extension at the same time.
  *
- *   session_id: points at the session ID in the ClientHello.
- *   session_id_len: the length of the session ID.
  *   ext_block: a CBS for the ClientHello extensions block.
  *   ret: (output) on return, if a ticket was decrypted, then this is set to
  *       point to the resulting session.
@@ -826,13 +746,14 @@ ssl_check_serverhello_tlsext(SSL *s)
  * never be decrypted, nor will s->internal->tlsext_ticket_expected be set to 1.
  *
  * Returns:
- *   -1: fatal error, either from parsing or decrypting the ticket.
- *    0: no ticket was found (or was ignored, based on settings).
- *    1: a zero length extension was found, indicating that the client supports
- *       session tickets but doesn't currently have one to offer.
- *    2: either s->internal->tls_session_secret_cb was set, or a ticket was offered but
- *       couldn't be decrypted because of a non-fatal error.
- *    3: a ticket was successfully decrypted and *ret was set.
+ *    TLS1_TICKET_FATAL_ERROR: error from parsing or decrypting the ticket.
+ *    TLS1_TICKET_NONE: no ticket was found (or was ignored, based on settings).
+ *    TLS1_TICKET_EMPTY: a zero length extension was found, indicating that the
+ *       client supports session tickets but doesn't currently have one to offer.
+ *    TLS1_TICKET_NOT_DECRYPTED: either s->internal->tls_session_secret_cb was
+ *       set, or a ticket was offered but couldn't be decrypted because of a
+ *       non-fatal error.
+ *    TLS1_TICKET_DECRYPTED: a ticket was successfully decrypted and *ret was set.
  *
  * Side effects:
  *   Sets s->internal->tlsext_ticket_expected to 1 if the server will have to issue
@@ -843,10 +764,10 @@ ssl_check_serverhello_tlsext(SSL *s)
  *   Otherwise, s->internal->tlsext_ticket_expected is set to 0.
  */
 int
-tls1_process_ticket(SSL *s, const unsigned char *session_id, int session_id_len,
-    CBS *ext_block, SSL_SESSION **ret)
+tls1_process_ticket(SSL *s, CBS *ext_block, int *alert, SSL_SESSION **ret)
 {
-	CBS extensions;
+	CBS extensions, ext_data;
+	uint16_t ext_type = 0;
 
 	s->internal->tlsext_ticket_expected = 0;
 	*ret = NULL;
@@ -856,375 +777,219 @@ tls1_process_ticket(SSL *s, const unsigned char *session_id, int session_id_len,
 	 * resumption.
 	 */
 	if (SSL_get_options(s) & SSL_OP_NO_TICKET)
-		return 0;
+		return TLS1_TICKET_NONE;
 
 	/*
 	 * An empty extensions block is valid, but obviously does not contain
 	 * a session ticket.
 	 */
 	if (CBS_len(ext_block) == 0)
-		return 0;
+		return TLS1_TICKET_NONE;
 
-	if (!CBS_get_u16_length_prefixed(ext_block, &extensions))
-		return -1;
+	if (!CBS_get_u16_length_prefixed(ext_block, &extensions)) {
+		*alert = SSL_AD_DECODE_ERROR;
+		return TLS1_TICKET_FATAL_ERROR;
+	}
 
 	while (CBS_len(&extensions) > 0) {
-		uint16_t ext_type;
-		CBS ext_data;
-
 		if (!CBS_get_u16(&extensions, &ext_type) ||
-		    !CBS_get_u16_length_prefixed(&extensions, &ext_data))
-			return -1;
-
-		if (ext_type == TLSEXT_TYPE_session_ticket) {
-			int r;
-			if (CBS_len(&ext_data) == 0) {
-				/* The client will accept a ticket but doesn't
-				 * currently have one. */
-				s->internal->tlsext_ticket_expected = 1;
-				return 1;
-			}
-			if (s->internal->tls_session_secret_cb != NULL) {
-				/* Indicate that the ticket couldn't be
-				 * decrypted rather than generating the session
-				 * from ticket now, trigger abbreviated
-				 * handshake based on external mechanism to
-				 * calculate the master secret later. */
-				return 2;
-			}
-
-			r = tls_decrypt_ticket(s, CBS_data(&ext_data),
-			    CBS_len(&ext_data), session_id, session_id_len, ret);
-
-			switch (r) {
-			case 2: /* ticket couldn't be decrypted */
-				s->internal->tlsext_ticket_expected = 1;
-				return 2;
-			case 3: /* ticket was decrypted */
-				return r;
-			case 4: /* ticket decrypted but need to renew */
-				s->internal->tlsext_ticket_expected = 1;
-				return 3;
-			default: /* fatal error */
-				return -1;
-			}
+		    !CBS_get_u16_length_prefixed(&extensions, &ext_data)) {
+			*alert = SSL_AD_DECODE_ERROR;
+			return TLS1_TICKET_FATAL_ERROR;
 		}
+
+		if (ext_type == TLSEXT_TYPE_session_ticket)
+			break;
 	}
-	return 0;
+
+	if (ext_type != TLSEXT_TYPE_session_ticket)
+		return TLS1_TICKET_NONE;
+
+	if (CBS_len(&ext_data) == 0) {
+		/*
+		 * The client will accept a ticket but does not currently
+		 * have one.
+		 */
+		s->internal->tlsext_ticket_expected = 1;
+		return TLS1_TICKET_EMPTY;
+	}
+
+	if (s->internal->tls_session_secret_cb != NULL) {
+		/*
+		 * Indicate that the ticket could not be decrypted rather than
+		 * generating the session from ticket now, trigger abbreviated
+		 * handshake based on external mechanism to calculate the master
+		 * secret later.
+		 */
+		return TLS1_TICKET_NOT_DECRYPTED;
+	}
+
+	return tls_decrypt_ticket(s, &ext_data, alert, ret);
 }
 
 /* tls_decrypt_ticket attempts to decrypt a session ticket.
  *
- *   etick: points to the body of the session ticket extension.
- *   eticklen: the length of the session tickets extenion.
- *   sess_id: points at the session ID.
- *   sesslen: the length of the session ID.
+ *   ticket: a CBS containing the body of the session ticket extension.
  *   psess: (output) on return, if a ticket was decrypted, then this is set to
  *       point to the resulting session.
  *
  * Returns:
- *   -1: fatal error, either from parsing or decrypting the ticket.
- *    2: the ticket couldn't be decrypted.
- *    3: a ticket was successfully decrypted and *psess was set.
- *    4: same as 3, but the ticket needs to be renewed.
+ *    TLS1_TICKET_FATAL_ERROR: error from parsing or decrypting the ticket.
+ *    TLS1_TICKET_NOT_DECRYPTED: the ticket couldn't be decrypted.
+ *    TLS1_TICKET_DECRYPTED: a ticket was decrypted and *psess was set.
  */
 static int
-tls_decrypt_ticket(SSL *s, const unsigned char *etick, int eticklen,
-    const unsigned char *sess_id, int sesslen, SSL_SESSION **psess)
+tls_decrypt_ticket(SSL *s, CBS *ticket, int *alert, SSL_SESSION **psess)
 {
-	SSL_SESSION *sess;
-	unsigned char *sdec;
+	CBS ticket_name, ticket_iv, ticket_encdata, ticket_hmac;
+	SSL_SESSION *sess = NULL;
+	unsigned char *sdec = NULL;
+	size_t sdec_len = 0;
 	const unsigned char *p;
-	int slen, mlen, renew_ticket = 0;
-	unsigned char tick_hmac[EVP_MAX_MD_SIZE];
-	HMAC_CTX hctx;
-	EVP_CIPHER_CTX ctx;
+	unsigned char hmac[EVP_MAX_MD_SIZE];
+	HMAC_CTX *hctx = NULL;
+	EVP_CIPHER_CTX *cctx = NULL;
 	SSL_CTX *tctx = s->initial_ctx;
+	int slen, hlen;
+	int alert_desc = SSL_AD_INTERNAL_ERROR;
+	int ret = TLS1_TICKET_FATAL_ERROR;
+
+	*psess = NULL;
+
+	if (!CBS_get_bytes(ticket, &ticket_name, 16))
+		goto derr;
 
 	/*
-	 * The API guarantees EVP_MAX_IV_LENGTH bytes of space for
-	 * the iv to tlsext_ticket_key_cb().  Since the total space
-	 * required for a session cookie is never less than this,
-	 * this check isn't too strict.  The exact check comes later.
+	 * Initialize session ticket encryption and HMAC contexts.
 	 */
-	if (eticklen < 16 + EVP_MAX_IV_LENGTH)
-		return 2;
+	if ((cctx = EVP_CIPHER_CTX_new()) == NULL)
+		goto err;
+	if ((hctx = HMAC_CTX_new()) == NULL)
+		goto err;
 
-	/* Initialize session ticket encryption and HMAC contexts */
-	HMAC_CTX_init(&hctx);
-	EVP_CIPHER_CTX_init(&ctx);
-	if (tctx->internal->tlsext_ticket_key_cb) {
-		unsigned char *nctick = (unsigned char *)etick;
-		int rv = tctx->internal->tlsext_ticket_key_cb(s,
-		    nctick, nctick + 16, &ctx, &hctx, 0);
-		if (rv < 0) {
-			HMAC_CTX_cleanup(&hctx);
-			EVP_CIPHER_CTX_cleanup(&ctx);
-			return -1;
-		}
-		if (rv == 0) {
-			HMAC_CTX_cleanup(&hctx);
-			EVP_CIPHER_CTX_cleanup(&ctx);
-			return 2;
-		}
-		if (rv == 2)
-			renew_ticket = 1;
-	} else {
-		/* Check key name matches */
-		if (timingsafe_memcmp(etick,
-		    tctx->internal->tlsext_tick_key_name, 16))
-			return 2;
-		HMAC_Init_ex(&hctx, tctx->internal->tlsext_tick_hmac_key,
-		    16, tlsext_tick_md(), NULL);
-		EVP_DecryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL,
-		    tctx->internal->tlsext_tick_aes_key, etick + 16);
-	}
+	if (tctx->internal->tlsext_ticket_key_cb != NULL) {
+		int rv;
 
-	/*
-	 * Attempt to process session ticket, first conduct sanity and
-	 * integrity checks on ticket.
-	 */
-	mlen = HMAC_size(&hctx);
-	if (mlen < 0) {
-		HMAC_CTX_cleanup(&hctx);
-		EVP_CIPHER_CTX_cleanup(&ctx);
-		return -1;
-	}
-
-	/* Sanity check ticket length: must exceed keyname + IV + HMAC */
-	if (eticklen <= 16 + EVP_CIPHER_CTX_iv_length(&ctx) + mlen) {
-		HMAC_CTX_cleanup(&hctx);
-		EVP_CIPHER_CTX_cleanup(&ctx);
-		return 2;
-	}
-	eticklen -= mlen;
-
-	/* Check HMAC of encrypted ticket */
-	if (HMAC_Update(&hctx, etick, eticklen) <= 0 ||
-	    HMAC_Final(&hctx, tick_hmac, NULL) <= 0) {
-		HMAC_CTX_cleanup(&hctx);
-		EVP_CIPHER_CTX_cleanup(&ctx);
-		return -1;
-	}
-
-	HMAC_CTX_cleanup(&hctx);
-	if (timingsafe_memcmp(tick_hmac, etick + eticklen, mlen)) {
-		EVP_CIPHER_CTX_cleanup(&ctx);
-		return 2;
-	}
-
-	/* Attempt to decrypt session data */
-	/* Move p after IV to start of encrypted ticket, update length */
-	p = etick + 16 + EVP_CIPHER_CTX_iv_length(&ctx);
-	eticklen -= 16 + EVP_CIPHER_CTX_iv_length(&ctx);
-	sdec = malloc(eticklen);
-	if (sdec == NULL ||
-	    EVP_DecryptUpdate(&ctx, sdec, &slen, p, eticklen) <= 0) {
-		free(sdec);
-		EVP_CIPHER_CTX_cleanup(&ctx);
-		return -1;
-	}
-	if (EVP_DecryptFinal_ex(&ctx, sdec + slen, &mlen) <= 0) {
-		free(sdec);
-		EVP_CIPHER_CTX_cleanup(&ctx);
-		return 2;
-	}
-	slen += mlen;
-	EVP_CIPHER_CTX_cleanup(&ctx);
-	p = sdec;
-
-	sess = d2i_SSL_SESSION(NULL, &p, slen);
-	free(sdec);
-	if (sess) {
-		/* The session ID, if non-empty, is used by some clients to
-		 * detect that the ticket has been accepted. So we copy it to
-		 * the session structure. If it is empty set length to zero
-		 * as required by standard.
+		/*
+		 * The API guarantees EVP_MAX_IV_LENGTH bytes of space for
+		 * the iv to tlsext_ticket_key_cb().  Since the total space
+		 * required for a session cookie is never less than this,
+		 * this check isn't too strict.  The exact check comes later.
 		 */
-		if (sesslen)
-			memcpy(sess->session_id, sess_id, sesslen);
-		sess->session_id_length = sesslen;
-		*psess = sess;
-		if (renew_ticket)
-			return 4;
-		else
-			return 3;
-	}
-	ERR_clear_error();
-	/* For session parse failure, indicate that we need to send a new
-	 * ticket. */
-	return 2;
-}
+		if (CBS_len(ticket) < EVP_MAX_IV_LENGTH)
+			goto derr;
 
-/* Tables to translate from NIDs to TLS v1.2 ids */
-
-typedef struct {
-	int nid;
-	int id;
-} tls12_lookup;
-
-static tls12_lookup tls12_md[] = {
-	{NID_md5, TLSEXT_hash_md5},
-	{NID_sha1, TLSEXT_hash_sha1},
-	{NID_sha224, TLSEXT_hash_sha224},
-	{NID_sha256, TLSEXT_hash_sha256},
-	{NID_sha384, TLSEXT_hash_sha384},
-	{NID_sha512, TLSEXT_hash_sha512},
-	{NID_id_GostR3411_94, TLSEXT_hash_gost94},
-	{NID_id_tc26_gost3411_2012_256, TLSEXT_hash_streebog_256},
-	{NID_id_tc26_gost3411_2012_512, TLSEXT_hash_streebog_512}
-};
-
-static tls12_lookup tls12_sig[] = {
-	{EVP_PKEY_RSA, TLSEXT_signature_rsa},
-	{EVP_PKEY_EC, TLSEXT_signature_ecdsa},
-	{EVP_PKEY_GOSTR01, TLSEXT_signature_gostr01},
-};
-
-static int
-tls12_find_id(int nid, tls12_lookup *table, size_t tlen)
-{
-	size_t i;
-	for (i = 0; i < tlen; i++) {
-		if (table[i].nid == nid)
-			return table[i].id;
-	}
-	return -1;
-}
-
-int
-tls12_get_hashid(const EVP_MD *md)
-{
-	if (md == NULL)
-		return -1;
-
-	return tls12_find_id(EVP_MD_type(md), tls12_md,
-	    sizeof(tls12_md) / sizeof(tls12_lookup));
-}
-
-int
-tls12_get_sigid(const EVP_PKEY *pk)
-{
-	if (pk == NULL)
-		return -1;
-
-	return tls12_find_id(pk->type, tls12_sig,
-	    sizeof(tls12_sig) / sizeof(tls12_lookup));
-}
-
-int
-tls12_get_hashandsig(CBB *cbb, const EVP_PKEY *pk, const EVP_MD *md)
-{
-	int hash_id, sig_id;
-
-	if ((hash_id = tls12_get_hashid(md)) == -1)
-		return 0;
-	if ((sig_id = tls12_get_sigid(pk)) == -1)
-		return 0;
-
-	if (!CBB_add_u8(cbb, hash_id))
-		return 0;
-	if (!CBB_add_u8(cbb, sig_id))
-		return 0;
-
-	return 1;
-}
-
-const EVP_MD *
-tls12_get_hash(unsigned char hash_alg)
-{
-	switch (hash_alg) {
-	case TLSEXT_hash_sha1:
-		return EVP_sha1();
-	case TLSEXT_hash_sha224:
-		return EVP_sha224();
-	case TLSEXT_hash_sha256:
-		return EVP_sha256();
-	case TLSEXT_hash_sha384:
-		return EVP_sha384();
-	case TLSEXT_hash_sha512:
-		return EVP_sha512();
-#ifndef OPENSSL_NO_GOST
-	case TLSEXT_hash_gost94:
-		return EVP_gostr341194();
-	case TLSEXT_hash_streebog_256:
-		return EVP_streebog256();
-	case TLSEXT_hash_streebog_512:
-		return EVP_streebog512();
-#endif
-	default:
-		return NULL;
-	}
-}
-
-/* Set preferred digest for each key type */
-
-int
-tls1_process_sigalgs(SSL *s, CBS *cbs)
-{
-	const EVP_MD *md;
-	CERT *c = s->cert;
-	int idx;
-
-	/* Extension ignored for inappropriate versions */
-	if (!SSL_USE_SIGALGS(s))
-		return 1;
-
-	/* Should never happen */
-	if (c == NULL)
-		return 0;
-
-	c->pkeys[SSL_PKEY_RSA_SIGN].digest = NULL;
-	c->pkeys[SSL_PKEY_RSA_ENC].digest = NULL;
-	c->pkeys[SSL_PKEY_ECC].digest = NULL;
-	c->pkeys[SSL_PKEY_GOST01].digest = NULL;
-
-	while (CBS_len(cbs) > 0) {
-		uint8_t hash_alg, sig_alg;
-
-		if (!CBS_get_u8(cbs, &hash_alg) || !CBS_get_u8(cbs, &sig_alg))
-			return 0;
-
-		switch (sig_alg) {
-		case TLSEXT_signature_rsa:
-			idx = SSL_PKEY_RSA_SIGN;
-			break;
-		case TLSEXT_signature_ecdsa:
-			idx = SSL_PKEY_ECC;
-			break;
-		case TLSEXT_signature_gostr01:
-		case TLSEXT_signature_gostr12_256:
-		case TLSEXT_signature_gostr12_512:
-			idx = SSL_PKEY_GOST01;
-			break;
-		default:
-			continue;
+		if ((rv = tctx->internal->tlsext_ticket_key_cb(s,
+		    (unsigned char *)CBS_data(&ticket_name),
+		    (unsigned char *)CBS_data(ticket), cctx, hctx, 0)) < 0)
+			goto err;
+		if (rv == 0)
+			goto derr;
+		if (rv == 2) {
+			/* Renew ticket. */
+			s->internal->tlsext_ticket_expected = 1;
 		}
 
-		if (c->pkeys[idx].digest == NULL) {
-			md = tls12_get_hash(hash_alg);
-			if (md) {
-				c->pkeys[idx].digest = md;
-				if (idx == SSL_PKEY_RSA_SIGN)
-					c->pkeys[SSL_PKEY_RSA_ENC].digest = md;
-			}
-		}
-
+		/*
+		 * Now that the cipher context is initialised, we can extract
+		 * the IV since its length is known.
+		 */
+		if (!CBS_get_bytes(ticket, &ticket_iv,
+		    EVP_CIPHER_CTX_iv_length(cctx)))
+			goto derr;
+	} else {
+		/* Check that the key name matches. */
+		if (!CBS_mem_equal(&ticket_name,
+		    tctx->internal->tlsext_tick_key_name,
+		    sizeof(tctx->internal->tlsext_tick_key_name)))
+			goto derr;
+		if (!CBS_get_bytes(ticket, &ticket_iv,
+		    EVP_CIPHER_iv_length(EVP_aes_128_cbc())))
+			goto derr;
+		if (!EVP_DecryptInit_ex(cctx, EVP_aes_128_cbc(), NULL,
+		    tctx->internal->tlsext_tick_aes_key, CBS_data(&ticket_iv)))
+			goto err;
+		if (!HMAC_Init_ex(hctx, tctx->internal->tlsext_tick_hmac_key,
+		    sizeof(tctx->internal->tlsext_tick_hmac_key), EVP_sha256(),
+		    NULL))
+			goto err;
 	}
 
 	/*
-	 * Set any remaining keys to default values. NOTE: if alg is not
-	 * supported it stays as NULL.
+	 * Attempt to process session ticket.
 	 */
-	if (!c->pkeys[SSL_PKEY_RSA_SIGN].digest) {
-		c->pkeys[SSL_PKEY_RSA_SIGN].digest = EVP_sha1();
-		c->pkeys[SSL_PKEY_RSA_ENC].digest = EVP_sha1();
+
+	if ((hlen = HMAC_size(hctx)) < 0)
+		goto err;
+
+	if (hlen > CBS_len(ticket))
+		goto derr;
+	if (!CBS_get_bytes(ticket, &ticket_encdata, CBS_len(ticket) - hlen))
+		goto derr;
+	if (!CBS_get_bytes(ticket, &ticket_hmac, hlen))
+		goto derr;
+	if (CBS_len(ticket) != 0) {
+		alert_desc = SSL_AD_DECODE_ERROR;
+		goto err;
 	}
-	if (!c->pkeys[SSL_PKEY_ECC].digest)
-		c->pkeys[SSL_PKEY_ECC].digest = EVP_sha1();
-#ifndef OPENSSL_NO_GOST
-	if (!c->pkeys[SSL_PKEY_GOST01].digest)
-		c->pkeys[SSL_PKEY_GOST01].digest = EVP_gostr341194();
-#endif
-	return 1;
+
+	/* Check HMAC of encrypted ticket. */
+	if (HMAC_Update(hctx, CBS_data(&ticket_name),
+	    CBS_len(&ticket_name)) <= 0)
+		goto err;
+	if (HMAC_Update(hctx, CBS_data(&ticket_iv),
+	    CBS_len(&ticket_iv)) <= 0)
+		goto err;
+	if (HMAC_Update(hctx, CBS_data(&ticket_encdata),
+	    CBS_len(&ticket_encdata)) <= 0)
+		goto err;
+	if (HMAC_Final(hctx, hmac, &hlen) <= 0)
+		goto err;
+
+	if (!CBS_mem_equal(&ticket_hmac, hmac, hlen))
+		goto derr;
+
+	/* Attempt to decrypt session data. */
+	sdec_len = CBS_len(&ticket_encdata);
+	if ((sdec = calloc(1, sdec_len)) == NULL)
+		goto err;
+	if (EVP_DecryptUpdate(cctx, sdec, &slen, CBS_data(&ticket_encdata),
+	    CBS_len(&ticket_encdata)) <= 0)
+		goto derr;
+	if (EVP_DecryptFinal_ex(cctx, sdec + slen, &hlen) <= 0)
+		goto derr;
+
+	slen += hlen;
+
+	/*
+	 * For session parse failures, indicate that we need to send a new
+	 * ticket.
+	 */
+	p = sdec;
+	if ((sess = d2i_SSL_SESSION(NULL, &p, slen)) == NULL)
+		goto derr;
+	*psess = sess;
+	sess = NULL;
+
+	ret = TLS1_TICKET_DECRYPTED;
+	goto done;
+
+ derr:
+	ERR_clear_error();
+	s->internal->tlsext_ticket_expected = 1;
+	ret = TLS1_TICKET_NOT_DECRYPTED;
+	goto done;
+
+ err:
+	*alert = alert_desc;
+	ret = TLS1_TICKET_FATAL_ERROR;
+	goto done;
+
+ done:
+	freezero(sdec, sdec_len);
+	EVP_CIPHER_CTX_free(cctx);
+	HMAC_CTX_free(hctx);
+	SSL_SESSION_free(sess);
+
+	return ret;
 }

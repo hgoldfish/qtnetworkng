@@ -1,4 +1,4 @@
-/* $OpenBSD: ocsp_cl.c,v 1.15 2018/03/17 14:44:34 jsing Exp $ */
+/* $OpenBSD: ocsp_cl.c,v 1.17 2020/10/09 17:19:35 tb Exp $ */
 /* Written by Tom Titchener <Tom_Titchener@groove.net> for the OpenSSL
  * project. */
 
@@ -81,18 +81,19 @@
 OCSP_ONEREQ *
 OCSP_request_add0_id(OCSP_REQUEST *req, OCSP_CERTID *cid)
 {
-	OCSP_ONEREQ *one = NULL;
+	OCSP_ONEREQ *one;
 
-	if (!(one = OCSP_ONEREQ_new()))
+	if ((one = OCSP_ONEREQ_new()) == NULL)
 		goto err;
-	if (one->reqCert)
-		OCSP_CERTID_free(one->reqCert);
+	if (req != NULL) {
+	       	if (!sk_OCSP_ONEREQ_push(req->tbsRequest->requestList, one))
+			goto err;
+	}
+	OCSP_CERTID_free(one->reqCert);
 	one->reqCert = cid;
-	if (req && !sk_OCSP_ONEREQ_push(req->tbsRequest->requestList, one))
-		goto err;
 	return one;
 
-err:
+ err:
 	OCSP_ONEREQ_free(one);
 	return NULL;
 }
@@ -139,7 +140,7 @@ OCSP_request_add1_cert(OCSP_REQUEST *req, X509 *cert)
 	return 1;
 }
 
-/* Sign an OCSP request set the requestorName to the subjec
+/* Sign an OCSP request set the requestorName to the subject
  * name of an optional signers certificate and include one
  * or more optional certificates in the request. Behaves
  * like PKCS7_sign().

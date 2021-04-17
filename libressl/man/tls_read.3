@@ -1,4 +1,4 @@
-.\" $OpenBSD: tls_read.3,v 1.4 2017/02/20 13:09:15 schwarze Exp $
+.\" $OpenBSD: tls_read.3,v 1.7 2019/07/09 17:58:33 jsing Exp $
 .\"
 .\" Copyright (c) 2014, 2015 Ted Unangst <tedu@openbsd.org>
 .\" Copyright (c) 2015 Doug Hogan <doug@openbsd.org>
@@ -18,7 +18,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: February 20 2017 $
+.Dd $Mdocdate: July 9 2019 $
 .Dt TLS_READ 3
 .Os
 .Sh NAME
@@ -104,31 +104,13 @@ and
 .Fn tls_close
 return 0 on success or -1 on error.
 .Pp
-.Fn tls_error
-returns
-.Dv NULL
-if no error occurred with
-.Fa ctx
-during or since the last call to
-.Fn tls_handshake ,
-.Fn tls_read ,
-.Fn tls_write ,
-.Fn tls_close ,
-or
-.Fn tls_reset
-involving
-.Fa ctx ,
-or if memory allocation failed while trying to assemble the string
-describing the most recent error related to
-.Fa ctx .
-.Pp
 The
 .Fn tls_read ,
 .Fn tls_write ,
 .Fn tls_handshake ,
 and
 .Fn tls_close
-functions have two special return values:
+functions also have two special return values:
 .Pp
 .Bl -tag -width "TLS_WANT_POLLOUT" -offset indent -compact
 .It Dv TLS_WANT_POLLIN
@@ -152,6 +134,24 @@ and
 .Fn tls_close
 all explicitly clear
 .Ar errno .
+.Pp
+.Fn tls_error
+returns
+.Dv NULL
+if no error occurred with
+.Fa ctx
+during or since the last call to
+.Fn tls_handshake ,
+.Fn tls_read ,
+.Fn tls_write ,
+.Fn tls_close ,
+or
+.Fn tls_reset
+involving
+.Fa ctx ,
+or if memory allocation failed while trying to assemble the string
+describing the most recent error related to
+.Fa ctx .
 .Sh EXAMPLES
 The following example demonstrates how to handle TLS writes on a blocking
 file descriptor:
@@ -163,8 +163,8 @@ while (len > 0) {
 	ret = tls_write(ctx, buf, len);
 	if (ret == TLS_WANT_POLLIN || ret == TLS_WANT_POLLOUT)
 		continue;
-	if (ret < 0)
-		err(1, "tls_write: %s", tls_error(ctx));
+	if (ret == -1)
+		errx(1, "tls_write: %s", tls_error(ctx));
 	buf += ret;
 	len -= ret;
 }
@@ -192,8 +192,8 @@ while (len > 0) {
 			pfd[0].events = POLLIN;
 		else if (ret == TLS_WANT_POLLOUT)
 			pfd[0].events = POLLOUT;
-		else if (ret < 0)
-			err(1, "tls_write: %s", tls_error(ctx));
+		else if (ret == -1)
+			errx(1, "tls_write: %s", tls_error(ctx));
 		else {
 			buf += ret;
 			len -= ret;

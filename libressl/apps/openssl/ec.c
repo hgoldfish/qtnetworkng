@@ -1,4 +1,4 @@
-/* $OpenBSD: ec.c,v 1.11 2018/02/07 05:47:55 jsing Exp $ */
+/* $OpenBSD: ec.c,v 1.14 2019/07/14 03:30:45 guenther Exp $ */
 /*
  * Written by Nils Larsch for the OpenSSL project.
  */
@@ -60,7 +60,6 @@
 
 #ifndef OPENSSL_NO_EC
 
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -141,7 +140,7 @@ ec_opt_named(char *arg)
 	return (0);
 }
 
-static struct option ec_options[] = {
+static const struct option ec_options[] = {
 	{
 		.name = "conv_form",
 		.argname = "form",
@@ -240,19 +239,10 @@ static struct option ec_options[] = {
 };
 
 static void
-show_ciphers(const OBJ_NAME *name, void *arg)
-{
-	static int n;
-
-	if (!islower((unsigned char)*name->name))
-		return;
-
-	fprintf(stderr, " -%-24s%s", name->name, (++n % 3 ? "" : "\n"));
-}
-
-static void
 ec_usage(void)
 {
+	int n = 0;
+
 	fprintf(stderr,
 	    "usage: ec [-conv_form form] [-in file]\n"
 	    "    [-inform format] [-noout] [-out file] [-outform format]\n"
@@ -263,7 +253,7 @@ ec_usage(void)
 	fprintf(stderr, "\n");
 
 	fprintf(stderr, "Valid ciphername values:\n\n");
-	OBJ_NAME_do_all_sorted(OBJ_NAME_TYPE_CIPHER_METH, show_ciphers, NULL);
+	OBJ_NAME_do_all_sorted(OBJ_NAME_TYPE_CIPHER_METH, show_cipher, &n);
 	fprintf(stderr, "\n");
 }
 

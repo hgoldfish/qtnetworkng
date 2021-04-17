@@ -1,7 +1,7 @@
-/* $OpenBSD: ocspcheck.c,v 1.24 2017/12/01 14:42:23 visa Exp $ */
+/* $OpenBSD: ocspcheck.c,v 1.28 2020/10/16 01:16:55 beck Exp $ */
 
 /*
- * Copyright (c) 2017 Bob Beck <beck@openbsd.org>
+ * Copyright (c) 2017,2020 Bob Beck <beck@openbsd.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -155,12 +155,27 @@ url2host(const char *host, short *port, char **path)
 		*path = strdup(ep);
 		*ep = '\0';
 	} else
-		*path = strdup("");
+		*path = strdup("/");
 
 	if (*path == NULL) {
 		warn("strdup");
 		free(url);
 		return (NULL);
+	}
+
+	/* Check to see if there is a port in the url */
+	if ((ep = strchr(url, ':')) != NULL) {
+		const char *errstr;
+		short pp;
+		pp = strtonum(ep + 1, 1, SHRT_MAX, &errstr);
+		if (errstr != NULL) {
+			warnx("error parsing port from '%s': %s", url, errstr);
+			free(url);
+			free(*path);
+			return NULL;
+		}
+		*port = pp;
+		*ep = '\0';
 	}
 
 	return (url);
@@ -184,38 +199,44 @@ parse_ocsp_time(ASN1_GENERALIZEDTIME *gt)
 }
 
 static X509_STORE *
-read_cacerts(char *file)
+read_cacerts(const char *file, const char *dir)
 {
-	X509_STORE *store;
+	X509_STORE *store = NULL;
 	X509_LOOKUP *lookup;
 
+	if (file == NULL && dir == NULL) {
+		warnx("No CA certs to load");
+		goto end;
+	}
 	if ((store = X509_STORE_new()) == NULL) {
 		warnx("Malloc failed");
 		goto end;
 	}
-	if ((lookup = X509_STORE_add_lookup(store, X509_LOOKUP_file())) ==
-	    NULL) {
-		warnx("Unable to load CA certs from file %s", file);
-		goto end;
-	}
-	if (file) {
+	if (file != NULL) {
+		if ((lookup = X509_STORE_add_lookup(store,
+		    X509_LOOKUP_file())) == NULL) {
+			warnx("Unable to load CA cert file");
+			goto end;
+		}
 		if (!X509_LOOKUP_load_file(lookup, file, X509_FILETYPE_PEM)) {
 			warnx("Unable to load CA certs from file %s", file);
 			goto end;
 		}
-	} else
-		X509_LOOKUP_load_file(lookup, NULL, X509_FILETYPE_DEFAULT);
-
-	if ((lookup = X509_STORE_add_lookup(store, X509_LOOKUP_hash_dir())) ==
-	    NULL) {
-		warnx("Unable to load CA certs from file %s", file);
-		goto end;
 	}
-	X509_LOOKUP_add_dir(lookup, NULL, X509_FILETYPE_DEFAULT);
-	ERR_clear_error();
+	if (dir != NULL) {
+		if ((lookup = X509_STORE_add_lookup(store,
+		    X509_LOOKUP_hash_dir())) == NULL) {
+			warnx("Unable to load CA cert directory");
+			goto end;
+		}
+		if (!X509_LOOKUP_add_dir(lookup, dir, X509_FILETYPE_PEM)) {
+			warnx("Unable to load CA certs from directory %s", dir);
+			goto end;
+		}
+	}
 	return store;
 
-end:
+ end:
 	X509_STORE_free(store);
 	return NULL;
 }
@@ -233,14 +254,12 @@ read_fullchain(const char *file, int *count)
 
 	if ((bio = BIO_new_file(file, "r")) == NULL) {
 		warn("Unable to read a certificate from %s", file);
-		return NULL;
+		goto end;
 	}
 	if ((xis = PEM_X509_INFO_read_bio(bio, NULL, NULL, NULL)) == NULL) {
 		warnx("Unable to read PEM format from %s", file);
-		return NULL;
+		goto end;
 	}
-	BIO_free(bio);
-
 	if (sk_X509_INFO_num(xis) <= 0) {
 		warnx("No certificates in file %s", file);
 		goto end;
@@ -263,7 +282,8 @@ read_fullchain(const char *file, int *count)
 		xi->x509 = NULL;
 		(*count)++;
 	}
-end:
+ end:
+	BIO_free(bio);
 	sk_X509_INFO_pop_free(xis, X509_INFO_free);
 	return rv;
 }
@@ -274,77 +294,81 @@ cert_from_chain(STACK_OF(X509) *fullchain)
 	return sk_X509_value(fullchain, 0);
 }
 
-static X509 *
+static const X509 *
 issuer_from_chain(STACK_OF(X509) *fullchain)
 {
-	X509 *cert, *issuer;
+	const X509 *cert;
 	X509_NAME *issuer_name;
 
 	cert = cert_from_chain(fullchain);
 	if ((issuer_name = X509_get_issuer_name(cert)) == NULL)
 		return NULL;
 
-	issuer = X509_find_by_subject(fullchain, issuer_name);
-	return issuer;
+	return X509_find_by_subject(fullchain, issuer_name);
 }
 
 static ocsp_request *
-ocsp_request_new_from_cert(char *file, int nonce)
+ocsp_request_new_from_cert(const char *cadir, char *file, int nonce)
 {
-	X509 *cert = NULL;
+	X509 *cert;
 	int count = 0;
-	OCSP_CERTID *id;
-	ocsp_request *request;
+	OCSP_CERTID *id = NULL;
+	ocsp_request *request = NULL;
 	const EVP_MD *cert_id_md = NULL;
-	X509 *issuer = NULL;
-	STACK_OF(OPENSSL_STRING) *urls;
+	const X509 *issuer;
+	STACK_OF(OPENSSL_STRING) *urls = NULL;
 
 	if ((request = calloc(1, sizeof(ocsp_request))) == NULL) {
 		warn("malloc");
-		return NULL;
+		goto err;
 	}
 
 	if ((request->req = OCSP_REQUEST_new()) == NULL)
-		return NULL;
+		goto err;
 
 	request->fullchain = read_fullchain(file, &count);
-	/* Drop rpath from pledge, we don't need to read anymore */
-	if (pledge("stdio inet dns", NULL) == -1)
-		err(1, "pledge");
-
-	if (request->fullchain == NULL)
-		return NULL;
+	if (cadir == NULL) {
+		/* Drop rpath from pledge, we don't need to read anymore */
+		if (pledge("stdio inet dns", NULL) == -1)
+			err(1, "pledge");
+	}
+	if (request->fullchain == NULL) {
+		warnx("Unable to read cert chain from file %s", file);
+		goto err;
+	}
 	if (count <= 1) {
 		warnx("File %s does not contain a cert chain", file);
-		return NULL;
+		goto err;
 	}
 	if ((cert = cert_from_chain(request->fullchain)) == NULL) {
 		warnx("No certificate found in %s", file);
-		return NULL;
+		goto err;
 	}
 	if ((issuer = issuer_from_chain(request->fullchain)) == NULL) {
 		warnx("Unable to find issuer for cert in %s", file);
-		return NULL;
+		goto err;
 	}
 
 	urls = X509_get1_ocsp(cert);
 	if (urls == NULL || sk_OPENSSL_STRING_num(urls) <= 0) {
 		warnx("Certificate in %s contains no OCSP url", file);
-		return NULL;
+		goto err;
 	}
 	if ((request->url = strdup(sk_OPENSSL_STRING_value(urls, 0))) == NULL)
-		return NULL;
+		goto err;
 	X509_email_free(urls);
+	urls = NULL;
 
 	cert_id_md = EVP_sha1(); /* XXX. This sucks but OCSP is poopy */
 	if ((id = OCSP_cert_to_id(cert_id_md, cert, issuer)) == NULL) {
 		warnx("Unable to get certificate id from cert in %s", file);
-		return NULL;
+		goto err;
 	}
 	if (OCSP_request_add0_id(request->req, id) == NULL) {
 		warnx("Unable to add certificate id to request");
-		return NULL;
+		goto err;
 	}
+	id = NULL;
 
 	request->nonce = nonce;
 	if (request->nonce)
@@ -353,13 +377,25 @@ ocsp_request_new_from_cert(char *file, int nonce)
 	if ((request->size = i2d_OCSP_REQUEST(request->req,
 	    &request->data)) <= 0) {
 		warnx("Unable to encode ocsp request");
-		return NULL;
+		goto err;
 	}
 	if (request->data == NULL) {
 		warnx("Unable to allocte memory");
-		return NULL;
+		goto err;
 	}
-	return (request);
+	return request;
+
+ err:
+	if (request != NULL) {
+		sk_X509_pop_free(request->fullchain, X509_free);
+		free(request->url);
+		OCSP_REQUEST_free(request->req);
+		free(request->data);
+	}
+	X509_email_free(urls);
+	OCSP_CERTID_free(id);
+	free(request);
+	return NULL;
 }
 
 
@@ -369,40 +405,41 @@ validate_response(char *buf, size_t size, ocsp_request *request,
 {
 	ASN1_GENERALIZEDTIME *revtime = NULL, *thisupd = NULL, *nextupd = NULL;
 	const unsigned char **p = (const unsigned char **)&buf;
-	int status, cert_status=0, crl_reason=0;
+	int status, cert_status = 0, crl_reason = 0;
 	time_t now, rev_t = -1, this_t, next_t;
-	OCSP_RESPONSE *resp;
-	OCSP_BASICRESP *bresp;
-	OCSP_CERTID *cid;
-	X509 *cert, *issuer;
+	OCSP_RESPONSE *resp = NULL;
+	OCSP_BASICRESP *bresp = NULL;
+	OCSP_CERTID *cid = NULL;
+	const X509 *cert, *issuer;
+	int ret = 0;
 
 	if ((cert = cert_from_chain(request->fullchain)) == NULL) {
 		warnx("No certificate found in %s", file);
-		return 0;
+		goto err;
 	}
 	if ((issuer = issuer_from_chain(request->fullchain)) == NULL) {
 		warnx("Unable to find certificate issuer for cert in %s", file);
-		return 0;
+		goto err;
 	}
 	if ((cid = OCSP_cert_to_id(NULL, cert, issuer)) == NULL) {
 		warnx("Unable to get issuer cert/CID in %s", file);
-		return 0;
+		goto err;
 	}
 
 	if ((resp = d2i_OCSP_RESPONSE(NULL, p, size)) == NULL) {
 		warnx("OCSP response unserializable from host %s", host);
-		return 0;
+		goto err;
 	}
 
 	if ((bresp = OCSP_response_get1_basic(resp)) == NULL) {
 		warnx("Failed to load OCSP response from %s", host);
-		return 0;
+		goto err;
 	}
 
 	if (OCSP_basic_verify(bresp, request->fullchain, store,
 		OCSP_TRUSTOTHER) != 1) {
 		warnx("OCSP verify failed from %s", host);
-		return 0;
+		goto err;
 	}
 	dspew("OCSP response signature validated from %s\n", host);
 
@@ -410,7 +447,7 @@ validate_response(char *buf, size_t size, ocsp_request *request,
 	if (status != OCSP_RESPONSE_STATUS_SUCCESSFUL) {
 		warnx("OCSP Failure: code %d (%s) from host %s",
 		    status, OCSP_response_status_str(status), host);
-		return 0;
+		goto err;
 	}
 	dspew("OCSP response status %d from host %s\n", status, host);
 
@@ -419,19 +456,19 @@ validate_response(char *buf, size_t size, ocsp_request *request,
 	if (request->nonce) {
 		if (OCSP_check_nonce(request->req, bresp) <= 0) {
 			warnx("No OCSP nonce, or mismatch, from host %s", host);
-			return 0;
+			goto err;
 		}
 	}
 
 	if (OCSP_resp_find_status(bresp, cid, &cert_status, &crl_reason,
 	    &revtime, &thisupd, &nextupd) != 1) {
 		warnx("OCSP verify failed: no result for cert");
-		return 0;
+		goto err;
 	}
 
 	if (revtime && (rev_t = parse_ocsp_time(revtime)) == -1) {
 		warnx("Unable to parse revocation time in OCSP reply");
-		return 0;
+		goto err;
 	}
 	/*
 	 * Belt and suspenders, Treat it as revoked if there is either
@@ -441,21 +478,21 @@ validate_response(char *buf, size_t size, ocsp_request *request,
 		warnx("Invalid OCSP reply: certificate is revoked");
 		if (rev_t != -1)
 			warnx("Certificate revoked at: %s", ctime(&rev_t));
-		return 0;
+		goto err;
 	}
 	if ((this_t = parse_ocsp_time(thisupd)) == -1) {
 		warnx("unable to parse this update time in OCSP reply");
-		return 0;
+		goto err;
 	}
 	if ((next_t = parse_ocsp_time(nextupd)) == -1) {
 		warnx("unable to parse next update time in OCSP reply");
-		return 0;
+		goto err;
 	}
 
 	/* Don't allow this update to precede next update */
 	if (this_t >= next_t) {
 		warnx("Invalid OCSP reply: this update >= next update");
-		return 0;
+		goto err;
 	}
 
 	now = time(NULL);
@@ -464,9 +501,9 @@ validate_response(char *buf, size_t size, ocsp_request *request,
 	 * in the future.
 	 */
 	if (this_t > now + JITTER_SEC) {
-		warnx("Invalid OCSP reply: this update is in the future (%s)",
+		warnx("Invalid OCSP reply: this update is in the future at %s",
 		    ctime(&this_t));
-		return 0;
+		goto err;
 	}
 
 	/*
@@ -474,24 +511,29 @@ validate_response(char *buf, size_t size, ocsp_request *request,
 	 * in the past.
 	 */
 	if (this_t < now - MAXAGE_SEC) {
-		warnx("Invalid OCSP reply: this update is too old (%s)",
+		warnx("Invalid OCSP reply: this update is too old %s",
 		    ctime(&this_t));
-		return 0;
+		goto err;
 	}
 
 	/*
 	 * Check that next update is still valid
 	 */
 	if (next_t < now - JITTER_SEC) {
-		warnx("Invalid OCSP reply: reply has expired (%s)",
+		warnx("Invalid OCSP reply: reply has expired at %s",
 		    ctime(&next_t));
-		return 0;
+		goto err;
 	}
 
 	vspew("OCSP response validated from %s\n", host);
 	vspew("	   This Update: %s", ctime(&this_t));
 	vspew("	   Next Update: %s", ctime(&next_t));
-	return 1;
+	ret = 1;
+ err:
+	OCSP_RESPONSE_free(resp);
+	OCSP_BASICRESP_free(bresp);
+	OCSP_CERTID_free(cid);
+	return ret;
 }
 
 static void
@@ -506,8 +548,9 @@ usage(void)
 int
 main(int argc, char **argv)
 {
-	char *host = NULL, *path = "/", *certfile = NULL, *outfile = NULL,
-	    *cafile = NULL, *instaple = NULL, *infile = NULL;
+	const char *cafile = NULL, *cadir = NULL;
+	char *host = NULL, *path = NULL, *certfile = NULL, *outfile = NULL,
+	    *instaple = NULL, *infile = NULL;
 	struct addr addrs[MAX_SERVERS_DNS] = {{0}};
 	struct source sources[MAX_SERVERS_DNS];
 	int i, ch, staplefd = -1, infd = -1, nonce = 1;
@@ -543,7 +586,7 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if ((certfile = argv[0]) == NULL)
+	if (argc != 1 || (certfile = argv[0]) == NULL)
 		usage();
 
 	if (outfile != NULL) {
@@ -566,6 +609,24 @@ main(int argc, char **argv)
 		nonce = 0; /* Can't validate a nonce on a saved reply */
 	}
 
+	if (cafile == NULL) {
+		if (access(X509_get_default_cert_file(), R_OK) == 0)
+			cafile = X509_get_default_cert_file();
+		if (access(X509_get_default_cert_dir(), F_OK) == 0)
+			cadir = X509_get_default_cert_dir();
+	}
+
+	if (cafile != NULL) {
+		if (unveil(cafile, "r") == -1)
+			err(1, "unveil");
+	}
+	if (cadir != NULL) {
+		if (unveil(cadir, "r") == -1)
+			err(1, "unveil");
+	}
+	if (unveil(certfile, "r") == -1)
+		err(1, "unveil");
+
 	if (pledge("stdio inet rpath dns", NULL) == -1)
 		err(1, "pledge");
 
@@ -574,9 +635,10 @@ main(int argc, char **argv)
 	 * OCSP request based on the full certificate chain
 	 * we have been given to check.
 	 */
-	if ((castore = read_cacerts(cafile)) == NULL)
+	if ((castore = read_cacerts(cafile, cadir)) == NULL)
 		exit(1);
-	if ((request = ocsp_request_new_from_cert(certfile, nonce)) == NULL)
+	if ((request = ocsp_request_new_from_cert(cadir, certfile, nonce))
+	    == NULL)
 		exit(1);
 
 	dspew("Built an %zu byte ocsp request\n", request->size);
@@ -584,8 +646,6 @@ main(int argc, char **argv)
 	if ((host = url2host(request->url, &port, &path)) == NULL)
 		errx(1, "Invalid OCSP url %s from %s", request->url,
 		    certfile);
-	if (*path == '\0')
-		path = "/";
 
 	if (infd == -1) {
 		/* Get a new OCSP response from the indicated server */
@@ -612,8 +672,13 @@ main(int argc, char **argv)
 		 * routines and parsing untrusted input from someone's OCSP
 		 * server.
 		 */
-		if (pledge("stdio", NULL) == -1)
-			err(1, "pledge");
+		if (cadir == NULL) {
+			if (pledge("stdio", NULL) == -1)
+				err(1, "pledge");
+		} else {
+			if (pledge("stdio rpath", NULL) == -1)
+				err(1, "pledge");
+		}
 
 		dspew("Server at %s returns:\n", host);
 		for (i = 0; i < httphsz; i++)
@@ -641,8 +706,13 @@ main(int argc, char **argv)
 		/*
 		 * Pledge minimally before fiddling with libcrypto init
 		 */
-		if (pledge("stdio", NULL) == -1)
-			err(1, "pledge");
+		if (cadir == NULL) {
+			if (pledge("stdio", NULL) == -1)
+				err(1, "pledge");
+		} else {
+			if (pledge("stdio rpath", NULL) == -1)
+				err(1, "pledge");
+		}
 
 		dspew("Using ocsp response saved in %s:\n", infile);
 
@@ -670,8 +740,12 @@ main(int argc, char **argv)
 	 * write out the DER format response to the staplefd
 	 */
 	if (staplefd >= 0) {
-		(void) ftruncate(staplefd, 0);
-		w = 0;
+		while (ftruncate(staplefd, 0) < 0) {
+			if (errno == EINVAL)
+				break;
+			if (errno != EINTR && errno != EAGAIN)
+				err(1, "Write of OCSP response failed");
+		}
 		written = 0;
 		while (written < instaplesz) {
 			w = write(staplefd, instaple + written,

@@ -1,4 +1,4 @@
-/* $OpenBSD: crl.c,v 1.11 2018/02/07 05:47:55 jsing Exp $ */
+/* $OpenBSD: crl.c,v 1.13 2019/07/14 03:30:45 guenther Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -88,7 +88,7 @@ static struct {
 	int verify;
 } crl_config;
 
-static struct option crl_options[] = {
+static const struct option crl_options[] = {
 	{
 		.name = "CAfile",
 		.argname = "file",
@@ -243,7 +243,7 @@ crl_main(int argc, char **argv)
 		}
 	}
 
-	digest = EVP_sha1();
+	digest = EVP_sha256();
 
 	memset(&crl_config, 0, sizeof(crl_config));
 	crl_config.informat = FORMAT_PEM;

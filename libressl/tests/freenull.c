@@ -1,7 +1,8 @@
-/*	$OpenBSD: freenull.c.head,v 1.2 2018/07/10 20:55:57 tb Exp $	*/
+/*	$OpenBSD: freenull.c.head,v 1.3 2019/11/02 15:38:46 jsing Exp $	*/
 
 #include <openssl/asn1.h>
 #include <openssl/cmac.h>
+#include <openssl/cms.h>
 #include <openssl/comp.h>
 #include <openssl/conf_api.h>
 #include <openssl/dso.h>
@@ -62,6 +63,8 @@ main(int argc, char **argv)
 	BUF_MEM_free(NULL);
 	CERTIFICATEPOLICIES_free(NULL);
 	CMAC_CTX_free(NULL);
+	CMS_ContentInfo_free(NULL);
+	CMS_ReceiptRequest_free(NULL);
 	COMP_CTX_free(NULL);
 	CONF_free(NULL);
 	CRL_DIST_POINTS_free(NULL);
@@ -77,6 +80,7 @@ main(int argc, char **argv)
 	ECDSA_SIG_free(NULL);
 	EC_GROUP_clear_free(NULL);
 	EC_GROUP_free(NULL);
+	EC_KEY_METHOD_free(NULL);
 	EC_KEY_free(NULL);
 	EC_POINT_clear_free(NULL);
 	EC_POINT_free(NULL);
@@ -88,6 +92,7 @@ main(int argc, char **argv)
 	ESS_ISSUER_SERIAL_free(NULL);
 	ESS_SIGNING_CERT_free(NULL);
 	EVP_CIPHER_CTX_free(NULL);
+	EVP_ENCODE_CTX_free(NULL);
 	EVP_MD_CTX_free(NULL);
 	EVP_PKEY_CTX_free(NULL);
 	EVP_PKEY_asn1_free(NULL);
@@ -150,6 +155,7 @@ main(int argc, char **argv)
 	POLICY_MAPPING_free(NULL);
 	PROXY_CERT_INFO_EXTENSION_free(NULL);
 	PROXY_POLICY_free(NULL);
+	RSA_OAEP_PARAMS_free(NULL);
 	RSA_PSS_PARAMS_free(NULL);
 	RSA_free(NULL);
 	RSA_meth_free(NULL);

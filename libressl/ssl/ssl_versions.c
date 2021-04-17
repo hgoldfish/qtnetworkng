@@ -1,4 +1,4 @@
-/* $OpenBSD: ssl_versions.c,v 1.3 2017/05/06 20:37:25 jsing Exp $ */
+/* $OpenBSD: ssl_versions.c,v 1.7 2020/10/14 16:57:33 jsing Exp $ */
 /*
  * Copyright (c) 2016, 2017 Joel Sing <jsing@openbsd.org>
  *
@@ -94,7 +94,7 @@ ssl_enabled_version_range(SSL *s, uint16_t *min_ver, uint16_t *max_ver)
 	 */
 
 	min_version = 0;
-	max_version = TLS1_2_VERSION;
+	max_version = TLS1_3_VERSION;
 
 	if ((s->internal->options & SSL_OP_NO_TLSv1) == 0)
 		min_version = TLS1_VERSION;
@@ -102,7 +102,11 @@ ssl_enabled_version_range(SSL *s, uint16_t *min_ver, uint16_t *max_ver)
 		min_version = TLS1_1_VERSION;
 	else if ((s->internal->options & SSL_OP_NO_TLSv1_2) == 0)
 		min_version = TLS1_2_VERSION;
+	else if ((s->internal->options & SSL_OP_NO_TLSv1_3) == 0)
+		min_version = TLS1_3_VERSION;
 
+	if ((s->internal->options & SSL_OP_NO_TLSv1_3) && min_version < TLS1_3_VERSION)
+		max_version = TLS1_2_VERSION;
 	if ((s->internal->options & SSL_OP_NO_TLSv1_2) && min_version < TLS1_2_VERSION)
 		max_version = TLS1_1_VERSION;
 	if ((s->internal->options & SSL_OP_NO_TLSv1_1) && min_version < TLS1_1_VERSION)
@@ -133,7 +137,7 @@ ssl_supported_version_range(SSL *s, uint16_t *min_ver, uint16_t *max_ver)
 	uint16_t min_version, max_version;
 
 	/* DTLS cannot currently be disabled... */
-	if (SSL_IS_DTLS(s)) {
+	if (SSL_is_dtls(s)) {
 		min_version = max_version = DTLS1_VERSION;
 		goto done;
 	}
@@ -163,7 +167,7 @@ ssl_max_shared_version(SSL *s, uint16_t peer_ver, uint16_t *max_ver)
 
 	*max_ver = 0;
 
-	if (SSL_IS_DTLS(s)) {
+	if (SSL_is_dtls(s)) {
 		if (peer_ver >= DTLS1_VERSION) {
 			*max_ver = DTLS1_VERSION;
 			return 1;
@@ -171,7 +175,9 @@ ssl_max_shared_version(SSL *s, uint16_t peer_ver, uint16_t *max_ver)
 		return 0;
 	}
 
-	if (peer_ver >= TLS1_2_VERSION)
+	if (peer_ver >= TLS1_3_VERSION)
+		shared_version = TLS1_3_VERSION;
+	else if (peer_ver >= TLS1_2_VERSION)
 		shared_version = TLS1_2_VERSION;
 	else if (peer_ver >= TLS1_1_VERSION)
 		shared_version = TLS1_1_VERSION;
@@ -194,26 +200,34 @@ ssl_max_shared_version(SSL *s, uint16_t peer_ver, uint16_t *max_ver)
 	return 1;
 }
 
-uint16_t
-ssl_max_server_version(SSL *s)
+int
+ssl_downgrade_max_version(SSL *s, uint16_t *max_ver)
 {
-	uint16_t max_version, min_version = 0;
+	uint16_t min_version, max_version;
 
-	if (SSL_IS_DTLS(s))
-		return (DTLS1_VERSION);
+	/*
+	 * The downgrade maximum version is based on the versions that are
+	 * enabled, however we also have to then limit to the versions
+	 * supported by the method. The SSL method will be changed during
+	 * version negotiation and when switching from the new stack to
+	 * the legacy context, as such we want to use the method from the
+	 * context.
+	 */
+
+	if (SSL_is_dtls(s)) {
+		*max_ver = DTLS1_VERSION;
+		return 1;
+	}
 
 	if (!ssl_enabled_version_range(s, &min_version, &max_version))
 		return 0;
 
-	/*
-	 * Limit to the versions supported by this method. The SSL method
-	 * will be changed during version negotiation, as such we want to
-	 * use the SSL method from the context.
-	 */
 	if (!ssl_clamp_version_range(&min_version, &max_version,
 	    s->ctx->method->internal->min_version,
 	    s->ctx->method->internal->max_version))
 		return 0;
 
-	return (max_version);
+	*max_ver = max_version;
+
+	return 1;
 }

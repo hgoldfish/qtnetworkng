@@ -1,4 +1,4 @@
-/*	$OpenBSD: getentropy_linux.c,v 1.45 2018/03/13 22:53:28 bcook Exp $	*/
+/*	$OpenBSD: getentropy_linux.c,v 1.47 2020/05/17 14:44:20 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2014 Theo de Raadt <deraadt@openbsd.org>
@@ -57,7 +57,7 @@
 #include <sys/vfs.h>
 
 #define REPEAT 5
-#define min(a, b) (((a) < (b)) ? (a) : (b))
+#define MINIMUM(a, b) (((a) < (b)) ? (a) : (b))
 
 #define HX(a, b) \
 	do { \
@@ -73,7 +73,6 @@
 
 int	getentropy(void *buf, size_t len);
 
-static int gotdata(char *buf, size_t len);
 #if defined(SYS_getrandom) && defined(GRND_NONBLOCK)
 static int getentropy_getrandom(void *buf, size_t len);
 #endif
@@ -177,22 +176,6 @@ getentropy(void *buf, size_t len)
 	return (ret);
 }
 
-/*
- * Basic sanity checking; wish we could do better.
- */
-static int
-gotdata(char *buf, size_t len)
-{
-	char	any_set = 0;
-	size_t	i;
-
-	for (i = 0; i < len; ++i)
-		any_set |= buf[i];
-	if (any_set == 0)
-		return (-1);
-	return (0);
-}
-
 #if defined(SYS_getrandom) && defined(GRND_NONBLOCK)
 static int
 getentropy_getrandom(void *buf, size_t len)
@@ -261,10 +244,8 @@ start:
 		i += ret;
 	}
 	close(fd);
-	if (gotdata(buf, len) == 0) {
-		errno = save_errno;
-		return (0);		/* satisfied */
-	}
+	errno = save_errno;
+	return (0);		/* satisfied */
 nodevrandom:
 	errno = EIO;
 	return (-1);
@@ -279,7 +260,7 @@ getentropy_sysctl(void *buf, size_t len)
 	int save_errno = errno;
 
 	for (i = 0; i < len; ) {
-		size_t chunk = min(len - i, 16);
+		size_t chunk = MINIMUM(len - i, 16);
 
 		/* SYS__sysctl because some systems already removed sysctl() */
 		struct __sysctl_args args = {
@@ -292,10 +273,8 @@ getentropy_sysctl(void *buf, size_t len)
 			goto sysctlfailed;
 		i += chunk;
 	}
-	if (gotdata(buf, len) == 0) {
-		errno = save_errno;
-		return (0);			/* satisfied */
-	}
+	errno = save_errno;
+	return (0);			/* satisfied */
 sysctlfailed:
 	errno = EIO;
 	return (-1);
@@ -536,15 +515,11 @@ getentropy_fallback(void *buf, size_t len)
 #endif
 
 		SHA512_Final(results, &ctx);
-		memcpy((char *)buf + i, results, min(sizeof(results), len - i));
-		i += min(sizeof(results), len - i);
+		memcpy((char *)buf + i, results, MINIMUM(sizeof(results), len - i));
+		i += MINIMUM(sizeof(results), len - i);
 	}
 	explicit_bzero(&ctx, sizeof ctx);
 	explicit_bzero(results, sizeof results);
-	if (gotdata(buf, len) == 0) {
-		errno = save_errno;
-		return (0);		/* satisfied */
-	}
-	errno = EIO;
-	return (-1);
+	errno = save_errno;
+	return (0);		/* satisfied */
 }

@@ -1,4 +1,4 @@
-/*	$OpenBSD: getentropy_osx.c,v 1.11 2016/09/03 15:24:09 bcook Exp $	*/
+/*	$OpenBSD: getentropy_osx.c,v 1.13 2020/05/17 14:44:20 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2014 Theo de Raadt <deraadt@openbsd.org>
@@ -66,7 +66,7 @@
 #define SHA512_DIGEST_LENGTH CC_SHA512_DIGEST_LENGTH
 
 #define REPEAT 5
-#define min(a, b) (((a) < (b)) ? (a) : (b))
+#define MINIMUM(a, b) (((a) < (b)) ? (a) : (b))
 
 #define HX(a, b) \
 	do { \
@@ -82,7 +82,6 @@
 
 int	getentropy(void *buf, size_t len);
 
-static int gotdata(char *buf, size_t len);
 static int getentropy_urandom(void *buf, size_t len);
 static int getentropy_fallback(void *buf, size_t len);
 
@@ -142,22 +141,6 @@ getentropy(void *buf, size_t len)
 	return (ret);
 }
 
-/*
- * Basic sanity checking; wish we could do better.
- */
-static int
-gotdata(char *buf, size_t len)
-{
-	char	any_set = 0;
-	size_t	i;
-
-	for (i = 0; i < len; ++i)
-		any_set |= buf[i];
-	if (any_set == 0)
-		return (-1);
-	return (0);
-}
-
 static int
 getentropy_urandom(void *buf, size_t len)
 {
@@ -203,10 +186,8 @@ start:
 		i += ret;
 	}
 	close(fd);
-	if (gotdata(buf, len) == 0) {
-		errno = save_errno;
-		return (0);		/* satisfied */
-	}
+	errno = save_errno;
+	return (0);		/* satisfied */
 nodevrandom:
 	errno = EIO;
 	return (-1);
@@ -426,15 +407,11 @@ getentropy_fallback(void *buf, size_t len)
 		}
 
 		SHA512_Final(results, &ctx);
-		memcpy((char *)buf + i, results, min(sizeof(results), len - i));
-		i += min(sizeof(results), len - i);
+		memcpy((char *)buf + i, results, MINIMUM(sizeof(results), len - i));
+		i += MINIMUM(sizeof(results), len - i);
 	}
 	explicit_bzero(&ctx, sizeof ctx);
 	explicit_bzero(results, sizeof results);
-	if (gotdata(buf, len) == 0) {
-		errno = save_errno;
-		return (0);		/* satisfied */
-	}
-	errno = EIO;
-	return (-1);
+	errno = save_errno;
+	return (0);		/* satisfied */
 }

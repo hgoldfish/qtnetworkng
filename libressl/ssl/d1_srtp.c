@@ -1,4 +1,4 @@
-/* $OpenBSD: d1_srtp.c,v 1.22 2017/08/27 02:58:04 doug Exp $ */
+/* $OpenBSD: d1_srtp.c,v 1.26 2020/10/11 02:44:27 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -126,7 +126,7 @@
 #include "bytestring.h"
 #include "srtp.h"
 
-static SRTP_PROTECTION_PROFILE srtp_known_profiles[] = {
+static const SRTP_PROTECTION_PROFILE srtp_known_profiles[] = {
 	{
 		"SRTP_AES128_CM_SHA1_80",
 		SRTP_AES128_CM_SHA1_80,
@@ -139,10 +139,10 @@ static SRTP_PROTECTION_PROFILE srtp_known_profiles[] = {
 };
 
 int
-srtp_find_profile_by_name(char *profile_name, SRTP_PROTECTION_PROFILE **pptr,
-    unsigned len)
+srtp_find_profile_by_name(const char *profile_name,
+    const SRTP_PROTECTION_PROFILE **pptr, unsigned int len)
 {
-	SRTP_PROTECTION_PROFILE *p;
+	const SRTP_PROTECTION_PROFILE *p;
 
 	p = srtp_known_profiles;
 	while (p->name) {
@@ -159,9 +159,10 @@ srtp_find_profile_by_name(char *profile_name, SRTP_PROTECTION_PROFILE **pptr,
 }
 
 int
-srtp_find_profile_by_num(unsigned profile_num, SRTP_PROTECTION_PROFILE **pptr)
+srtp_find_profile_by_num(unsigned int profile_num,
+    const SRTP_PROTECTION_PROFILE **pptr)
 {
-	SRTP_PROTECTION_PROFILE *p;
+	const SRTP_PROTECTION_PROFILE *p;
 
 	p = srtp_known_profiles;
 	while (p->name) {
@@ -180,11 +181,9 @@ ssl_ctx_make_profiles(const char *profiles_string,
     STACK_OF(SRTP_PROTECTION_PROFILE) **out)
 {
 	STACK_OF(SRTP_PROTECTION_PROFILE) *profiles;
-
 	char *col;
-	char *ptr = (char *)profiles_string;
-
-	SRTP_PROTECTION_PROFILE *p;
+	const char *ptr = profiles_string;
+	const SRTP_PROTECTION_PROFILE *p;
 
 	if (!(profiles = sk_SRTP_PROTECTION_PROFILE_new_null())) {
 		SSLerrorx(SSL_R_SRTP_COULD_NOT_ALLOCATE_PROFILES);
@@ -207,6 +206,7 @@ ssl_ctx_make_profiles(const char *profiles_string,
 			ptr = col + 1;
 	} while (col);
 
+	sk_SRTP_PROTECTION_PROFILE_free(*out);
 	*out = profiles;
 
 	return 0;
@@ -243,7 +243,8 @@ SSL_get_srtp_profiles(SSL *s)
 SRTP_PROTECTION_PROFILE *
 SSL_get_selected_srtp_profile(SSL *s)
 {
-	return s->internal->srtp_profile;
+	/* XXX cast away the const */
+	return (SRTP_PROTECTION_PROFILE *)s->internal->srtp_profile;
 }
 
 #endif

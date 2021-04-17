@@ -1,4 +1,4 @@
-/*	$OpenBSD: bs_cbb.c,v 1.19 2018/08/16 18:39:37 jsing Exp $	*/
+/*	$OpenBSD: bs_cbb.c,v 1.23 2020/09/16 05:52:04 jsing Exp $	*/
 /*
  * Copyright (c) 2014, Google Inc.
  *
@@ -14,7 +14,6 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -29,8 +28,7 @@ cbb_init(CBB *cbb, uint8_t *buf, size_t cap)
 {
 	struct cbb_buffer_st *base;
 
-	base = malloc(sizeof(struct cbb_buffer_st));
-	if (base == NULL)
+	if ((base = calloc(1, sizeof(struct cbb_buffer_st))) == NULL)
 		return 0;
 
 	base->buf = buf;
@@ -54,7 +52,7 @@ CBB_init(CBB *cbb, size_t initial_capacity)
 	if (initial_capacity == 0)
 		initial_capacity = CBB_INITIAL_SIZE;
 
-	if ((buf = malloc(initial_capacity)) == NULL)
+	if ((buf = calloc(1, initial_capacity)) == NULL)
 		return 0;
 
 	if (!cbb_init(cbb, buf, initial_capacity)) {
@@ -214,7 +212,8 @@ CBB_flush(CBB *cbb)
 		uint8_t initial_length_byte;
 
 		/* We already wrote 1 byte for the length. */
-		assert (cbb->pending_len_len == 1);
+		if (cbb->pending_len_len != 1)
+			return 0;
 
 		/* Check for long form */
 		if (len > 0xfffffffe)
@@ -362,7 +361,7 @@ CBB_add_bytes(CBB *cbb, const uint8_t *data, size_t len)
 {
 	uint8_t *dest;
 
-	if (!CBB_add_space(cbb, &dest, len))
+	if (!CBB_flush(cbb) || !cbb_buffer_add(cbb->base, &dest, len))
 		return 0;
 
 	memcpy(dest, data, len);
@@ -375,6 +374,7 @@ CBB_add_space(CBB *cbb, uint8_t **out_data, size_t len)
 	if (!CBB_flush(cbb) || !cbb_buffer_add(cbb->base, out_data, len))
 		return 0;
 
+	memset(*out_data, 0, len);
 	return 1;
 }
 

@@ -9,7 +9,7 @@ case $host_os in
 		if test "`echo $CC | cut -d ' ' -f 1`" != "gcc" ; then
 			CFLAGS="-qnoansialias $USER_CFLAGS"
 		fi
-		AC_SUBST([PLATFORM_LDADD], ['-lperfstat -lpthread'])
+		AC_SUBST([PLATFORM_LDADD], ['-lperfstat'])
 		;;
 	*cygwin*)
 		HOST_OS=cygwin
@@ -74,13 +74,15 @@ char buf[1]; getentropy(buf, 1);
 			CFLAGS="-g -O2 +DD64 +Otype_safety=off $USER_CFLAGS"
 		fi
 		CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE=600 -D__STRICT_ALIGNMENT"
-		AC_SUBST([PLATFORM_LDADD], ['-lpthread'])
 		;;
 	*linux*)
 		HOST_OS=linux
 		HOST_ABI=elf
 		CPPFLAGS="$CPPFLAGS -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_SOURCE -D_GNU_SOURCE"
-		AC_SUBST([PLATFORM_LDADD], ['-lpthread'])
+		;;
+	*midipix*)
+		HOST_OS=midipix
+		CPPFLAGS="$CPPFLAGS -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_SOURCE -D_GNU_SOURCE"
 		;;
 	*netbsd*)
 		HOST_OS=netbsd
@@ -100,21 +102,23 @@ char buf[1]; getentropy(buf, 1);
 		HOST_OS=openbsd
 		HOST_ABI=elf
 		AC_DEFINE([HAVE_ATTRIBUTE__BOUNDED__], [1], [OpenBSD gcc has bounded])
+		AC_DEFINE([HAVE_ATTRIBUTE__DEAD], [1], [OpenBSD gcc has __dead])
 		;;
 	*mingw*)
 		HOST_OS=win
+		HOST_ABI=mingw64
 		BUILD_NC=no
 		CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE -D_POSIX -D_POSIX_SOURCE -D__USE_MINGW_ANSI_STDIO"
 		CPPFLAGS="$CPPFLAGS -D_REENTRANT -D_POSIX_THREAD_SAFE_FUNCTIONS"
 		CPPFLAGS="$CPPFLAGS -DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0600"
-		CPPFLAGS="$CPPFLAGS -DOPENSSL_NO_SPEED"
-		AC_SUBST([PLATFORM_LDADD], ['-lws2_32'])
+		CPPFLAGS="$CPPFLAGS"
+		AC_SUBST([PLATFORM_LDADD], ['-lws2_32 -lbcrypt'])
 		;;
 	*solaris*)
 		HOST_OS=solaris
 		HOST_ABI=elf
 		CPPFLAGS="$CPPFLAGS -D__EXTENSIONS__ -D_XOPEN_SOURCE=600 -DBSD_COMP"
-		AC_SUBST([PLATFORM_LDADD], ['-lnsl -lsocket'])
+		AC_SUBST([PLATFORM_LDADD], ['-ldl -lnsl -lsocket'])
 		;;
 	*) ;;
 esac
@@ -130,6 +134,7 @@ AM_CONDITIONAL([HOST_DARWIN],  [test x$HOST_OS = xdarwin])
 AM_CONDITIONAL([HOST_FREEBSD], [test x$HOST_OS = xfreebsd])
 AM_CONDITIONAL([HOST_HPUX],    [test x$HOST_OS = xhpux])
 AM_CONDITIONAL([HOST_LINUX],   [test x$HOST_OS = xlinux])
+AM_CONDITIONAL([HOST_MIDIPIX], [test x$HOST_OS = xmidipix])
 AM_CONDITIONAL([HOST_NETBSD],  [test x$HOST_OS = xnetbsd])
 AM_CONDITIONAL([HOST_OPENBSD], [test x$HOST_OS = xopenbsd])
 AM_CONDITIONAL([HOST_SOLARIS], [test x$HOST_OS = xsolaris])

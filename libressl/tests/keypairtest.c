@@ -15,10 +15,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifdef _MSC_VER
-#define NO_REDEF_POSIX_FUNCTIONS
-#endif
-
 #include <sys/stat.h>
 
 #include <err.h>
