@@ -133,6 +133,7 @@ public:
     virtual qint32 rawSend(const char *data, qint32 size) override;
     virtual qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port) override;
 public:
+    qint32 multiPathSend(const char *data, qint32 size, const HostAddress &addr, quint16 port);
     void removeSlave(const QString &originalHostAndPort) { receiversByHostAndPort.remove(originalHostAndPort); }
     void removeSlave(quint32 connectionId) { receiversByConnectionId.remove(connectionId); }
     quint32 nextConnectionId();
@@ -144,7 +145,9 @@ public:
     QMap<QString, QPointer<class SlaveKcpSocketPrivate>> receiversByHostAndPort;
     QMap<quint32, QPointer<class SlaveKcpSocketPrivate>> receiversByConnectionId;
     QSharedPointer<Socket> rawSocket;
+    QList<QSharedPointer<Socket>> multiPathSockets;
     Queue<KcpSocket*> pendingSlaves;
+    int nextPathSocket; // 0 for rawSocket
 };
 
 
@@ -603,19 +606,25 @@ QByteArray KcpSocketPrivate::makeMultiPathPacket(quint32 connectionId)
 
 
 MasterKcpSocketPrivate::MasterKcpSocketPrivate(HostAddress::NetworkLayerProtocol protocol, KcpSocket *q)
-    : KcpSocketPrivate(q), rawSocket(new Socket(protocol, Socket::UdpSocket))
+    : KcpSocketPrivate(q)
+    , rawSocket(new Socket(protocol, Socket::UdpSocket))
+    , nextPathSocket(0)
 {
 }
 
 
 MasterKcpSocketPrivate::MasterKcpSocketPrivate(qintptr socketDescriptor, KcpSocket *q)
-    : KcpSocketPrivate(q), rawSocket(new Socket(socketDescriptor))
+    : KcpSocketPrivate(q)
+    , rawSocket(new Socket(socketDescriptor))
+    , nextPathSocket(0)
 {
 }
 
 
 MasterKcpSocketPrivate::MasterKcpSocketPrivate(QSharedPointer<Socket> rawSocket, KcpSocket *q)
-    : KcpSocketPrivate(q), rawSocket(rawSocket)
+    : KcpSocketPrivate(q)
+    , rawSocket(rawSocket)
+    , nextPathSocket(0)
 {
 }
 
@@ -787,7 +796,9 @@ void MasterKcpSocketPrivate::doReceive()
 #endif
             continue;
         } else {
-            if (this->connectionId != 0) {
+            if (this->connectionId == 0) {
+                this->connectionId = connectionId;
+            } else {
                 if (connectionId != this->connectionId) {
 #ifdef DEBUG_PROTOCOL
                     qDebug() << "the kcp server side returns an invalid packet with mismatched connection id.";
@@ -796,8 +807,6 @@ void MasterKcpSocketPrivate::doReceive()
                 } else {
                     // do nothing.
                 }
-            } else {
-                this->connectionId = connectionId;
             }
         }
         qToBigEndian<quint32>(0, reinterpret_cast<uchar*>(buf.data() + 1));
@@ -843,20 +852,23 @@ void MasterKcpSocketPrivate::doAccept()
         const QString &key = concat(addr, port);
         QPointer<SlaveKcpSocketPrivate> receiver;
         receiver = receiversByHostAndPort.value(key);
-        if (receiver.isNull() && connectionId != 0) {
-            receiver = receiversByConnectionId.value(connectionId);
-        }
         if (!receiver.isNull()) {
             receiver->remoteAddress = addr;
             receiver->remotePort = port;
-            if (connectionId != 0 && receiver->connectionId == 0) {
-                // only happened in the newly accept(host, port) connections.
-                // or remote create new conn with the same port as old, and the old packet is received.
-                receiver->connectionId = connectionId;
-                // if this connectionId is unique in client. we add it to the receiversByConnectionId map.
-                // if it is not, say sorry, and disable the multipath feature.
-                if (!receiversByConnectionId.contains(connectionId)) {
-                    receiversByConnectionId.insert(connectionId, receiver);
+            if (connectionId != 0) {
+                if (receiver->connectionId == 0) {
+                    // only if the slave was created by accept(host, port), we had zero id.
+                    // if this connectionId is unique in client. we add it to the receiversByConnectionId map.
+                    // if it is not, say sorry, and disable the multipath feature.
+                    if (!receiversByConnectionId.contains(connectionId)) {
+                        // only happened in the newly accept(host, port) connections.
+                        // or remote create new conn with the same port as old, and the old packet is received.
+                        receiver->connectionId = connectionId;
+                        receiversByConnectionId.insert(connectionId, receiver);
+                    }
+                } else if (connectionId != receiver->connectionId) {
+                    // the client sent a invalid connection id
+                    continue;
                 }
             }
             if (!receiver->handleDatagram(buf.data(), static_cast<quint32>(len))) {
@@ -864,20 +876,31 @@ void MasterKcpSocketPrivate::doAccept()
                 receiversByConnectionId.remove(receiver->connectionId);
             }
         } else {
-            // if connection id is not zero, it must be bad packet.
-            if (connectionId != 0) {
-                const QByteArray &closePacket = makeShutdownPacket(connectionId);
-                if (rawSocket->sendto(closePacket, addr, port) != closePacket.size()) {
-                    if (error == Socket::NoError) {
-                        error = Socket::SocketResourceError;
-                        errorString = QString("KcpSocket can not send udp packet.");
+            if (connectionId != 0) {   // a multipath packet.
+                receiver = receiversByConnectionId.value(connectionId);
+                if (receiver.isNull()) {
+                    // it must be bad packet.
+                    const QByteArray &closePacket = makeShutdownPacket(connectionId);
+                    if (rawSocket->sendto(closePacket, addr, port) != closePacket.size()) {
+                        if (error == Socket::NoError) {
+                            error = Socket::SocketResourceError;
+                            errorString = QString("KcpSocket can not send udp packet.");
+                        }
+    #ifdef DEBUG_PROTOCOL
+                        qDebug() << errorString;
+    #endif
+                        MasterKcpSocketPrivate::close(true);
                     }
-#ifdef DEBUG_PROTOCOL
-                    qDebug() << errorString;
-#endif
-                    MasterKcpSocketPrivate::close(true);
+                } else {
+                    Q_ASSERT(connectionId == receiver->connectionId);
+                    receiver->remoteAddress = addr;
+                    receiver->remotePort = port;
+                    if (!receiver->handleDatagram(buf.data(), static_cast<quint32>(len))) {
+                        receiversByHostAndPort.remove(receiver->originalHostAndPort);
+                        receiversByConnectionId.remove(receiver->connectionId);
+                    }
                 }
-            } else if (connectionId == 0 && pendingSlaves.size() < pendingSlaves.capacity()) {  // not full.
+            } else if (pendingSlaves.size() < pendingSlaves.capacity()) {  // not full. process new connection.
                 QScopedPointer<KcpSocket> slave(SlaveKcpSocketPrivate::create(this, addr, port, this->mode));
                 SlaveKcpSocketPrivate *d = SlaveKcpSocketPrivate::getPrivateHelper(slave.data());
                 d->originalHostAndPort = key;
@@ -1027,12 +1050,30 @@ HostAddress MasterKcpSocketPrivate::resolve(const QString &hostName, QSharedPoin
 }
 
 
+qint32 MasterKcpSocketPrivate::multiPathSend(const char *data, qint32 size, const HostAddress &addr, quint16 port)
+{
+    if (!connectionId) {
+        return rawSocket->sendto(data, size, addr, port);
+    }
+    QSharedPointer<Socket> s;
+    if (nextPathSocket > 0 && nextPathSocket <= multiPathSockets.size()) {
+        s = multiPathSockets.at(nextPathSocket - 1);
+    } else {
+        s = rawSocket;
+    }
+    ++nextPathSocket;
+    if (nextPathSocket >= multiPathSockets.size()) {
+        nextPathSocket = 0;
+    }
+    return s->sendto(data, size, addr, port);
+}
+
+
 qint32 MasterKcpSocketPrivate::rawSend(const char *data, qint32 size)
 {
     lastKeepaliveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
     startReceivingCoroutine();
-    qint32 len = rawSocket->sendto(data, size, remoteAddress, remotePort);
-    return len;
+    return multiPathSend(data, size, remoteAddress, remotePort);
 }
 
 
@@ -1047,7 +1088,7 @@ bool MasterKcpSocketPrivate::bind(const HostAddress &address, quint16 port, Sock
     if (state != Socket::UnconnectedState) {
         return false;
     }
-    if(mode & Socket::ReuseAddressHint) {
+    if (mode & Socket::ReuseAddressHint) {
         rawSocket->setOption(Socket::AddressReusable, true);
     }
     if (rawSocket->bind(address, port, mode)) {
@@ -1078,7 +1119,11 @@ bool MasterKcpSocketPrivate::bind(quint16 port, Socket::BindMode mode)
 
 bool MasterKcpSocketPrivate::setOption(Socket::SocketOption option, const QVariant &value)
 {
-    return rawSocket->setOption(option, value);
+    bool ok = rawSocket->setOption(option, value);
+    for (QSharedPointer<Socket> s: multiPathSockets) {
+        s->setOption(option, value);
+    }
+    return ok;
 }
 
 
@@ -1245,8 +1290,7 @@ qint32 SlaveKcpSocketPrivate::rawSend(const char *data, qint32 size)
         return -1;
     } else {
         lastKeepaliveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
-        qint32 len = parent->rawSocket->sendto(data, size, remoteAddress, remotePort);
-        return len;
+        return parent->multiPathSend(data, size, remoteAddress, remotePort);
     }
 }
 
@@ -1372,6 +1416,28 @@ quint32 KcpSocket::payloadSizeHint() const
 {
     Q_D(const KcpSocket);
     return d->kcp->mss;
+}
+
+
+bool KcpSocket::useMultiPath(int sockets)
+{
+    Q_D(KcpSocket);
+    if (sockets < 2) {
+        return false;
+    }
+    if (!dynamic_cast<MasterKcpSocketPrivate *>(d)) {
+        return false;
+    }
+    MasterKcpSocketPrivate * const m = static_cast<MasterKcpSocketPrivate *>(d);
+    while (m->multiPathSockets.size() > sockets - 1) {
+        QSharedPointer<Socket> s = m->multiPathSockets.takeLast();
+        s->close();
+    }
+    while (m->multiPathSockets.size() < sockets - 1) {
+        QSharedPointer<Socket> s(new Socket(m->rawSocket->protocol(), Socket::UdpSocket));
+        m->multiPathSockets.append(s);
+    }
+    return true;
 }
 
 
