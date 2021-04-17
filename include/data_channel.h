@@ -35,6 +35,7 @@ public:
     quint32 payloadSizeHint() const;                    // should be <= maxPacketSize - headerSize
     void setCapacity(quint32 packets);                  // channel blocked if there are n packets not read.
     quint32 capacity() const;                           // so, a data channel may consume `maxPacketSize * capacity` bytes of receiving buffer memory.
+    quint32 receivingQueueSize() const;
     DataChannelPole pole() const;
     void setName(const QString &name);
     QString name() const;
@@ -52,6 +53,7 @@ protected:
     Q_DECLARE_PRIVATE(DataChannel)
 };
 
+
 class SocketChannelPrivate;
 class SocketChannel: public DataChannel
 {
@@ -66,9 +68,11 @@ public:
 public:
     void setKeepaliveTimeout(float timeout);
     float keepaliveTimeout() const;
+    quint32 sendingQueueSize() const;
 private:
     Q_DECLARE_PRIVATE(SocketChannel)
 };
+
 
 class VirtualChannelPrivate;
 class VirtualChannel: public DataChannel

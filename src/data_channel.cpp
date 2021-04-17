@@ -942,6 +942,13 @@ float SocketChannel::keepaliveTimeout() const
 }
 
 
+quint32 SocketChannel::sendingQueueSize() const
+{
+    Q_D(const SocketChannel);
+    return d->sendingQueue.size();
+}
+
+
 VirtualChannel::VirtualChannel(DataChannel *parentChannel, DataChannelPole pole, quint32 channelNumber)
     :DataChannel(new VirtualChannelPrivate(parentChannel, pole, channelNumber, this))
 {
@@ -1064,6 +1071,13 @@ quint32 DataChannel::capacity() const
 {
     Q_D(const DataChannel);
     return d->receivingQueue.capacity();
+}
+
+
+quint32 DataChannel::receivingQueueSize() const
+{
+    Q_D(const DataChannel);
+    return d->receivingQueue.size();
 }
 
 
