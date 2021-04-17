@@ -15,6 +15,7 @@ project(qtnetworkng LANGUAGES C CXX ASM)
 # intergrate libressl
 set(LIBRESSL_APPS OFF)
 set(LIBRESSL_TESTS OFF)
+set(ENABLE_NC OFF)
 add_subdirectory(libressl)
 
 option(QTNG_BUILD_TESTS OFF)
@@ -214,14 +215,6 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
             src/socket_unix.cpp
             src/context/asm/jump_arm_aapcs_macho_gas.S
             src/context/asm/make_arm_aapcs_macho_gas.S
-            src/coroutine_fcontext.cpp
-        )
-    #ELSEIF(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "mips64")
-    elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "mips")
-        set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
-            src/context/asm/jump_mips32_o32_elf_gas.S
-            src/context/asm/make_mips32_o32_elf_gas.S
             src/coroutine_fcontext.cpp
         )
     else()
