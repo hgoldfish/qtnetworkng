@@ -17,7 +17,7 @@ const char PACKET_TYPE_UNCOMPRESSED_DATA = 0x01;
 const char PACKET_TYPE_CREATE_MULTIPATH = 0x02;
 const char PACKET_TYPE_CLOSE= 0X03;
 const char PACKET_TYPE_KEEPALIVE = 0x04;
-//#define DEBUG_PROTOCOL 1
+#define DEBUG_PROTOCOL 1
 
 
 class SlaveKcpSocketPrivate;
@@ -773,11 +773,6 @@ void MasterKcpSocketPrivate::doReceive()
         if (q->filter(buf.data(), &len, &addr, &port)) {
             continue;
         }
-//        if (Q_UNLIKELY(addr.toIPv6Address() != remoteAddress.toIPv6Address() || port != remotePort)) {
-//            // not my packet.
-//            qDebug() << "not my packet:" << addr << remoteAddress << port;
-//            continue;
-//        }
         if (len < 5) {
 #ifdef DEBUG_PROTOCOL
             qDebug() << "got invalid kcp packet smaller than 5 bytes." << QByteArray(buf.data(), len);
@@ -867,7 +862,9 @@ void MasterKcpSocketPrivate::doAccept()
                         receiversByConnectionId.insert(connectionId, receiver);
                     }
                 } else if (connectionId != receiver->connectionId) {
-                    // the client sent a invalid connection id
+#ifdef DEBUG_PROTOCOL
+            qDebug() << "the client sent a invalid connection id";
+#endif
                     continue;
                 }
             }
@@ -896,6 +893,9 @@ void MasterKcpSocketPrivate::doAccept()
                     receiver->remoteAddress = addr;
                     receiver->remotePort = port;
                     if (!receiver->handleDatagram(buf.data(), static_cast<quint32>(len))) {
+#ifdef DEBUG_PROTOCOL
+            qDebug() << "can not handle multipath packet.";
+#endif
                         receiversByHostAndPort.remove(receiver->originalHostAndPort);
                         receiversByConnectionId.remove(receiver->connectionId);
                     }
