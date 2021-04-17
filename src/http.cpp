@@ -2726,6 +2726,35 @@ HttpResponse HttpSession::put(const QString &url, const FormData &body, const QM
 }
 
 
+HttpResponse HttpSession::brew(const QUrl &url, const QByteArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("BREW"));
+    request.setUrl(url);
+    request.setContentType("application/coffee-pot-command");
+    request.setBody(body);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::propfind(const QUrl &url)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("PROPFIND"));
+    request.setUrl(url);
+    return send(request);
+}
+
+
+HttpResponse HttpSession::when(const QUrl &url)
+{
+    HttpRequest request;
+    request.setMethod(QStringLiteral("WHEN"));
+    request.setUrl(url);
+    return send(request);
+}
+
+
 inline bool isRedirect(int httpCode)
 {
     switch (httpCode)

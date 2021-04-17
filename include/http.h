@@ -337,6 +337,10 @@ public:
     HttpResponse put(const QString &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
     HttpResponse put(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers);
 
+    HttpResponse brew(const QUrl &url, const QByteArray &body);
+    HttpResponse propfind(const QUrl &url);
+    HttpResponse when(const QUrl &url);
+
     HttpResponse send(HttpRequest &request);
     QNetworkCookieJar &cookieJar();
     QNetworkCookie cookie(const QUrl &url, const QString &name);
