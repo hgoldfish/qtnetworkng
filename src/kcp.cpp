@@ -242,7 +242,7 @@ KcpSocketPrivate::KcpSocketPrivate(KcpSocket *q)
     , lastActiveTimestamp(zeroTimestamp)
     , lastKeepaliveTimestamp(zeroTimestamp)
     , tearDownTime(1000 * 30)
-    , waterLine(1024 * 16)
+    , waterLine(1024)
     , connectionId(0)
     , remotePort(0), mode(KcpSocket::Internet)
 {
@@ -297,29 +297,35 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
     this->mode = mode;
     switch (mode) {
     case KcpSocket::LargeDelayInternet:
+        waterLine = 512;
         ikcp_nodelay(kcp, 0, 40, 4, 1);
         ikcp_setmtu(kcp, 1400);
-        ikcp_wndsize(kcp, 4096, 4096);
+        ikcp_wndsize(kcp, 256, 512);
         break;
     case KcpSocket::Internet:
+        waterLine = 256;
         ikcp_nodelay(kcp, 1, 30, 3, 1);
         ikcp_setmtu(kcp, 1400);
-        ikcp_wndsize(kcp, 2048, 2048);
+        ikcp_wndsize(kcp, 128, 512);
         break;
     case KcpSocket::FastInternet:
+        waterLine = 128;
         ikcp_nodelay(kcp, 1, 20, 2, 1);
         ikcp_setmtu(kcp, 1400);
-        ikcp_wndsize(kcp, 1024, 1024);
+        ikcp_wndsize(kcp, 64, 256);
         break;
     case KcpSocket::Ethernet:
+        waterLine = 64;
         ikcp_nodelay(kcp, 1, 10, 2, 1);
         ikcp_setmtu(kcp, 1024 * 32);
-        ikcp_wndsize(kcp, 1024, 1024);
+        ikcp_wndsize(kcp, 32, 128);
         break;
     case KcpSocket::Loopback:
+        waterLine = 16;
         ikcp_nodelay(kcp, 1, 10, 1, 0);
-        ikcp_setmtu(kcp, 1024 * 63);
-        ikcp_wndsize(kcp, 1024, 1024);
+        ikcp_setmtu(kcp, 1024 * 64 - 256);
+        ikcp_wndsize(kcp, 32, 128);
+        kcp->interval = 5;
         break;
     }
 }

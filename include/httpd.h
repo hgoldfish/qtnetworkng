@@ -97,9 +97,28 @@ protected:
 
 
 // static http(s) server serving current directory.
-class SimpleHttpServer: public TcpServer<SimpleHttpRequestHandler>{};
+class SimpleHttpServer: public TcpServer<SimpleHttpRequestHandler>
+{
+public:
+    SimpleHttpServer(const HostAddress &serverAddress, quint16 serverPort)
+        : TcpServer(serverAddress, serverPort) {}
+    SimpleHttpServer(quint16 serverPort)
+        : TcpServer(HostAddress::Any, serverPort) {}
+};
+
 #ifndef QTNG_NO_CRYPTO
-class SimpleHttpsServer: public SslServer<SimpleHttpRequestHandler> {};
+class SimpleHttpsServer: public SslServer<SimpleHttpRequestHandler>
+{
+public:
+    SimpleHttpsServer(const HostAddress &serverAddress, quint16 serverPort)
+        : SslServer(serverAddress, serverPort) {}
+    SimpleHttpsServer(const HostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration)
+        : SslServer(serverAddress, serverPort, configuration) {}
+    SimpleHttpsServer(quint16 serverPort)
+        : SslServer(serverPort) {}
+    SimpleHttpsServer(quint16 serverPort, const SslConfiguration &configuration)
+        : SslServer(serverPort, configuration) {}
+};
 #endif
 
 QTNETWORKNG_NAMESPACE_END
