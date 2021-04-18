@@ -17,7 +17,7 @@ const char PACKET_TYPE_UNCOMPRESSED_DATA = 0x01;
 const char PACKET_TYPE_CREATE_MULTIPATH = 0x02;
 const char PACKET_TYPE_CLOSE= 0X03;
 const char PACKET_TYPE_KEEPALIVE = 0x04;
-#define DEBUG_PROTOCOL 1
+//#define DEBUG_PROTOCOL 1
 
 
 class SlaveKcpSocketPrivate;
@@ -1062,7 +1062,7 @@ qint32 MasterKcpSocketPrivate::multiPathSend(const char *data, qint32 size, cons
         s = rawSocket;
     }
     ++nextPathSocket;
-    if (nextPathSocket >= multiPathSockets.size()) {
+    if (nextPathSocket > multiPathSockets.size()) {
         nextPathSocket = 0;
     }
     return s->sendto(data, size, addr, port);
