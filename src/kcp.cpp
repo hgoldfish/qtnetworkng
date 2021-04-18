@@ -133,7 +133,7 @@ public:
     virtual qint32 rawSend(const char *data, qint32 size) override;
     virtual qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port) override;
 public:
-    qint32 multiPathSend(const char *data, qint32 size, const HostAddress &addr, quint16 port);
+    qint32 multiPathSend(const char *data, qint32 size, const HostAddress &addr, quint16 port, quint32 connectionId);
     void removeSlave(const QString &originalHostAndPort) { receiversByHostAndPort.remove(originalHostAndPort); }
     void removeSlave(quint32 connectionId) { receiversByConnectionId.remove(connectionId); }
     quint32 nextConnectionId();
@@ -1050,7 +1050,7 @@ HostAddress MasterKcpSocketPrivate::resolve(const QString &hostName, QSharedPoin
 }
 
 
-qint32 MasterKcpSocketPrivate::multiPathSend(const char *data, qint32 size, const HostAddress &addr, quint16 port)
+qint32 MasterKcpSocketPrivate::multiPathSend(const char *data, qint32 size, const HostAddress &addr, quint16 port, quint32 connectionId)
 {
     if (!connectionId) {
         return rawSocket->sendto(data, size, addr, port);
@@ -1073,7 +1073,7 @@ qint32 MasterKcpSocketPrivate::rawSend(const char *data, qint32 size)
 {
     lastKeepaliveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
     startReceivingCoroutine();
-    return multiPathSend(data, size, remoteAddress, remotePort);
+    return multiPathSend(data, size, remoteAddress, remotePort, connectionId);
 }
 
 
@@ -1290,7 +1290,7 @@ qint32 SlaveKcpSocketPrivate::rawSend(const char *data, qint32 size)
         return -1;
     } else {
         lastKeepaliveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
-        return parent->multiPathSend(data, size, remoteAddress, remotePort);
+        return parent->multiPathSend(data, size, remoteAddress, remotePort, connectionId);
     }
 }
 
