@@ -837,7 +837,7 @@ static bool parseIp6(const QString &address, IPv6Address &addr, QString *scopeId
     } else {
         scopeId->clear();
     }
-    return parseIp6(addr, tmp.cbegin(), tmp.cend()) == nullptr;
+    return parseIp6(addr, tmp.begin(), tmp.end()) == nullptr;
 }
 
 
@@ -1275,7 +1275,7 @@ QPair<HostAddress, int> HostAddress::parseSubnet(const QString &subnet)
         return invalid;
 
     int slash = subnet.indexOf(QLatin1Char('/'));
-    QStringRef netStr(&subnet);
+    QString netStr(subnet);
     if (slash != -1)
         netStr.truncate(slash);
 
@@ -1309,7 +1309,7 @@ QPair<HostAddress, int> HostAddress::parseSubnet(const QString &subnet)
             netmask = 128;
 
         HostAddress net;
-        if (!net.setAddress(netStr.toString()))
+        if (!net.setAddress(netStr))
             return invalid;     // failed to parse the IP
 
         clearBits(net.d->ipv6.a6.c, netmask, 128);
@@ -1320,7 +1320,7 @@ QPair<HostAddress, int> HostAddress::parseSubnet(const QString &subnet)
         return invalid;         // invalid netmask
 
     // parse the address manually
-    auto parts = netStr.split(QLatin1Char('.'));
+    QStringList parts = netStr.split(QLatin1Char('.'));
     if (parts.isEmpty() || parts.count() > 4)
         return invalid;         // invalid IPv4 address
 

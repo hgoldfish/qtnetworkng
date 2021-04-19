@@ -17,10 +17,10 @@ public:
 public:
     bool acquire(bool blocking = true);
     bool acquire(int value, bool blocking = true);
-    void release();
-    void release(int value);
+    void release(int value = 1);
     bool isLocked() const;
     bool isUsed() const;
+    quint32 getting() const;
 private:
     SemaphorePrivate * d_ptr;
     Q_DECLARE_PRIVATE(Semaphore)

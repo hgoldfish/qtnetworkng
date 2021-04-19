@@ -16,13 +16,16 @@ public:
     void release(int value);
     void notifyWaiters(bool force);
     void scheduleDelete();
-private:
+    static SemaphorePrivate *getPrivate(QSharedPointer<Semaphore> q) { return q ? q->d_ptr : nullptr;  }
+public:
     Semaphore * const q_ptr;
     QList<QPointer<BaseCoroutine> > waiters;
     const int init_value;
     volatile int counter;
     int notified;
     Q_DECLARE_PUBLIC(Semaphore)
+
+    friend QSharedPointer<Semaphore> acquireAny(const QList<QSharedPointer<Semaphore>> &semaphores, int value, bool blocking);
 };
 
 
@@ -165,22 +168,15 @@ bool Semaphore::acquire(int value, bool blocking)
     if (!d) {
         return false;
     }
+    if (value > d->init_value) {
+        return false;
+    }
     for (int i = 0; i < value; ++i) {
         if (!d->acquire(blocking)) {
             return false;
         }
     }
     return true;
-}
-
-
-void Semaphore::release()
-{
-    Q_D(Semaphore);
-    if (!d) {
-        return;
-    }
-    d->release(1);
 }
 
 
@@ -212,6 +208,19 @@ bool Semaphore::isUsed() const
     }
     return d->counter < d->init_value;
 }
+
+
+quint32 Semaphore::getting() const
+{
+    Q_D(const Semaphore);
+    if (!d) {
+        return false;
+    }
+    return d->waiters.size();
+}
+
+
+
 
 
 Lock::Lock()
