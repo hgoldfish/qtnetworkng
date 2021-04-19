@@ -1210,15 +1210,15 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     HeaderSplitter::Error headerSplitterError;
     QScopedPointer<Coroutine> sendingReuqestBodyCoroutine(new SendRequestBodyCoroutine(Coroutine::current(), connection, request.d->body));
     if (!request.d->body.isNull()) {
-        if (debugLevel > 3) {
-            qDebug() << "sending body:" << request.d->body;
-        } else if (debugLevel > 0) {
+        if (debugLevel > 0) {
             qDebug() << "sending body:" << request.d->body->size();
         }
         sendingReuqestBodyCoroutine->start();
         try {
             headerSplitter.buf = connection->recv(1024 * 8);
-            sendingReuqestBodyCoroutine->kill();
+            if (sendingReuqestBodyCoroutine->isRunning()) {
+                sendingReuqestBodyCoroutine->kill();
+            }
             sendingReuqestBodyCoroutine->join();
         }  catch (CoroutineInterruptedException &) {
             sendingReuqestBodyCoroutine->join();

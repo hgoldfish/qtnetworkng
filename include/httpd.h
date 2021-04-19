@@ -37,6 +37,7 @@ protected:
     void sendCommandLine(HttpStatus status, const QString &shortMessage);
     void sendHeader(const QByteArray &name, const QByteArray &value);
     bool endHeader();
+    bool readBody();
 protected:
     virtual void doGET();
     virtual void doPOST();
@@ -58,6 +59,7 @@ protected:
     HttpVersion version;         // sent by client.
     HttpVersion serverVersion;   // default to HTTP 1.1
     float requestTimeout;        // default to 1 hour.
+    qint32 maxBodySize;          // default to 32MB, unlimited if -1
     bool closeConnection;        // determined by http version and connection header.
 };
 

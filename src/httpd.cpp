@@ -1,6 +1,9 @@
 #include <QtCore/qmimedatabase.h>
 #include <stdio.h>
 #include "../include/httpd.h"
+#ifdef QTNG_HAVE_ZLIB
+#include "../include/gzip.h"
+#endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -28,6 +31,7 @@ BaseHttpRequestHandler::BaseHttpRequestHandler()
     : version(Http1_1)
     , serverVersion(Http1_1)
     , requestTimeout(60 * 60)
+    , maxBodySize(1024 * 1024 * 32)
     , closeConnection(false)
 {
 }
@@ -52,6 +56,8 @@ void BaseHttpRequestHandler::handleOneRequest()
         }
         doMethod();
     }  catch (TimeoutException &) {
+        QString message("HTTP request handler is timeout.");
+        logError(HttpStatus::Gone, message, message);
         closeConnection = true;
     }
 }
@@ -59,34 +65,8 @@ void BaseHttpRequestHandler::handleOneRequest()
 
 QString BaseHttpRequestHandler::normalizePath(const QString &path)
 {
-//    if (!path.startsWith("/")) {
-//        return QString();
-//    }
     QUrl url = QUrl::fromEncoded(path.toLatin1(), QUrl::StrictMode);
     return url.toString(QUrl::NormalizePathSegments);
-//    const QStringList &list = url.path().split("/", QString::SkipEmptyParts);
-//    QStringList l;
-//    for (const QString &part: list) {
-//        if (part == ".") { // if part contains space, it is not dot dir.
-//            continue;
-//        } else if (part == "..") {
-//            if (!l.isEmpty()) {
-//                l.removeLast();
-//            } else {
-//                return QString();
-//            }
-//        } else {
-//            l.append(part);
-//        }
-//    }
-//    QString normalPath = l.join("/");
-//    normalPath.prepend("/");
-//    if (url.path().endsWith("/") && !normalPath.endsWith("/")) {
-//        normalPath.append("/");
-//    }
-//    url.setPath(normalPath);
-//    qDebug() << url.toString();
-//    return url.toString();
 }
 
 
@@ -385,6 +365,49 @@ bool BaseHttpRequestHandler::endHeader()
     const QByteArray &data = join(headerCache);
     headerCache.clear();
     return request->sendall(data) == data.size();
+}
+
+
+bool BaseHttpRequestHandler::readBody()
+{
+    qint32 contentLength = getContentLength();
+    if (maxBodySize >= 0 && contentLength > maxBodySize) {
+        closeConnection = true;
+        sendError(HttpStatus::RequestEntityTooLarge);
+        return false;
+    }
+    if (contentLength > 0) {
+        if (body.size() < contentLength) {
+            const QByteArray &buf = this->request->recvall(contentLength - body.size());
+            body.append(buf);
+        }
+        if (body.size() != contentLength) {
+            return false; // request broken.
+        }
+        const QByteArray &encodingHeader = header("Transfer-Encoding");
+        if (encodingHeader.toLower() == "qt" && !body.isEmpty()) {
+            body = qUncompress(body);
+            if (body.isEmpty()) {
+                sendError(HttpStatus::UnsupportedMediaType);
+                return false;
+            }
+            removeHeader("Transfer-Encoding");
+#ifdef QTNG_HAVE_ZLIB
+        } else if ((encodingHeader.toLower() == QByteArray("gzip") ||
+             encodingHeader.toLower() == "deflate") && !body.isEmpty()) {
+            QSharedPointer<BytesIO> output(new BytesIO());
+            if (!qGzipDecompress(FileLike::bytes(body), output)) {
+                sendError(HttpStatus::UnsupportedMediaType);
+                return false;
+            }
+            removeHeader("Transfer-Encoding");
+            body = output->data();
+#endif
+        } else if (!encodingHeader.isEmpty()){
+            qWarning() << "unsupported content encoding." << encodingHeader;
+        }
+    }
+    return true;
 }
 
 
