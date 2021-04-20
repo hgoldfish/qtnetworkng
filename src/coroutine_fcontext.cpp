@@ -25,7 +25,6 @@ extern "C" intptr_t BOOST_CONTEXT_CALLDECL jump_fcontext(fcontext_t *ofc, fconte
 extern "C" fcontext_t BOOST_CONTEXT_CALLDECL make_fcontext(void *sp, std::size_t size, void (* fn)(intptr_t));
 
 
-// 开始定义 CoroutinePrivate
 extern "C" void run_stub(intptr_t tr);
 class BaseCoroutinePrivate
 {
@@ -53,7 +52,6 @@ private:
 };
 
 
-// 开始实现 CoroutinePrivate
 extern "C" void run_stub(intptr_t data)
 {
     BaseCoroutinePrivate *coroutine = reinterpret_cast<BaseCoroutinePrivate*>(data);
@@ -256,7 +254,6 @@ BaseCoroutine* createMainCoroutine()
 }
 
 
-// 开始实现 QBaseCoroutine
 BaseCoroutine::BaseCoroutine(BaseCoroutine * previous, size_t stackSize)
     :dd_ptr(new BaseCoroutinePrivate(this, previous, stackSize))
 {

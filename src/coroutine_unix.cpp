@@ -8,8 +8,6 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-// 开始定义 CoroutinePrivate
-
 class BaseCoroutinePrivate
 {
 public:
@@ -35,7 +33,6 @@ private:
 };
 
 
-// 开始实现 CoroutinePrivate
 void BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
 {
     coroutine->state = BaseCoroutine::Started;
@@ -227,12 +224,13 @@ BaseCoroutine* createMainCoroutine()
     return main;
 }
 
-// 开始实现 QBaseCoroutine
+
 BaseCoroutine::BaseCoroutine(BaseCoroutine * previous, size_t stackSize)
     :dd_ptr(new BaseCoroutinePrivate(this, previous, stackSize))
 {
 
 }
+
 
 BaseCoroutine::~BaseCoroutine()
 {

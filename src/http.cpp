@@ -558,6 +558,7 @@ void HttpResponse::setRequest(const HttpRequest &request)
     d->request = request;
 }
 
+
 QSharedPointer<SocketLike> HttpResponse::takeStream(QByteArray *readBytes)
 {
     if (d->consumed) {
@@ -572,6 +573,7 @@ QSharedPointer<SocketLike> HttpResponse::takeStream(QByteArray *readBytes)
     return d->stream;
 }
 
+
 RequestError *toRequestError(ChunkedBlockReader::Error error)
 {
     switch (error) {
@@ -584,11 +586,6 @@ RequestError *toRequestError(ChunkedBlockReader::Error error)
     default:
         return nullptr;
     }
-}
-
-QByteArray HttpResponse::body() const
-{
-    return d->body;
 }
 
 
@@ -3037,7 +3034,7 @@ HttpCacheManager::~HttpCacheManager()
 }
 
 
-bool HttpCacheManager::addResponse(const HttpResponse &response)
+bool HttpCacheManager::addResponse(HttpResponse &response)
 {
     const QString &url = response.url().toString();
     int statusCode = response.statusCode();

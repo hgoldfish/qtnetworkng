@@ -369,7 +369,7 @@ void ExchangerPrivate::sendOutgoing()
             return;
         } else {
             while (!outgoing.isEmpty()) {
-                buf.append(outgoing.get());  // 这里又碰到 buf is empty 的话怎么办？
+                buf.append(outgoing.get());
             }
         }
         qint32 len;

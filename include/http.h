@@ -175,7 +175,6 @@ public:
     void setVersion(HttpVersion version);
 
     QSharedPointer<SocketLike> takeStream(QByteArray *readBytes);
-    QByteArray body() const;
     QByteArray body();
     void setBody(const QByteArray &body);
     QString text();
@@ -384,7 +383,7 @@ public:
     HttpCacheManager();
     virtual ~HttpCacheManager();
 public:
-    virtual bool addResponse(const HttpResponse &response);
+    virtual bool addResponse(HttpResponse &response);
     virtual bool getResponse(HttpResponse *response);
 protected:
     virtual bool store(const QString &url, const QByteArray &data);
