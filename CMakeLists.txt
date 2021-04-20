@@ -13,9 +13,6 @@ endif ()
 project(qtnetworkng LANGUAGES C CXX ASM)
 
 # intergrate libressl
-set(LIBRESSL_APPS OFF)
-set(LIBRESSL_TESTS OFF)
-set(ENABLE_NC OFF)
 add_subdirectory(libressl)
 
 option(QTNG_BUILD_TESTS OFF)
