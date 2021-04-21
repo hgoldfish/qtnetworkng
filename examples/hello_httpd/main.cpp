@@ -3,28 +3,24 @@
 using namespace qtng;
 
 
-class HelloRequestHandler: public BaseHttpRequestHandler
+class HelloRequestHandler: public SimpleHttpRequestHandler
 {
 public:
     virtual void doGET() override
     {
-        if (path == "/") {
+        if (path == "/hello/") {
             sendResponse(HttpStatus::OK);
             sendHeader("Content-Type", "text/plain");
             sendHeader("Content-Length", "0");
             sendHeader("Connection", "keep-alive");
             endHeader();
         } else {
-            sendError(HttpStatus::NotFound);
+            QSharedPointer<FileLike> f = serveStaticFiles(rootDir, path);
+            if (!f.isNull()) {
+                sendfile(f, request);
+                f->close();
+            }
         }
-    }
-
-    virtual void logRequest(HttpStatus, int) override
-    {
-    }
-
-    virtual void logError(HttpStatus, const QString &, const QString &) override
-    {
     }
 };
 

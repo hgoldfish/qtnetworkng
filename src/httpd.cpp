@@ -118,7 +118,6 @@ bool BaseHttpRequestHandler::parseRequest()
         return false;
     }
     method = method.toUpper();
-    path = normalizePath(path);
     if (path.isEmpty()) {
         sendError(HttpStatus::BadRequest, QStringLiteral("Bad request path (%1)").arg(path));
         return false;
@@ -552,22 +551,6 @@ QSharedPointer<FileLike> StaticHttpRequestHandler::listDirectory(const QDir &dir
 }
 
 
-void StaticHttpRequestHandler::sendFile(QSharedPointer<FileLike> f)
-{
-    QByteArray buf(1024 * 8, Qt::Uninitialized);
-    while (true) {
-        qint64 bs = f->read(buf.data(), buf.size());
-        if (bs <= 0){
-            break;
-        }
-        bool ok = request->sendall(buf.data(), static_cast<qint32>(bs));
-        if (!ok) {
-            return;
-        }
-    }
-}
-
-
 QFileInfo StaticHttpRequestHandler::translatePath(const QDir &dir, const QString &subPath)
 {
     // remove '.' && '.."
@@ -613,9 +596,9 @@ QFileInfo StaticHttpRequestHandler::getIndexFile(const QDir &dir)
 
 void SimpleHttpRequestHandler::doGET()
 {
-    QSharedPointer<FileLike> f = serveStaticFiles(rootDir, QString());
+    QSharedPointer<FileLike> f = serveStaticFiles(rootDir, path);
     if (!f.isNull()) {
-        sendFile(f);
+        sendfile(f, request);
         f->close();
     }
 }
@@ -623,7 +606,7 @@ void SimpleHttpRequestHandler::doGET()
 
 void SimpleHttpRequestHandler::doHEAD()
 {
-    QSharedPointer<FileLike> f = serveStaticFiles(rootDir, QString());
+    QSharedPointer<FileLike> f = serveStaticFiles(rootDir, path);
     if (!f.isNull()) {
         f->close();
     }
