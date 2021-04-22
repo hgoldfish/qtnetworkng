@@ -42,7 +42,7 @@ private:
 };
 
 
-bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile);
+bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 size=-1);
 
 QTNETWORKNG_NAMESPACE_END
 

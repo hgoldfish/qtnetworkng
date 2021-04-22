@@ -144,7 +144,7 @@ public:
     void setContentType(const QString &contentType);
     QString getContentType() const;
     void setContentLength(qint64 contentLength);
-    qint32 getContentLength() const;
+    qint64 getContentLength() const;
     void setLocation(const QUrl &url);
     QUrl getLocation() const;
     void setLastModified(const QDateTime &lastModified);
@@ -188,12 +188,12 @@ void WithHttpHeaders<Base>::setContentLength(qint64 contentLength)
 
 
 template<typename Base>
-qint32 WithHttpHeaders<Base>::getContentLength() const
+qint64 WithHttpHeaders<Base>::getContentLength() const
 {
     bool ok;
     QByteArray s = header(QStringLiteral("Content-Length"));
-    qint32 l = s.toInt(&ok);
-    if(ok) {
+    qint64 l = s.toLongLong(&ok);
+    if (ok) {
         if (l >= 0) {
             return l;
         } else {

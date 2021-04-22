@@ -160,36 +160,45 @@ QSharedPointer<FileLike> FileLike::bytes(const QByteArray &data)
 }
 
 
-bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile)
+bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 size)
 {
     if (inputFile.isNull() || outputFile.isNull()) {
         return false;
     }
-    qint64 s = inputFile->size();
-    if (s == 0) {
-        return true;
-    } else if (s < 0) {
-        // size() is not supported.
+    if (size < 0) {
+        size = inputFile->size();
+        if (size == 0) {
+            return true;
+        } else if (size < 0) {
+            // size() is not supported.
+        }
     }
     QByteArray buf;
     QByteArray t(1024 * 8, Qt::Uninitialized);
     qint64 total = 0;
     bool eof = false;
     while (true) {
-        qint32 nextBlockSize = 1024 * 16 - buf.size();
-        if (!eof && nextBlockSize > 1024 * 8) {
-            qint32 readBytes = inputFile->read(t.data(), t.size());
-            if (readBytes < 0) {
-                return false;
-            } else if (readBytes > 0) {
-                total += readBytes;
-                buf.append(t.data(), readBytes);
-            } else {
-                eof = true;
+        qint64 remain = INT64_MAX;
+        if (size > 0) {
+            remain = qMax<qint64>(0, size - buf.size() - total);
+        }
+        if (remain > 0) {
+            qint32 nextBlockSize = 1024 * 16 - buf.size();
+            if (!eof && nextBlockSize > 1024 * 8) {
+                nextBlockSize = qMin(static_cast<qint64>(nextBlockSize), remain);
+                qint32 readBytes = inputFile->read(t.data(), nextBlockSize);
+                if (readBytes < 0) {
+                    return false;
+                } else if (readBytes > 0) {
+                    total += readBytes;
+                    buf.append(t.data(), readBytes);
+                } else {
+                    eof = true;
+                }
             }
         }
         if (buf.isEmpty()) {
-            return s < 0 || total == s;
+            return size < 0 || total == size;
         } else {
             qint32 writtenBytes = outputFile->write(buf, buf.size());
             if (writtenBytes <= 0) {
