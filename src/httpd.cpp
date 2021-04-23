@@ -369,8 +369,8 @@ bool BaseHttpRequestHandler::endHeader()
 
 bool BaseHttpRequestHandler::readBody()
 {
-    qint32 contentLength = getContentLength();
-    if (maxBodySize >= 0 && contentLength > maxBodySize) {
+    qint64 contentLength = getContentLength();
+    if (contentLength >= INT_MAX || (maxBodySize >= 0 && contentLength > maxBodySize)) {
         closeConnection = true;
         sendError(HttpStatus::RequestEntityTooLarge);
         return false;

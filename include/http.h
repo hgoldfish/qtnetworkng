@@ -109,8 +109,8 @@ public:
     void setBody(QSharedPointer<FileLike> body);
     QString userAgent() const;
     void setUserAgent(const QString &userAgent);
-    int maxBodySize() const;
-    void setMaxBodySize(int maxBodySize);
+    qint64 maxBodySize() const;
+    void setMaxBodySize(qint64 maxBodySize);
     int maxRedirects() const;
     void setMaxRedirects(int maxRedirects);
     inline void disableRedirects() { setMaxRedirects(0); }
@@ -175,6 +175,7 @@ public:
     void setVersion(HttpVersion version);
 
     QSharedPointer<SocketLike> takeStream(QByteArray *readBytes);
+    QSharedPointer<FileLike> bodyAsFile();
     QByteArray body();
     void setBody(const QByteArray &body);
     QString text();

@@ -28,7 +28,7 @@ class BytesIOPrivate;
 class BytesIO: public FileLike
 {
 public:
-    BytesIO(const QByteArray &buf);
+    BytesIO(const QByteArray &buf, qint32 pos = 0);
     BytesIO();
     virtual ~BytesIO() override;
     virtual qint32 read(char *data, qint32 size) override;
@@ -42,7 +42,7 @@ private:
 };
 
 
-bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 size=-1);
+bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy=-1);
 
 QTNETWORKNG_NAMESPACE_END
 

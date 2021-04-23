@@ -464,6 +464,21 @@ public:
 };
 
 
+class BodyFile: public FileLike
+{
+public:
+    BodyFile(qint64 contentLength, const QByteArray &partialBody, QSharedPointer<SocketLike> stream);
+    virtual qint32 read(char *data, qint32 size) override;
+    virtual qint32 write(const char *, qint32) override { return -1;}
+    virtual void close() override {}
+    virtual qint64 size() override { return contentLength;}
+public:
+    const qint64 contentLength;
+    const QSharedPointer<SocketLike> stream;
+    QByteArray partialBody;
+    qint64 count;
+};
+
 QTNETWORKNG_NAMESPACE_END
 
 #endif // QTNG_HTTP_UTILS_H

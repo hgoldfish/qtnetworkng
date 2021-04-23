@@ -574,14 +574,14 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
     const int MaxLineLength = 6; // ffff\r\n
     QByteArray numBytes;
     bool expectingLineBreak = false;
-    while(buf.size() < MaxLineLength && !buf.contains('\n')) {
+    while (buf.size() < MaxLineLength && !buf.contains('\n')) {
         const QByteArray &t = connection->recv(1024 * 8);
         if (t.isEmpty()) {
             break;
         }
         buf.append(t); // most server send the header at one tcp block.
     }
-    if(buf.size() < 3) { // 0\r\n
+    if (buf.size() < 3) { // 0\r\n
         *error = ChunkedBlockReader::ChunkedEncodingError;
         return QByteArray();
     }
@@ -609,13 +609,13 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
             }
         }
     }
-    if(!ok) {
+    if (!ok) {
         *error = ChunkedBlockReader::ChunkedEncodingError;
         return QByteArray();
     }
 
     qint32 bytesToRead = numBytes.toInt(&ok, 16);
-    if(!ok) {
+    if (!ok) {
         if(debugLevel > 0) {
             qDebug() << "got invalid chunked bytes:" << numBytes;
         }
@@ -623,14 +623,14 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
         return QByteArray();
     }
 
-    if(bytesToRead > leftBytes || bytesToRead < 0) {
+    if (bytesToRead > leftBytes || bytesToRead < 0) {
         *error = ChunkedBlockReader::UnrewindableBodyError;
         return QByteArray();
     }
 
-    while(buf.size() < bytesToRead + 2) {
+    while (buf.size() < bytesToRead + 2) {
         const QByteArray t = connection->recv(1024 * 8);
-        if(t.isEmpty()) {
+        if (t.isEmpty()) {
             *error = ChunkedBlockReader::ConnectionError;
             return QByteArray();
         }
@@ -640,12 +640,45 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
     const QByteArray &result = buf.mid(0, bytesToRead);
     buf.remove(0, bytesToRead + 2);
 
-    if(bytesToRead == 0 && !buf.isEmpty() && debugLevel > 0) {
+    if (bytesToRead == 0 && !buf.isEmpty() && debugLevel > 0) {
         qDebug() << "bytesToRead == 0 but some bytes left.";
     }
 
     *error = ChunkedBlockReader::NoError;
     return result;
+}
+
+
+BodyFile::BodyFile(qint64 contentLength, const QByteArray &partialBody, QSharedPointer<SocketLike> stream)
+    : contentLength(contentLength)
+    , stream(stream)
+    , partialBody(partialBody)
+    , count(0)
+{}
+
+
+qint32 BodyFile::read(char *data, qint32 size)
+{
+    if (!partialBody.isEmpty()) {
+        qint32 t = qMin(size, partialBody.size());
+        memcpy(data, partialBody.constData(), t);
+        partialBody.remove(0, t);
+        count += t;
+        return t;
+    }
+    if (contentLength >= 0) {
+        if (count >= contentLength) {
+            return 0;
+        }
+        qint64 leftBytes = contentLength - count;
+        qint32 bs = stream->recv(data, qMin<qint64>(size, leftBytes));
+        if (bs > 0) {
+            count += bs;
+        }
+        return bs;
+    } else {
+        return stream->recvall(data, size);
+    }
 }
 
 QTNETWORKNG_NAMESPACE_END

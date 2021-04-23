@@ -112,7 +112,7 @@ public:
     QList<QNetworkCookie> cookies;
     QSharedPointer<FileLike> body;
     QString userAgent;
-    int maxBodySize;
+    qint64 maxBodySize;
     int maxRedirects;
     float connectionTimeout;
     float timeout;
@@ -124,7 +124,7 @@ public:
 
 HttpRequestPrivate::HttpRequestPrivate()
     : method("GET")
-    , maxBodySize(0)
+    , maxBodySize(-1)
     , maxRedirects(8)
     , connectionTimeout(-1.0)
     , timeout(-1.0)
@@ -276,13 +276,13 @@ void HttpRequest::setUserAgent(const QString &userAgent)
 }
 
 
-int HttpRequest::maxBodySize() const
+qint64 HttpRequest::maxBodySize() const
 {
     return d->maxBodySize;
 }
 
 
-void HttpRequest::setMaxBodySize(int maxBodySize)
+void HttpRequest::setMaxBodySize(qint64 maxBodySize)
 {
     d->maxBodySize = maxBodySize;
 }
@@ -562,15 +562,28 @@ void HttpResponse::setRequest(const HttpRequest &request)
 QSharedPointer<SocketLike> HttpResponse::takeStream(QByteArray *readBytes)
 {
     if (d->consumed) {
-//        qWarning() << "the stream is consumed. do you remember to set the streamResponse property of request to true?";
+        qWarning() << "the stream is consumed. do you remember to set the streamResponse property of request to true?";
     }
     if (readBytes) {
         *readBytes = d->body;
+        d->body.clear();
     } else {
 //        qWarning() << "you should take care the left bytes after parsing header. please pass a non-null byte array to takeStream()";
     }
     d->consumed = true;
     return d->stream;
+}
+
+
+QSharedPointer<FileLike> HttpResponse::bodyAsFile()
+{
+    if (d->consumed) {
+        qWarning() << "the stream is consumed. do you remember to set the streamResponse property of request to true?";
+    }
+    d->consumed = true;
+    QSharedPointer<BodyFile> bodyFile = QSharedPointer<BodyFile>::create(getContentLength(), d->body, d->stream);
+    d->body.clear();
+    return bodyFile;
 }
 
 
@@ -597,9 +610,10 @@ QByteArray HttpResponse::body()
     }
     // XXX if not consumed and body is not empty, it must be the from the header splitter.
     // read it from stream
-    qint32 contentLength = getContentLength();
+    qint64 contentLength = getContentLength();
     if (contentLength > 0) {
-        if (d->request.maxBodySize() > 0 && contentLength > d->request.maxBodySize()) {
+        if (contentLength > INT_MAX ||
+                (d->request.maxBodySize() >= 0 && contentLength > d->request.maxBodySize())) {
             setError(new UnrewindableBodyError());
             d->consumed = true;
             return QByteArray();
@@ -612,14 +626,15 @@ QByteArray HttpResponse::body()
                     d->consumed = true;
                     return QByteArray();
                 }
-                qint32 leftBytes = contentLength - d->body.size();
-                const QByteArray &t = d->stream->recvall(leftBytes);
-                if (t.size() != leftBytes) {
+
+                qint64 leftBytes = contentLength - d->body.size();
+                QSharedPointer<BytesIO> tmpfile(new BytesIO(d->body, d->body.size()));
+                if (!sendfile(d->stream, tmpfile, leftBytes)) {
                     setError(new ConnectionError());
                     d->consumed = true;
                     return QByteArray();
                 }
-                d->body.append(t);
+                d->body = tmpfile->data();
             }
         }
     } else if (contentLength < 0) { // without `Content-Length` header.
@@ -638,8 +653,8 @@ QByteArray HttpResponse::body()
             RequestError *error = nullptr;
             while (true) {
                 qint64 leftBytes;
-                if (d->request.maxBodySize() > 0) {
-                    leftBytes = d->request.maxBodySize() - d->body.size();
+                if (d->request.maxBodySize() >= 0) {
+                    leftBytes = qMax<qint64>(0, d->request.maxBodySize() - d->body.size());
                 } else {
                     leftBytes = INT_MAX;
                 }
@@ -1076,7 +1091,7 @@ SendRequestBodyCoroutine::SendRequestBodyCoroutine(QPointer<Coroutine> parentCor
 
 void SendRequestBodyCoroutine::run()
 {
-    if (!sendfile(body, connection.dynamicCast<FileLike>())) {
+    if (!sendfile(body, connection)) {
         if (!parentCoroutine.isNull()) {
             parentCoroutine->kill(new CoroutineInterruptedException());
         }

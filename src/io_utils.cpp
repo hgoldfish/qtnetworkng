@@ -82,8 +82,8 @@ QSharedPointer<FileLike> FileLike::rawFile(QSharedPointer<QFile> f)
 class BytesIOPrivate
 {
 public:
-    BytesIOPrivate(const QByteArray &buf)
-        :buf(buf), pos(0) {}
+    BytesIOPrivate(const QByteArray &buf, qint32 pos)
+        :buf(buf), pos(pos) {}
     BytesIOPrivate()
         :pos(0) {}
     QByteArray buf;
@@ -91,10 +91,9 @@ public:
 };
 
 
-BytesIO::BytesIO(const QByteArray &buf)
-    :d_ptr(new BytesIOPrivate(buf))
+BytesIO::BytesIO(const QByteArray &buf, qint32 pos)
+    :d_ptr(new BytesIOPrivate(buf, pos))
 {
-
 }
 
 
@@ -160,45 +159,45 @@ QSharedPointer<FileLike> FileLike::bytes(const QByteArray &data)
 }
 
 
-bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 size)
+bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy)
 {
     if (inputFile.isNull() || outputFile.isNull()) {
         return false;
     }
-    if (size < 0) {
-        size = inputFile->size();
-        if (size == 0) {
+    if (bytesToCopy == 0) {
+        return true;
+    } else if (bytesToCopy < 0) {
+        bytesToCopy = inputFile->size();
+        if (bytesToCopy == 0) {
             return true;
-        } else if (size < 0) {
+        } else if (bytesToCopy < 0) {
             // size() is not supported.
         }
     }
     QByteArray buf;
+    buf.reserve(1024 * 64);
     QByteArray t(1024 * 8, Qt::Uninitialized);
     qint64 total = 0;
     bool eof = false;
     while (true) {
         qint64 remain = INT64_MAX;
-        if (size > 0) {
-            remain = qMax<qint64>(0, size - buf.size() - total);
+        if (bytesToCopy > 0) {
+            remain = qMax<qint64>(0, bytesToCopy - buf.size() - total);
         }
-        if (remain > 0) {
-            qint32 nextBlockSize = 1024 * 16 - buf.size();
-            if (!eof && nextBlockSize > 1024 * 8) {
-                nextBlockSize = qMin(static_cast<qint64>(nextBlockSize), remain);
-                qint32 readBytes = inputFile->read(t.data(), nextBlockSize);
-                if (readBytes < 0) {
-                    return false;
-                } else if (readBytes > 0) {
-                    total += readBytes;
-                    buf.append(t.data(), readBytes);
-                } else {
-                    eof = true;
-                }
+        if (remain > 0 && !eof && buf.size() < 1024 * 8) {
+            qint32 nextBlockSize = qMin<qint64>(t.size(), remain);
+            qint32 readBytes = inputFile->read(t.data(), nextBlockSize);
+            if (readBytes < 0) {
+                return false;
+            } else if (readBytes > 0) {
+                total += readBytes;
+                buf.append(t.data(), readBytes);
+            } else {
+                eof = true;
             }
         }
         if (buf.isEmpty()) {
-            return size < 0 || total == size;
+            return bytesToCopy < 0 || total == bytesToCopy;
         } else {
             qint32 writtenBytes = outputFile->write(buf, buf.size());
             if (writtenBytes <= 0) {
