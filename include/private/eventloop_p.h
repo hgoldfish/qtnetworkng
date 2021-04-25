@@ -93,12 +93,6 @@ private:
 };
 
 
-inline QDebug &operator <<(QDebug &out, const EventLoopCoroutine& el)
-{
-    return out << QString::fromLatin1("EventLoopCoroutine(id=%1)").arg(el.id());
-}
-
-
 class ScopedIoWatcher
 {
 public:
@@ -184,5 +178,8 @@ public:
 };
 
 QTNETWORKNG_NAMESPACE_END
+
+class QDebug;
+QDebug operator <<(QDebug out, const QTNETWORKNG_NAMESPACE::EventLoopCoroutine& el);
 
 #endif

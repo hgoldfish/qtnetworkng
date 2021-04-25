@@ -6,6 +6,7 @@
 #include <QtCore/qlocale.h>
 #include <QtCore/qchar.h>
 #include <QtCore/QUrl>
+#include <QDebug>
 
 #ifdef Q_OS_WIN
     #include <winsock2.h>
@@ -1503,3 +1504,9 @@ uint qHash(const HostAddress &key, uint seed) noexcept
 }
 
 QTNETWORKNG_NAMESPACE_END
+
+
+QDebug operator<<(QDebug out, const QTNETWORKNG_NAMESPACE::HostAddress &t)
+{
+    return out << t.toString();
+}

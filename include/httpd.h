@@ -1,8 +1,8 @@
 #ifndef QTNG_HTTPD_H
 #define QTNG_HTTPD_H
-#include <QFile>
-#include <QDir>
-#include <QFileInfo>
+#include <QtCore/qfile.h>
+#include <QtCore/qdir.h>
+#include <QtCore/qfileinfo.h>
 #include "socket_server.h"
 #include "http_utils.h"
 

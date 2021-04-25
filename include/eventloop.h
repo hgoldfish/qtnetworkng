@@ -4,7 +4,6 @@
 #include <functional>
 #include <QtCore/qthreadstorage.h>
 #include <QtCore/qvariant.h>
-#include <QtCore/qdebug.h>
 #include <QtCore/qpointer.h>
 #include "coroutine.h"
 

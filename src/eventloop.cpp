@@ -656,3 +656,9 @@ void Timeout::restart()
 
 
 QTNETWORKNG_NAMESPACE_END
+
+
+QDebug operator <<(QDebug out, const QTNETWORKNG_NAMESPACE::EventLoopCoroutine& el)
+{
+    return out << QString::fromLatin1("EventLoopCoroutine(id=%1)").arg(el.id());
+}

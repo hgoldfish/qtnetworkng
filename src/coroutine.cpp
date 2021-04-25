@@ -1,3 +1,4 @@
+#include <QDebug>
 #include "../include/private/coroutine_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -131,8 +132,10 @@ BaseCoroutine *BaseCoroutine::current()
     return currentCoroutine().get();
 }
 
+QTNETWORKNG_NAMESPACE_END
 
-QDebug &operator <<(QDebug &out, const BaseCoroutine& coroutine)
+
+QDebug &operator <<(QDebug &out, const QTNETWORKNG_NAMESPACE::BaseCoroutine& coroutine)
 {
     if (coroutine.objectName().isEmpty()) {
         return out << QString::fromLatin1("BaseCourtine(id=%1)").arg(coroutine.id());
@@ -141,5 +144,3 @@ QDebug &operator <<(QDebug &out, const BaseCoroutine& coroutine)
     }
 }
 
-
-QTNETWORKNG_NAMESPACE_END

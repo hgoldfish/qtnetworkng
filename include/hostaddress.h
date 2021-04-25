@@ -133,4 +133,6 @@ private:
 
 QTNETWORKNG_NAMESPACE_END
 
+class QDebug;
+QDebug operator<<(QDebug out, const QTNETWORKNG_NAMESPACE::HostAddress &t);
 #endif // QTNG_HOSTADDRESS_H

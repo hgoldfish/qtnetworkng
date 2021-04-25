@@ -2,7 +2,7 @@
 #define QTNG_DATAPACK_H
 
 #include <type_traits>
-#include <QDataStream>
+#include <QtCore/qdatastream.h>
 
 struct CommonHeader
 {

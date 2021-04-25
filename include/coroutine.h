@@ -3,7 +3,6 @@
 
 #include <QtCore/qobject.h>
 #include <QtCore/qstring.h>
-#include <QtCore/qdebug.h>
 #include "config.h"
 #include "deferred.h"
 
@@ -88,9 +87,9 @@ private:
     Q_DECLARE_PRIVATE_D(dd_ptr, BaseCoroutine)
 };
 
-QDebug &operator <<(QDebug &out, const BaseCoroutine& coroutine);
-
-
 QTNETWORKNG_NAMESPACE_END
+
+class QDebug;
+QDebug &operator<<(QDebug &out, const QTNETWORKNG_NAMESPACE::BaseCoroutine& coroutine);
 
 #endif // QTNG_COROUTINE_H
