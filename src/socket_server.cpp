@@ -148,7 +148,7 @@ void BaseStreamServerPrivate::serveForever()
                 if (!sslRequest.isNull()) {
                     try {
                         q->processRequest(sslRequest); // close request.
-                        q->shutdownRequest(sslRequest);
+                        return;
                     } catch (CoroutineExitException &) {
                     } catch (...) {
                         q->handleError(sslRequest);
@@ -288,11 +288,6 @@ QSharedPointer<SocketLike> BaseStreamServer::getRequest()
 
 
 void BaseStreamServer::handleError(QSharedPointer<SocketLike>)
-{
-}
-
-
-void BaseStreamServer::shutdownRequest(QSharedPointer<SocketLike>)
 {
 }
 

@@ -48,7 +48,6 @@ protected:
     virtual QSharedPointer<SocketLike> prepareRequest(QSharedPointer<SocketLike> request);  // ssl handshake, default to nothing for tcp
     virtual bool verifyRequest(QSharedPointer<SocketLike> request);
     virtual void handleError(QSharedPointer<SocketLike> request);
-    virtual void shutdownRequest(QSharedPointer<SocketLike> request);
     virtual void closeRequest(QSharedPointer<SocketLike> request);
 protected:
     BaseStreamServerPrivate * const d_ptr;
