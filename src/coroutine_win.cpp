@@ -1,6 +1,7 @@
 #include "../include/private/coroutine_p.h"
 #include <windows.h>
 #include <winbase.h>
+#include <QtCore/qdebug.h>
 
 QTNETWORKNG_NAMESPACE_BEGIN
 

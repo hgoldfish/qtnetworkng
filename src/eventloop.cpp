@@ -11,7 +11,7 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 Q_GLOBAL_STATIC(CurrentLoopStorage, currentLoopStorage)
-Q_GLOBAL_STATIC(QAtomicInteger<bool>, preferLibevFlag);
+Q_GLOBAL_STATIC(QAtomicInteger<int>, preferLibevFlag);
 
 
 CurrentLoopStorage *currentLoop()
