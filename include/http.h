@@ -175,7 +175,7 @@ public:
     void setVersion(HttpVersion version);
 
     QSharedPointer<SocketLike> takeStream(QByteArray *readBytes);
-    QSharedPointer<FileLike> bodyAsFile();
+    QSharedPointer<FileLike> bodyAsFile(bool processEncoding = true);
     QByteArray body();
     void setBody(const QByteArray &body);
     QString text();

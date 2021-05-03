@@ -422,11 +422,12 @@ void CoroutinePrivate::kill(CoroutineException *e, quint32 msecs)
             c->callLater(msecs, new KillCoroutineFunctor(this, e));
         }
     } else if (q->state() == Coroutine::Stopped || q->state() == Coroutine::Joined) {
-        qDebug("coroutine was dead. kill() do nothing.");
+        delete e;
     } else if (q->state() == Coroutine::Started){
         c->callLater(msecs, new KillCoroutineFunctor(this, e));
     } else {
         qWarning("invalid state while kiling coroutine.");
+        delete e;
     }
 }
 

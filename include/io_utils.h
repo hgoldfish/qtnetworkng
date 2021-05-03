@@ -16,11 +16,28 @@ public:
     virtual qint32 write(const char *data, qint32 size) = 0;
     virtual void close() = 0;
     virtual qint64 size() = 0;
-    QByteArray readall(bool *ok);
+    virtual QByteArray readall(bool *ok);
+public:
+    QByteArray read(qint32 size);
+    qint32 write(const QByteArray &data);
 public:
     static QSharedPointer<FileLike> rawFile(QSharedPointer<QFile> f);
     static QSharedPointer<FileLike> rawFile(QFile *f) { return rawFile(QSharedPointer<QFile>(f)); }
     static QSharedPointer<FileLike> bytes(const QByteArray &data);
+};
+
+
+class RawFile: public FileLike
+{
+public:
+    RawFile(QSharedPointer<QFile> f)
+        : f(f) {}
+    virtual qint32 read(char *data, qint32 size) override;
+    virtual qint32 write(const char *data, qint32 size) override;
+    virtual void close() override;
+    virtual qint64 size() override;
+public:
+    QSharedPointer<QFile> f;
 };
 
 
@@ -35,6 +52,7 @@ public:
     virtual qint32 write(const char *data, qint32 size) override;
     virtual void close() override;
     virtual qint64 size() override;
+    virtual QByteArray readall(bool *ok) override;
     QByteArray data();
 private:
     BytesIOPrivate * const d_ptr;

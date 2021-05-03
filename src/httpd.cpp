@@ -100,9 +100,6 @@ bool BaseHttpRequestHandler::parseRequest()
             version = Http1_0;
         } else if(versionStr == "HTTP/1.1") {
             version = Http1_1;
-            if (serverVersion == Http1_1) {
-                closeConnection = false;
-            }
         } else {
             sendError(HttpStatus::BadRequest, QStringLiteral("Bad request version (%1").arg(versionStr));
             return false;
@@ -260,7 +257,7 @@ bool BaseHttpRequestHandler::sendError(HttpStatus status, const QString &message
     sendCommandLine(status, shortMessage);
     sendHeader("Server", serverName().toUtf8());
     sendHeader("Date", dateTimeString().toUtf8());
-    if (version == Http1_1 && !closeConnection) {
+    if (version >= Http1_1 && serverVersion >= Http1_1 && !closeConnection) {
         sendHeader("Connection", "keep-alive");
     }
     QByteArray body;
@@ -367,46 +364,82 @@ bool BaseHttpRequestHandler::endHeader()
 }
 
 
-bool BaseHttpRequestHandler::readBody()
+QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding)
 {
     qint64 contentLength = getContentLength();
-    if (contentLength >= INT_MAX || (maxBodySize >= 0 && contentLength > maxBodySize)) {
-        closeConnection = true;
-        sendError(HttpStatus::RequestEntityTooLarge);
+
+    QSharedPointer<FileLike> bodyFile;
+    if (contentLength >= 0) {
+        if (contentLength >= INT_MAX || (maxBodySize >= 0 && contentLength > maxBodySize)) {
+            closeConnection = true;
+            sendError(HttpStatus::RequestEntityTooLarge);
+            return QSharedPointer<FileLike>();
+        } else {
+            if (body.size() > contentLength) {
+                qWarning("request body got too much bytes.");
+                bodyFile = FileLike::bytes(body);
+            } else if (body.size() < contentLength){
+                bodyFile = QSharedPointer<PlainBodyFile>::create(contentLength, body, request);
+            } else {
+                bodyFile = FileLike::bytes(body);
+            }
+        }
+    } else {  // if (contentLength < 0) without `Content-Length` header.
+        const QByteArray &transferEncodingHeader = header(QStringLiteral("Transfer-Encoding"));
+        bool isChunked = (transferEncodingHeader.toLower() == QByteArray("chunked"));
+        if (isChunked && processEncoding) {
+            removeHeader(QString("Transfer-Encoding"));
+            bodyFile = QSharedPointer<ChunkedBodyFile>::create(maxBodySize, body, request);
+        } else {
+            // if the client does not send content length, it mean no content.
+            // this is not the same as client side.
+            bodyFile = FileLike::bytes(QByteArray());
+        }
+    }
+    body.clear();
+
+    if (processEncoding) {
+        const QByteArray &contentEncodingHeader = header(QString("Content-Encoding"));
+        const QByteArray &transferEncodingHeader = header(QString("Transfer-Encoding"));
+    #ifdef QTNG_HAVE_ZLIB
+        if (contentEncodingHeader.toLower() == QByteArray("gzip") ||
+                contentEncodingHeader.toLower() == QByteArray("deflate")) {
+            removeHeader(QString("Content-Encoding"));
+            bodyFile = QSharedPointer<GzipDecompressFile>::create(bodyFile);
+        } else if (transferEncodingHeader.toLower() == QByteArray("gzip") ||
+                   transferEncodingHeader.toLower() == QByteArray("deflate")) {
+            removeHeader(QString("Transfer-Encoding"));
+            bodyFile = QSharedPointer<GzipDecompressFile>::create(bodyFile);
+        } else if (transferEncodingHeader.toLower() == QByteArray("qt")) {
+            bool ok;
+            const QByteArray &compBody = bodyFile->readall(&ok);
+            if (!ok) {
+                closeConnection = true;
+                return QSharedPointer<FileLike>();
+            }
+            removeHeader("Transfer-Encoding");
+            const QByteArray &decompBody = qUncompress(compBody);
+            bodyFile = FileLike::bytes(decompBody);
+        } else
+    #endif
+        if (!contentEncodingHeader.isEmpty() || !transferEncodingHeader.isEmpty()){
+            qWarning() << "unsupported content encoding." << contentEncodingHeader << transferEncodingHeader;
+            closeConnection = true;
+        }
+    }
+    return bodyFile;
+}
+
+
+bool BaseHttpRequestHandler::readBody()
+{
+    QSharedPointer<FileLike> bodyFile = bodyAsFile();
+    if (bodyFile.isNull()) {
         return false;
     }
-    if (contentLength > 0) {
-        if (body.size() < contentLength) {
-            const QByteArray &buf = this->request->recvall(contentLength - body.size());
-            body.append(buf);
-        }
-        if (body.size() != contentLength) {
-            return false; // request broken.
-        }
-        const QByteArray &encodingHeader = header("Transfer-Encoding");
-        if (encodingHeader.toLower() == "qt" && !body.isEmpty()) {
-            body = qUncompress(body);
-            if (body.isEmpty()) {
-                sendError(HttpStatus::UnsupportedMediaType);
-                return false;
-            }
-            removeHeader("Transfer-Encoding");
-#ifdef QTNG_HAVE_ZLIB
-        } else if ((encodingHeader.toLower() == QByteArray("gzip") ||
-             encodingHeader.toLower() == "deflate") && !body.isEmpty()) {
-            QSharedPointer<BytesIO> output(new BytesIO());
-            if (!qGzipDecompress(FileLike::bytes(body), output)) {
-                sendError(HttpStatus::UnsupportedMediaType);
-                return false;
-            }
-            removeHeader("Transfer-Encoding");
-            body = output->data();
-#endif
-        } else if (!encodingHeader.isEmpty()){
-            qWarning() << "unsupported content encoding." << encodingHeader;
-        }
-    }
-    return true;
+    bool ok;
+    body = bodyFile->readall(&ok);
+    return ok;
 }
 
 

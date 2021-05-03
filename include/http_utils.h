@@ -464,10 +464,10 @@ public:
 };
 
 
-class BodyFile: public FileLike
+class PlainBodyFile: public FileLike
 {
 public:
-    BodyFile(qint64 contentLength, const QByteArray &partialBody, QSharedPointer<SocketLike> stream);
+    PlainBodyFile(qint64 contentLength, const QByteArray &partialBody, QSharedPointer<SocketLike> stream);
     virtual qint32 read(char *data, qint32 size) override;
     virtual qint32 write(const char *, qint32) override { return -1;}
     virtual void close() override {}
@@ -478,6 +478,25 @@ public:
     QByteArray partialBody;
     qint64 count;
 };
+
+
+class ChunkedBodyFile: public FileLike
+{
+public:
+    ChunkedBodyFile(qint64 maxBodySize, const QByteArray &partialBody, QSharedPointer<SocketLike> stream);
+    virtual qint32 read(char *data, qint32 size) override;
+    virtual qint32 write(const char *, qint32) override { return -1;}
+    virtual void close() override {}
+    virtual qint64 size() override { return -1;}
+public:
+    ChunkedBlockReader reader;
+    ChunkedBlockReader::Error error;
+    QByteArray buf;
+    qint64 maxBodySize;
+    qint64 count;
+    bool eof;
+};
+
 
 QTNETWORKNG_NAMESPACE_END
 

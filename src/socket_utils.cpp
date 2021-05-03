@@ -11,7 +11,7 @@ SocketLike::~SocketLike() {}
 
 qint32 SocketLike::read(char *data, qint32 size)
 {
-    return recvall(data, size);
+    return recv(data, size);
 }
 
 

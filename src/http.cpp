@@ -149,6 +149,7 @@ HttpRequestPrivate::HttpRequestPrivate(const HttpRequestPrivate &other)
     , maxBodySize(other.maxBodySize)
     , maxRedirects(other.maxRedirects)
     , connectionTimeout(other.connectionTimeout)
+    , timeout(other.timeout)
     , priority(other.priority)
     , version(other.version)
     , streamResponse(other.streamResponse)
@@ -564,26 +565,14 @@ QSharedPointer<SocketLike> HttpResponse::takeStream(QByteArray *readBytes)
     if (d->consumed) {
         qWarning() << "the stream is consumed. do you remember to set the streamResponse property of request to true?";
     }
+    d->consumed = true;
     if (readBytes) {
         *readBytes = d->body;
         d->body.clear();
-    } else {
-//        qWarning() << "you should take care the left bytes after parsing header. please pass a non-null byte array to takeStream()";
+    } else if (!d->body.isEmpty()) {
+        qWarning() << "you should take care the left bytes after parsing header. please pass a non-null byte array to takeStream()";
     }
-    d->consumed = true;
     return d->stream;
-}
-
-
-QSharedPointer<FileLike> HttpResponse::bodyAsFile()
-{
-    if (d->consumed) {
-        qWarning() << "the stream is consumed. do you remember to set the streamResponse property of request to true?";
-    }
-    d->consumed = true;
-    QSharedPointer<BodyFile> bodyFile = QSharedPointer<BodyFile>::create(getContentLength(), d->body, d->stream);
-    d->body.clear();
-    return bodyFile;
 }
 
 
@@ -602,106 +591,110 @@ RequestError *toRequestError(ChunkedBlockReader::Error error)
 }
 
 
-QByteArray HttpResponse::body()
+QSharedPointer<FileLike> HttpResponse::bodyAsFile(bool processEncoding)
 {
-    // special cases.
     if (d->consumed) {
-        return d->body;
+        qWarning("the stream is consumed. do you remember to set the streamResponse property of request to true?");
+        return QSharedPointer<FileLike>();
     }
-    // XXX if not consumed and body is not empty, it must be the from the header splitter.
+    d->consumed = true;
+    if (!d->error.isNull() && !hasHttpError()) {
+        qWarning("the response has error, there is no avaliable body file.");
+        return QSharedPointer<FileLike>();
+    }
+
+    // XXX if not consumed and body is not empty, it must be from the header splitter.
     // read it from stream
     qint64 contentLength = getContentLength();
-    if (contentLength > 0) {
+    QSharedPointer<FileLike> bodyFile;
+    if (contentLength >= 0) {
         if (contentLength > INT_MAX ||
                 (d->request.maxBodySize() >= 0 && contentLength > d->request.maxBodySize())) {
             setError(new UnrewindableBodyError());
-            d->consumed = true;
-            return QByteArray();
+            return QSharedPointer<FileLike>();
         } else {
             if (d->body.size() > contentLength) {
-                qWarning() << "got too much bytes.";
+                qWarning("response body got too much bytes.");
+                bodyFile = FileLike::bytes(d->body);
             } else if (d->body.size() < contentLength){
                 if (d->stream.isNull()) {
                     setError(new UnrewindableBodyError());
-                    d->consumed = true;
-                    return QByteArray();
+                    return QSharedPointer<FileLike>();
                 }
-
-                qint64 leftBytes = contentLength - d->body.size();
-                QSharedPointer<BytesIO> tmpfile(new BytesIO(d->body, d->body.size()));
-                if (!sendfile(d->stream, tmpfile, leftBytes)) {
-                    setError(new ConnectionError());
-                    d->consumed = true;
-                    return QByteArray();
-                }
-                d->body = tmpfile->data();
+                bodyFile = QSharedPointer<PlainBodyFile>::create(contentLength, d->body, d->stream);
+            } else {
+                bodyFile = FileLike::bytes(d->body);
             }
         }
-    } else if (contentLength < 0) { // without `Content-Length` header.
+    } else {  // if (contentLength < 0) without `Content-Length` header.
         if (d->stream.isNull()) {
             setError(new UnrewindableBodyError());
-            d->consumed = true;
-            return QByteArray();
+            return QSharedPointer<FileLike>();
         }
         const QByteArray &transferEncodingHeader = header(QStringLiteral("Transfer-Encoding"));
-        bool readTrunked = (transferEncodingHeader.toLower() == QByteArray("chunked"));
-        if (readTrunked) {
-            ChunkedBlockReader reader(d->stream, d->body);
-            ChunkedBlockReader::Error readerError;
-//            reader.debugLevel = debugLevel;
-            d->body.clear();
+        bool isChunked = (transferEncodingHeader.toLower() == QByteArray("chunked"));
+        if (isChunked && processEncoding) {
+            removeHeader(QString("Transfer-Encoding"));
+            bodyFile = QSharedPointer<ChunkedBodyFile>::create(d->request.maxBodySize(), d->body, d->stream);
+        } else {
+            bodyFile = QSharedPointer<PlainBodyFile>::create(contentLength, d->body, d->stream);
+        }
+    }
+    d->body.clear();
+
+    if (processEncoding) {
+        const QByteArray &contentEncodingHeader = header(QString("Content-Encoding"));
+        const QByteArray &transferEncodingHeader = header(QString("Transfer-Encoding"));
+    #ifdef QTNG_HAVE_ZLIB
+        if (contentEncodingHeader.toLower() == QByteArray("gzip") ||
+                contentEncodingHeader.toLower() == QByteArray("deflate")) {
+            removeHeader(QString("Content-Encoding"));
+            bodyFile = QSharedPointer<GzipDecompressFile>::create(bodyFile);
+        } else if (transferEncodingHeader.toLower() == QByteArray("gzip") ||
+                   transferEncodingHeader.toLower() == QByteArray("deflate")) {
+            removeHeader(QString("Transfer-Encoding"));
+            bodyFile = QSharedPointer<GzipDecompressFile>::create(bodyFile);
+        } else
+    #endif
+        if (!contentEncodingHeader.isEmpty() || !transferEncodingHeader.isEmpty()){
+            qWarning() << "unsupported content encoding." << contentEncodingHeader << transferEncodingHeader;
+        }
+    }
+    return bodyFile;
+}
+
+
+QByteArray HttpResponse::body()
+{
+    if (d->consumed) {
+        return d->body;
+    }
+    QSharedPointer<FileLike> bodyFile = this->bodyAsFile();
+    if (bodyFile.isNull()) {
+        return QByteArray();
+    }
+    bool ok;
+    const QByteArray &data = bodyFile->readall(&ok);
+    if (!ok) {
+#ifdef QTNG_HAVE_ZLIB
+        if (bodyFile.dynamicCast<GzipDecompressFile>()) {
+            setError(new ContentDecodingError());
+        } else
+#endif
+        if (bodyFile.dynamicCast<ChunkedBodyFile>()) {
             RequestError *error = nullptr;
-            while (true) {
-                qint64 leftBytes;
-                if (d->request.maxBodySize() >= 0) {
-                    leftBytes = qMax<qint64>(0, d->request.maxBodySize() - d->body.size());
-                } else {
-                    leftBytes = INT_MAX;
-                }
-                const QByteArray &block = reader.nextBlock(leftBytes, &readerError);
-                error = toRequestError(readerError);
-                if (error != nullptr) {
-                    setError(error);
-                    d->consumed = true;
-                    return QByteArray();
-                }
-                if (block.isEmpty()) {
-                    break;
-                }
-                d->body.append(block);
+            error = toRequestError(bodyFile.dynamicCast<ChunkedBodyFile>()->error);
+            if (error != nullptr) {
+                setError(error);
+            } else {
+                setError(new ConnectionError());
             }
         } else {
-            while (d->request.maxBodySize() < 0 || d->body.size() < d->request.maxBodySize()) {
-                const QByteArray &t = d->stream->recv(1024 * 8);
-                if (t.isEmpty()) {
-                    break;
-                }
-                d->body.append(t);
-            }
-        }
-    } else { // nothing to read. empty document.
-        if(!d->body.isEmpty()) {
-            // warning!
-            qWarning() << "the body is not empty but content length is set to 0.";
+            setError(new ConnectionError());
         }
     }
-#ifdef QTNG_HAVE_ZLIB
-    const QByteArray &contentEncodingHeader = header("Content-Encoding");
-    if ((contentEncodingHeader.toLower() == QByteArray("gzip") ||
-         contentEncodingHeader.toLower() == "deflate") && !d->body.isEmpty()) {
-        QSharedPointer<BytesIO> output(new BytesIO());
-        if (!qGzipDecompress(FileLike::bytes(d->body), output)) {
-            setError(new ContentDecodingError());
-            d->consumed = true;
-            return QByteArray();
-        }
-        d->body = output->data();
-    } else if (!contentEncodingHeader.isEmpty()){
-        qWarning() << "unsupported content encoding." << contentEncodingHeader;
-    }
-#endif
-    d->consumed = true;
-    return d->body;
+    d->body = data;
+    return data;
 }
 
 
@@ -1091,10 +1084,9 @@ SendRequestBodyCoroutine::SendRequestBodyCoroutine(QPointer<Coroutine> parentCor
 
 void SendRequestBodyCoroutine::run()
 {
-    if (!sendfile(body, connection)) {
-        if (!parentCoroutine.isNull()) {
-            parentCoroutine->kill(new CoroutineInterruptedException());
-        }
+    sendfile(body, connection);
+    if (!parentCoroutine.isNull()) {
+        parentCoroutine->kill(new CoroutineInterruptedException());
     }
 }
 
@@ -1230,8 +1222,9 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             headerSplitter.buf = connection->recv(1024 * 8);
             if (sendingReuqestBodyCoroutine->isRunning()) {
                 sendingReuqestBodyCoroutine->kill();
+                sendingReuqestBodyCoroutine->join();
             }
-            sendingReuqestBodyCoroutine->join();
+            sendingReuqestBodyCoroutine.reset();
         }  catch (CoroutineInterruptedException &) {
             sendingReuqestBodyCoroutine->join();
             response.setError(new ConnectionError());
@@ -2810,21 +2803,14 @@ HttpResponse HttpSession::send(HttpRequest &request)
                 response.setElapsed(timer.elapsed());
                 return response;
             }
-            HttpRequest newRequest;
-            newRequest.setQuery(request.query());
-            newRequest.setCookies(request.cookies());
-            newRequest.setUserAgent(request.userAgent());
-            newRequest.setMaxBodySize(request.maxBodySize());
+            HttpRequest newRequest = request;
             newRequest.setMaxRedirects(request.maxRedirects() - tries - 1);
-            newRequest.setPriority(request.priority());
-            newRequest.setVersion(request.version());
-            newRequest.setStreamResponse(request.streamResponse());
-            newRequest.setConnectionTimeout(request.connectionTimeout());
             if (response.statusCode() == 303 || response.statusCode() == 307) {
                 newRequest.setMethod(request.method());
                 newRequest.setBody(request.body());
             } else {
                 newRequest.setMethod(QStringLiteral("GET")); // not rfc behavior, but many browser do this.
+                newRequest.setBody(QByteArray());
             }
             newRequest.setUrl(request.url().resolved(response.getLocation()));
             if (!newRequest.url().isValid()) {

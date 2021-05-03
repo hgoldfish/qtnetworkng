@@ -33,18 +33,24 @@ QByteArray FileLike::readall(bool *ok)
 }
 
 
-class RawFile: public FileLike
+QByteArray FileLike::read(qint32 size)
 {
-public:
-    RawFile(QSharedPointer<QFile> f)
-        :f(f) {}
-    virtual qint32 read(char *data, qint32 size) override;
-    virtual qint32 write(const char *data, qint32 size) override;
-    virtual void close() override;
-    virtual qint64 size() override;
-private:
-    QSharedPointer<QFile> f;
-};
+    QByteArray buf(size, Qt::Uninitialized);
+    qint32 readBytes = this->read(buf.data(), size);
+    if (readBytes <= 0) {
+        return QByteArray();
+    } else if (readBytes >= size) {
+        return buf;
+    } else {
+        return buf.left(readBytes);
+    }
+}
+
+
+qint32 FileLike::write(const QByteArray &data)
+{
+    return this->write(data.constData(), data.size());
+}
 
 
 qint32 RawFile::read(char *data, qint32 size)
@@ -146,6 +152,18 @@ qint64 BytesIO::size()
 }
 
 
+QByteArray BytesIO::readall(bool *ok)
+{
+    Q_D(BytesIO);
+    if (ok) *ok = true;
+    if (Q_LIKELY(d->pos == 0)) {
+        return d->buf;
+    } else {
+        return d->buf.mid(d->pos);
+    }
+}
+
+
 QByteArray BytesIO::data()
 {
     Q_D(BytesIO);
@@ -184,7 +202,7 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
         if (bytesToCopy > 0) {
             remain = qMax<qint64>(0, bytesToCopy - buf.size() - total);
         }
-        if (remain > 0 && !eof && buf.size() < 1024 * 8) {
+        if (remain > 0 && buf.size() < 1024 * 8 && !eof) {
             qint32 nextBlockSize = qMin<qint64>(t.size(), remain);
             qint32 readBytes = inputFile->read(t.data(), nextBlockSize);
             if (readBytes < 0) {

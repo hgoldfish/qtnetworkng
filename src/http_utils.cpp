@@ -613,7 +613,6 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
         *error = ChunkedBlockReader::ChunkedEncodingError;
         return QByteArray();
     }
-
     qint32 bytesToRead = numBytes.toInt(&ok, 16);
     if (!ok) {
         if(debugLevel > 0) {
@@ -649,7 +648,7 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
 }
 
 
-BodyFile::BodyFile(qint64 contentLength, const QByteArray &partialBody, QSharedPointer<SocketLike> stream)
+PlainBodyFile::PlainBodyFile(qint64 contentLength, const QByteArray &partialBody, QSharedPointer<SocketLike> stream)
     : contentLength(contentLength)
     , stream(stream)
     , partialBody(partialBody)
@@ -657,7 +656,7 @@ BodyFile::BodyFile(qint64 contentLength, const QByteArray &partialBody, QSharedP
 {}
 
 
-qint32 BodyFile::read(char *data, qint32 size)
+qint32 PlainBodyFile::read(char *data, qint32 size)
 {
     if (!partialBody.isEmpty()) {
         qint32 t = qMin(size, partialBody.size());
@@ -677,8 +676,46 @@ qint32 BodyFile::read(char *data, qint32 size)
         }
         return bs;
     } else {
-        return stream->recvall(data, size);
+        return stream->recv(data, size);
     }
 }
+
+
+ChunkedBodyFile::ChunkedBodyFile(qint64 maxBodySize, const QByteArray &partialBody, QSharedPointer<SocketLike> stream)
+    : reader(stream, partialBody)
+    , error(ChunkedBlockReader::NoError)
+    , maxBodySize(maxBodySize)
+    , count(0)
+    , eof(false)
+{
+}
+
+
+qint32 ChunkedBodyFile::read(char *data, qint32 size)
+{
+    while (buf.size() < size && !eof) {
+        qint64 leftBytes;
+        if (maxBodySize >= 0) {
+            leftBytes = qMax<qint64>(0, maxBodySize - count);
+            if (leftBytes <= 0) {
+                break;
+            }
+        } else {
+            leftBytes = INT_MAX;
+        }
+        const QByteArray &block = reader.nextBlock(leftBytes, &error);
+        if (block.isEmpty()) {
+            eof = true;
+            break;
+        }
+        count += block.size();
+        buf.append(block);
+    }
+    qint32 bytesToRead = qMin(buf.size(), size);
+    memcpy(data, buf.constData(), bytesToRead);
+    buf.remove(0, bytesToRead);
+    return bytesToRead;
+}
+
 
 QTNETWORKNG_NAMESPACE_END

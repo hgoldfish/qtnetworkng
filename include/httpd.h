@@ -20,25 +20,8 @@ class BaseHttpRequestHandler: public WithHttpHeaders<BaseRequestHandler>
 {
 public:
     BaseHttpRequestHandler();
-protected:
-    virtual void handle();
-    virtual void handleOneRequest();
-    virtual bool parseRequest();
+protected:  // most common methods to override
     virtual void doMethod();
-    virtual QByteArray tryToHandleMagicCode(bool *done);
-    virtual bool sendError(HttpStatus status, const QString &longMessage = QString());
-    virtual bool sendResponse(HttpStatus status, const QString &longMessage = QString());
-    virtual QString errorMessage(HttpStatus status, const QString &shortMessage, const QString &longMessage);
-    virtual QString errorMessageContentType();
-    virtual void logRequest(HttpStatus status, int bodySize);
-    virtual void logError(HttpStatus status, const QString &shortMessage, const QString &longMessage);
-    virtual QString serverName();
-    virtual QString dateTimeString();
-    void sendCommandLine(HttpStatus status, const QString &shortMessage);
-    void sendHeader(const QByteArray &name, const QByteArray &value);
-    bool endHeader();
-    bool readBody();
-protected:
     virtual void doGET();
     virtual void doPOST();
     virtual void doPUT();
@@ -48,8 +31,29 @@ protected:
     virtual void doOPTIONS();
     virtual void doTRACE();
     virtual void doCONNECT();
+protected:  // many people also override these
+    virtual QString serverName();
+    virtual void logRequest(HttpStatus status, int bodySize);
+    virtual void logError(HttpStatus status, const QString &shortMessage, const QString &longMessage);
+protected:  // http protocol, parsing request and making response.
+    virtual void handle();
+    virtual void handleOneRequest();
+    virtual bool parseRequest();
+    virtual bool sendError(HttpStatus status, const QString &longMessage = QString());
+    virtual bool sendResponse(HttpStatus status, const QString &longMessage = QString());
+    virtual QString errorMessage(HttpStatus status, const QString &shortMessage, const QString &longMessage);
+    virtual QString errorMessageContentType();
+    virtual QString dateTimeString();
+    virtual QSharedPointer<FileLike> bodyAsFile(bool processEncoding = true);
+protected:  // util methods.
+    void sendCommandLine(HttpStatus status, const QString &shortMessage);
+    void sendHeader(const QByteArray &name, const QByteArray &value);
+    bool endHeader();
+    bool readBody();
+protected:
+    virtual QByteArray tryToHandleMagicCode(bool *done);
 private:
-    QBYTEARRAYLIST headerCache;
+    QBYTEARRAYLIST headerCache;  // used for sendHeader() & endHeader()
 public:
     static QString normalizePath(const QString &path);
 protected:
@@ -57,6 +61,7 @@ protected:
     QString path;                // sent by client.
     QByteArray body;             // sent by client.
     HttpVersion version;         // sent by client.
+protected:
     HttpVersion serverVersion;   // default to HTTP 1.1
     float requestTimeout;        // default to 1 hour.
     qint32 maxBodySize;          // default to 32MB, unlimited if -1

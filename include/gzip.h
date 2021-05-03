@@ -7,33 +7,44 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 
+class GzipCompressFilePrivate;
+class GzipCompressFile: public FileLike
+{
+public:
+    GzipCompressFile(QSharedPointer<FileLike> backend, int level = -1);
+    virtual ~GzipCompressFile() override;
+public:
+    virtual qint32 read(char *data, qint32 size) override;
+    virtual qint32 write(const char *, qint32) override;
+    virtual void close() override {}
+    virtual qint64 size() override { return -1; }
+private:
+    GzipCompressFilePrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(GzipCompressFile);
+
+};
+
+
+class GzipDecompressFilePrivate;
+class GzipDecompressFile: public FileLike
+{
+public:
+    GzipDecompressFile(QSharedPointer<FileLike> input);
+    virtual ~GzipDecompressFile() override;
+public:
+    virtual qint32 read(char *data, qint32 size) override;
+    virtual qint32 write(const char *, qint32) override;
+    virtual void close() override {}
+    virtual qint64 size() override { return -1; }
+private:
+    GzipDecompressFilePrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(GzipDecompressFile);
+
+};
+
+
 bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int level = -1);
 bool qGzipDecompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output);
-
-
-inline QByteArray qGzipCompress(const QByteArray &input, int level = -1)
-{
-    QSharedPointer<BytesIO> output(new BytesIO());
-    bool ok = qGzipCompress(FileLike::bytes(input), output, level);
-    if (ok) {
-        return output->data();
-    } else {
-        return QByteArray();
-    }
-}
-
-
-inline QByteArray qGzipDecompress(const QByteArray &input)
-{
-    QSharedPointer<BytesIO> output(new BytesIO());
-    bool ok = qGzipDecompress(FileLike::bytes(input), output);
-    if (ok) {
-        return output->data();
-    } else {
-        return QByteArray();
-    }
-}
-
 
 
 QTNETWORKNG_NAMESPACE_END
