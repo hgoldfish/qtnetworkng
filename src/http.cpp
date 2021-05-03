@@ -570,7 +570,7 @@ QSharedPointer<SocketLike> HttpResponse::takeStream(QByteArray *readBytes)
         *readBytes = d->body;
         d->body.clear();
     } else if (!d->body.isEmpty()) {
-        qWarning() << "you should take care the left bytes after parsing header. please pass a non-null byte array to takeStream()";
+        qWarning("you should take care the left bytes after parsing header. please pass a non-null byte array to takeStream(): %d", d->body.size());
     }
     return d->stream;
 }
@@ -1084,8 +1084,7 @@ SendRequestBodyCoroutine::SendRequestBodyCoroutine(QPointer<Coroutine> parentCor
 
 void SendRequestBodyCoroutine::run()
 {
-    sendfile(body, connection);
-    if (!parentCoroutine.isNull()) {
+    if (!sendfile(body, connection) && !parentCoroutine.isNull()) {
         parentCoroutine->kill(new CoroutineInterruptedException());
     }
 }

@@ -173,7 +173,7 @@ QByteArray BytesIO::data()
 
 QSharedPointer<FileLike> FileLike::bytes(const QByteArray &data)
 {
-    return QSharedPointer<BytesIO>::create(data).dynamicCast<FileLike>();
+    return QSharedPointer<BytesIO>::create(data);
 }
 
 

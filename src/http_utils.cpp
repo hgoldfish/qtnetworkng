@@ -704,6 +704,9 @@ qint32 ChunkedBodyFile::read(char *data, qint32 size)
             leftBytes = INT_MAX;
         }
         const QByteArray &block = reader.nextBlock(leftBytes, &error);
+        if (error != ChunkedBlockReader::NoError) {
+            return -1;
+        }
         if (block.isEmpty()) {
             eof = true;
             break;
