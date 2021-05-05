@@ -248,6 +248,7 @@ inline QSharedPointer<SocketLike> asSocketLike(SslSocket *s) { return asSocketLi
 QSharedPointer<SslSocket> convertSocketLikeToSslSocket(QSharedPointer<SocketLike> socket);
 
 
+// XXX we always assume the cipher is stream cipher
 QSharedPointer<SocketLike> encrypted(QSharedPointer<Cipher> cipher, QSharedPointer<SocketLike> socket);
 
 

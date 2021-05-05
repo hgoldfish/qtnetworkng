@@ -871,7 +871,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 
 qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 {
-    if (!checkState()) {
+    if (!checkState() || size <= 0) {
         return -1;
     }
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
@@ -1077,7 +1077,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, HostAddress *addr, quint
 
 qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &addr, quint16 port)
 {
-    if (!checkState()) {
+    if (!checkState() || size <= 0) {
         return -1;
     }
     qint32 ret = 0;

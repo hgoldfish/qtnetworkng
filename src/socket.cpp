@@ -237,7 +237,7 @@ Socket::Socket(qintptr socketDescriptor)
 Socket::~Socket()
 {
     Q_D(Socket);
-    d->close();
+    d->abort();
     if (d->readLock->isLocked() || d->writeLock->isLocked()) {
         qWarning() << "socket is deleted while receiving or sending.";
     }
@@ -380,9 +380,11 @@ void Socket::close()
     Q_D(Socket);
     d->close();
     if (d->readLock->isLocked()) {
+        d->readLock->acquire();
         d->readLock->release();
     }
     if (d->writeLock->isLocked()) {
+        d->writeLock->acquire();
         d->writeLock->release();
     }
 }
@@ -393,11 +395,9 @@ void Socket::abort()
     Q_D(Socket);
     d->abort();
     if (d->readLock->isLocked()) {
-        d->readLock->acquire();
         d->readLock->release();
     }
     if (d->writeLock->isLocked()) {
-        d->writeLock->acquire();
         d->writeLock->release();
     }
 }

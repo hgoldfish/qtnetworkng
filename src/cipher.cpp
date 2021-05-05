@@ -449,6 +449,35 @@ bool Cipher::isValid() const
     return d->cipher && d->context && !d->hasError && d->inited;
 }
 
+bool Cipher::isStream() const
+{
+    Q_D(const Cipher);
+    switch (d->algo) {
+    case AES128:
+    case AES192:
+    case AES256:
+    case DES:
+    case DES2:
+    case DES3:
+    case Blowfish:
+        switch (d->mode) {
+        case ECB:
+        case CBC:
+            return false;
+        case CFB:
+        case OFB:
+        case CTR:
+        case OPENPGP:
+            return true;
+        }
+    case Null:
+    case CAST5:
+    case Chacha20:
+    case ChaCha20Poly1305:
+        return true;
+    }
+}
+
 
 QByteArray Cipher::addData(const char *data, int len)
 {

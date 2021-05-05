@@ -418,11 +418,11 @@ void ExchangerPrivate::in2out()
     while (true) {
         qint32 len = request->recv(buf.data(), buf.size());
         if (len <= 0) {
-            forward->close();
-            operations->kill("out2in", false);
+            forward->abort();
+            operations->kill("out2in");
             return;
         }
-        qint32 sentBytes = -1;
+        qint32 sentBytes;
         try {
             Timeout timeout(this->timeout); Q_UNUSED(timeout);
             sentBytes = forward->sendall(buf.data(), len);
@@ -430,8 +430,8 @@ void ExchangerPrivate::in2out()
             sentBytes = -1;
         }
         if (sentBytes != len) {
-            forward->close();
-            operations->kill("out2in", false);
+            forward->abort();
+            operations->kill("out2in");
             return;
         }
     }
@@ -444,11 +444,11 @@ void ExchangerPrivate::out2in()
     while (true) {
         qint32 len = forward->recv(buf.data(), buf.size());
         if (len <= 0) {
-            request->close();
-            operations->kill("in2out", false);
+            request->abort();
+            operations->kill("in2out");
             return;
         }
-        qint32 sentBytes = -1;
+        qint32 sentBytes;
         try {
             Timeout timeout(this->timeout); Q_UNUSED(timeout);
             sentBytes = request->sendall(buf.data(), len);
@@ -456,8 +456,8 @@ void ExchangerPrivate::out2in()
             sentBytes = -1;
         }
         if (sentBytes != len) {
-            request->close();
-            operations->kill("in2out", false);
+            request->abort();
+            operations->kill("in2out");
             return;
         }
     }

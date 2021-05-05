@@ -489,7 +489,7 @@ SocketChannelPrivate::~SocketChannelPrivate()
 
 bool SocketChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet)
 {
-    if (broken) {
+    if (broken || packet.isEmpty()) {
         return false;
     }
     QSharedPointer<ValueEvent<bool>> done(new ValueEvent<bool>());
@@ -501,7 +501,7 @@ bool SocketChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray
 
 bool SocketChannelPrivate::sendPacketRawAsync(quint32 channelNumber, const QByteArray &packet)
 {
-    if (broken) {
+    if (broken || packet.isEmpty()) {
         return false;
     }
     QSharedPointer<ValueEvent<bool>> done;
@@ -754,7 +754,7 @@ VirtualChannelPrivate::~VirtualChannelPrivate()
 
 bool VirtualChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet)
 {
-    if (broken || parentChannel.isNull()) {
+    if (broken || parentChannel.isNull() || packet.isEmpty()) {
         return false;
     }
     uchar header[sizeof(quint32)];
@@ -874,7 +874,7 @@ bool VirtualChannelPrivate::isBroken() const
 
 bool VirtualChannelPrivate::sendPacketRawAsync(quint32 channelNumber, const QByteArray &packet)
 {
-    if (broken || parentChannel.isNull())
+    if (broken || parentChannel.isNull() || packet.isEmpty())
         return false;
     uchar header[sizeof(quint32)];
     qToBigEndian(channelNumber, header);

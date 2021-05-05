@@ -930,7 +930,7 @@ bool SslConnection<SocketType>::close()
     if (!ctx.isNull()) {
         ctx.reset();
     }
-    rawSocket->close();
+    rawSocket->abort();
     return true;
 }
 
@@ -1071,7 +1071,7 @@ qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
 template<typename SocketType>
 qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
 {
-    if (ssl.isNull()) {
+    if (ssl.isNull() || size <= 0) {
         return -1;
     }
     qint32 total = 0;
@@ -1980,7 +1980,6 @@ class EncryptedSocketLike: public SocketLike
 {
 public:
     EncryptedSocketLike(QSharedPointer<Cipher> cipher, QSharedPointer<SocketLike> s);
-    virtual ~EncryptedSocketLike() override;
 public:
     virtual Socket::SocketError error() const override;
     virtual QString errorString() const override;
@@ -2029,12 +2028,6 @@ EncryptedSocketLike::EncryptedSocketLike(QSharedPointer<Cipher> cipher, QSharedP
     : incomingCipher(cipher->copy(Cipher::Decrypt)), outgoingCipher(cipher->copy(Cipher::Encrypt)), s(s)
 {
 
-}
-
-
-EncryptedSocketLike::~EncryptedSocketLike()
-{
-    close();
 }
 
 
@@ -2148,15 +2141,15 @@ bool EncryptedSocketLike::connect(const QString &hostName, quint16 port, QShared
 
 void EncryptedSocketLike::close()
 {
-    QByteArray encrypted = outgoingCipher->finalData();
-    s->sendall(encrypted);
     s->close();
 }
+
 
 void EncryptedSocketLike::abort()
 {
     s->abort();
 }
+
 
 bool EncryptedSocketLike::listen(int backlog)
 {
@@ -2190,25 +2183,12 @@ qint32 EncryptedSocketLike::recv(char *data, qint32 size, bool all)
     }
 
     if (bs <= 0) {
-        decrypted = incomingCipher->finalData();
-        if (decrypted.isEmpty()) {
-            return bs;
-        }
+        return bs;
     } else {
-        decrypted = incomingCipher->addData(buf.constData(), bs);
-        if (all && decrypted.size() < size) {  // some bytes is keep by incomingCipher.
-            qint32 len = size - decrypted.size();
-            bs = s->recvall(buf.data(), len);
-            if (bs <= 0) {
-                decrypted.append(incomingCipher->finalData());
-            } else {
-                decrypted.append(incomingCipher->addData(buf.constData(), bs));
-                if (bs < len) {
-                    decrypted.append(incomingCipher->finalData());
-                } else {
-                    Q_ASSERT(decrypted.size() == size);
-                }
-            }
+        decrypted = incomingCipher->addData(buf.data(), bs);
+        if (decrypted.size() != bs) {
+            qWarning("EncryptedSocketLike can not decrypt data: expected %d bytes, got %d bytes", bs, decrypted.size());
+            return -1;
         }
     }
 
@@ -2220,6 +2200,9 @@ qint32 EncryptedSocketLike::recv(char *data, qint32 size, bool all)
 
 qint32 EncryptedSocketLike::send(const char *data, qint32 size, bool)
 {
+    if (size <= 0) {
+        return -1;
+    }
     const QByteArray &encrypted = outgoingCipher->addData(data, size);
     qint32 bs = s->sendall(encrypted);   // only support sendall.
     if (bs < encrypted.size()) {
@@ -2258,8 +2241,10 @@ QByteArray EncryptedSocketLike::recv(qint32 size)
 {
     QByteArray buf(size, Qt::Uninitialized);
     qint32 bs = recv(buf.data(), buf.size(), false);
-    if (bs < 0) {
+    if (bs <= 0) {
         return QByteArray();
+    } else if (bs == size) {
+        return buf;
     } else {
         buf.resize(bs);
         return buf;
@@ -2271,8 +2256,10 @@ QByteArray EncryptedSocketLike::recvall(qint32 size)
 {
     QByteArray buf(size, Qt::Uninitialized);
     qint32 bs = recv(buf.data(), buf.size(), true);
-    if (bs < 0) {
+    if (bs <= 0) {
         return QByteArray();
+    } else if (bs == size) {
+        return buf;
     } else {
         buf.resize(bs);
         return buf;
@@ -2296,7 +2283,7 @@ qint32 EncryptedSocketLike::sendall(const QByteArray &data)
 
 QSharedPointer<SocketLike> encrypted(QSharedPointer<Cipher> cipher, QSharedPointer<SocketLike> socket)
 {
-    if (cipher.isNull() || !cipher->isValid()) {
+    if (cipher.isNull() || !cipher->isValid() || !cipher->isStream()) {
         return QSharedPointer<SocketLike>();
     }
     return QSharedPointer<SocketLike>(new EncryptedSocketLike(cipher, socket));

@@ -45,6 +45,8 @@ public:
     Cipher *copy(Operation operation);
 public:
     bool isValid() const;
+    bool isStream() const;
+    bool isBlock() const { return !isStream(); }
     bool setKey(const QByteArray &key);
     QByteArray key() const;
     bool setInitialVector(const QByteArray &iv);

@@ -713,18 +713,19 @@ bool MasterKcpSocketPrivate::close(bool force)
         receiversByConnectionId.clear();
     } else {  // BoundState
         state = Socket::UnconnectedState;
-        rawSocket->close();
+        rawSocket->abort();
         return true;
     }
 
     //connected and listen state would do more cleaning work.
     operations->killall();
     // always kill operations before release resources.
-    if (force) {
-        rawSocket->abort();
-    } else {
-        rawSocket->close();
-    }
+    rawSocket->abort();
+//    if (force) {
+//        rawSocket->abort();
+//    } else {
+//        rawSocket->close();
+//    }
     // await all pending recv()/send()
     receivingQueueNotEmpty->set();
     sendingQueueEmpty->set();
@@ -1437,7 +1438,7 @@ bool KcpSocket::useMultiPath(int sockets)
     MasterKcpSocketPrivate * const m = static_cast<MasterKcpSocketPrivate *>(d);
     while (m->multiPathSockets.size() > sockets - 1) {
         QSharedPointer<Socket> s = m->multiPathSockets.takeLast();
-        s->close();
+        s->abort();
     }
     while (m->multiPathSockets.size() < sockets - 1) {
         QSharedPointer<Socket> s(new Socket(m->rawSocket->protocol(), Socket::UdpSocket));

@@ -33,7 +33,10 @@ private:
 
 
 CoroutineSpawnHelper::~CoroutineSpawnHelper() {}
-void CoroutineSpawnHelper::run() {
+
+
+void CoroutineSpawnHelper::run()
+{
     (*f)();
     f.reset();
 }
@@ -45,6 +48,7 @@ Coroutine *Coroutine::spawn(std::function<void()> f)
     c->start();
     return c;
 }
+
 
 void Coroutine::preferLibev()
 {
@@ -70,7 +74,7 @@ YieldCurrentFunctor::YieldCurrentFunctor()
 
 void YieldCurrentFunctor::operator ()()
 {
-    if(coroutine.isNull()) {
+    if (coroutine.isNull()) {
         qDebug() << "coroutine is deleted while YieldCurrentFunctor called.";
         return;
     }

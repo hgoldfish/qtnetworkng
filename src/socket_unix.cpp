@@ -581,7 +581,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 
 qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
 {
-    if (!checkState()) {
+    if (!checkState() || size <= 0) {
         return -1;
     }
     qint32 sent = 0;
@@ -735,7 +735,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, HostAddress *addr, qu
 
 qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &addr, quint16 port)
 {
-    if (!checkState()) {
+    if (!checkState() || size <= 0) {
         return -1;
     }
     struct msghdr msg;
