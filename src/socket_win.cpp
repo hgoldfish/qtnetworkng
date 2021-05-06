@@ -2,7 +2,11 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
+#include <QtCore/qoperatingsystemversion.h>
+#else
 #include <QtCore/qsysinfo.h>
+#endif
 #include <QtNetwork/qnetworkinterface.h>
 #include "../include/private/socket_p.h"
 
@@ -355,7 +359,11 @@ bool SocketPrivate::createSocket()
     // previous call fails if the windows 7 service pack 1 or hot fix isn't installed.
 
     // Try the old API if the new one failed on Windows 7
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
+    if (socket == INVALID_SOCKET && QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows8) {
+#else
     if (socket == INVALID_SOCKET && QSysInfo::windowsVersion() < QSysInfo::WV_WINDOWS8) {
+#endif
         socket = ::WSASocketW(protocol, type, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
 #ifdef HANDLE_FLAG_INHERIT
         if (socket != INVALID_SOCKET) {
@@ -466,7 +474,11 @@ bool SocketPrivate::bind(const HostAddress &a, quint16 port, Socket::BindMode mo
     }
 
     if (protocol == HostAddress::IPv6Protocol) {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
+        if (QOperatingSystemVersion::current() >= QOperatingSystemVersion(QOperatingSystemVersion::Windows, 6, 0)) {
+#else
         if (QSysInfo::windowsVersion() >= QSysInfo::WV_6_0) {
+#endif
             // The default may change in future, so set it explicitly
             int ipv6only = 1;
             ::setsockopt(static_cast<SOCKET>(fd), IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, sizeof(ipv6only) );
@@ -540,7 +552,11 @@ bool SocketPrivate::connect(const HostAddress &address, quint16 port)
 
     if (protocol == HostAddress::IPv6Protocol) {
         //IPV6_V6ONLY option must be cleared to connect to a V4 mapped address
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
+        if (QOperatingSystemVersion::current() >= QOperatingSystemVersion(QOperatingSystemVersion::Windows, 6, 0)) {
+#else
         if (QSysInfo::windowsVersion() >= QSysInfo::WV_6_0) {
+#endif
             DWORD ipv6only = 1;
             ipv6only = ::setsockopt(static_cast<SOCKET>(fd), IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, sizeof(ipv6only) );
         }
@@ -1200,7 +1216,11 @@ bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value
     switch (option) {
     case Socket::SendBufferSizeSocketOption:
         // see QTBUG-30478 SO_SNDBUF should not be used on Vista or later
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
+        if (QOperatingSystemVersion::current() >= QOperatingSystemVersion(QOperatingSystemVersion::Windows, 6, 0))
+#else
         if (QSysInfo::windowsVersion() >= QSysInfo::WV_VISTA)
+#endif
             return false;
         break;
     case Socket::NonBlockingSocketOption:
