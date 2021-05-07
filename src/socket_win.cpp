@@ -2,12 +2,12 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
+#include <QtNetwork/qnetworkinterface.h>
 #if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
 #include <QtCore/qoperatingsystemversion.h>
 #else
 #include <QtCore/qsysinfo.h>
 #endif
-#include <QtNetwork/qnetworkinterface.h>
 #include "../include/private/socket_p.h"
 
 #ifdef Q_OS_WIN

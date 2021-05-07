@@ -401,7 +401,7 @@ QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding
     if (processEncoding) {
         const QByteArray &contentEncodingHeader = header(QString("Content-Encoding"));
         const QByteArray &transferEncodingHeader = header(QString("Transfer-Encoding"));
-    #ifdef QTNG_HAVE_ZLIB
+#ifdef QTNG_HAVE_ZLIB
         if (contentEncodingHeader.toLower() == QByteArray("gzip") ||
                 contentEncodingHeader.toLower() == QByteArray("deflate")) {
             removeHeader(QString("Content-Encoding"));
@@ -421,7 +421,7 @@ QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding
             const QByteArray &decompBody = qUncompress(compBody);
             bodyFile = FileLike::bytes(decompBody);
         } else
-    #endif
+#endif
         if (!contentEncodingHeader.isEmpty() || !transferEncodingHeader.isEmpty()){
             qWarning() << "unsupported content encoding." << contentEncodingHeader << transferEncodingHeader;
             closeConnection = true;
@@ -645,23 +645,5 @@ void SimpleHttpRequestHandler::doHEAD()
     }
 }
 
-
-
-//void SimpleHttpServer::processRequest(QSharedPointer<SocketLike> request)
-//{
-//    SimpleHttpRequestHandler handler(request, this);
-//    handler.run();
-//}
-
-
-//#ifndef QTNG_NO_CRYPTO
-
-//void SimpleHttpsServer::processRequest(QSharedPointer<SocketLike> request)
-//{
-//    SimpleHttpRequestHandler handler(request, this);
-//    handler.run();
-//}
-
-//#endif
 
 QTNETWORKNG_NAMESPACE_END
