@@ -476,6 +476,7 @@ bool Cipher::isStream() const
     case ChaCha20Poly1305:
         return true;
     }
+    return false;
 }
 
 
