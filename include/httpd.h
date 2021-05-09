@@ -65,7 +65,9 @@ protected:
     HttpVersion serverVersion;   // default to HTTP 1.1
     float requestTimeout;        // default to 1 hour.
     qint32 maxBodySize;          // default to 32MB, unlimited if -1
-    bool closeConnection;        // determined by http version and connection header.
+    enum CloseConnectionStatus {
+        Yes, No, Maybe
+    } closeConnection;        // determined by http version and connection header.
 };
 
 
@@ -91,7 +93,7 @@ class SimpleHttpRequestHandler: public StaticHttpRequestHandler
 public:
     SimpleHttpRequestHandler()
         : StaticHttpRequestHandler()
-        , rootDir(QDir::current()) { enableDirectoryListing = true; }
+        , rootDir(QDir::current()) {}
 public:
     void setRootDir(const QDir &rootDir) { this->rootDir = rootDir; }
 protected:

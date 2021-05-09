@@ -68,7 +68,7 @@ void BaseHttpProxyRequestHandler::doCONNECT()
     endHeader();
 
     logProxy(host, port, forwardAddress, true);
-    closeConnection = true;
+    closeConnection = Yes;
     isExchanging = true;
     exchangeAsync(request, forward);
 }
@@ -135,22 +135,12 @@ void BaseHttpProxyRequestHandler::doProxy()
     logProxy(host, port, forwardAddress, true);
     sendCommandLine(static_cast<HttpStatus>(response->statusCode()), response->statusText());
 
-    bool hasChunked = false;
     for (const HttpHeader &header: response->allHeaders()) {
         const QString &hn = header.name.toLower();
         if (hn.startsWith(QLatin1String("proxy-")) || hn == QLatin1String("connection")) {
             continue;
         }
-        if (hn == QLatin1String("transfer-encoding") && header.value.toLower() == QByteArray("chunked")) {
-            hasChunked = true;
-        }
         sendHeader(header.name.toUtf8(), header.value);
-    }
-
-    if (!closeConnection && !hasChunked && serverVersion >= Http1_1 && version >= Http1_1) {
-        sendHeader(QByteArray("Connection"), QByteArray("keep-alive"));
-    } else {
-        sendHeader(QByteArray("Connection"), QByteArray("close"));
     }
     if (!endHeader()) {
         return;

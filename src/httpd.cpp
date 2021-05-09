@@ -32,7 +32,7 @@ BaseHttpRequestHandler::BaseHttpRequestHandler()
     , serverVersion(Http1_1)
     , requestTimeout(60 * 60)
     , maxBodySize(1024 * 1024 * 32)
-    , closeConnection(false)
+    , closeConnection(Maybe)
 {
 }
 
@@ -40,9 +40,9 @@ BaseHttpRequestHandler::BaseHttpRequestHandler()
 void BaseHttpRequestHandler::handle()
 {
     do {
-        closeConnection = true;
+        closeConnection = Maybe;
         handleOneRequest();
-    } while (!closeConnection);
+    } while (closeConnection == No);
     // do not close the request, because it can be keep by other module.
 }
 
@@ -58,7 +58,7 @@ void BaseHttpRequestHandler::handleOneRequest()
     }  catch (TimeoutException &) {
         QString message("HTTP request handler is timeout.");
         logError(HttpStatus::Gone, message, message);
-        closeConnection = true;
+        closeConnection = Yes;
     }
 }
 
@@ -144,12 +144,12 @@ bool BaseHttpRequestHandler::parseRequest()
     }
 #endif
     const QByteArray &connectionType = header(ConnectionHeader);
-    if (connectionType.toLower() == "close") {
-        closeConnection = true;
-    } else if (connectionType.toLower() == "keep-alive" && version >= Http1_1 && serverVersion >= Http1_1) {
-        closeConnection = false;
+    if (connectionType.toLower() == QByteArray("close") || method.toUpper() == QLatin1String("CONNECT")) {
+        closeConnection = Yes;
+    } else if (connectionType.toLower() == QByteArray("keep-alive") && version >= Http1_1 && serverVersion >= Http1_1) {
+        closeConnection = Maybe;
     } else {
-        closeConnection = true;
+        closeConnection = Yes;
     }
     body = headerSplitter.buf;
     return true;
@@ -257,9 +257,6 @@ bool BaseHttpRequestHandler::sendError(HttpStatus status, const QString &message
     sendCommandLine(status, shortMessage);
     sendHeader("Server", serverName().toUtf8());
     sendHeader("Date", dateTimeString().toUtf8());
-    if (version >= Http1_1 && serverVersion >= Http1_1 && !closeConnection) {
-        sendHeader("Connection", "keep-alive");
-    }
     QByteArray body;
     if (status >= 200 && status != HttpStatus::NoContent && status != HttpStatus::ResetContent && status != HttpStatus::NotModified) {
         const QString &html = errorMessage(status, shortMessage, longMessage);
@@ -289,8 +286,8 @@ bool BaseHttpRequestHandler::sendResponse(HttpStatus status, const QString &mess
     }
     logRequest(status, 0);
     sendCommandLine(status, shortMessage);
-    sendHeader("Server", serverName().toUtf8());
-    sendHeader("Date", dateTimeString().toUtf8());
+    sendHeader(QByteArray("Server"), serverName().toUtf8());
+    sendHeader(QByteArray("Date"), dateTimeString().toUtf8());
     return true;
 }
 
@@ -310,16 +307,10 @@ QString BaseHttpRequestHandler::errorMessageContentType()
 void BaseHttpRequestHandler::sendCommandLine(HttpStatus status, const QString &shortMessage)
 {
     QString versionStr;
-    switch (serverVersion) {
-    case Http1_0:
-        versionStr = "HTTP/1.0";
-        break;
-    case Http1_1:
-        versionStr = "HTTP/1.1";
-        break;
-    default:
-        versionStr = "HTTP/1.1";
-        break;
+    if (serverVersion == Http1_0 || version == Http1_0) {
+        versionStr = QString::fromLatin1("HTTP/1.0");
+    } else {
+        versionStr = QString::fromLatin1("HTTP/1.1");
     }
     const QString &firstLine = QStringLiteral("%1 %2 %3\r\n").arg(versionStr).arg(static_cast<int>(status)).arg(shortMessage);
     headerCache.append(firstLine.toUtf8());
@@ -328,13 +319,15 @@ void BaseHttpRequestHandler::sendCommandLine(HttpStatus status, const QString &s
 
 void BaseHttpRequestHandler::sendHeader(const QByteArray &name, const QByteArray &value)
 {
-    const QByteArray &line = name.trimmed() + ": " + value.trimmed() + "\r\n";
+    const QByteArray &line = name + ": " + value + "\r\n";
     headerCache.append(line);
-    if (name.trimmed().toLower() == "connection") {
-        if (value.trimmed().toLower() == "close") {
-            closeConnection = true;
-        } else if (value.trimmed().toLower() == "keep-alive") {
-            closeConnection = false;
+    if (name.toLower() == QByteArray("transfer-encoding") && value.toLower() == QByteArray("chunked")) {
+        closeConnection = Yes;
+    } else if (name.toLower() == QByteArray("connection")) {
+        if (value.toLower() == "keep-alive" && closeConnection != Yes) {
+            closeConnection = No;
+        } else {
+            closeConnection = Yes;
         }
     }
 }
@@ -357,6 +350,10 @@ void BaseHttpRequestHandler::sendHeader(const QByteArray &name, const QByteArray
 
 bool BaseHttpRequestHandler::endHeader()
 {
+    if (closeConnection == Maybe) {
+        closeConnection = No;
+        headerCache.append(QByteArray("Connection: keep-alive\r\n"));
+    }
     headerCache.append("\r\n");
     const QByteArray &data = join(headerCache);
     headerCache.clear();
@@ -371,7 +368,7 @@ QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding
     QSharedPointer<FileLike> bodyFile;
     if (contentLength >= 0) {
         if (contentLength >= INT_MAX || (maxBodySize >= 0 && contentLength > maxBodySize)) {
-            closeConnection = true;
+            closeConnection = Yes;
             sendError(HttpStatus::RequestEntityTooLarge);
             return QSharedPointer<FileLike>();
         } else {
@@ -414,7 +411,7 @@ QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding
             bool ok;
             const QByteArray &compBody = bodyFile->readall(&ok);
             if (!ok) {
-                closeConnection = true;
+                closeConnection = Yes;
                 return QSharedPointer<FileLike>();
             }
             removeHeader("Transfer-Encoding");
@@ -424,7 +421,7 @@ QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding
 #endif
         if (!contentEncodingHeader.isEmpty() || !transferEncodingHeader.isEmpty()){
             qWarning() << "unsupported content encoding." << contentEncodingHeader << transferEncodingHeader;
-            closeConnection = true;
+            closeConnection = Yes;
         }
     }
     return bodyFile;
@@ -540,9 +537,6 @@ QSharedPointer<FileLike> StaticHttpRequestHandler::serveStaticFiles(const QDir &
     sendHeader("Content-Type", contentType.toUtf8());
     sendHeader("Content-Length", QByteArray::number(f->size()));
     sendHeader("Last-Modified", fileInfo.lastModified().toString(Qt::RFC2822Date).toUtf8());
-    if (version == Http1_1 && !closeConnection) {
-        sendHeader("Connection", "keep-alive");
-    }
     endHeader();
     return FileLike::rawFile(f);
 }
