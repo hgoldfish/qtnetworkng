@@ -25,7 +25,7 @@ void CoroutineException::raise()
 
 QString CoroutineException::what() const
 {
-    return QStringLiteral("coroutine base exception.");
+    return QString::fromLatin1("coroutine base exception.");
 }
 
 
@@ -48,7 +48,7 @@ void CoroutineExitException::raise()
 
 QString CoroutineExitException::what() const
 {
-    return QStringLiteral("coroutine was asked to quit.");
+    return QString::fromLatin1("coroutine was asked to quit.");
 }
 
 
@@ -71,7 +71,7 @@ void CoroutineInterruptedException::raise()
 
 QString CoroutineInterruptedException::what() const
 {
-    return QStringLiteral("coroutine was interrupted.");
+    return QString::fromLatin1("coroutine was interrupted.");
 }
 
 
@@ -107,7 +107,7 @@ BaseCoroutine *CurrentCoroutineStorage::get()
         return storage.localData().value;
     }
     BaseCoroutine *main = createMainCoroutine();
-    main->setObjectName("main_coroutine");
+    main->setObjectName(QString::fromLatin1("main_coroutine"));
     storage.localData().value = main;
     return main;
 }

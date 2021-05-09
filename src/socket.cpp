@@ -196,7 +196,7 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, QSharedPointe
 
     if (addresses.isEmpty()) {
         state = oldState;
-        setError(Socket::HostNotFoundError, QStringLiteral("Host not found."));
+        setError(Socket::HostNotFoundError, QString::fromLatin1("Host not found."));
         return false;
     }
     bool done = false;
@@ -214,7 +214,7 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, QSharedPointe
             return true;
     }
     if (error == Socket::NoError) {  // and done must be false!
-        setError(Socket::UnsupportedSocketOperationError, QStringLiteral("No host with protocol(%1) not found.").arg(static_cast<int>(protocol)));
+        setError(Socket::UnsupportedSocketOperationError, QString::fromLatin1("No host with protocol(%1) not found.").arg(static_cast<int>(protocol)));
     }
     state = oldState;
     return false;

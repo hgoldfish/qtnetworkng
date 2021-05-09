@@ -22,236 +22,236 @@ bool toMessage(HttpStatus status, QString *shortMessage, QString *longMessage)
 {
     switch (status) {
     case Continue:
-        *shortMessage = QStringLiteral("Continue");
-        if (longMessage) *longMessage = QStringLiteral("Request received, please continue");
+        *shortMessage = QString::fromLatin1("Continue");
+        if (longMessage) *longMessage = QString::fromLatin1("Request received, please continue");
         return true;
     case SwitchProtocol:
-        *shortMessage = QStringLiteral("Switching Protocols");
-        if (longMessage) *longMessage = QStringLiteral("Switching to new protocol; obey Upgrade header");
+        *shortMessage = QString::fromLatin1("Switching Protocols");
+        if (longMessage) *longMessage = QString::fromLatin1("Switching to new protocol; obey Upgrade header");
         return true;
     case Processing:
-        *shortMessage = QStringLiteral("Processing");
-        if (longMessage) *longMessage = QStringLiteral("Processing");
+        *shortMessage = QString::fromLatin1("Processing");
+        if (longMessage) *longMessage = QString::fromLatin1("Processing");
         return true;
     case OK:
-        *shortMessage = QStringLiteral("OK");
-        if (longMessage) *longMessage = QStringLiteral("Request fulfilled, document follows");
+        *shortMessage = QString::fromLatin1("OK");
+        if (longMessage) *longMessage = QString::fromLatin1("Request fulfilled, document follows");
         return true;
     case Created:
-        *shortMessage = QStringLiteral("Created");
-        if (longMessage) *longMessage = QStringLiteral("Document created, URL follows");
+        *shortMessage = QString::fromLatin1("Created");
+        if (longMessage) *longMessage = QString::fromLatin1("Document created, URL follows");
         return true;
     case Accepted:
-        *shortMessage = QStringLiteral("Accepted");
-        if (longMessage) *longMessage = QStringLiteral("Request accepted, processing continues off-line");
+        *shortMessage = QString::fromLatin1("Accepted");
+        if (longMessage) *longMessage = QString::fromLatin1("Request accepted, processing continues off-line");
         return true;
     case NonAuthoritative:
-        *shortMessage = QStringLiteral("Non-Authoritative Information");
-        if (longMessage) *longMessage = QStringLiteral("Request fulfilled from cache");
+        *shortMessage = QString::fromLatin1("Non-Authoritative Information");
+        if (longMessage) *longMessage = QString::fromLatin1("Request fulfilled from cache");
         return true;
     case NoContent:
-        *shortMessage = QStringLiteral("No Content");
-        if (longMessage) *longMessage = QStringLiteral("Request fulfilled, nothing follows");
+        *shortMessage = QString::fromLatin1("No Content");
+        if (longMessage) *longMessage = QString::fromLatin1("Request fulfilled, nothing follows");
         return true;
     case ResetContent:
-        *shortMessage = QStringLiteral("Reset Content");
-        *longMessage = QStringLiteral("Clear input form for further input");
+        *shortMessage = QString::fromLatin1("Reset Content");
+        *longMessage = QString::fromLatin1("Clear input form for further input");
         return true;
     case PartialContent:
-        *shortMessage = QStringLiteral("Partial Content");
-        *longMessage = QStringLiteral("Partial content follows");
+        *shortMessage = QString::fromLatin1("Partial Content");
+        *longMessage = QString::fromLatin1("Partial content follows");
         return true;
     case MultiStatus:
-        *shortMessage = QStringLiteral("Multi-Status");
-        if (longMessage) *longMessage = QStringLiteral("Multi-Status");
+        *shortMessage = QString::fromLatin1("Multi-Status");
+        if (longMessage) *longMessage = QString::fromLatin1("Multi-Status");
         return true;
     case AlreadyReported:
-        *shortMessage = QStringLiteral("Already Reported");
-        if (longMessage) *longMessage = QStringLiteral("Already Reported");
+        *shortMessage = QString::fromLatin1("Already Reported");
+        if (longMessage) *longMessage = QString::fromLatin1("Already Reported");
         return true;
     case IMUsed:
-        *shortMessage = QStringLiteral("IM Used");
-        if (longMessage) *longMessage = QStringLiteral("IM Used");
+        *shortMessage = QString::fromLatin1("IM Used");
+        if (longMessage) *longMessage = QString::fromLatin1("IM Used");
         return true;
     case MultipleChoices:
-        *shortMessage = QStringLiteral("Multiple Choices");
-        if (longMessage) *longMessage = QStringLiteral("Object has several resources -- see URI list");
+        *shortMessage = QString::fromLatin1("Multiple Choices");
+        if (longMessage) *longMessage = QString::fromLatin1("Object has several resources -- see URI list");
         return true;
     case MovedPermanently:
-        *shortMessage = QStringLiteral("Moved Permanently");
-        if (longMessage) *longMessage = QStringLiteral("Object moved permanently -- see URI list");
+        *shortMessage = QString::fromLatin1("Moved Permanently");
+        if (longMessage) *longMessage = QString::fromLatin1("Object moved permanently -- see URI list");
         return true;
     case Found:
-        *shortMessage = QStringLiteral("Found");
-        if (longMessage) *longMessage = QStringLiteral("Object moved temporarily -- see URI list");
+        *shortMessage = QString::fromLatin1("Found");
+        if (longMessage) *longMessage = QString::fromLatin1("Object moved temporarily -- see URI list");
         return true;
     case SeeOther:
-        *shortMessage = QStringLiteral("See Other");
-        if (longMessage) *longMessage = QStringLiteral("Object moved -- see Method and URL list");
+        *shortMessage = QString::fromLatin1("See Other");
+        if (longMessage) *longMessage = QString::fromLatin1("Object moved -- see Method and URL list");
         return true;
     case NotModified:
-        *shortMessage = QStringLiteral("Not Modified");
-        if (longMessage) *longMessage = QStringLiteral("Document has not changed since given time");
+        *shortMessage = QString::fromLatin1("Not Modified");
+        if (longMessage) *longMessage = QString::fromLatin1("Document has not changed since given time");
         return true;
     case UseProxy:
-        *shortMessage = QStringLiteral("Use Proxy");
-        if (longMessage) *longMessage = QStringLiteral("You must use proxy specified in Location to access this resource");
+        *shortMessage = QString::fromLatin1("Use Proxy");
+        if (longMessage) *longMessage = QString::fromLatin1("You must use proxy specified in Location to access this resource");
         return true;
     case TemporaryRedirect:
-        *shortMessage = QStringLiteral("Temporary Redirect");
-        if (longMessage) *longMessage = QStringLiteral("Object moved temporarily -- see URI list");
+        *shortMessage = QString::fromLatin1("Temporary Redirect");
+        if (longMessage) *longMessage = QString::fromLatin1("Object moved temporarily -- see URI list");
         return true;
     case PermanentRedirect:
-        *shortMessage = QStringLiteral("Permanent Redirect");
-        if (longMessage) *longMessage = QStringLiteral("Object moved temporarily -- see URI list");
+        *shortMessage = QString::fromLatin1("Permanent Redirect");
+        if (longMessage) *longMessage = QString::fromLatin1("Object moved temporarily -- see URI list");
         return true;
     case BadRequest:
-        *shortMessage = QStringLiteral("Bad Request");
-        if (longMessage) *longMessage = QStringLiteral("Bad request syntax or unsupported method");
+        *shortMessage = QString::fromLatin1("Bad Request");
+        if (longMessage) *longMessage = QString::fromLatin1("Bad request syntax or unsupported method");
         return true;
     case Unauthorized:
-        *shortMessage = QStringLiteral("Unauthorized");
-        if (longMessage) *longMessage = QStringLiteral("No permission -- see authorization schemes");
+        *shortMessage = QString::fromLatin1("Unauthorized");
+        if (longMessage) *longMessage = QString::fromLatin1("No permission -- see authorization schemes");
         return true;
     case PaymentRequired:
-        *shortMessage = QStringLiteral("Payment Required");
-        if (longMessage) *longMessage = QStringLiteral("No payment -- see charging schemes");
+        *shortMessage = QString::fromLatin1("Payment Required");
+        if (longMessage) *longMessage = QString::fromLatin1("No payment -- see charging schemes");
         return true;
     case Forbidden:
-        *shortMessage = QStringLiteral("Forbidden");
-        if (longMessage) *longMessage = QStringLiteral("Request forbidden -- authorization will not help");
+        *shortMessage = QString::fromLatin1("Forbidden");
+        if (longMessage) *longMessage = QString::fromLatin1("Request forbidden -- authorization will not help");
         return true;
     case NotFound:
-        *shortMessage = QStringLiteral("Not Found");
-        if (longMessage) *longMessage = QStringLiteral("Nothing matches the given URI");
+        *shortMessage = QString::fromLatin1("Not Found");
+        if (longMessage) *longMessage = QString::fromLatin1("Nothing matches the given URI");
         return true;
     case MethodNotAllowed:
-        *shortMessage = QStringLiteral("Method Not Allowed");
-        if (longMessage) *longMessage = QStringLiteral("Specified method is invalid for this resource");
+        *shortMessage = QString::fromLatin1("Method Not Allowed");
+        if (longMessage) *longMessage = QString::fromLatin1("Specified method is invalid for this resource");
         return true;
     case NotAcceptable:
-        *shortMessage = QStringLiteral("Not Acceptable");
-        if (longMessage) *longMessage = QStringLiteral("URI not available in preferred format");
+        *shortMessage = QString::fromLatin1("Not Acceptable");
+        if (longMessage) *longMessage = QString::fromLatin1("URI not available in preferred format");
         return true;
     case ProxyAuthenticationRequired:
-        *shortMessage = QStringLiteral("Proxy Authentication Required");
-        if (longMessage) *longMessage = QStringLiteral("You must authenticate with this proxy before proceeding");
+        *shortMessage = QString::fromLatin1("Proxy Authentication Required");
+        if (longMessage) *longMessage = QString::fromLatin1("You must authenticate with this proxy before proceeding");
         return true;
     case RequestTimeout:
-        *shortMessage = QStringLiteral("Request Timeout");
-        if (longMessage) *longMessage = QStringLiteral("Request timed out; try again later");
+        *shortMessage = QString::fromLatin1("Request Timeout");
+        if (longMessage) *longMessage = QString::fromLatin1("Request timed out; try again later");
         return true;
     case Conflict:
-        *shortMessage = QStringLiteral("Conflict");
-        if (longMessage) *longMessage = QStringLiteral("Request conflict");
+        *shortMessage = QString::fromLatin1("Conflict");
+        if (longMessage) *longMessage = QString::fromLatin1("Request conflict");
         return true;
     case Gone:
-        *shortMessage = QStringLiteral("Gone");
-        if (longMessage) *longMessage = QStringLiteral("URI no longer exists and has been permanently removed");
+        *shortMessage = QString::fromLatin1("Gone");
+        if (longMessage) *longMessage = QString::fromLatin1("URI no longer exists and has been permanently removed");
         return true;
     case LengthRequired:
-        *shortMessage = QStringLiteral("Length Required");
-        if (longMessage) *longMessage = QStringLiteral("Client must specify Content-Length");
+        *shortMessage = QString::fromLatin1("Length Required");
+        if (longMessage) *longMessage = QString::fromLatin1("Client must specify Content-Length");
         return true;
     case PreconditionFailed:
-        *shortMessage = QStringLiteral("Precondition Failed");
-        if (longMessage) *longMessage = QStringLiteral("Precondition in headers is false");
+        *shortMessage = QString::fromLatin1("Precondition Failed");
+        if (longMessage) *longMessage = QString::fromLatin1("Precondition in headers is false");
         return true;
     case RequestEntityTooLarge:
-        *shortMessage = QStringLiteral("Request Entity Too Large");
-        if (longMessage) *longMessage = QStringLiteral("Entity is too large");
+        *shortMessage = QString::fromLatin1("Request Entity Too Large");
+        if (longMessage) *longMessage = QString::fromLatin1("Entity is too large");
         return true;
     case RequestURITooLong:
-        *shortMessage = QStringLiteral("Request-URI Too Long");
-        if (longMessage) *longMessage = QStringLiteral("URI is too long");
+        *shortMessage = QString::fromLatin1("Request-URI Too Long");
+        if (longMessage) *longMessage = QString::fromLatin1("URI is too long");
         return true;
     case UnsupportedMediaType:
-        *shortMessage = QStringLiteral("Unsupported Media Type");
-        if (longMessage) *longMessage = QStringLiteral("Entity body in unsupported format");
+        *shortMessage = QString::fromLatin1("Unsupported Media Type");
+        if (longMessage) *longMessage = QString::fromLatin1("Entity body in unsupported format");
         return true;
     case RequestedRangeNotSatisfiable:
-        *shortMessage = QStringLiteral("Requested Range Not Satisfiable");
-        if (longMessage) *longMessage = QStringLiteral("Cannot satisfy request range");
+        *shortMessage = QString::fromLatin1("Requested Range Not Satisfiable");
+        if (longMessage) *longMessage = QString::fromLatin1("Cannot satisfy request range");
         return true;
     case ExpectationFailed:
-        *shortMessage = QStringLiteral("Expectation Failed");
-        if (longMessage) *longMessage = QStringLiteral("Expect condition could not be satisfied");
+        *shortMessage = QString::fromLatin1("Expectation Failed");
+        if (longMessage) *longMessage = QString::fromLatin1("Expect condition could not be satisfied");
         return true;
     case ImaTeaport:
-        *shortMessage = QStringLiteral("I'm A Teapot");
-        if (longMessage) *longMessage = QStringLiteral("Maybe be short and stout");
+        *shortMessage = QString::fromLatin1("I'm A Teapot");
+        if (longMessage) *longMessage = QString::fromLatin1("Maybe be short and stout");
         return true;
     case UnprocessableEntity:
-        *shortMessage = QStringLiteral("Unprocessable Entity");
-        if (longMessage) *longMessage = QStringLiteral("Unprocessable Entity");
+        *shortMessage = QString::fromLatin1("Unprocessable Entity");
+        if (longMessage) *longMessage = QString::fromLatin1("Unprocessable Entity");
         return true;
     case Locked:
-        *shortMessage = QStringLiteral("Locked");
-        if (longMessage) *longMessage = QStringLiteral("Locked");
+        *shortMessage = QString::fromLatin1("Locked");
+        if (longMessage) *longMessage = QString::fromLatin1("Locked");
         return true;
     case FailedDependency:
-        *shortMessage = QStringLiteral("Failed Dependency");
-        if (longMessage) *longMessage = QStringLiteral("Failed Dependency");
+        *shortMessage = QString::fromLatin1("Failed Dependency");
+        if (longMessage) *longMessage = QString::fromLatin1("Failed Dependency");
         return true;
     case UpgradeRequired:
-        *shortMessage = QStringLiteral("Upgrade Required");
-        if (longMessage) *longMessage = QStringLiteral("Upgrade Required");
+        *shortMessage = QString::fromLatin1("Upgrade Required");
+        if (longMessage) *longMessage = QString::fromLatin1("Upgrade Required");
         return true;
     case PreconditionRequired:
-        *shortMessage = QStringLiteral("Precondition Required");
-        if (longMessage) *longMessage = QStringLiteral("The origin server requires the request to be conditional");
+        *shortMessage = QString::fromLatin1("Precondition Required");
+        if (longMessage) *longMessage = QString::fromLatin1("The origin server requires the request to be conditional");
         return true;
     case TooManyRequests:
-        *shortMessage = QStringLiteral("Too Many Requests");
-        if (longMessage) *longMessage = QStringLiteral("The user has sent too many requests in a given amount of time (\"rate limiting\"");
+        *shortMessage = QString::fromLatin1("Too Many Requests");
+        if (longMessage) *longMessage = QString::fromLatin1("The user has sent too many requests in a given amount of time (\"rate limiting\"");
         return true;
     case RequestHeaderFieldsTooLarge:
-        *shortMessage = QStringLiteral("Request Header Fields Too Large");
-        if (longMessage) *longMessage = QStringLiteral("The server is unwilling to process the request because its header fields are too large");
+        *shortMessage = QString::fromLatin1("Request Header Fields Too Large");
+        if (longMessage) *longMessage = QString::fromLatin1("The server is unwilling to process the request because its header fields are too large");
         return true;
     case InternalServerError:
-        *shortMessage = QStringLiteral("Internal Server Error");
-        if (longMessage) *longMessage = QStringLiteral("Server got itself in trouble");
+        *shortMessage = QString::fromLatin1("Internal Server Error");
+        if (longMessage) *longMessage = QString::fromLatin1("Server got itself in trouble");
         return true;
     case NotImplemented:
-        *shortMessage = QStringLiteral("Not Implemented");
-        if (longMessage) *longMessage = QStringLiteral("Server does not support this operation");
+        *shortMessage = QString::fromLatin1("Not Implemented");
+        if (longMessage) *longMessage = QString::fromLatin1("Server does not support this operation");
         return true;
     case BadGateway:
-        *shortMessage = QStringLiteral("Bad Gateway");
-        if (longMessage) *longMessage = QStringLiteral("Invalid responses from another server/proxy");
+        *shortMessage = QString::fromLatin1("Bad Gateway");
+        if (longMessage) *longMessage = QString::fromLatin1("Invalid responses from another server/proxy");
         return true;
     case ServiceUnavailable:
-        *shortMessage = QStringLiteral("Service Unavailable");
-        if (longMessage) *longMessage = QStringLiteral("The server cannot process the request due to a high load");
+        *shortMessage = QString::fromLatin1("Service Unavailable");
+        if (longMessage) *longMessage = QString::fromLatin1("The server cannot process the request due to a high load");
         return true;
     case GatewayTimeout:
-        *shortMessage = QStringLiteral("Gateway Timeout");
-        if (longMessage) *longMessage = QStringLiteral("The gateway server did not receive a timely response");
+        *shortMessage = QString::fromLatin1("Gateway Timeout");
+        if (longMessage) *longMessage = QString::fromLatin1("The gateway server did not receive a timely response");
         return true;
     case HTTPVersionNotSupported:
-        *shortMessage = QStringLiteral("HTTP Version Not Supported");
-        if (longMessage) *longMessage = QStringLiteral("Cannot fulfill request");
+        *shortMessage = QString::fromLatin1("HTTP Version Not Supported");
+        if (longMessage) *longMessage = QString::fromLatin1("Cannot fulfill request");
         return true;
     case VariantAlsoNegotiates:
-        *shortMessage = QStringLiteral("Variant Also Negotiates");
-        if (longMessage) *longMessage = QStringLiteral("Variant Also Negotiates");
+        *shortMessage = QString::fromLatin1("Variant Also Negotiates");
+        if (longMessage) *longMessage = QString::fromLatin1("Variant Also Negotiates");
         return true;
     case InsufficientStorage:
-        *shortMessage = QStringLiteral("Insufficient Storage");
-        if (longMessage) *longMessage = QStringLiteral("Insufficient Storage");
+        *shortMessage = QString::fromLatin1("Insufficient Storage");
+        if (longMessage) *longMessage = QString::fromLatin1("Insufficient Storage");
         return true;
     case LoopDetected:
-        *shortMessage = QStringLiteral("Loop Detected");
-        if (longMessage) *longMessage = QStringLiteral("Loop Detected");
+        *shortMessage = QString::fromLatin1("Loop Detected");
+        if (longMessage) *longMessage = QString::fromLatin1("Loop Detected");
         return true;
     case NotExtended:
-        *shortMessage = QStringLiteral("Not Extended");
-        if (longMessage) *longMessage = QStringLiteral("Not Extended");
+        *shortMessage = QString::fromLatin1("Not Extended");
+        if (longMessage) *longMessage = QString::fromLatin1("Not Extended");
         return true;
     case NetworkAuthenticationRequired:
-        *shortMessage = QStringLiteral("Network Authentication Required");
-        if (longMessage) *longMessage = QStringLiteral("The client needs to authenticate to gain network access");
+        *shortMessage = QString::fromLatin1("Network Authentication Required");
+        if (longMessage) *longMessage = QString::fromLatin1("The client needs to authenticate to gain network access");
         return true;
     }
     return false;
@@ -361,30 +361,30 @@ QByteArray toHttpDate(const QDateTime &dt)
 
 
 static QStringList knownHeaders = {
-    QStringLiteral("Content-Type"),
-    QStringLiteral("Content-Length"),
-    QStringLiteral("Content-Encoding"),
-    QStringLiteral("Transfer-Encoding"),
-    QStringLiteral("Location"),
-    QStringLiteral("Last-Modified"),
-    QStringLiteral("Cookie"),
-    QStringLiteral("Set-Cookie"),
-    QStringLiteral("Content-Disposition"),
-    QStringLiteral("Server"),
-    QStringLiteral("User-Agent"),
-    QStringLiteral("Accept"),
-    QStringLiteral("Accept-Language"),
-    QStringLiteral("Accept-Encoding"),
-    QStringLiteral("DNT"),
-    QStringLiteral("Connection"),
-    QStringLiteral("Pragma"),
-    QStringLiteral("Cache-Control"),
-    QStringLiteral("Date"),
-    QStringLiteral("Allow"),
-    QStringLiteral("Vary"),
-    QStringLiteral("X-Frame-Options"),
-    QStringLiteral("MIME-Version"),
-    QStringLiteral("Host"),
+    QString::fromLatin1("Content-Type"),
+    QString::fromLatin1("Content-Length"),
+    QString::fromLatin1("Content-Encoding"),
+    QString::fromLatin1("Transfer-Encoding"),
+    QString::fromLatin1("Location"),
+    QString::fromLatin1("Last-Modified"),
+    QString::fromLatin1("Cookie"),
+    QString::fromLatin1("Set-Cookie"),
+    QString::fromLatin1("Content-Disposition"),
+    QString::fromLatin1("Server"),
+    QString::fromLatin1("User-Agent"),
+    QString::fromLatin1("Accept"),
+    QString::fromLatin1("Accept-Language"),
+    QString::fromLatin1("Accept-Encoding"),
+    QString::fromLatin1("DNT"),
+    QString::fromLatin1("Connection"),
+    QString::fromLatin1("Pragma"),
+    QString::fromLatin1("Cache-Control"),
+    QString::fromLatin1("Date"),
+    QString::fromLatin1("Allow"),
+    QString::fromLatin1("Vary"),
+    QString::fromLatin1("X-Frame-Options"),
+    QString::fromLatin1("MIME-Version"),
+    QString::fromLatin1("Host"),
 };
 
 
@@ -401,53 +401,53 @@ QString toString(KnownHeader knownHeader)
 {
     switch (knownHeader) {
     case ContentTypeHeader:
-        return QStringLiteral("Content-Type");
+        return QString::fromLatin1("Content-Type");
     case ContentLengthHeader:
-        return QStringLiteral("Content-Length");
+        return QString::fromLatin1("Content-Length");
     case ContentEncodingHeader:
-        return QStringLiteral("Content-Encoding");
+        return QString::fromLatin1("Content-Encoding");
     case TransferEncodingHeader:
-        return QStringLiteral("Transfer-Encoding");
+        return QString::fromLatin1("Transfer-Encoding");
     case LocationHeader:
-        return QStringLiteral("Location");
+        return QString::fromLatin1("Location");
     case LastModifiedHeader:
-        return QStringLiteral("Last-Modified");
+        return QString::fromLatin1("Last-Modified");
     case CookieHeader:
-        return QStringLiteral("Cookie");
+        return QString::fromLatin1("Cookie");
     case SetCookieHeader:
-        return QStringLiteral("Set-Cookie");
+        return QString::fromLatin1("Set-Cookie");
     case ContentDispositionHeader:
-        return QStringLiteral("Content-Disposition");
+        return QString::fromLatin1("Content-Disposition");
     case UserAgentHeader:
-        return QStringLiteral("User-Agent");
+        return QString::fromLatin1("User-Agent");
     case AcceptHeader:
-        return QStringLiteral("Accept");
+        return QString::fromLatin1("Accept");
     case AcceptLanguageHeader:
-        return QStringLiteral("Accept-Language");
+        return QString::fromLatin1("Accept-Language");
     case AcceptEncodingHeader:
-        return QStringLiteral("Accept-Encoding");
+        return QString::fromLatin1("Accept-Encoding");
     case PragmaHeader:
-        return QStringLiteral("Pragma");
+        return QString::fromLatin1("Pragma");
     case CacheControlHeader:
-        return QStringLiteral("Cache-Control");
+        return QString::fromLatin1("Cache-Control");
     case DateHeader:
-        return QStringLiteral("Date");
+        return QString::fromLatin1("Date");
     case AllowHeader:
-        return QStringLiteral("Allow");
+        return QString::fromLatin1("Allow");
     case VaryHeader:
-        return QStringLiteral("Vary");
+        return QString::fromLatin1("Vary");
     case FrameOptionsHeader:
-        return QStringLiteral("X-Frame-Options");
+        return QString::fromLatin1("X-Frame-Options");
     case MIMEVersionHeader:
-        return QStringLiteral("MIME-Version");
+        return QString::fromLatin1("MIME-Version");
     case ServerHeader:
-        return QStringLiteral("Server");
+        return QString::fromLatin1("Server");
     case ConnectionHeader:
-        return QStringLiteral("Connection");
+        return QString::fromLatin1("Connection");
     case UpgradeHeader:
-        return QStringLiteral("Upgrade");
+        return QString::fromLatin1("Upgrade");
     case HostHeader:
-        return QStringLiteral("Host");
+        return QString::fromLatin1("Host");
     }
     return QString();
 }

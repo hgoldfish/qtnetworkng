@@ -212,38 +212,38 @@ QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::getOrCreate()
 #ifdef QTNETWOKRNG_USE_EV
         if (preferLibevFlag->loadAcquire()) {
             eventLoop.reset(new EvEventLoopCoroutine());
-            eventLoop->setObjectName("libev_eventloop_coroutine");
+            eventLoop->setObjectName(QString::fromLatin1("libev_eventloop_coroutine"));
             storage.setLocalData(eventLoop);
         } else {
             if (QCoreApplication::instance() && QCoreApplication::instance()->thread() == QThread::currentThread()) {
                 eventLoop.reset(new QtEventLoopCoroutine());
-                eventLoop->setObjectName("qt_eventloop_coroutine");
+                eventLoop->setObjectName(QString::fromLatin1("qt_eventloop_coroutine"));
                 storage.setLocalData(eventLoop);
             } else {
                 eventLoop.reset(new EvEventLoopCoroutine());
-                eventLoop->setObjectName("libev_eventloop_coroutine");
+                eventLoop->setObjectName(QString::fromLatin1("libev_eventloop_coroutine"));
                 storage.setLocalData(eventLoop);
             }
         }
 #elif QTNETWORKNG_USE_WIN
         if (preferLibevFlag->loadAcquire()) {
             eventLoop.reset(new WinEventLoopCoroutine());
-            eventLoop->setObjectName("win_eventloop_coroutine");
+            eventLoop->setObjectName(QString::fromLatin1("win_eventloop_coroutine"));
             storage.setLocalData(eventLoop);
         } else {
             if (QCoreApplication::instance() && QCoreApplication::instance()->thread() == QThread::currentThread()) {
                 eventLoop.reset(new QtEventLoopCoroutine());
-                eventLoop->setObjectName("qt_eventloop_coroutine");
+                eventLoop->setObjectName(QString::fromLatin1("qt_eventloop_coroutine"));
                 storage.setLocalData(eventLoop);
             } else {
                 eventLoop.reset(new WinEventLoopCoroutine());
-                eventLoop->setObjectName("win_eventloop_coroutine");
+                eventLoop->setObjectName(QString::fromLatin1("win_eventloop_coroutine"));
                 storage.setLocalData(eventLoop);
             }
         }
 #else
         eventLoop.reset(new QtEventLoopCoroutine());
-        eventLoop->setObjectName("qt_eventloop_coroutine");
+        eventLoop->setObjectName(QString::fromLatin1("qt_eventloop_coroutine"));
         storage.setLocalData(eventLoop);
 #endif
     }
@@ -609,7 +609,7 @@ TimeoutException::TimeoutException()
 
 QString TimeoutException::what() const
 {
-    return QStringLiteral("coroutine had set timeout.");
+    return QString::fromLatin1("coroutine had set timeout.");
 }
 
 

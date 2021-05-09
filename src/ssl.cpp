@@ -605,83 +605,83 @@ QString SslError::errorString() const
     QString errStr;
     switch (d->error) {
     case NoError:
-        errStr = QStringLiteral("No error");
+        errStr = QString::fromLatin1("No error");
         break;
     case UnableToGetIssuerCertificate:
-        errStr = QStringLiteral("The issuer certificate could not be found");
+        errStr = QString::fromLatin1("The issuer certificate could not be found");
         break;
     case UnableToDecryptCertificateSignature:
-        errStr = QStringLiteral("The certificate signature could not be decrypted");
+        errStr = QString::fromLatin1("The certificate signature could not be decrypted");
         break;
     case UnableToDecodeIssuerPublicKey:
-        errStr = QStringLiteral("The public key in the certificate could not be read");
+        errStr = QString::fromLatin1("The public key in the certificate could not be read");
         break;
     case CertificateSignatureFailed:
-        errStr = QStringLiteral("The signature of the certificate is invalid");
+        errStr = QString::fromLatin1("The signature of the certificate is invalid");
         break;
     case CertificateNotYetValid:
-        errStr = QStringLiteral("The certificate is not yet valid");
+        errStr = QString::fromLatin1("The certificate is not yet valid");
         break;
     case CertificateExpired:
-        errStr = QStringLiteral("The certificate has expired");
+        errStr = QString::fromLatin1("The certificate has expired");
         break;
     case InvalidNotBeforeField:
-        errStr = QStringLiteral("The certificate's notBefore field contains an invalid time");
+        errStr = QString::fromLatin1("The certificate's notBefore field contains an invalid time");
         break;
     case InvalidNotAfterField:
-        errStr = QStringLiteral("The certificate's notAfter field contains an invalid time");
+        errStr = QString::fromLatin1("The certificate's notAfter field contains an invalid time");
         break;
     case SelfSignedCertificate:
-        errStr = QStringLiteral("The certificate is self-signed, and untrusted");
+        errStr = QString::fromLatin1("The certificate is self-signed, and untrusted");
         break;
     case SelfSignedCertificateInChain:
-        errStr = QStringLiteral("The root certificate of the certificate chain is self-signed, and untrusted");
+        errStr = QString::fromLatin1("The root certificate of the certificate chain is self-signed, and untrusted");
         break;
     case UnableToGetLocalIssuerCertificate:
-        errStr = QStringLiteral("The issuer certificate of a locally looked up certificate could not be found");
+        errStr = QString::fromLatin1("The issuer certificate of a locally looked up certificate could not be found");
         break;
     case UnableToVerifyFirstCertificate:
-        errStr = QStringLiteral("No certificates could be verified");
+        errStr = QString::fromLatin1("No certificates could be verified");
         break;
     case InvalidCaCertificate:
-        errStr = QStringLiteral("One of the CA certificates is invalid");
+        errStr = QString::fromLatin1("One of the CA certificates is invalid");
         break;
     case PathLengthExceeded:
-        errStr = QStringLiteral("The basicConstraints path length parameter has been exceeded");
+        errStr = QString::fromLatin1("The basicConstraints path length parameter has been exceeded");
         break;
     case InvalidPurpose:
-        errStr = QStringLiteral("The supplied certificate is unsuitable for this purpose");
+        errStr = QString::fromLatin1("The supplied certificate is unsuitable for this purpose");
         break;
     case CertificateUntrusted:
-        errStr = QStringLiteral("The root CA certificate is not trusted for this purpose");
+        errStr = QString::fromLatin1("The root CA certificate is not trusted for this purpose");
         break;
     case CertificateRejected:
-        errStr = QStringLiteral("The root CA certificate is marked to reject the specified purpose");
+        errStr = QString::fromLatin1("The root CA certificate is marked to reject the specified purpose");
         break;
     case SubjectIssuerMismatch: // hostname mismatch
-        errStr = QStringLiteral("The current candidate issuer certificate was rejected because its"
+        errStr = QString::fromLatin1("The current candidate issuer certificate was rejected because its"
                                 " subject name did not match the issuer name of the current certificate");
         break;
     case AuthorityIssuerSerialNumberMismatch:
-        errStr = QStringLiteral("The current candidate issuer certificate was rejected because"
+        errStr = QString::fromLatin1("The current candidate issuer certificate was rejected because"
                              " its issuer name and serial number was present and did not match the"
                              " authority key identifier of the current certificate");
         break;
     case NoPeerCertificate:
-        errStr = QStringLiteral("The peer did not present any certificate");
+        errStr = QString::fromLatin1("The peer did not present any certificate");
         break;
     case HostNameMismatch:
-        errStr = QStringLiteral("The host name did not match any of the valid hosts"
+        errStr = QString::fromLatin1("The host name did not match any of the valid hosts"
                              " for this certificate");
         break;
     case NoSslSupport:
-        errStr = QStringLiteral("SSL is not supported on this pltform.");
+        errStr = QString::fromLatin1("SSL is not supported on this pltform.");
         break;
     case CertificateBlacklisted:
-        errStr = QStringLiteral("The peer certificate is blacklisted");
+        errStr = QString::fromLatin1("The peer certificate is blacklisted");
         break;
     default:
-        errStr = QStringLiteral("Unknown error");
+        errStr = QString::fromLatin1("Unknown error");
         break;
     }
 

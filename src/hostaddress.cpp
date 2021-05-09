@@ -430,7 +430,7 @@ static QChar toHex(uchar c)
 
 static void IPAddresstoString(QString &appendTo, IPv4Address address)
 {
-    appendTo += QStringLiteral("%1.%2.%3.%4").arg(number(address >> 24, 10)).arg(number(address >> 16, 10)) \
+    appendTo += QString::fromLatin1("%1.%2.%3.%4").arg(number(address >> 24, 10)).arg(number(address >> 16, 10)) \
                     .arg(number(address >> 8, 10)).arg(number(address, 10));
 }
 

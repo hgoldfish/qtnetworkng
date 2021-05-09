@@ -32,33 +32,33 @@ QString Socks5Exception::errorString() const
 {
     switch(err) {
     case ProxyConnectionRefusedError:
-        return QStringLiteral("Connection to proxy refused");
+        return QString::fromLatin1("Connection to proxy refused");
     case ProxyConnectionClosedError:
-        return QStringLiteral("Connection to proxy closed prematurely");
+        return QString::fromLatin1("Connection to proxy closed prematurely");
     case ProxyNotFoundError:
-        return QStringLiteral("Proxy host not found");
+        return QString::fromLatin1("Proxy host not found");
     case ProxyProtocolError:
-        return QStringLiteral("SOCKS version 5 protocol error");
+        return QString::fromLatin1("SOCKS version 5 protocol error");
     case ProxyAuthenticationRequiredError:
-        return QStringLiteral("Proxy authentication failed");
+        return QString::fromLatin1("Proxy authentication failed");
     case SocksFailure:
-        return QStringLiteral("General SOCKSv5 server failure");
+        return QString::fromLatin1("General SOCKSv5 server failure");
     case ConnectionNotAllowed:
-        return QStringLiteral("Connection not allowed by SOCKSv5 server");
+        return QString::fromLatin1("Connection not allowed by SOCKSv5 server");
     case NetworkUnreachable:
-        return QStringLiteral("Network unreachable");
+        return QString::fromLatin1("Network unreachable");
     case HostUnreachable:
-        return QStringLiteral("Host not found");
+        return QString::fromLatin1("Host not found");
     case ConnectionRefused:
-        return QStringLiteral("Connection refused");
+        return QString::fromLatin1("Connection refused");
     case TTLExpired:
-        return QStringLiteral("TTL expired");
+        return QString::fromLatin1("TTL expired");
     case CommandNotSupported:
-        return QStringLiteral("SOCKSv5 command not supported");
+        return QString::fromLatin1("SOCKSv5 command not supported");
     case AddressTypeNotSupported:
-        return QStringLiteral("Address type not supported");
+        return QString::fromLatin1("Address type not supported");
     default:
-        return QStringLiteral("some error occured in socks5.");
+        return QString::fromLatin1("some error occured in socks5.");
     }
 }
 

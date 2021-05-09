@@ -256,17 +256,17 @@ DataChannelPrivate::~DataChannelPrivate()
 
 QString DataChannelPrivate::toString()
 {
-    QString pattern = QStringLiteral("<%1 (name = %2, state = %3)>");
+    QString pattern = QString::fromLatin1("<%1 (name = %2, state = %3)>");
     QString clazz, state;
     if (dynamic_cast<VirtualChannel*>(this)) {
-        clazz = QStringLiteral("VirtualChannel");
+        clazz = QString::fromLatin1("VirtualChannel");
     } else {
-        clazz = QStringLiteral("SocketChannel");
+        clazz = QString::fromLatin1("SocketChannel");
     }
     if (broken) {
-        state = QStringLiteral("closed");
+        state = QString::fromLatin1("closed");
     } else {
-        state = QStringLiteral("ok");
+        state = QString::fromLatin1("ok");
     }
     return pattern.arg(clazz).arg(name).arg(state);
 }
@@ -468,13 +468,13 @@ SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection
 {
     connection->setOption(Socket::LowDelayOption, true);
     connection->setOption(Socket::KeepAliveOption, false); // we do it!
-    operations->spawnWithName(QStringLiteral("receiving"), [this] {
+    operations->spawnWithName(QString::fromLatin1("receiving"), [this] {
         this->doReceive();
     });
-    operations->spawnWithName(QStringLiteral("sending"), [this] {
+    operations->spawnWithName(QString::fromLatin1("sending"), [this] {
         this->doSend();
     });
-    operations->spawnWithName(QStringLiteral("keepalive"), [this] {
+    operations->spawnWithName(QString::fromLatin1("keepalive"), [this] {
         this->doKeepalive();
     });
 }
@@ -598,7 +598,7 @@ void SocketChannelPrivate::doReceive()
 #endif
             if (packetSize > maxPacketSize) {
 #ifdef DEBUG_PROTOCOL
-                qDebug() << QStringLiteral("packetSize %1 is larger than %2").arg(packetSize).arg(maxPacketSize);
+                qDebug() << QString::fromLatin1("packetSize %1 is larger than %2").arg(packetSize).arg(maxPacketSize);
 #endif
                 return abort();
             }
@@ -672,14 +672,14 @@ void SocketChannelPrivate::abort()
             writingPacket.done->send(false);
         }
     }
-    if (operations->get("receiving").data() != current) {
-        operations->kill("receiving");
+    if (operations->get(QString::fromLatin1("receiving")).data() != current) {
+        operations->kill(QString::fromLatin1("receiving"));
     }
-    if (operations->get("sending").data() != current) {
-        operations->kill("sending");
+    if (operations->get(QString::fromLatin1("sending")).data() != current) {
+        operations->kill(QString::fromLatin1("sending"));
     }
-    if (operations->get("keepalive").data() != current) {
-        operations->kill("keepalive");
+    if (operations->get(QString::fromLatin1("keepalive")).data() != current) {
+        operations->kill(QString::fromLatin1("keepalive"));
     }
     DataChannelPrivate::abort();
 }
@@ -791,7 +791,7 @@ bool VirtualChannelPrivate::handleIncomingPacket(const QByteArray &packet)
         QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
         if (channel.isNull()) {
 #ifdef DEBUG_PROTOCOL
-            qDebug() << QStringLiteral("found invalid channel number %1 while handle incoming packet.").arg(channelNumber);
+            qDebug() << QString::fromLatin1("found invalid channel number %1 while handle incoming packet.").arg(channelNumber);
 #endif
             subChannels.remove(channelNumber);
             return false;
@@ -800,7 +800,7 @@ bool VirtualChannelPrivate::handleIncomingPacket(const QByteArray &packet)
         return true;
     } else {
 #ifdef DEBUG_PROTOCOL
-        qDebug() << QStringLiteral("found unknown channel number %1 while handle incoming packet.").arg(channelNumber);
+        qDebug() << QString::fromLatin1("found unknown channel number %1 while handle incoming packet.").arg(channelNumber);
 #endif
         return false;
     }

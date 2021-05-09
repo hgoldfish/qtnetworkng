@@ -336,8 +336,8 @@ void ExchangerPrivate::receiveOutgoing()
     while (true) {
         qint32 len = forward->recv(buf.data(), buf.size());
         if (len <= 0) {
-            operations->kill("receive_incoming", false);
-            operations->kill("send_outgoing", false);
+            operations->kill(QString::fromLatin1("receive_incoming"), false);
+            operations->kill(QString::fromLatin1("send_outgoing"), false);
             incoming.put(QByteArray());
             return;
         }
@@ -352,8 +352,8 @@ void ExchangerPrivate::receiveIncoming()
     while (true) {
         qint32 len = request->recv(buf.data(), buf.size());
         if (len <= 0) {
-            operations->kill("receive_outgoing", false);
-            operations->kill("sending_incoming", false);
+            operations->kill(QString::fromLatin1("receive_outgoing"), false);
+            operations->kill(QString::fromLatin1("sending_incoming"), false);
             outgoing.put(QByteArray());
             return;
         }
@@ -419,7 +419,7 @@ void ExchangerPrivate::in2out()
         qint32 len = request->recv(buf.data(), buf.size());
         if (len <= 0) {
             forward->abort();
-            operations->kill("out2in");
+            operations->kill(QString::fromLatin1("out2in"));
             return;
         }
         qint32 sentBytes;
@@ -431,7 +431,7 @@ void ExchangerPrivate::in2out()
         }
         if (sentBytes != len) {
             forward->abort();
-            operations->kill("out2in");
+            operations->kill(QString::fromLatin1("out2in"));
             return;
         }
     }
@@ -445,7 +445,7 @@ void ExchangerPrivate::out2in()
         qint32 len = forward->recv(buf.data(), buf.size());
         if (len <= 0) {
             request->abort();
-            operations->kill("in2out");
+            operations->kill(QString::fromLatin1("in2out"));
             return;
         }
         qint32 sentBytes;
@@ -457,7 +457,7 @@ void ExchangerPrivate::out2in()
         }
         if (sentBytes != len) {
             request->abort();
-            operations->kill("in2out");
+            operations->kill(QString::fromLatin1("in2out"));
             return;
         }
     }
@@ -484,8 +484,8 @@ void Exchanger::exchange()
 //    d->operations->spawnWithName("receive_incoming", [d] { d->receiveIncoming(); });
 //    d->operations->spawnWithName("send_outgoing", [d] { d->sendOutgoing(); });
 //    d->operations->spawnWithName("send_incoming", [d] { d->sendIncoming(); });
-    d->operations->spawnWithName("in2out", [d] { d->in2out(); });
-    d->operations->spawnWithName("out2in", [d] { d->out2in(); });
+    d->operations->spawnWithName(QString::fromLatin1("in2out"), [d] { d->in2out(); });
+    d->operations->spawnWithName(QString::fromLatin1("out2in"), [d] { d->out2in(); });
     d->operations->joinall();
 }
 

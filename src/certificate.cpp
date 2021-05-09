@@ -581,7 +581,7 @@ static bool setSubjectInfos(X509 *x, const QMultiMap<Certificate::SubjectInfo, Q
 
 std::string toText(const QDateTime &t)
 {
-    return (t.toUTC().toString("yyyyMMddhhmmss") + QStringLiteral("Z")).toStdString();
+    return (t.toUTC().toString(QLatin1String("yyyyMMddhhmmss")) + QLatin1String("Z")).toStdString();
 }
 
 

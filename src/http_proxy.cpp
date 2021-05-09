@@ -119,14 +119,14 @@ QSharedPointer<Socket> HttpProxy::connect(const QString &remoteHost, quint16 por
     if (statusLine.isEmpty() || headerSplitterError != HeaderSplitter::NoError) {
         return QSharedPointer<Socket>();
     }
-    QStringList commands = QString::fromLatin1(statusLine).split(QRegExp("\\s+"));
+    QStringList commands = QString::fromLatin1(statusLine).split(QRegExp(QString::fromLatin1("\\s+")));
     if (commands.size() < 3) {
         return QSharedPointer<Socket>();
     }
-    if (commands.at(0) != QStringLiteral("HTTP/1.0") && commands.at(0) != QStringLiteral("HTTP/1.1")) {
+    if (commands.at(0) != QLatin1String("HTTP/1.0") && commands.at(0) != QLatin1String("HTTP/1.1")) {
         return QSharedPointer<Socket>();
     }
-    if (commands.at(1) != QByteArray("200")) {
+    if (commands.at(1) != QLatin1String("200")) {
         return QSharedPointer<Socket>();
     }
     const int MaxHeaders = 64;
@@ -145,7 +145,7 @@ QSharedPointer<Socket> HttpProxy::connect(const HostAddress &remoteHost, quint16
     }
     QString hostName;
     if (remoteHost.protocol() == HostAddress::IPv6Protocol) {
-        hostName = QStringLiteral("[%1]").arg(remoteHost.toString());
+        hostName = QString::fromLatin1("[%1]").arg(remoteHost.toString());
     } else {
         hostName = remoteHost.toString();
     }

@@ -193,7 +193,7 @@ bool BaseStreamServer::start()
 {
     Q_D(BaseStreamServer);
 
-    if (started->isSet() || d->operations->has("serve")) {
+    if (started->isSet() || d->operations->has(QString::fromLatin1("serve"))) {
         return true;
     }
     d->serverSocket = serverCreate();
@@ -208,7 +208,7 @@ bool BaseStreamServer::start()
         serverClose();
         return false;
     }
-    d->operations->spawnWithName("serve", [d] { d->serveForever(); });
+    d->operations->spawnWithName(QString::fromLatin1("serve"), [d] { d->serveForever(); });
     return true;
 }
 

@@ -149,7 +149,9 @@ WithSsl<ServerType>::WithSsl(const HostAddress &serverAddress, quint16 serverPor
     : ServerType(serverAddress, serverPort)
     , _sslHandshakeTimeout(5.0)
 {
-    _configuration = SslConfiguration::testPurpose("SslServer", "CN", "QtNetworkNg");
+    _configuration = SslConfiguration::testPurpose(QString::fromLatin1("SslServer"),
+                                                   QString::fromLatin1("CN"),
+                                                   QString::fromLatin1("QtNetworkNg"));
 }
 
 
@@ -166,7 +168,9 @@ WithSsl<ServerType>::WithSsl(quint16 serverPort)
     : ServerType(HostAddress::Any, serverPort)
     , _sslHandshakeTimeout(5.0)
 {
-    _configuration = SslConfiguration::testPurpose("SslServer", "CN", "QtNetworkNg");
+    _configuration = SslConfiguration::testPurpose(QString::fromLatin1("SslServer"),
+                                                   QString::fromLatin1("CN"),
+                                                   QString::fromLatin1("QtNetworkNg"));
 }
 
 

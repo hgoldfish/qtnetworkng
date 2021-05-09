@@ -28,7 +28,7 @@ void BaseHttpProxyRequestHandler::logError(qtng::HttpStatus, const QString &, co
 
 void BaseHttpProxyRequestHandler::doMethod()
 {
-    if (method.toUpper() == "CONNECT") {
+    if (method.toUpper() == QLatin1String("CONNECT")) {
         doCONNECT();
     } else {
         doProxy();
@@ -41,10 +41,10 @@ void BaseHttpProxyRequestHandler::doCONNECT()
     QString host;
     quint16 port;
 
-    const QStringList &l = path.split(':');
+    const QStringList &l = path.split(QLatin1Char(':'));
     if (l.size() != 2) {
         logProxy(QString(), 0, HostAddress(), false);
-        sendError(HttpStatus::BadRequest, "Invalid host and port.");
+        sendError(HttpStatus::BadRequest, QString::fromLatin1("Invalid host and port."));
         return;
     }
     host = l.at(0);
@@ -52,19 +52,19 @@ void BaseHttpProxyRequestHandler::doCONNECT()
     port = l.at(1).toUShort(&ok);
     if (!ok) {
         logProxy(host, port, HostAddress(), false);
-        sendError(HttpStatus::BadRequest, "Invalid port.");
+        sendError(HttpStatus::BadRequest, QString::fromLatin1("Invalid port."));
         return;
     }
 
     HostAddress forwardAddress;
     QSharedPointer<SocketLike> forward = makeConnection(host, port, &forwardAddress);
     if (forward.isNull()) {
-        sendError(HttpStatus::BadGateway, "Can not connect to remote host.");
+        sendError(HttpStatus::BadGateway, QString::fromLatin1("Can not connect to remote host."));
         logProxy(host, port, HostAddress(), false);
         return;
     }
 
-    sendResponse(OK, "Connection established");
+    sendResponse(OK, QString::fromLatin1("Connection established"));
     endHeader();
 
     logProxy(host, port, forwardAddress, true);
@@ -82,23 +82,23 @@ void BaseHttpProxyRequestHandler::doProxy()
     QUrl url = QUrl::fromEncoded(path.toLatin1());
     host = url.host();
     int t;
-    if (url.scheme() == "https") {
+    if (url.scheme() == QLatin1String("https")) {
         t = url.port(443);
-    } else if (url.scheme() == "http") {
+    } else if (url.scheme() == QLatin1String("http")) {
         t = url.port(80);
     } else {
         t = url.port();
     }
     if (t <= 0 || t > 65535){
         logProxy(host, 0, HostAddress(), false);
-        sendError(HttpStatus::BadRequest, "Invalid port.");
+        sendError(HttpStatus::BadRequest, QString::fromLatin1("Invalid port."));
         return;
     }
     port = static_cast<quint16>(t);
     HostAddress forwardAddress;
     QSharedPointer<SocketLike> forward = makeConnection(host, port, &forwardAddress);
     if (forward.isNull()) {
-        sendError(HttpStatus::BadGateway, "Can not connect to remote host.");
+        sendError(HttpStatus::BadGateway, QString::fromLatin1("Can not connect to remote host."));
         logProxy(host, port, HostAddress(), false);
         return;
     }
@@ -145,7 +145,7 @@ void BaseHttpProxyRequestHandler::doProxy()
     if (!endHeader()) {
         return;
     }
-    if (method.toUpper() != QString("HEAD")) {
+    if (method.toUpper() != QString::fromLatin1("HEAD")) {
         QSharedPointer<FileLike> f = response->bodyAsFile(false);
         if (!f.isNull()) {
             sendfile(f, this->request);
@@ -158,11 +158,11 @@ void BaseHttpProxyRequestHandler::logProxy(const QString &remoteHostName, quint1
 {
     QString successStr;
     if (success) {
-        successStr = "SUCC";
+        successStr = QString::fromLatin1("SUCC");
     } else {
-        successStr = "FAIL";
+        successStr = QString::fromLatin1("FAIL");
     }
-    const QString &msg = QString("[%1 %2] -- %3:%4 -> %5")
+    const QString &msg = QString::fromLatin1("[%1 %2] -- %3:%4 -> %5")
             .arg(successStr)
             .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
             .arg(remoteHostName)

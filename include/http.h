@@ -35,7 +35,7 @@ public:
             newContentType = contentType;
         }
         if (newContentType.isEmpty()) {
-            newContentType = "application/octet-stream";
+            newContentType = QString::fromLatin1("application/octet-stream");
         }
         files.append(File(name, filename, data, newContentType));
     }

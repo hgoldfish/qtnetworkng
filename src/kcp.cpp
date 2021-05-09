@@ -99,7 +99,7 @@ public:
 
 static inline QString concat(const HostAddress &addr, quint16 port)
 {
-    return addr.toString() + ":" + QString::number(port);
+    return addr.toString() + QLatin1String(":") + QString::number(port);
 }
 
 
@@ -213,7 +213,7 @@ int kcp_callback(const char *buf, int len, ikcpcb *, void *user)
         if (sentBytes != packet.size()) {  // but why this happens?
             if (p->error == Socket::NoError) {
                 p->error = Socket::SocketAccessError;
-                p->errorString = QString("can not send udp packet");
+                p->errorString = QString::fromLatin1("can not send udp packet");
             }
 #ifdef DEBUG_PROTOCOL
             qWarning() << "can not send packet.";
@@ -341,7 +341,7 @@ qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
     while (count < size) {
         if (state != Socket::ConnectedState) {
             error = Socket::SocketAccessError;
-            errorString = QString("KcpSocket is not connected.");
+            errorString = QString::fromLatin1("KcpSocket is not connected.");
             return -1;
         }
         bool ok = sendingQueueNotFull->wait();
@@ -378,7 +378,7 @@ qint32 KcpSocketPrivate::recv(char *data, qint32 size, bool all)
     while (true) {
         if (state != Socket::ConnectedState) {
             error = Socket::SocketAccessError;
-            errorString = QString("KcpSocket is not connected.");
+            errorString = QString::fromLatin1("KcpSocket is not connected.");
             return -1;
         }
         int peeksize = ikcp_peeksize(kcp);
@@ -455,7 +455,7 @@ void KcpSocketPrivate::doUpdate()
             qDebug() << "tearDown!";
 #endif
             error = Socket::SocketTimeoutError;
-            errorString = QString("KcpSocket is timeout.");
+            errorString = QString::fromLatin1("KcpSocket is timeout.");
             close(true);
             return;
         }
@@ -520,7 +520,7 @@ void KcpSocketPrivate::doUpdate()
 
 void KcpSocketPrivate::updateKcp()
 {
-    QSharedPointer<Coroutine> t = operations->spawnWithName("update_kcp", [this] { doUpdate(); }, false);
+    QSharedPointer<Coroutine> t = operations->spawnWithName(QString::fromLatin1("update_kcp"), [this] { doUpdate(); }, false);
     forceToUpdate->open();
 }
 
@@ -888,7 +888,7 @@ void MasterKcpSocketPrivate::doAccept()
                     if (rawSocket->sendto(closePacket, addr, port) != closePacket.size()) {
                         if (error == Socket::NoError) {
                             error = Socket::SocketResourceError;
-                            errorString = QString("KcpSocket can not send udp packet.");
+                            errorString = QString::fromLatin1("KcpSocket can not send udp packet.");
                         }
     #ifdef DEBUG_PROTOCOL
                         qDebug() << errorString;
@@ -920,7 +920,7 @@ void MasterKcpSocketPrivate::doAccept()
                     if (rawSocket->sendto(multiPathPacket, addr, port) != multiPathPacket.size()) {
                         if (error == Socket::NoError) {
                             error = Socket::SocketResourceError;
-                            errorString = QString("KcpSocket can not send udp packet.");
+                            errorString = QString::fromLatin1("KcpSocket can not send udp packet.");
                         }
 #ifdef DEBUG_PROTOCOL
                         qDebug() << errorString;
@@ -935,7 +935,7 @@ void MasterKcpSocketPrivate::doAccept()
 
 bool MasterKcpSocketPrivate::startReceivingCoroutine()
 {
-    if (!operations->get("receiving").isNull()) {
+    if (!operations->get(QString::fromLatin1("receiving")).isNull()) {
         return true;
     }
     switch (state) {
@@ -946,10 +946,10 @@ bool MasterKcpSocketPrivate::startReceivingCoroutine()
     case Socket::ClosingState:
         return false;
     case Socket::ConnectedState:
-        operations->spawnWithName("receiving", [this] { doReceive(); });
+        operations->spawnWithName(QString::fromLatin1("receiving"), [this] { doReceive(); });
         break;
     case Socket::ListeningState:
-        operations->spawnWithName("receiving", [this] { doAccept(); });
+        operations->spawnWithName(QString::fromLatin1("receiving"), [this] { doAccept(); });
         break;
     }
     return true;
@@ -1236,7 +1236,7 @@ bool SlaveKcpSocketPrivate::close(bool force)
     } else {  // there can be no other states.
         state = Socket::UnconnectedState;
     }
-    operations->kill("update_kcp");
+    operations->kill(QString::fromLatin1("update_kcp"));
     if (!parent.isNull()) {
         parent->removeSlave(originalHostAndPort);
         parent->removeSlave(connectionId);

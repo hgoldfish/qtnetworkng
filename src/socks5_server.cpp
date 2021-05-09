@@ -108,7 +108,7 @@ void Socks5RequestHandler::logProxy(const QString &hostName, const HostAddress &
     } else {
         host = hostName;
     }
-    const QString &message = QString("%1 -- %2 CONNECT %3 -> %4:%5 %6")
+    const QString &message = QString::fromLatin1("%1 -- %2 CONNECT %3 -> %4:%5 %6")
             .arg(request->peerAddress().toString())
             .arg(now.toString(Qt::ISODate))
             .arg(host)
