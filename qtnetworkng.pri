@@ -27,6 +27,7 @@ SOURCES += \
     $$PWD/src/kcp/ikcp.c \
     $$PWD/src/socket_server.cpp \
     $$PWD/src/httpd.cpp \
+    $$PWD/src/httpd2.cpp \
     $$PWD/src/socks5_server.cpp \
     $$PWD/src/random.cpp \
     $$PWD/src/hostaddress.cpp

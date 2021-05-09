@@ -54,6 +54,7 @@ set(QTNETWORKNG_SRC
 
     src/socket_server.cpp
     src/httpd.cpp
+    src/httpd2.cpp
     src/socks5_server.cpp
 
     src/kcp.cpp

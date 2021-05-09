@@ -29,209 +29,23 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-class Socks5RequestHandlerPrivate
-{
-public:
-    Socks5RequestHandlerPrivate(Socks5RequestHandler *q);
-public:
-    void handleRequest();
-    bool handshake();
-    bool parseAddress(QString *hostName, HostAddress *addr, quint16 *port);
-    void handleConnectCommand(const QString &hostName, const HostAddress &addr, quint16 port);
-private:
-    Socks5RequestHandler * const q_ptr;
-    Q_DECLARE_PUBLIC(Socks5RequestHandler)
-};
-
-
-Socks5RequestHandlerPrivate::Socks5RequestHandlerPrivate(Socks5RequestHandler *q)
-    :q_ptr(q)
-{
-
-}
-
-
-void Socks5RequestHandlerPrivate::handleRequest()
-{
-    Q_Q(Socks5RequestHandler);
-    if (!handshake()) {
-        return;
-    }
-
-    // parse command.
-    const QByteArray &commandHeader = q->request->recvall(2);
-    if (commandHeader.size() < 2 || commandHeader.at(0) != S5_VERSION_5){
-        q->log(QString(), HostAddress(), 0, false);
-        return;
-    }
-
-    QString hostName;
-    HostAddress addr;
-    quint16 port;
-
-    if (!parseAddress(&hostName, &addr, &port)) {
-        q->log(QString(), HostAddress(), 0, false);
-        return;
-    }
-
-    if ((hostName.isEmpty() && addr.isNull()) || port == 0) {
-        q->log(QString(), HostAddress(), 0, false);
-        return;
-    }
-
-    switch (commandHeader.at(1)) {
-    case S5_CONNECT:
-        q->doConnect(hostName, addr, port);
-        break;
-    default:
-        qDebug() << "unsupported command: " << commandHeader.at(1);
-        q->doFailed(hostName, addr, port);
-        break;
-    }
-}
-
-
-bool Socks5RequestHandlerPrivate::handshake()
-{
-    Q_Q(Socks5RequestHandler);
-    const QByteArray &header = q->request->recvall(2);
-    if (header.size() != 2) {
-        return false;
-    }
-    if (header.at(0) != S5_VERSION_5) {
-        return false;
-    }
-    uchar methods = static_cast<uchar>(header.at(1));
-    bool ok = true;
-    if (methods == 0) {
-        ok = true;
-    } else {
-        QByteArray authMethods = q->request->recvall(methods);
-        if (authMethods.size() != methods) {
-            return false;
-        }
-        if (authMethods.indexOf(static_cast<char>(S5_AUTHMETHOD_NONE)) < 0) {
-            ok = false;
-        }
-    }
-    QByteArray replyHeader(2, Qt::Uninitialized);
-    replyHeader[0] = S5_VERSION_5;
-    if (ok) {
-        replyHeader[1] = S5_AUTHMETHOD_NONE;
-    } else {
-        replyHeader[1] = static_cast<char>(S5_AUTHMETHOD_NOTACCEPTABLE);
-    }
-    qint32 sentBytes = q->request->sendall(replyHeader);
-    if (sentBytes != replyHeader.size()) {
-        qDebug() << "can not send reply header.";
-        return false;
-    }
-    return ok;
-}
-
-
-bool Socks5RequestHandlerPrivate::parseAddress(QString *hostName, HostAddress *addr, quint16 *port)
-{
-    Q_Q(Socks5RequestHandler);
-    const QByteArray &addressType = q->request->recvall(2);
-    if (addressType.size() < 2 || addressType.at(0) != 0x00) {
-        return false;
-    }
-
-    if (addressType.at(1) == S5_IP_V4) {
-        const QByteArray &ipv4 = q->request->recvall(4);
-        if(ipv4.size() < 4) {
-            return false;
-        }
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
-        addr->setAddress(qFromBigEndian<quint32>(ipv4.constData()));
-#else
-        addr->setAddress(qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(ipv4.constData())));
-#endif
-    } else if(addressType.at(1) == S5_IP_V6){
-        QByteArray ipv6 = q->request->recvall(16);
-        if(ipv6.size() < 16) {
-            return false;
-        }
-        addr->setAddress(reinterpret_cast<quint8*>(ipv6.data()));
-    } else if(addressType.at(1) == S5_DOMAINNAME) {
-        const QByteArray &len = q->request->recvall(1);
-        if(len.isEmpty()) {
-            return false;
-        }
-
-        const QByteArray &buf = q->request->recvall(quint8(len.at(0)));
-        if(buf.size() < len.at(0)) {
-            return false;
-        }
-        *hostName = QUrl::fromAce(buf);
-    } else {
-        return false;
-    }
-
-    const QByteArray &portBytes = q->request->recvall(2);
-    if(portBytes.size() < 2) {
-        return false;
-    }
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
-    *port = qFromBigEndian<quint16>(portBytes.constData());
-#else
-    *port = qFromBigEndian<quint16>(reinterpret_cast<const uchar*>(portBytes.constData()));
-#endif
-    return true;
-}
-
-
-void Socks5RequestHandlerPrivate::handleConnectCommand(const QString &hostName, const HostAddress &addr, quint16 port)
-{
-    Q_Q(Socks5RequestHandler);
-    QSharedPointer<Socket> forward;
-    if (!hostName.isEmpty()) {
-        forward.reset(Socket::createConnection(hostName, port));
-        if (!forward.isNull()) {
-            q->sendFailedReply();
-            q->log(hostName, addr, port, false);
-            return;
-        }
-    } else if (!addr.isNull()) {
-        forward.reset(Socket::createConnection(addr, port));
-        if (!forward.isNull()) {
-            q->sendFailedReply();
-            q->log(hostName, addr, port, false);
-            return;
-        }
-    } else {
-        q->sendFailedReply();
-        q->log(hostName, addr, port, false);
-        return;
-    }
-    Q_ASSERT(forward->state() == Socket::ConnectedState);
-    if (!q->sendConnectReply(forward->peerAddress(), port)) {
-        q->log(hostName, forward->peerAddress(), port, false);
-        return;
-    } else {
-        q->log(hostName, forward->peerAddress(), port, true);
-    }
-    Exchanger exchanger(q->request, asSocketLike(forward));
-    exchanger.exchange();
-}
-
-
-
-Socks5RequestHandler::Socks5RequestHandler()
-    :BaseRequestHandler(), d_ptr(new Socks5RequestHandlerPrivate(this))
-{
-
-}
-
-
-Socks5RequestHandler::~Socks5RequestHandler() {}
-
 
 void Socks5RequestHandler::doConnect(const QString &hostName, const HostAddress &hostAddress, quint16 port)
 {
-    Q_D(Socks5RequestHandler);
-    d->handleConnectCommand(hostName, hostAddress, port);
+    HostAddress forwardAddress;
+    QSharedPointer<SocketLike> forward = makeConnection(hostName, hostAddress, port, &forwardAddress);
+    if (forward.isNull()) {
+        sendFailedReply();
+        logProxy(hostName, hostAddress, port, forwardAddress, false);
+        return;
+    }
+    if (!sendConnectReply(forwardAddress, port)) {
+        logProxy(hostName, forwardAddress, port, forwardAddress, false);
+        return;
+    } else {
+        logProxy(hostName, forwardAddress, port, forwardAddress, true);
+    }
+    exchange(request, forward);
 }
 
 
@@ -283,18 +97,32 @@ bool Socks5RequestHandler::sendConnectReply(const HostAddress &hostAddress, quin
 }
 
 
-void Socks5RequestHandler::log(const QString &hostName, const HostAddress &hostAddress, quint16 port, bool success)
+void Socks5RequestHandler::logProxy(const QString &hostName, const HostAddress &hostAddress, quint16 port,
+                                    const HostAddress &forwardAddress, bool success)
 {
-    QString status = success? QStringLiteral("OK"): QStringLiteral("FAIL");
+    const QString &status = success? QLatin1String("OK"): QLatin1String("FAIL");
     const QDateTime &now = QDateTime::currentDateTime();
-    QString message = QStringLiteral("%1 -- %2 CONNECT %3 -> %4:%5 %6")
+    QString host;
+    if (hostName.isEmpty()) {
+        host = hostAddress.toString();
+    } else {
+        host = hostName;
+    }
+    const QString &message = QString("%1 -- %2 CONNECT %3 -> %4:%5 %6")
             .arg(request->peerAddress().toString())
             .arg(now.toString(Qt::ISODate))
-            .arg(hostName)
-            .arg(hostAddress.toString())
+            .arg(host)
+            .arg(forwardAddress.toString())
             .arg(port)
             .arg(status);
-    printf("%s\n", qPrintable(message));
+    qDebug("%s\n", qPrintable(message));
+}
+
+
+void Socks5RequestHandler::exchange(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward)
+{
+    Exchanger exchanger(request, forward);
+    exchanger.exchange();
 }
 
 
@@ -305,7 +133,27 @@ void Socks5RequestHandler::doFailed(const QString &hostName, const HostAddress &
     reply[1] = S5_R_ERROR_CMD_NOT_SUPPORTED;
     reply[2] = 0x00;
     request->sendall(reply);
-    log(hostName, hostAddress, port, false);
+    logProxy(hostName, hostAddress, port, HostAddress(), false);
+}
+
+
+QSharedPointer<SocketLike> Socks5RequestHandler::makeConnection(const QString &hostName, const HostAddress &hostAddress,
+                                                                quint16 port, HostAddress *forwardAddress)
+{
+    QScopedPointer<Socket> s;
+    if (!hostName.isEmpty()) {
+        s.reset(Socket::createConnection(hostName, port));
+    } else if (!hostAddress.isNull()) {
+        s.reset(Socket::createConnection(hostAddress, port));
+    }
+    if (!s.isNull()) {
+        if (forwardAddress) {
+            *forwardAddress = s->peerAddress();
+        }
+        return asSocketLike(s.take());
+    } else {
+        return QSharedPointer<SocketLike>();
+    }
 }
 
 
@@ -321,8 +169,129 @@ bool Socks5RequestHandler::sendFailedReply()
 
 void Socks5RequestHandler::handle()
 {
-    Q_D(Socks5RequestHandler);
-    d->handleRequest();
+    if (!handshake()) {
+        return;
+    }
+    // parse command.
+    const QByteArray &commandHeader = request->recvall(2);
+    if (commandHeader.size() < 2 || commandHeader.at(0) != S5_VERSION_5){
+        logProxy(QString(), HostAddress(), 0, HostAddress(), false);
+        return;
+    }
+
+    QString hostName;
+    HostAddress addr;
+    quint16 port;
+
+    if (!parseAddress(&hostName, &addr, &port)) {
+        logProxy(QString(), HostAddress(), 0, HostAddress(), false);
+        return;
+    }
+
+    if ((hostName.isEmpty() && addr.isNull()) || port == 0) {
+        logProxy(QString(), HostAddress(), 0, HostAddress(), false);
+        return;
+    }
+
+    switch (commandHeader.at(1)) {
+    case S5_CONNECT:
+        doConnect(hostName, addr, port);
+        break;
+    default:
+        qDebug() << "unsupported command: " << commandHeader.at(1);
+        doFailed(hostName, addr, port);
+        break;
+    }
 }
+
+
+bool Socks5RequestHandler::handshake()
+{
+    const QByteArray &header = request->recvall(2);
+    if (header.size() != 2) {
+        return false;
+    }
+    if (header.at(0) != S5_VERSION_5) {
+        return false;
+    }
+    uchar methods = static_cast<uchar>(header.at(1));
+    bool ok = true;
+    if (methods == 0) {
+        ok = true;
+    } else {
+        QByteArray authMethods = request->recvall(methods);
+        if (authMethods.size() != methods) {
+            return false;
+        }
+        if (authMethods.indexOf(static_cast<char>(S5_AUTHMETHOD_NONE)) < 0) {
+            ok = false;
+        }
+    }
+    QByteArray replyHeader(2, Qt::Uninitialized);
+    replyHeader[0] = S5_VERSION_5;
+    if (ok) {
+        replyHeader[1] = S5_AUTHMETHOD_NONE;
+    } else {
+        replyHeader[1] = static_cast<char>(S5_AUTHMETHOD_NOTACCEPTABLE);
+    }
+    qint32 sentBytes = request->sendall(replyHeader);
+    if (sentBytes != replyHeader.size()) {
+        qDebug() << "can not send reply header.";
+        return false;
+    }
+    return ok;
+}
+
+
+bool Socks5RequestHandler::parseAddress(QString *hostName, HostAddress *addr, quint16 *port)
+{
+    const QByteArray &addressType = request->recvall(2);
+    if (addressType.size() < 2 || addressType.at(0) != 0x00) {
+        return false;
+    }
+
+    if (addressType.at(1) == S5_IP_V4) {
+        const QByteArray &ipv4 = request->recvall(4);
+        if(ipv4.size() < 4) {
+            return false;
+        }
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
+        addr->setAddress(qFromBigEndian<quint32>(ipv4.constData()));
+#else
+        addr->setAddress(qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(ipv4.constData())));
+#endif
+    } else if(addressType.at(1) == S5_IP_V6){
+        QByteArray ipv6 = request->recvall(16);
+        if(ipv6.size() < 16) {
+            return false;
+        }
+        addr->setAddress(reinterpret_cast<quint8*>(ipv6.data()));
+    } else if(addressType.at(1) == S5_DOMAINNAME) {
+        const QByteArray &len = request->recvall(1);
+        if(len.isEmpty()) {
+            return false;
+        }
+
+        const QByteArray &buf = request->recvall(quint8(len.at(0)));
+        if(buf.size() < len.at(0)) {
+            return false;
+        }
+        *hostName = QUrl::fromAce(buf);
+    } else {
+        return false;
+    }
+
+    const QByteArray &portBytes = request->recvall(2);
+    if(portBytes.size() < 2) {
+        return false;
+    }
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
+    *port = qFromBigEndian<quint16>(portBytes.constData());
+#else
+    *port = qFromBigEndian<quint16>(reinterpret_cast<const uchar*>(portBytes.constData()));
+#endif
+    return true;
+}
+
 
 QTNETWORKNG_NAMESPACE_END

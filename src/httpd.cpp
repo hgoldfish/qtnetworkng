@@ -270,7 +270,7 @@ bool BaseHttpRequestHandler::sendError(HttpStatus status, const QString &message
     if (!endHeader()) {
         return false;
     }
-    if (method != "HEAD" && !body.isEmpty()) {
+    if (method.toUpper() != QLatin1String("HEAD") && !body.isEmpty()) {
         return request->sendall(body) == body.size();
     }
     return true;

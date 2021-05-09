@@ -99,16 +99,16 @@ QSharedPointer<Socket> HttpProxy::connect(const QString &remoteHost, quint16 por
     }
 
     QBYTEARRAYLIST lines;
-    QByteArray firstLine = QByteArray("CONNECT ")
+    const QByteArray &firstLine = QByteArray("CONNECT ")
             + remoteHost.toLatin1() + QByteArray(":") + QByteArray::number(port)
             + QByteArray(" HTTP/1.1\r\n");
-    QByteArray secondLine = QByteArray("Host: ") + remoteHost.toLatin1() + QByteArray("\r\n");
+    const QByteArray &secondLine = QByteArray("Host: ") + remoteHost.toLatin1() + QByteArray("\r\n");
     lines.append(firstLine);
     lines.append(secondLine);
     lines.append("Proxy-Connection: keep-alive\r\n");
     lines.append("User-Agent: Mozilla/5.0\r\n");
     lines.append("\r\n");
-    QByteArray headersBytes = join(lines);
+    const QByteArray &headersBytes = join(lines);
     if (connection->sendall(headersBytes) != headersBytes.size()) {
         return QSharedPointer<Socket>();
     }

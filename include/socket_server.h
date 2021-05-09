@@ -290,22 +290,23 @@ UserDataType *BaseRequestHandler::userData()
 
 
 class Socks5RequestHandlerPrivate;
-class Socks5RequestHandler: public qtng::BaseRequestHandler
+class Socks5RequestHandler: public BaseRequestHandler
 {
-public:
-    Socks5RequestHandler();
-    virtual ~Socks5RequestHandler() override;
-protected:
-    virtual void doConnect(const QString &hostName, const HostAddress &hostAddress, quint16 port);
-    bool sendConnectReply(const HostAddress &hostAddress, quint16 port);
-    virtual void doFailed(const QString &hostName, const HostAddress &hostAddress, quint16 port);
-    bool sendFailedReply();
-    virtual void log(const QString &hostName, const HostAddress &hostAddress, quint16 port, bool success);
 protected:
     virtual void handle() override;
+protected:
+    virtual void doConnect(const QString &hostName, const HostAddress &hostAddress, quint16 port);
+    virtual void doFailed(const QString &hostName, const HostAddress &hostAddress, quint16 port);
+    virtual QSharedPointer<SocketLike> makeConnection(const QString &hostName, const HostAddress &hostAddress, quint16 port, HostAddress *forwardAddress);
+    virtual void logProxy(const QString &hostName, const HostAddress &hostAddress, quint16 port, const HostAddress &forwardAddress, bool success);
+    virtual void exchange(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward);
+protected:
+    bool sendConnectReply(const HostAddress &hostAddress, quint16 port);
+    bool sendFailedReply();
 private:
-    Socks5RequestHandlerPrivate * const d_ptr;
-    Q_DECLARE_PRIVATE(Socks5RequestHandler)
+    void handleRequest();
+    bool handshake();
+    bool parseAddress(QString *hostName, HostAddress *addr, quint16 *port);
 };
 
 QTNETWORKNG_NAMESPACE_END

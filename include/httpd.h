@@ -102,6 +102,29 @@ protected:
 };
 
 
+class BaseHttpProxyRequestHandler: public BaseHttpRequestHandler
+{
+public:
+    BaseHttpProxyRequestHandler();
+protected:
+    virtual void logRequest(qtng::HttpStatus status, int bodySize) override;
+    virtual void logError(qtng::HttpStatus status, const QString &shortMessage, const QString &longMessage) override;
+    virtual void finish() override;
+    virtual void doMethod() override;
+    virtual void doCONNECT() override;
+protected:
+    virtual void doProxy();
+protected:
+    virtual void logProxy(const QString &remoteHostName, quint16 remotePort, const HostAddress &forwardAddress, bool success);
+    virtual QSharedPointer<SocketLike> makeConnection(const QString &remoteHostName, quint16 remotePort, HostAddress *forwardAddress);
+protected:
+    virtual QSharedPointer<class HttpResponse> sendRequest(class HttpRequest &request) = 0;
+    virtual void exchangeAsync(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward) = 0;
+protected:
+    bool isExchanging;
+};
+
+
 // static http(s) server serving current directory.
 class SimpleHttpServer: public TcpServer<SimpleHttpRequestHandler>
 {
