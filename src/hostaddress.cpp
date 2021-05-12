@@ -345,6 +345,18 @@ static const QChar *parseIp6(IPv6Address &address, const QChar *begin, const QCh
     return pos == 16 ? nullptr : end;
 }
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 5, 0)
+
+template <typename T>
+inline T qFromUnaligned(const void *src)
+{
+    T dest;
+    const size_t size = sizeof(T);
+    memcpy(&dest, src, size);
+    return dest;
+}
+
+#endif
 
 /// parses v4-mapped addresses or the AnyIPv6 address and stores in \a a;
 /// returns true if the address was one of those
@@ -580,6 +592,9 @@ public:
     { return n1.length == n2.length; }
 };
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 8, 0)
+#define Q_FALLTHROUGH()
+#endif
 
 bool Netmask::setAddress(const HostAddress &address)
 {
@@ -830,10 +845,18 @@ AddressClassification HostAddressPrivate::classify() const
 
 static bool parseIp6(const QString &address, IPv6Address &addr, QString *scopeId)
 {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
     QStringRef tmp(&address);
+#else
+    QString tmp = address;
+#endif
     int scopeIdPos = tmp.lastIndexOf(QLatin1Char('%'));
     if (scopeIdPos != -1) {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
         *scopeId = tmp.mid(scopeIdPos + 1).toString();
+#else
+        *scopeId = tmp.mid(scopeIdPos + 1);
+#endif
         tmp.chop(tmp.size() - scopeIdPos);
     } else {
         scopeId->clear();
@@ -1325,7 +1348,7 @@ QPair<HostAddress, int> HostAddress::parseSubnet(const QString &subnet)
     if (parts.isEmpty() || parts.count() > 4)
         return invalid;         // invalid IPv4 address
 
-    if (parts.constLast().isEmpty())
+    if (parts.last().isEmpty())
         parts.removeLast();
 
     quint32 addr = 0;
