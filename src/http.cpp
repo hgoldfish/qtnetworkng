@@ -3186,7 +3186,7 @@ QString RequestError::what() const
 
 QString HTTPError::what() const
 {
-    return QString::fromLatin1("server respond error.");
+    return QString::fromLatin1("server respond error. httpCode:%1").arg(statusCode);
 }
 
 
