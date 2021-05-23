@@ -23,6 +23,7 @@ public:
 public:
     static QSharedPointer<FileLike> rawFile(QSharedPointer<QFile> f);
     static QSharedPointer<FileLike> rawFile(QFile *f) { return rawFile(QSharedPointer<QFile>(f)); }
+    static QSharedPointer<FileLike> open(const QString &filepath, const QString &mode = QString());
     static QSharedPointer<FileLike> bytes(const QByteArray &data);
 };
 

@@ -85,6 +85,41 @@ QSharedPointer<FileLike> FileLike::rawFile(QSharedPointer<QFile> f)
 }
 
 
+QSharedPointer<FileLike> FileLike::open(const QString &filepath, const QString &mode)
+{
+    QScopedPointer<QFile> f(new QFile(filepath));
+    QIODevice::OpenMode flag = QIODevice::NotOpen;
+    if (mode == QString() || mode == QLatin1String("r") || mode == QLatin1String("r+") || mode == QLatin1String("rb")
+            || mode == QLatin1String("rb+") || mode == QLatin1String("r+b")) {
+        flag |= QIODevice::ReadOnly;
+        flag |= QIODevice::ExistingOnly;
+        if (mode.contains(QLatin1Char('+'))) {
+            flag |= QIODevice::WriteOnly;
+        }
+    } else if (mode == QLatin1String("w") || mode == QLatin1String("w+") || mode == QLatin1String("wb")
+               || mode == QLatin1String("wb+") || mode == QLatin1String("w+b")) {
+        flag |= QIODevice::WriteOnly;
+        flag |= QIODevice::Truncate;
+        if (mode.contains(QLatin1Char('+'))) {
+            flag |= QIODevice::ReadOnly;
+        }
+    } else if (mode == QLatin1String("a") || mode == QLatin1String("a+") || mode == QLatin1String("ab")
+               || mode == QLatin1String("ab+") || mode == QLatin1String("a+b")) {
+        flag |= QIODevice::WriteOnly | QIODevice::Append;
+        if (mode.contains(QLatin1Char('+'))) {
+            flag |= QIODevice::ReadOnly;
+        }
+    } else {
+        qWarning("unknown file mode: %s", qPrintable(mode));
+    }
+    if (!f->open(flag)) {
+        return QSharedPointer<FileLike>();
+    } else {
+        return FileLike::rawFile(f.take());
+    }
+}
+
+
 class BytesIOPrivate
 {
 public:
