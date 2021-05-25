@@ -940,7 +940,10 @@ QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, 
     } else {
 #ifndef QTNG_NO_CRYPTO
         QSharedPointer<SslSocket> ssl(new SslSocket(rawSocket));
-        ssl->handshake(false);
+        if (!ssl->handshake(false)) {
+            *error = new ConnectionError();
+            return QSharedPointer<SocketLike>();
+        }
         connection = asSocketLike(ssl);
 #else
         *error = new ConnectionError();
