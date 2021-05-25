@@ -1,4 +1,4 @@
-﻿#include <QtCore/qfile.h>
+#include <QtCore/qfile.h>
 #include <QtCore/qdatetime.h>
 #include <openssl/ssl.h>
 #include "../include/locks.h"
@@ -1077,8 +1077,9 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
     qint32 total = 0;
     while (true) {
         int result = SSL_write(ssl.data(), data + total, size - total);
-        if (result < 0) {
-            switch (SSL_get_error(ssl.data(), result)) {
+        if (result <= 0) {
+            int error;
+            switch (error = SSL_get_error(ssl.data(), result)) {
             case SSL_ERROR_WANT_READ:
                 if (!pumpOutgoing()) {
                     return total == 0 ? -1 : total;
@@ -1101,8 +1102,10 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
 //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL:
-                qDebug() << "send error.";
+                qDebug() << "send error. error_code:" << error;
                 return -1;
+            case SSL_ERROR_NONE:
+                break;
             }
         } else {
             total += result;
