@@ -892,7 +892,7 @@ QSharedPointer<SocketLike> ConnectionPool::oldConnectionForUrl(const QUrl &url)
 }
 
 
-QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, RequestError **error)
+QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, RequestError **error, bool sendTlsExtHostName/* = true*/)
 {
     QSharedPointer<SocketLike> connection;
     QSharedPointer<Socket> rawSocket;
@@ -940,7 +940,8 @@ QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, 
     } else {
 #ifndef QTNG_NO_CRYPTO
         QSharedPointer<SslSocket> ssl(new SslSocket(rawSocket));
-        if (!ssl->handshake(false)) {
+        ssl->setSendTlsExtHostName(sendTlsExtHostName);
+        if (!ssl->handshake(false, url.host())) {
             *error = new ConnectionError();
             return QSharedPointer<SocketLike>();
         }
@@ -1195,7 +1196,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             float timeout = request.d->connectionTimeout < 0 ? defaultConnectionTimeout : request.d->connectionTimeout;
             try {
                 Timeout t(timeout);
-                connection = newConnectionForUrl(url, &error);
+                connection = newConnectionForUrl(url, &error, sendTlsExtHostName);
             } catch (TimeoutException &) {
                 response.setError(new class RequestTimeout());
                 return response;
@@ -2902,7 +2903,7 @@ void HttpSession::disableDebug()
 }
 
 
-void HttpSession::setKeepalive(bool keepAlive)
+void HttpSession::setKeepAlive(bool keepAlive)
 {
     Q_D(HttpSession);
     d->keepAlive = keepAlive;
@@ -2915,6 +2916,12 @@ bool HttpSession::keepAlive() const
     return d->keepAlive;
 }
 
+
+void HttpSession::setSendTlsExtHostName(bool sendTlsExtHostName)
+{
+    Q_D(HttpSession);
+    d->sendTlsExtHostName = sendTlsExtHostName;
+}
 
 QString HttpSession::defaultUserAgent() const
 {
