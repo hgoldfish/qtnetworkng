@@ -31,7 +31,7 @@ public:
     QSharedPointer<Semaphore> getSemaphore(const QUrl &url);
     void recycle(const QUrl &url, QSharedPointer<SocketLike> connection);
     QSharedPointer<SocketLike> oldConnectionForUrl(const QUrl &url);
-    QSharedPointer<SocketLike> newConnectionForUrl(const QUrl &url, RequestError **error);
+    QSharedPointer<SocketLike> newConnectionForUrl(const QUrl &url, RequestError **error, bool sendTlsExtHostName = true);
     void removeUnusedConnections();
     QSharedPointer<Socks5Proxy> socks5Proxy() const;
     QSharedPointer<HttpProxy> httpProxy() const;
@@ -68,6 +68,7 @@ public:
     int debugLevel;
     bool managingCookies;
     bool keepAlive;
+    bool sendTlsExtHostName;
     friend void setProxySwitcher(HttpSession *session, QSharedPointer<BaseProxySwitcher> switcher);
     static inline HttpSessionPrivate *getPrivateHelper(HttpSession *session) {return session->d_ptr; }
     Q_DECLARE_PUBLIC(HttpSession)

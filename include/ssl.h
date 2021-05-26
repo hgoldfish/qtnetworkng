@@ -57,6 +57,7 @@ public:
     PrivateKey privateKey() const;
     bool onlySecureProtocol() const;
     bool supportCompression() const;
+    bool sendTlsExtHostName() const;
 
     void addCaCertificate(const Certificate &certificate);
     void addCaCertificates(const QList<Certificate> &certificates);
@@ -72,6 +73,7 @@ public:
     void setAllowedNextProtocols(const QList<QByteArray> &protocols);
     void setOnlySecureProtocol(bool onlySecureProtocol);
     void setSupportCompression(bool supportCompression);
+    void setSendTlsExtHostName(bool sendTlsExtHostName);
 public:
     static QList<SslCipher> supportedCiphers();
     static SslConfiguration testPurpose(const QString &commonName, const QString &countryCode, const QString &organization);
@@ -184,6 +186,7 @@ public:
     SslConfiguration sslConfiguration() const;
     QList<SslError> sslErrors() const;
     void setSslConfiguration(const SslConfiguration &configuration);
+    void setSendTlsExtHostName(bool sendTlsExtHostName);
 public:
     Socket::SocketError error() const;
     QString errorString() const;

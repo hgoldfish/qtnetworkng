@@ -245,6 +245,7 @@ public:
     QList<SslCipher> ciphers;
     bool onlySecureProtocol;
     bool supportCompression;
+    bool sendTlsExtHostName;
 };
 
 
@@ -259,7 +260,8 @@ bool SslConfigurationPrivate::operator==(const SslConfigurationPrivate &other) c
             peerVerifyName == other.peerVerifyName &&
             ciphers == other.ciphers &&
             onlySecureProtocol == other.onlySecureProtocol &&
-            supportCompression == other.supportCompression;
+            supportCompression == other.supportCompression &&
+            sendTlsExtHostName == other.sendTlsExtHostName;
 }
 
 
@@ -274,12 +276,13 @@ bool SslConfigurationPrivate::isNull() const
             peerVerifyName.isEmpty() &&
             ciphers.isEmpty() &&
             onlySecureProtocol == true &&
-            supportCompression == true;
+            supportCompression == true && 
+            sendTlsExtHostName == true;
 }
 
 
 SslConfigurationPrivate::SslConfigurationPrivate()
-    :peerVerifyMode(Ssl::AutoVerifyPeer), peerVerifyDepth(4), onlySecureProtocol(true), supportCompression(true)
+    :peerVerifyMode(Ssl::AutoVerifyPeer), peerVerifyDepth(4), onlySecureProtocol(true), supportCompression(true), sendTlsExtHostName(true)
 {
 
 }
@@ -437,6 +440,11 @@ bool SslConfiguration::supportCompression() const
 }
 
 
+bool SslConfiguration::sendTlsExtHostName() const
+{
+    return d->sendTlsExtHostName;
+}
+
 void SslConfiguration::addCaCertificate(const Certificate &certificate)
 {
     d->caCertificates.append(certificate);
@@ -512,6 +520,11 @@ void SslConfiguration::setSupportCompression(bool supportCompression)
     d->supportCompression = supportCompression;
 }
 
+
+void SslConfiguration::setSendTlsExtHostName(bool sendTlsExtHostName)
+{
+    d->sendTlsExtHostName = sendTlsExtHostName;
+}
 
 QList<SslCipher> SslConfiguration::supportedCiphers()
 {
@@ -797,7 +810,6 @@ public:
     SslConfiguration config;
     QSharedPointer<SSL_CTX> ctx;
     QSharedPointer<SSL> ssl;
-    QString verificationPeerName;
     QList<SslError> errors;
     bool asServer;
 };
@@ -832,8 +844,6 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &verifica
         return false;
     }
     this->asServer = asServer;
-    this->verificationPeerName = verificationPeerName;
-    // TODO set verify name.
 
     BIO *incoming = BIO_new(BIO_s_mem());
     if (!incoming) {
@@ -851,18 +861,10 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &verifica
         if(!ssl.isNull()) {
             // do not free incoming & outgoing
             SSL_set_bio(ssl.data(), incoming, outgoing);
-//            if (!verificationPeerName.isEmpty() && !asServer) {
-//                X509_VERIFY_PARAM *param;
-//                param = SSL_get0_param(ssl.data());
-//                X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
-//            const QByteArray &t = verificationPeerName.toUtf8();
-//            if (!X509_VERIFY_PARAM_set1_host(param, t.data(), t.size())) {
-//                ssl.reset();
-//                ctx.reset();
-//                return false;
-//            }
-//                SSL_set_verify(ssl.data(), SSL_VERIFY_PEER, nullptr);
-//            }
+            if (!verificationPeerName.isEmpty() && !asServer && config.sendTlsExtHostName()) {
+                const QByteArray &t = verificationPeerName.toUtf8();
+                SSL_set_tlsext_host_name(ssl.data(), t.data());
+            }
             return _handshake();
         } else {
             ctx.reset();
@@ -1431,6 +1433,12 @@ void SslSocket::setSslConfiguration(const SslConfiguration &configuration)
     d->config = configuration;
 }
 
+
+void SslSocket::setSendTlsExtHostName(bool sendTlsExtHostName)
+{
+    Q_D(SslSocket);
+    d->config.setSendTlsExtHostName(sendTlsExtHostName);
+}
 
 SslSocket *SslSocket::accept()
 {

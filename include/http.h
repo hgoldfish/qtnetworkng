@@ -352,8 +352,10 @@ public:
     void setDebugLevel(int level);
     void disableDebug();
 
-    void setKeepalive(bool keepAlive);
+    void setKeepAlive(bool keepAlive);
     bool keepAlive() const;
+
+    void setSendTlsExtHostName(bool sendTlsExtHostName);
 
     QString defaultUserAgent() const;
     void setDefaultUserAgent(const QString &userAgent);
