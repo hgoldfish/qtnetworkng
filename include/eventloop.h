@@ -23,6 +23,7 @@ public:
     bool isFinished() const;
     Coroutine *start(quint32 msecs = 0);
     void kill(CoroutineException *e = nullptr, quint32 msecs = 0);
+    void killSync();
     void cancelStart();
     bool join();
     virtual void run() override;

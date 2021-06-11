@@ -33,7 +33,7 @@ BaseCoroutine* createMainCoroutine();
 class CurrentCoroutineStorage
 {
 public:
-    BaseCoroutine *get();
+    BaseCoroutine *get(bool createIfNotExists = true);
     void set(BaseCoroutine *coroutine);
     void clean();
 private:

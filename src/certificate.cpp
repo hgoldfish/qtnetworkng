@@ -857,6 +857,7 @@ Certificate::Certificate()
 Certificate::Certificate(const Certificate &other)
     : d(other.d)
 {
+    cleanupOpenSSL();
 }
 
 
