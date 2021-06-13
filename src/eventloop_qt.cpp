@@ -95,7 +95,7 @@ public:
     virtual void cancelCall(int callbackId) override;
     virtual int exitCode() override;
     virtual bool runUntil(BaseCoroutine *coroutine) override;
-    virtual void yield() override;
+    virtual bool yield() override;
 public:
     void timerEvent(QTimerEvent *event);
     void handleIoEvent(int socket, QSocketNotifier *n);
@@ -384,13 +384,13 @@ bool QtEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
 }
 
 
-void QtEventLoopCoroutinePrivate::yield()
+bool QtEventLoopCoroutinePrivate::yield()
 {
     Q_Q(EventLoopCoroutine);
     if (!loopCoroutine.isNull()) {
-        loopCoroutine->yield();
+        return loopCoroutine->yield();
     } else {
-        q->BaseCoroutine::yield();
+        return q->BaseCoroutine::yield();
     }
 }
 

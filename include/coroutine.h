@@ -68,7 +68,7 @@ public:
 
     State state() const;
     bool raise(CoroutineException *exception);
-    bool yield();
+    virtual bool yield();
     quintptr id() const;
 
     BaseCoroutine *previous() const;
@@ -80,7 +80,7 @@ public:
     Deferred<BaseCoroutine*> finished;
 protected:
     void setState(BaseCoroutine::State state);
-    virtual void cleanup();
+    void cleanup();
 private:
     BaseCoroutinePrivate * const dd_ptr;
     friend BaseCoroutine* createMainCoroutine();

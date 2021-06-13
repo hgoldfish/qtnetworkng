@@ -127,7 +127,20 @@ bool CoroutineGroup::kill(const QString &name, bool join)
 
 bool CoroutineGroup::killall(bool join)
 {
-    bool done = false;
+    if (join) {
+        Coroutine *current = Coroutine::current();
+        QList<QSharedPointer<Coroutine>> copy = coroutines;
+        for (QSharedPointer<Coroutine> coroutine : copy) {
+            if (coroutine.data() == current) {
+                continue;
+            }
+            coroutine->setPrevious(BaseCoroutine::current());
+            coroutine->killSync();
+            coroutines.removeOne(coroutine);
+        }
+        return true;
+    }
+
     QList<QSharedPointer<Coroutine>> copy = coroutines;
     for (QSharedPointer<Coroutine> coroutine: copy) {
         if (coroutine.data() == Coroutine::current()) {
@@ -135,21 +148,8 @@ bool CoroutineGroup::killall(bool join)
             continue;
         }
         coroutine->kill();
-        done = true;
     }
-
-    if (join) {
-        copy = coroutines;
-        for (QSharedPointer<Coroutine> coroutine: copy) {
-            if (coroutine.data() == Coroutine::current()) {
-//                qWarning("will not join current coroutine while killall() is called.");
-                continue;
-            }
-            coroutines.removeOne(coroutine);
-            coroutine->join();
-        }
-    }
-    return done;
+    return true;
 }
 
 

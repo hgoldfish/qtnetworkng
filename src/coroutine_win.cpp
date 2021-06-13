@@ -15,7 +15,7 @@ public:
     bool yield();
 private:
     BaseCoroutine * const q_ptr;
-    BaseCoroutine * const previous;
+    BaseCoroutine * previous;
     size_t stackSize;
     enum BaseCoroutine::State state;
     CoroutineException *exception;
@@ -265,5 +265,13 @@ BaseCoroutine *BaseCoroutine::previous() const
     Q_D(const BaseCoroutine);
     return d->previous;
 }
+
+
+void BaseCoroutine::setPrevious(BaseCoroutine *previous)
+{
+    Q_D(BaseCoroutine);
+    d->previous = previous;
+}
+
 
 QTNETWORKNG_NAMESPACE_END
