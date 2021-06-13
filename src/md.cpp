@@ -86,7 +86,6 @@ MessageDigestPrivate::~MessageDigestPrivate()
     if (context) {
         EVP_MD_CTX_free(context);
     }
-    cleanupOpenSSL();
 }
 
 
@@ -154,7 +153,6 @@ QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray 
     const EVP_MD *dgst = getOpenSSL_MD(hashAlgo);
 
     if (!dgst || salt.isEmpty() || password.isEmpty() || i <= 0) {
-        cleanupOpenSSL();
         return QByteArray();
     }
 
@@ -164,8 +162,6 @@ QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray 
     int rvalue = PKCS5_PBKDF2_HMAC(password.data(), password.size(),
                                    reinterpret_cast<const unsigned char*>(salt.data()), salt.size(),
                                    i, dgst, keylen, reinterpret_cast<unsigned char *>(key.data()));
-
-    cleanupOpenSSL();
     if (rvalue) {
         return key;
     } else {

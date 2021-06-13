@@ -834,7 +834,6 @@ template<typename SocketType>
 SslConnection<SocketType>::~SslConnection()
 {
     close();
-    cleanupOpenSSL();
 }
 
 

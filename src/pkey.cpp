@@ -61,7 +61,6 @@ PublicKeyPrivate::~PublicKeyPrivate()
     if (context) {
         EVP_PKEY_CTX_free(context);
     }
-    cleanupOpenSSL();
 }
 
 
