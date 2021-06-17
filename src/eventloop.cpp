@@ -195,7 +195,7 @@ bool EventLoopCoroutine::runUntil(BaseCoroutine *coroutine)
 }
 
 
-bool EventLoopCoroutine::yield()
+void EventLoopCoroutine::yield()
 {
     Q_D(EventLoopCoroutine);
     return d->yield();
@@ -304,7 +304,6 @@ public:
     virtual ~CoroutinePrivate();
     void start(quint32 msecs);
     void kill(CoroutineException *e, quint32 msecs);
-    void killSync();//raise CoroutineExitException immediately
     void cancelStart();
     bool join();
 private:
@@ -414,7 +413,7 @@ void CoroutinePrivate::kill(CoroutineException *e, quint32 msecs)
     if (q->state() == Coroutine::Initialized) {
         if (dynamic_cast<CoroutineExitException *>(e)) {
             if (callbackId > 0) {
-                c->cancelCall(callbackId);
+                EventLoopCoroutine::get()->cancelCall(callbackId);
                 callbackId = 0;
             }
             q->setState(Coroutine::Stopped);
@@ -433,23 +432,6 @@ void CoroutinePrivate::kill(CoroutineException *e, quint32 msecs)
     } else {
         qWarning("invalid state while kiling coroutine.");
         delete e;
-    }
-}
-
-
-void CoroutinePrivate::killSync()
-{
-    Q_Q(Coroutine);
-    EventLoopCoroutine *c = EventLoopCoroutine::get();
-    if (q->state() == Coroutine::Initialized) {
-        if (callbackId > 0) {
-            c->cancelCall(callbackId);
-            callbackId = 0;
-        }
-        q->setState(Coroutine::Stopped);
-        setFinishedEvent();
-    } else if (q->state() == Coroutine::Started) {
-        q->raise(new CoroutineExitException());
     }
 }
 
@@ -542,13 +524,6 @@ void Coroutine::kill(CoroutineException *e, quint32 msecs)
 }
 
 
-void Coroutine::killSync()
-{
-    Q_D(Coroutine);
-    d->killSync();
-}
-
-
 void Coroutine::cancelStart()
 {
     Q_D(Coroutine);
@@ -563,6 +538,12 @@ void Coroutine::run()
     if (d->obj && d->slot) {
         QMetaObject::invokeMethod(d->obj, d->slot);
     }
+}
+
+
+void Coroutine::cleanup()
+{
+    EventLoopCoroutine::get()->yield();
 }
 
 

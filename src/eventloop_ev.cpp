@@ -107,7 +107,7 @@ public:
     virtual void cancelCall(int callbackId) override;
     virtual int exitCode() override;
     virtual bool runUntil(BaseCoroutine *coroutine) override;
-    virtual bool yield() override;
+    virtual void yield() override;
     void doCallLater();
 private:
     static void ev_async_callback(struct ev_loop *loop, ev_async *w, int revents);
@@ -341,13 +341,13 @@ bool EvEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
 }
 
 
-bool EvEventLoopCoroutinePrivate::yield()
+void EvEventLoopCoroutinePrivate::yield()
 {
     Q_Q(EventLoopCoroutine);
     if (!loopCoroutine.isNull()) {
-        return loopCoroutine->yield();
+        loopCoroutine->yield();
     } else {
-        return q->BaseCoroutine::yield();
+       q->BaseCoroutine::yield();
     }
 }
 

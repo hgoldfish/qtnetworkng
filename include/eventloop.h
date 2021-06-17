@@ -23,7 +23,6 @@ public:
     bool isFinished() const;
     Coroutine *start(quint32 msecs = 0);
     void kill(CoroutineException *e = nullptr, quint32 msecs = 0);
-    void killSync();
     void cancelStart();
     bool join();
     virtual void run() override;
@@ -32,6 +31,8 @@ public:
     static void sleep(float secs) { msleep(static_cast<quint32>(secs * 1000)); }
     static Coroutine *spawn(std::function<void()> f);
     static void preferLibev();
+protected:
+    virtual void cleanup() override;
 private:
     CoroutinePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Coroutine)
