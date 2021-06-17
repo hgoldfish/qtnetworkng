@@ -6,21 +6,24 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 
-struct Functor
+class Functor
 {
+public:
     virtual ~Functor();
     virtual void operator()() = 0;
 };
 
 
-struct DoNothingFunctor: public Functor
+class DoNothingFunctor: public Functor
 {
+public:
     virtual void operator()();
 };
 
 
-struct YieldCurrentFunctor: public Functor
+class YieldCurrentFunctor: public Functor
 {
+public:
     explicit YieldCurrentFunctor();
     virtual void operator()();
     QPointer<BaseCoroutine> coroutine;
@@ -28,8 +31,9 @@ struct YieldCurrentFunctor: public Functor
 
 
 template<typename T>
-struct DeleteLaterFunctor: public Functor
+class DeleteLaterFunctor: public Functor
 {
+public:
     explicit DeleteLaterFunctor(T* p)
         :p(p) {}
     virtual void operator()()
@@ -40,8 +44,9 @@ struct DeleteLaterFunctor: public Functor
 };
 
 
-struct LambdaFunctor: public Functor
+class LambdaFunctor: public Functor
 {
+public:
     LambdaFunctor(const std::function<void()> &callback)
         :callback(callback) {}
     virtual void operator ()() override;

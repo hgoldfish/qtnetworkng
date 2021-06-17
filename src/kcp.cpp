@@ -1580,11 +1580,13 @@ void KcpSocket::close()
     d->close(false);
 }
 
+
 void KcpSocket::abort()
 {
     Q_D(KcpSocket);
     d->close(true);
 }
+
 
 bool KcpSocket::listen(int backlog)
 {

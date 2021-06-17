@@ -638,8 +638,9 @@ private:
 };
 
 
-struct PollFunctor: public Functor
+class PollFunctor: public Functor
 {
+public:
     PollFunctor(QSharedPointer<QSet<QSharedPointer<Socket>>> events, QSharedPointer<Event> done, QSharedPointer<Socket> socket);
     virtual void operator()();
     QSharedPointer<QSet<QSharedPointer<Socket>>> events;
