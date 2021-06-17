@@ -14,7 +14,6 @@ public:
 public:
     bool acquire(bool blocking);
     void release(int value);
-    void notifyWaiters(bool force);
     void scheduleDelete();
     static SemaphorePrivate *getPrivate(QSharedPointer<Semaphore> q) { return q ? q->d_ptr : nullptr;  }
 public:
@@ -38,20 +37,6 @@ SemaphorePrivate::SemaphorePrivate(Semaphore *q, int value)
 SemaphorePrivate::~SemaphorePrivate()
 {
     Q_ASSERT(waiters.isEmpty());
-}
-
-
-void SemaphorePrivate::scheduleDelete()
-{
-    if (notified) {
-        EventLoopCoroutine::get()->cancelCall(notified);
-        notified = 0;
-    }
-    notifyWaiters(true);
-    if (counter != init_value) {
-//        qWarning("Semaphore is deleted but caught by some one.");
-    }
-    EventLoopCoroutine::get()->callLater(0, new DeleteLaterFunctor<SemaphorePrivate>(this));
 }
 
 
@@ -84,22 +69,44 @@ bool SemaphorePrivate::acquire(bool blocking)
 }
 
 
-struct SemaphoreNotifyWaitersFunctor: public Functor
+class SemaphoreNotifyWaitersFunctor: public Functor
 {
-    SemaphoreNotifyWaitersFunctor(SemaphorePrivate *sp)
-        :sp(sp) {}
-    virtual ~SemaphoreNotifyWaitersFunctor() override;
+public:
+    SemaphoreNotifyWaitersFunctor(SemaphorePrivate *sp, bool doDelete)
+        :sp(sp), doDelete(doDelete) {}
     QPointer<SemaphorePrivate> sp;
+    bool doDelete;
     virtual void operator() () override
     {
         if (sp.isNull()) {
             qWarning("SemaphorePrivate is deleted while calling notifyWaitersCallback.");
             return;
         }
-        sp->notifyWaiters(false);
+        while (!sp.isNull() && (sp->notified != 0 || doDelete)
+                            && (sp->counter > 0 || doDelete)
+                            && !sp->waiters.isEmpty()) {
+            QPointer<BaseCoroutine> waiter = sp->waiters.takeFirst();
+            if (waiter.isNull()) {
+                qDebug() << "waiter was deleted.";
+                continue;
+            }
+            if (!doDelete) {
+                --sp->counter;
+            }
+            waiter->yield();
+        }
+        if (!sp.isNull()) {
+            if (doDelete) {
+                if (sp->counter != sp->init_value) {
+                    qWarning("Semaphore is deleting but caught by some one.");
+                }
+                delete sp.data();
+            } else {
+                sp->notified = 0;  // do not move this line above the last loop, see the return statement in ::acquire()
+            }
+        }
     }
 };
-SemaphoreNotifyWaitersFunctor::~SemaphoreNotifyWaitersFunctor() {}
 
 
 void SemaphorePrivate::release(int value)
@@ -114,28 +121,19 @@ void SemaphorePrivate::release(int value)
     }
     counter = qMin(static_cast<int>(counter), init_value);
     if (!notified && !waiters.isEmpty()) {
-        notified = EventLoopCoroutine::get()->callLater(0, new SemaphoreNotifyWaitersFunctor(this));
+        notified = EventLoopCoroutine::get()->callLater(0, new SemaphoreNotifyWaitersFunctor(this, false));
     }
 }
 
 
-void SemaphorePrivate::notifyWaiters(bool force)
+void SemaphorePrivate::scheduleDelete()
 {
-    if (notified == 0 && !force) {
-        return;
+    if (notified) {
+        EventLoopCoroutine::get()->cancelCall(notified);
+        notified = 0;
     }
-    while (!waiters.isEmpty() && counter > 0) {
-        QPointer<BaseCoroutine> waiter = waiters.takeFirst();
-        if (waiter.isNull()) {
-            qDebug() << "waiter was deleted.";
-            continue;
-        }
-        if (!force) {
-            --counter;
-        }
-        waiter->yield();
-    }
-    notified = 0;  // do not move this line above the last loop, see the return statement in ::acquire()
+    counter += waiters.count();
+    EventLoopCoroutine::get()->callLater(0, new SemaphoreNotifyWaitersFunctor(this, true));
 }
 
 

@@ -122,24 +122,8 @@ private:
     QAtomicInteger<bool> exitingFlag;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
     friend struct TriggerIoWatchersFunctor;
+    friend void ev_timer_callback(struct ev_loop *loop, ev_timer *w, int);
 };
-
-
-static void ev_timer_callback(struct ev_loop *loop, ev_timer *w, int)
-{
-    // TimerWatcher *watcher = reinterpret_cast<TimerWatcher*>(reinterpret_cast<char*>(w) - offsetof(TimerWatcher, e));
-    TimerWatcher *watcher = static_cast<TimerWatcher*>(w->data);
-    if(qFuzzyIsNull(w->repeat)) { // ev_timer_again?
-        ev_timer_stop(loop, w);
-    }
-    Functor *f = watcher->callback;
-    EvEventLoopCoroutinePrivate *parent = watcher->parent;
-    int watcherId = watcher->watcherId;
-    (*f)();
-    if (parent && watcherId) {
-        parent->cancelCall(watcherId);
-    }
-}
 
 
 EvEventLoopCoroutinePrivate::EvEventLoopCoroutinePrivate(EventLoopCoroutine *parent)
@@ -241,6 +225,22 @@ void EvEventLoopCoroutinePrivate::triggerIoWatchers(qintptr fd)
             ev_io_stop(loop, &watcher->w);
             callLater(0, new TriggerIoWatchersFunctor(itor.key(), this));
         }
+    }
+}
+
+
+static void ev_timer_callback(struct ev_loop *loop, ev_timer *w, int)
+{
+    // TimerWatcher *watcher = reinterpret_cast<TimerWatcher*>(reinterpret_cast<char*>(w) - offsetof(TimerWatcher, e));
+    TimerWatcher *watcher = static_cast<TimerWatcher*>(w->data);
+    EvEventLoopCoroutinePrivate *parent = watcher->parent;
+    if(qFuzzyIsNull(w->repeat)) { // singleshot
+        ev_timer_stop(loop, w);
+        parent->watchers.remove(watcher->watcherId);
+    }
+    (*watcher->callback)();
+    if (qFuzzyIsNull(w->repeat)) {
+        delete watcher;
     }
 }
 

@@ -296,15 +296,15 @@ void QtEventLoopCoroutinePrivate::timerEvent(QTimerEvent *event)
     }
 
     bool singleshot = watcher->singleshot;
+    if (singleshot && watchers.contains(watcherId)) {
+        watchers.remove(watcherId);
+        timers.remove(event->timerId());
+        helper->killTimer(event->timerId());
+    }
     (*watcher->callback)();
     if (singleshot) {
         // watcher may be deleted!
-        if (watchers.contains(watcherId)) {
-            watchers.remove(watcherId);
-            timers.remove(event->timerId());
-            helper->killTimer(event->timerId());
-            delete watcher;
-        }
+        delete watcher;
     } else {
         //watcher->timerId = startTimer(watcher->interval);
     }
@@ -424,6 +424,7 @@ int startQtLoop()
 
     priv->loopCoroutine = BaseCoroutine::current();
     int result = QCoreApplication::instance()->exec();
+    QCoreApplication::instance()->processEvents();
     priv->loopCoroutine.clear();
     return result;
 }
