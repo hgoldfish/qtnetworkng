@@ -279,15 +279,30 @@ public:
     }
 
     template <typename S>
-    static void each(std::function<void(S)> func, const QList<S> &l) {
+    static void each(std::function<void(S)> func, const QList<S> &l, int trunc = 0) {
         CoroutineGroup operations;
-        for (int i = 0; i < l.size(); ++i) {
-            S s = l[i];
-            operations.add(Coroutine::spawn([func, s] {
-                func(s);
-            }));
+        if (trunc > 0) {
+            QSharedPointer<Semaphore> semaphore(new Semaphore(trunc));
+            for (int i = 0; i < l.size(); ++i) {
+                bool success = semaphore->acquire();
+                S s = l[i];
+                operations.spawn([func, s, semaphore, success] {
+                    func(s);
+                    if (success) {
+                        semaphore->release();
+                    }
+                });
+            }
+            operations.joinall();
+        } else {
+            for (int i = 0; i < l.size(); ++i) {
+                S s = l[i];
+                operations.spawn([func, s] {
+                    func(s);
+                });
+            }
+            operations.joinall();
         }
-        operations.joinall();
     }
 
     template<typename T, typename S>
