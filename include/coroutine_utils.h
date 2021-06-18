@@ -263,15 +263,23 @@ public:
     inline QSharedPointer<Coroutine> spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool replace = false);
 
     template <typename T, typename S>
-    static QList<T> map(std::function<T(S)> func, const QList<S> &l)
+    static QList<T> map(std::function<T(S)> func, const QList<S> &l, int chunk = INT16_MAX)
     {
         CoroutineGroup operations;
         QSharedPointer<QList<T>> result(new QList<T>());
+        QSharedPointer<Semaphore> semaphore(new Semaphore(chunk));
         for (int i = 0; i < l.size(); ++i) {
             result->append(T());
             S s = l[i];
-            operations.spawn([func, s, result, i]{
-                (*result)[i] = func(s);
+            semaphore->acquire();   // ALWAYS return true
+            operations.spawn([func, s, result, i, semaphore]{
+                try {
+                    (*result)[i] = func(s);
+                    semaphore->release();
+                } catch (...) {
+                    semaphore->release();
+                    throw;
+                }
             });
         }
         operations.joinall();
@@ -279,30 +287,23 @@ public:
     }
 
     template <typename S>
-    static void each(std::function<void(S)> func, const QList<S> &l, int trunc = 0) {
+    static void each(std::function<void(S)> func, const QList<S> &l, int chunk = INT16_MAX) {
         CoroutineGroup operations;
-        if (trunc > 0) {
-            QSharedPointer<Semaphore> semaphore(new Semaphore(trunc));
-            for (int i = 0; i < l.size(); ++i) {
-                bool success = semaphore->acquire();
-                S s = l[i];
-                operations.spawn([func, s, semaphore, success] {
+        QSharedPointer<Semaphore> semaphore(new Semaphore(chunk));
+        for (int i = 0; i < l.size(); ++i) {
+            semaphore->acquire();   // ALWAYS return true
+            S s = l[i];
+            operations.spawn([func, s, semaphore] {
+                try {
                     func(s);
-                    if (success) {
-                        semaphore->release();
-                    }
-                });
-            }
-            operations.joinall();
-        } else {
-            for (int i = 0; i < l.size(); ++i) {
-                S s = l[i];
-                operations.spawn([func, s] {
-                    func(s);
-                });
-            }
-            operations.joinall();
+                    semaphore->release();
+                }  catch (...) {
+                    semaphore->release();
+                    throw;
+                }
+            });
         }
+        operations.joinall();
     }
 
     template<typename T, typename S>
@@ -375,104 +376,6 @@ QSharedPointer<Coroutine> CoroutineGroup::spawnInThreadWithName(const QString &n
 }
 
 
-class ThreadPoolWorkItem
-{
-public:
-    ThreadPoolWorkItem()
-        :done(new Event()) {}
-    std::function<void()> makeResult;
-    QSharedPointer<Event> done;
-    QPointer<EventLoopCoroutine> eventloop;
-};
-
-
-class ThreadPoolWorkThread: public QThread
-{
-public:
-    template<typename T, typename S>
-        T apply(std::function<T(S)> func, S s);
-
-    template<typename S>
-        void apply(std::function<void(S)> func, S s);
-
-    template<typename T>
-    T call(std::function<T()> func);
-
-    inline void call(std::function<void()> func);
-    void kill();
-private:
-    virtual void run() override;
-private:
-    QQueue<ThreadPoolWorkItem> queue;
-    QMutex mutex;
-    QWaitCondition hasWork;
-};
-
-
-template<typename T, typename S>
-T ThreadPoolWorkThread::apply(std::function<T(S)> func, S s)
-{
-    ThreadPoolWorkItem item;
-    QSharedPointer<T> result(new T());
-    item.makeResult = [result, func, s] {
-        *result = func(s);
-    };
-    item.eventloop = EventLoopCoroutine::get();
-    mutex.lock();
-    queue.enqueue(item);
-    hasWork.wakeAll();
-    mutex.unlock();
-    item.done->wait();
-    return *result;
-}
-
-
-template<typename S>
-void ThreadPoolWorkThread::apply(std::function<void(S)> func, S s)
-{
-    ThreadPoolWorkItem item;
-    item.makeResult = [func, s] {
-        func(s);
-    };
-    item.eventloop = EventLoopCoroutine::get();
-    mutex.lock();
-    queue.enqueue(item);
-    hasWork.wakeAll();
-    mutex.unlock();
-    item.done->wait();
-}
-
-template<typename T>
-T ThreadPoolWorkThread::call(std::function<T()> func)
-{
-    ThreadPoolWorkItem item;
-    QSharedPointer<T> result(new T());
-    item.makeResult = [result, func] {
-        *result = func();
-    };
-    item.eventloop = EventLoopCoroutine::get();
-    mutex.lock();
-    queue.enqueue(item);
-    hasWork.wakeAll();
-    mutex.unlock();
-    item.done->wait();
-    return *result;
-}
-
-
-void ThreadPoolWorkThread::call(std::function<void()> func)
-{
-    ThreadPoolWorkItem item;
-    item.makeResult = func;
-    item.eventloop = EventLoopCoroutine::get();
-    mutex.lock();
-    queue.enqueue(item);
-    hasWork.wakeAll();
-    mutex.unlock();
-    item.done->wait();
-}
-
-
 class ThreadPool: public QObject
 {
 public:
@@ -504,183 +407,58 @@ private:
     template<typename S>
     std::function<void(S)> makeResult(std::function<void(S)> func);
 
-    QList<QSharedPointer<ThreadPoolWorkThread>> threads;
+    QList<QSharedPointer<class ThreadPoolWorkThread>> threads;
     QSharedPointer<Semaphore> semaphore;
-    CoroutineGroup *operations;
 };
-
-
-template<typename T, typename S>
-std::function<T(S)> ThreadPool::makeResult(std::function<T(S)> func)
-{
-    QPointer<ThreadPool> self(this);
-
-    return [self, func] (S s) -> T {
-        if (self.isNull()) {
-            return T();
-        }
-        ScopedLock<Semaphore> lock(self->semaphore);
-        if (!lock.isSuccess()) {
-            return T();
-        }
-        QSharedPointer<ThreadPoolWorkThread> thread;
-        if (self->threads.isEmpty()) {
-            thread.reset(new ThreadPoolWorkThread());
-            thread->start(QThread::LowPriority);
-        } else {
-            thread = self->threads.takeFirst();
-        }
-        const T &t = thread->apply<T, S>(func, s);
-        if (self.isNull()) {
-            return T();
-        }
-        self->threads.append(thread);
-        return t;
-    };
-}
-
-
-template<typename S>
-std::function<void(S)> ThreadPool::makeResult(std::function<void(S)> func)
-{
-    QPointer<ThreadPool> self(this);
-    return [func, self] (S s) {
-        if (self.isNull()) {
-            return;
-        }
-        ScopedLock<Semaphore> lock(self->semaphore);
-        if (!lock.isSuccess()) {
-            return;
-        }
-        QSharedPointer<ThreadPoolWorkThread> thread;
-        if (self->threads.isEmpty()) {
-            thread.reset(new ThreadPoolWorkThread());
-            thread->start(QThread::LowPriority);
-        } else {
-            thread = self->threads.takeFirst();
-        }
-        thread->apply<S>(func, s);
-        if (self.isNull()) {
-            return;
-        }
-        self->threads.append(thread);
-    };
-}
 
 
 template<typename T, typename S>
 QList<T> ThreadPool::map(std::function<T(S)> func, const QList<S> &l)
 {
-    QList<QSharedPointer<Coroutine>> coroutines;
-    QSharedPointer<QList<T>> result(new QList<T>());
-    std::function<T(S)> f = makeResult<T, S>(func);
-    for (int i = 0; i < l.size(); ++i) {
-        S s = l.at(i);
-        QSharedPointer<Coroutine> t = operations->spawn([result, i, f, s] {
-            (*result)[i] = f(s);
-        });
-        coroutines.append(t);
-    }
-    for (int i = 0; i < coroutines.size(); ++i) {
-        coroutines[i]->join();
-    }
-    return *result;
+    std::function<T(S)> f = [this, func] (const S &s) -> T { return this->apply<T, S>(s); } ;
+    return CoroutineGroup::map(f, l);
 }
 
 
 template<typename S>
 void ThreadPool::each(std::function<void(S)> func, const QList<S> &l)
 {
-    QList<QSharedPointer<Coroutine>> coroutines;
-    std::function<void(S)> f = makeResult<S>(func);
-    for (int i = 0; i < l.size(); ++i) {
-        S s = l.at(i);
-        QSharedPointer<Coroutine> t = operations->spawn([f, s] {
-            f(s);
-        });
-        coroutines.append(t);
-    }
-    for (int i = 0; i < coroutines.size(); ++i) {
-        coroutines[i]->join();
-    }
+    std::function<void(S)> f = [this, func] (const S &s) -> void { this->apply<S>(s); } ;
+    CoroutineGroup::each(f, l);
 }
 
 
 template<typename T, typename S>
 T ThreadPool::apply(std::function<T(S)> func, S s)
 {
-    ScopedLock<Semaphore> lock(semaphore);
-    if (!lock.isSuccess()) {
-        return T();
-    }
-    QSharedPointer<ThreadPoolWorkThread> thread;
-    if (threads.isEmpty()) {
-        thread.reset(new ThreadPoolWorkThread());
-        thread->start(QThread::LowPriority);
-    } else {
-        thread = threads.takeFirst();
-    }
-    const T &t = thread->apply<T, S>(func, s);
-    threads.append(thread);
-    return t;
+    QSharedPointer<T> result(new T());
+    std::function<void()> wrapped = [func, s, result] {
+        *result = func(s);
+    };
+    call(wrapped);
+    return *result;
 }
-
 
 
 template<typename S>
 void ThreadPool::apply(std::function<void(S)> func, S s)
 {
-    ScopedLock<Semaphore> lock(semaphore);
-    if (!lock.isSuccess()) {
-        return;
-    }
-    QSharedPointer<ThreadPoolWorkThread> thread;
-    if (threads.isEmpty()) {
-        thread.reset(new ThreadPoolWorkThread());
-        thread->start(QThread::LowPriority);
-    } else {
-        thread = threads.takeFirst();
-    }
-    thread->apply<S>(func, s);
-    threads.append(thread);
+    std::function<void()> wrapped = [func, s] {
+        func(s);
+    };
+    call(wrapped);
 }
 
 
 template<typename T>
 T ThreadPool::call(std::function<T()> func)
 {
-    ScopedLock<Semaphore> lock(semaphore);
-    if (!lock.isSuccess()) {
-        return T();
-    }
-    QSharedPointer<ThreadPoolWorkThread> thread;
-    if (threads.isEmpty()) {
-        thread.reset(new ThreadPoolWorkThread());
-        thread->start(QThread::LowPriority);
-    } else {
-        thread = threads.takeFirst();
-    }
-    const T &t = thread->call<T>(func);
-    threads.append(thread);
-    return t;
-}
-
-
-void ThreadPool::call(std::function<void()> func)
-{
-    ScopedLock<Semaphore> lock(semaphore);
-    if (!lock.isSuccess()) {
-        return;
-    }
-    QSharedPointer<ThreadPoolWorkThread> thread;
-    if (threads.isEmpty()) {
-        thread.reset(new ThreadPoolWorkThread());
-        thread->start(QThread::LowPriority);
-    } else {
-        thread = threads.takeFirst();
-    }
-    thread->call(func);
-    threads.append(thread);
+    QSharedPointer<T> result(new T());
+    std::function<void()> wrapped = [result, func] {
+        *result = func();
+    };
+    call(wrapped);
+    return *result;
 }
 
 

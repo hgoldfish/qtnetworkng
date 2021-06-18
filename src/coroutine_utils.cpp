@@ -13,7 +13,7 @@ class MarkDoneFunctor: public Functor
 {
 public:
     MarkDoneFunctor(const QSharedPointer<Event> &done)
-        :done(done) {}
+        : done(done) {}
     virtual void operator ()() override;
     QSharedPointer<Event> done;
 };
@@ -196,11 +196,60 @@ void CoroutineGroup::deleteCoroutine(BaseCoroutine *baseCoroutine)
 }
 
 
+class ThreadPoolWorkItem
+{
+public:
+    ThreadPoolWorkItem()
+        :done(new Event()) {}
+    std::function<void()> makeResult;
+    QSharedPointer<Event> done;
+    QPointer<EventLoopCoroutine> eventloop;
+};
+
+
+class ThreadPoolWorkThread: public QThread
+{
+public:
+    ThreadPoolWorkThread();
+    void call(std::function<void()> func);
+    void kill();
+private:
+    virtual void run() override;
+private:
+    QQueue<ThreadPoolWorkItem> queue;
+    QMutex mutex;
+    QWaitCondition hasWork;
+    QAtomicInteger<bool> exiting;
+};
+
+
+ThreadPoolWorkThread::ThreadPoolWorkThread()
+    : exiting(false)
+{
+}
+
+
+void ThreadPoolWorkThread::call(std::function<void()> func)
+{
+    if (exiting.loadAcquire()) {
+        return;
+    }
+    ThreadPoolWorkItem item;
+    item.makeResult = func;
+    item.eventloop = EventLoopCoroutine::get();
+    mutex.lock();
+    queue.enqueue(item);
+    hasWork.wakeAll();
+    mutex.unlock();
+    item.done->wait();
+}
+
+
 void ThreadPoolWorkThread::kill()
 {
     mutex.lock();
-    queue.clear();
     hasWork.wakeAll();
+    exiting.storeRelease(true);
     mutex.unlock();
     wait();
 }
@@ -208,11 +257,11 @@ void ThreadPoolWorkThread::kill()
 
 void ThreadPoolWorkThread::run()
 {
-    while (true) {
+    while (!exiting.loadAcquire()) {
         mutex.lock();
         if (queue.isEmpty()) {
             hasWork.wait(&mutex);
-            if (queue.isEmpty()) {
+            if (queue.isEmpty() || exiting.loadAcquire()) {
                 mutex.unlock();
                 return;
             }
@@ -231,7 +280,6 @@ void ThreadPoolWorkThread::run()
 
 
 ThreadPool::ThreadPool(int threads)
-    :operations(new CoroutineGroup())
 {
     if (threads <= 0) {
         semaphore.reset(new Semaphore(QThread::idealThreadCount()));
@@ -243,11 +291,27 @@ ThreadPool::ThreadPool(int threads)
 
 ThreadPool::~ThreadPool()
 {
-    operations->killall();
     for (QSharedPointer<ThreadPoolWorkThread> thread: threads) {
         thread->kill();
     }
-    delete operations;
+}
+
+
+void ThreadPool::call(std::function<void()> func)
+{
+    ScopedLock<Semaphore> lock(semaphore);
+    if (!lock.isSuccess()) {
+        return;
+    }
+    QSharedPointer<ThreadPoolWorkThread> thread;
+    if (threads.isEmpty()) {
+        thread.reset(new ThreadPoolWorkThread());
+        thread->start(QThread::LowPriority);
+    } else {
+        thread = threads.takeFirst();
+    }
+    thread->call(func);
+    threads.append(thread);
 }
 
 
