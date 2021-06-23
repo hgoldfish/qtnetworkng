@@ -92,7 +92,6 @@ QSharedPointer<FileLike> FileLike::open(const QString &filepath, const QString &
     if (mode == QString() || mode == QLatin1String("r") || mode == QLatin1String("r+") || mode == QLatin1String("rb")
             || mode == QLatin1String("rb+") || mode == QLatin1String("r+b")) {
         flag |= QIODevice::ReadOnly;
-        flag |= QIODevice::ExistingOnly;
         if (mode.contains(QLatin1Char('+'))) {
             flag |= QIODevice::WriteOnly;
         }
