@@ -474,15 +474,16 @@ bool CoroutinePrivate::join()
 
 
 Coroutine::Coroutine(size_t stackSize)
-    :BaseCoroutine(EventLoopCoroutine::get(), stackSize), d_ptr(new CoroutinePrivate(this, nullptr, nullptr))
+    : BaseCoroutine(EventLoopCoroutine::get(), stackSize)
+    , d_ptr(new CoroutinePrivate(this, nullptr, nullptr))
 {
 }
 
 
 Coroutine::Coroutine(QObject *obj, const char *slot, size_t stackSize)
-    :BaseCoroutine(EventLoopCoroutine::get(), stackSize), d_ptr(new CoroutinePrivate(this, obj, slot))
+    : BaseCoroutine(EventLoopCoroutine::get(), stackSize)
+    , d_ptr(new CoroutinePrivate(this, obj, slot))
 {
-
 }
 
 

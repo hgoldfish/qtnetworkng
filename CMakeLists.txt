@@ -122,6 +122,7 @@ set(QTCRYPTONG_PRIVATE_INCLUDE
 )
 
 if(ZLIB_FOUND)
+    message("Found zlib.")
     set(QTNETWORKNG_SRC
         ${QTNETWORKNG_SRC}
         src/gzip.cpp

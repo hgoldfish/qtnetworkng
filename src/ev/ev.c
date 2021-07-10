@@ -315,6 +315,14 @@ struct ev_loop
     int timermax;
     int timercnt;
 
+    struct ev_prepare ** prepares;
+    int preparemax;
+    int preparecnt;
+
+    struct ev_check ** checks;
+    int checkmax;
+    int checkcnt;
+
     EV_ATOMIC_T async_pending;
     int dummy6;
     ev_async **asyncs;
@@ -495,40 +503,40 @@ static void fd_kill(struct ev_loop *loop, int fd)
 }
 
 
-/* check whether the given fd is actually valid, for error recovery */
-static int fd_valid (int fd)
-{
-    return fcntl(fd, F_GETFD) != -1;
-}
+///* check whether the given fd is actually valid, for error recovery */
+//static int fd_valid(int fd)
+//{
+//    return fcntl(fd, F_GETFD) != -1;
+//}
 
 
-/* called on EBADF to verify fds */
-static void fd_ebadf(struct ev_loop *loop)
-{
-    int fd;
+///* called on EBADF to verify fds */
+//static void fd_ebadf(struct ev_loop *loop)
+//{
+//    int fd;
 
-    for (fd = 0; fd < loop->anfdmax; ++fd) {
-        if (loop->anfds[fd].events) {
-            if (!fd_valid(fd) && errno == EBADF) {
-                fd_kill(loop, fd);
-            }
-        }
-    }
-}
+//    for (fd = 0; fd < loop->anfdmax; ++fd) {
+//        if (loop->anfds[fd].events) {
+//            if (!fd_valid(fd) && errno == EBADF) {
+//                fd_kill(loop, fd);
+//            }
+//        }
+//    }
+//}
 
 
-/* called on ENOMEM in select/poll to kill some fds and retry */
-static void fd_enomem(struct ev_loop *loop)
-{
-    int fd;
+///* called on ENOMEM in select/poll to kill some fds and retry */
+//static void fd_enomem(struct ev_loop *loop)
+//{
+//    int fd;
 
-    for (fd = loop->anfdmax; fd--; ) {
-        if (loop->anfds[fd].events) {
-            fd_kill(loop, fd);
-            break;
-        }
-    }
-}
+//    for (fd = loop->anfdmax; fd--; ) {
+//        if (loop->anfds[fd].events) {
+//            fd_kill(loop, fd);
+//            break;
+//        }
+//    }
+//}
 
 
 /* usually called after fork if backend needs to re-arm all fds from scratch */
@@ -683,17 +691,17 @@ static void adjustheap(ANHE *heap, int N, int k)
 }
 
 
-/* rebuild the heap: this function is used only once and executed rarely */
-static void reheap(ANHE *heap, int N)
-{
-    int i;
+///* rebuild the heap: this function is used only once and executed rarely */
+//static void reheap(ANHE *heap, int N)
+//{
+//    int i;
 
-    /* we don't use floyds algorithm, upheap is simpler and is more cache-efficient */
-    /* also, this is easy to implement and correct for both 2-heaps and 4-heaps */
-    for (i = 0; i < N; ++i) {
-        upheap(heap, i + HEAP0);
-    }
-}
+//    /* we don't use floyds algorithm, upheap is simpler and is more cache-efficient */
+//    /* also, this is easy to implement and correct for both 2-heaps and 4-heaps */
+//    for (i = 0; i < N; ++i) {
+//        upheap(heap, i + HEAP0);
+//    }
+//}
 
 
 static void evpipe_init(struct ev_loop *loop)
@@ -1041,6 +1049,9 @@ static void ev_verify(struct ev_loop* loop)
         assert (loop->pendingmax[i] >= loop->pendingcnt [i]);
     }
 
+    assert(loop->preparemax >= loop->preparecnt);
+    array_verify(loop, (ev_watcher **)loop->prepares, loop->preparecnt);
+
     assert(loop->asyncmax >= loop->asynccnt);
     array_verify(loop, (ev_watcher **)loop->asyncs, loop->asynccnt);
 }
@@ -1048,13 +1059,14 @@ static void ev_verify(struct ev_loop* loop)
 
 #endif
 
-static void ev_invoke(struct ev_loop* loop, void *w, int revents)
+
+void ev_invoke(struct ev_loop* loop, void *w, int revents)
 {
     ((ev_watcher *) w)->cb(loop, ((ev_watcher *)w), revents);
 }
 
 
-static unsigned int ev_pending_count(struct ev_loop *loop)
+unsigned int ev_pending_count(struct ev_loop *loop)
 {
     int pri;
     unsigned int count = 0;
@@ -1067,7 +1079,7 @@ static unsigned int ev_pending_count(struct ev_loop *loop)
 }
 
 
-static void ev_invoke_pending(struct ev_loop *loop)
+void ev_invoke_pending(struct ev_loop *loop)
 {
     loop->pendingpri = NUMPRI;
 
@@ -1156,6 +1168,7 @@ static void time_update(struct ev_loop* loop, ev_tstamp max_block)
     }
 }
 
+
 int ev_run(struct ev_loop* loop, int flags)
 {
     (void) flags;
@@ -1173,6 +1186,11 @@ int ev_run(struct ev_loop* loop, int flags)
 #if EV_VERIFY
         ev_verify(loop);
 #endif
+        /* queue prepare watchers (and execute them) */
+        if (expect_false(loop->preparecnt)) {
+            queue_events(loop, (ev_watcher **)loop->prepares, loop->preparecnt, EV_PREPARE);
+            ev_invoke_pending(loop);
+        }
         /* we might have forked, so queue fork handlers */
         if (expect_false(loop->loop_done)) {
             break;
@@ -1257,6 +1275,10 @@ int ev_run(struct ev_loop* loop, int flags)
         /* queue pending timers and reschedule them */
         timers_reify(loop); /* relative timers called last */
 
+        /* queue check watchers, to be executed first */
+        if (expect_false(loop->checkcnt))
+            queue_events(loop, (ev_watcher **)loop->checks, loop->checkcnt, EV_CHECK);
+
         ev_invoke_pending(loop);
     } while (expect_true(loop->activecnt  && !loop->loop_done));
 
@@ -1303,7 +1325,7 @@ void wlist_del(ev_watcher_list **head, ev_watcher_list *elem)
 
 
 /* internal, faster, version of ev_clear_pending */
-void clear_pending(struct ev_loop *loop, ev_watcher *w)
+static void clear_pending(struct ev_loop *loop, ev_watcher *w)
 {
     if (w->pending) {
         loop->pendings[ABSPRI(w)][w->pending - 1].w = &loop->pending_w;
@@ -1465,9 +1487,65 @@ void ev_timer_again(struct ev_loop* loop, ev_timer *w)
 }
 
 
-ev_tstamp ev_timer_remaining (struct ev_loop* loop, ev_timer *w)
+ev_tstamp ev_timer_remaining(struct ev_loop* loop, ev_timer *w)
 {
     return ev_at(w) - (ev_is_active(w) ? loop->mn_now : 0.);
+}
+
+
+void ev_prepare_start(struct ev_loop* loop, ev_prepare *w)
+{
+    if (expect_false(ev_is_active(w)))
+        return;
+
+    ev_start(loop, (ev_watcher *)w, ++loop->preparecnt);
+    array_needsize(ev_prepare *, loop->prepares, loop->preparemax, loop->preparecnt, EMPTY2);
+    loop->prepares[loop->preparecnt - 1] = w;
+}
+
+
+void ev_prepare_stop(struct ev_loop *loop, ev_prepare *w)
+{
+    clear_pending(loop, (ev_watcher *)w);
+    if (expect_false(!ev_is_active(w))) {
+      return;
+    }
+
+    {
+        int active = ev_active(w);
+        loop->prepares[active - 1] = loop->prepares[--loop->preparecnt];
+        ev_active(loop->prepares[active - 1]) = active;
+    }
+    ev_stop(loop, (ev_watcher *)w);
+}
+
+
+void ev_check_start(struct ev_loop* loop, ev_check *w)
+{
+    if (expect_false(ev_is_active(w))) {
+        return;
+    }
+
+    ev_start(loop, (ev_watcher *)w, ++loop->checkcnt);
+    array_needsize(ev_check *, loop->checks, loop->checkmax, loop->checkcnt, EMPTY2);
+    loop->checks[loop->checkcnt - 1] = w;
+}
+
+
+void ev_check_stop(struct ev_loop* loop, ev_check *w)
+{
+    clear_pending (loop, (ev_watcher *)w);
+    if (expect_false(!ev_is_active(w))) {
+        return;
+    }
+
+    {
+        int active = ev_active(w);
+        loop->checks[active - 1] = loop->checks[--loop->checkcnt];
+        ev_active(loop->checks[active - 1]) = active;
+    }
+
+    ev_stop(loop, (ev_watcher *)w);
 }
 
 
@@ -1492,9 +1570,11 @@ void ev_async_stop(struct ev_loop* loop, ev_async *w)
         return;
     }
 
-    int active = ev_active(w);
-    loop->asyncs[active - 1] = loop->asyncs[--loop->asynccnt];
-    ev_active(loop->asyncs[active - 1]) = active;
+    {
+        int active = ev_active(w);
+        loop->asyncs[active - 1] = loop->asyncs[--loop->asynccnt];
+        ev_active(loop->asyncs[active - 1]) = active;
+    }
     ev_stop(loop, (ev_watcher*)w);
 }
 
