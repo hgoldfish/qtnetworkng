@@ -928,8 +928,6 @@ QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, 
         }
     }
 
-
-
     if (rawSocket.isNull() || !rawSocket->isValid()) {
         *error = new ConnectionError();
         return QSharedPointer<SocketLike>();

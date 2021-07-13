@@ -273,6 +273,20 @@ BaseCoroutine::State BaseCoroutine::state() const
 }
 
 
+bool BaseCoroutine::isRunning() const
+{
+    Q_D(const BaseCoroutine);
+    return d->state == BaseCoroutine::Started;
+}
+
+
+bool BaseCoroutine::isFinished() const
+{
+    Q_D(const BaseCoroutine);
+    return d->state == BaseCoroutine::Stopped || d->state == BaseCoroutine::Joined;
+}
+
+
 void BaseCoroutine::setState(BaseCoroutine::State state)
 {
     Q_D(BaseCoroutine);

@@ -94,7 +94,7 @@ EventLoopCoroutinePrivate::~EventLoopCoroutinePrivate(){}
 
 
 EventLoopCoroutine::EventLoopCoroutine(EventLoopCoroutinePrivate *d, size_t stackSize)
-    :BaseCoroutine(BaseCoroutine::current(), stackSize), dd_ptr(d)
+    : BaseCoroutine(BaseCoroutine::current(), stackSize), dd_ptr(d)
 {
 }
 
@@ -302,12 +302,6 @@ class CoroutinePrivate: public QObject
 public:
     CoroutinePrivate(Coroutine *q, QObject *obj, const char *slot);
     virtual ~CoroutinePrivate();
-    void start(quint32 msecs);
-    void kill(CoroutineException *e, quint32 msecs);
-    void cancelStart();
-    bool join();
-private:
-    void setFinishedEvent();
 private:
     Coroutine * const q_ptr;
     Event finishedEvent;
@@ -325,7 +319,7 @@ CoroutinePrivate::CoroutinePrivate(Coroutine *q, QObject *obj, const char *slot)
     :q_ptr(q), obj(obj), slot(slot), callbackId(0)
 {
     q->finished.addCallback([this] (BaseCoroutine *) {
-        setFinishedEvent();
+        finishedEvent.set();
     });
 }
 
@@ -373,7 +367,7 @@ struct KillCoroutineFunctor: public Functor
 
 KillCoroutineFunctor::~KillCoroutineFunctor()
 {
-    if (e) {
+    if (e) {  // raise() consumed it!
         delete e;
     }
 }
@@ -384,104 +378,24 @@ void KillCoroutineFunctor::operator()()
     if (cp.isNull()) {
         qWarning("killCoroutine is called without coroutine");
         delete e;
-        e = nullptr;
-        return;
-    }
-    if (cp->q_func()->state() != BaseCoroutine::Started) {
+    } else if (cp->q_func()->state() != BaseCoroutine::Started) {
         delete e;
-        e = nullptr;
-        return;
+    } else {
+        cp->q_func()->raise(e);
     }
-    cp->q_func()->raise(e);
     e = nullptr;
 }
 
 
-void CoroutinePrivate::start(quint32 msecs)
-{
-    if (callbackId > 0) {
-        return;
-    }
-    callbackId = EventLoopCoroutine::get()->callLater(msecs, new StartCoroutineFunctor(this));
-}
-
-
-void CoroutinePrivate::kill(CoroutineException *e, quint32 msecs)
-{
-    Q_Q(Coroutine);
-    EventLoopCoroutine *c = EventLoopCoroutine::get();
-    if (q->state() == Coroutine::Initialized) {
-        if (dynamic_cast<CoroutineExitException *>(e)) {
-            if (callbackId > 0) {
-                EventLoopCoroutine::get()->cancelCall(callbackId);
-                callbackId = 0;
-            }
-            q->setState(Coroutine::Stopped);
-            delete e;
-            setFinishedEvent();
-        } else {
-            if (callbackId == 0) {
-                callbackId = c->callLater(msecs, new StartCoroutineFunctor(this));
-            }
-            c->callLater(msecs, new KillCoroutineFunctor(this, e));
-        }
-    } else if (q->state() == Coroutine::Stopped || q->state() == Coroutine::Joined) {
-        delete e;
-    } else if (q->state() == Coroutine::Started){
-        c->callLater(msecs, new KillCoroutineFunctor(this, e));
-    } else {
-        qWarning("invalid state while kiling coroutine.");
-        delete e;
-    }
-}
-
-
-void CoroutinePrivate::cancelStart()
-{
-    Q_Q(Coroutine);
-    EventLoopCoroutine *c = EventLoopCoroutine::get();
-    if (callbackId > 0)
-        c->cancelCall(callbackId);
-    if (q->state() == Coroutine::Initialized) {
-        q->setState(Coroutine::Stopped);
-        setFinishedEvent();
-    } else if (q->state() == Coroutine::Started) {
-        c->callLater(0, new KillCoroutineFunctor(this, new CoroutineExitException()));
-    }
-    callbackId = 0;
-}
-
-
-void CoroutinePrivate::setFinishedEvent()
-{
-    finishedEvent.set();
-}
-
-
-bool CoroutinePrivate::join()
-{
-    Q_Q(Coroutine);
-
-    if (q->state() == BaseCoroutine::Initialized || q->state() == BaseCoroutine::Started) {
-        if (!dynamic_cast<Coroutine*>(BaseCoroutine::current())) {
-            return EventLoopCoroutine::get()->runUntil(q);
-        }
-        return finishedEvent.wait();
-    } else {
-        return true;
-    }
-}
-
-
 Coroutine::Coroutine(size_t stackSize)
-    : BaseCoroutine(EventLoopCoroutine::get(), stackSize)
+    : BaseCoroutine(nullptr, stackSize)
     , d_ptr(new CoroutinePrivate(this, nullptr, nullptr))
 {
 }
 
 
 Coroutine::Coroutine(QObject *obj, const char *slot, size_t stackSize)
-    : BaseCoroutine(EventLoopCoroutine::get(), stackSize)
+    : BaseCoroutine(nullptr, stackSize)
     , d_ptr(new CoroutinePrivate(this, obj, slot))
 {
 }
@@ -493,23 +407,13 @@ Coroutine::~Coroutine()
 }
 
 
-bool Coroutine::isRunning() const
-{
-    return state() == BaseCoroutine::Started;
-}
-
-
-bool Coroutine::isFinished() const
-{
-    const BaseCoroutine::State s = state();
-    return s == BaseCoroutine::Stopped || s == BaseCoroutine::Joined;
-}
-
-
 Coroutine *Coroutine::start(quint32 msecs)
 {
     Q_D(Coroutine);
-    d->start(msecs);
+    if (d->callbackId > 0 || isRunning() || isFinished()) {
+        return this;
+    }
+    d->callbackId = EventLoopCoroutine::get()->callLater(msecs, new StartCoroutineFunctor(d));
     return this;
 }
 
@@ -518,9 +422,31 @@ void Coroutine::kill(CoroutineException *e, quint32 msecs)
 {
     Q_D(Coroutine);
     if (!e) {
-        d->kill(new CoroutineExitException(), msecs);
+        e = new CoroutineExitException();
+    }
+    EventLoopCoroutine *c = EventLoopCoroutine::get();
+    if (state() == Coroutine::Initialized) {
+        if (dynamic_cast<CoroutineExitException *>(e)) {
+            if (d->callbackId > 0) {
+                EventLoopCoroutine::get()->cancelCall(d->callbackId);
+                d->callbackId = 0;
+            }
+            setState(Coroutine::Stopped);
+            delete e;
+            d->finishedEvent.set();
+        } else {
+            if (d->callbackId == 0) {
+                d->callbackId = c->callLater(msecs, new StartCoroutineFunctor(d));
+            }
+            c->callLater(msecs, new KillCoroutineFunctor(d, e));
+        }
+    } else if (isFinished()) {
+        delete e;
+    } else if (isRunning()) {
+        c->callLater(msecs, new KillCoroutineFunctor(d, e));
     } else {
-        d->kill(e, msecs);
+        qWarning("invalid state while kiling coroutine.");
+        delete e;
     }
 }
 
@@ -528,7 +454,17 @@ void Coroutine::kill(CoroutineException *e, quint32 msecs)
 void Coroutine::cancelStart()
 {
     Q_D(Coroutine);
-    d->cancelStart();
+    EventLoopCoroutine *c = EventLoopCoroutine::get();
+    if (d->callbackId > 0) {
+        c->cancelCall(d->callbackId);
+    }
+    if (state() == Coroutine::Initialized) {
+        setState(Coroutine::Stopped);
+        d->finishedEvent.set();
+    } else if (state() == Coroutine::Started) {
+        c->callLater(0, new KillCoroutineFunctor(d, new CoroutineExitException()));
+    }
+    d->callbackId = 0;
 }
 
 
@@ -544,14 +480,25 @@ void Coroutine::run()
 
 void Coroutine::cleanup()
 {
-    EventLoopCoroutine::get()->yield();
+    if (previous()) {
+        previous()->yield();
+    } else {
+        EventLoopCoroutine::get()->yield();
+    }
 }
 
 
 bool Coroutine::join()
 {
     Q_D(Coroutine);
-    return d->join();
+    if (state() == BaseCoroutine::Initialized || state() == BaseCoroutine::Started) {
+        if (!dynamic_cast<Coroutine*>(BaseCoroutine::current())) {
+            return EventLoopCoroutine::get()->runUntil(this);
+        }
+        return d->finishedEvent.wait();
+    } else {
+        return true;
+    }
 }
 
 

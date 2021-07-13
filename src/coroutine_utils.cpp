@@ -108,15 +108,19 @@ bool CoroutineGroup::has(const QString &name)
 bool CoroutineGroup::kill(const QString &name, bool join)
 {
     QSharedPointer<Coroutine> found = get(name);
-    if(!found.isNull()) {
-        if(found.data() == Coroutine::current()) {
-//            qWarning("killing current coroutine?");
+    if (!found.isNull()) {
+        if (found.data() == Coroutine::current()) {
+            qWarning("killing current coroutine?");
         } else {
-            found->kill();
-            if(join) {
-                bool success = found->join();
-                coroutines.removeOne(found);
-                return success;
+            if (join) {
+                if (found->isRunning()) {
+                    found->setPrevious(BaseCoroutine::current());
+                    found->raise(new CoroutineExitException());
+                } else {
+                    found->kill();
+                }
+            } else {
+                found->kill();
             }
             return true;
         }
@@ -129,24 +133,27 @@ bool CoroutineGroup::killall(bool join)
 {
     bool done = false;
     QList<QSharedPointer<Coroutine>> copy = coroutines;
-    for (QSharedPointer<Coroutine> coroutine: copy) {
-        if (coroutine.data() == Coroutine::current()) {
-//            qWarning() << "will not kill current coroutine while killall() is called:" << BaseCoroutine::current();
-            continue;
-        }
-        coroutine->kill();
-        done = true;
-    }
-
     if (join) {
-        copy = coroutines;
+        BaseCoroutine *current = BaseCoroutine::current();
         for (QSharedPointer<Coroutine> coroutine: copy) {
             if (coroutine.data() == Coroutine::current()) {
-//                qWarning("will not join current coroutine while killall() is called.");
                 continue;
             }
-            coroutines.removeOne(coroutine);
-            coroutine->join();
+            if (coroutine->isRunning()) {
+                coroutine->setPrevious(current);
+                coroutine->raise(new CoroutineExitException());
+            } else {
+                coroutine->kill();
+            }
+            done = true;
+        }
+    } else {
+        for (QSharedPointer<Coroutine> coroutine: copy) {
+            if (coroutine.data() == Coroutine::current()) {
+                continue;
+            }
+            coroutine->kill();
+            done = true;
         }
     }
     return done;
@@ -159,7 +166,6 @@ bool CoroutineGroup::joinall()
     QList<QSharedPointer<Coroutine>> copy = coroutines;
     for (QSharedPointer<Coroutine> coroutine: copy) {
         if (coroutine == Coroutine::current()) {
-//            qDebug("will not kill current coroutine while joinall() is called.");
             continue;
         }
         coroutines.removeOne(coroutine);
