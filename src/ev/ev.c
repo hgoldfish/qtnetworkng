@@ -1187,7 +1187,7 @@ int ev_run(struct ev_loop* loop, int flags)
         ev_verify(loop);
 #endif
         /* queue prepare watchers (and execute them) */
-        if (expect_false(loop->preparecnt)) {
+        if (loop->preparecnt) {
             queue_events(loop, (ev_watcher **)loop->prepares, loop->preparecnt, EV_PREPARE);
             ev_invoke_pending(loop);
         }
@@ -1276,8 +1276,9 @@ int ev_run(struct ev_loop* loop, int flags)
         timers_reify(loop); /* relative timers called last */
 
         /* queue check watchers, to be executed first */
-        if (expect_false(loop->checkcnt))
+        if (loop->checkcnt) {
             queue_events(loop, (ev_watcher **)loop->checks, loop->checkcnt, EV_CHECK);
+        }
 
         ev_invoke_pending(loop);
     } while (expect_true(loop->activecnt  && !loop->loop_done));
