@@ -34,7 +34,8 @@ public:
     bool initContext();
     bool raise(CoroutineException *exception = nullptr);
     bool yield();
-private:
+    void cleanup() { q_ptr->cleanup(); }
+public:
     BaseCoroutine * const q_ptr;
     BaseCoroutine * previous;
     CoroutineException *exception;
@@ -46,9 +47,6 @@ private:
     Q_DECLARE_PUBLIC(BaseCoroutine)
 private:
     static BaseCoroutinePrivate *getPrivateHelper(BaseCoroutine *coroutine) { return coroutine->dd_ptr; }
-    void cleanup() { q_ptr->cleanup(); }
-    friend void run_stub(intptr_t tr);
-    friend BaseCoroutine* createMainCoroutine();
 };
 
 
@@ -270,20 +268,6 @@ BaseCoroutine::State BaseCoroutine::state() const
 {
     Q_D(const BaseCoroutine);
     return d->state;
-}
-
-
-bool BaseCoroutine::isRunning() const
-{
-    Q_D(const BaseCoroutine);
-    return d->state == BaseCoroutine::Started;
-}
-
-
-bool BaseCoroutine::isFinished() const
-{
-    Q_D(const BaseCoroutine);
-    return d->state == BaseCoroutine::Stopped || d->state == BaseCoroutine::Joined;
 }
 
 
