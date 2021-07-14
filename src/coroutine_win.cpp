@@ -61,7 +61,7 @@ BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *prev
 BaseCoroutinePrivate::~BaseCoroutinePrivate()
 {
     Q_Q(BaseCoroutine);
-    if (currentCoroutine().get(false) == q) {
+    if (currentCoroutine().get() == q) {
         qWarning("do not delete one self.");
     }
     if (context) {
