@@ -89,6 +89,9 @@ private:
 };
 
 
+void exchange(QSharedPointer<DataChannel> incoming, QSharedPointer<DataChannel> outgoing);
+
+
 QSharedPointer<SocketLike> asSocketLike(QSharedPointer<DataChannel> channel);
 
 
