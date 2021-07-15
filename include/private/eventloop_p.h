@@ -86,7 +86,7 @@ public:
     void cancelCall(int callbackId);
     int exitCode();
     bool runUntil(BaseCoroutine *coroutine);
-    virtual bool yield() override;
+    void yield();
 public:
     static EventLoopCoroutine *get();
 protected:
@@ -127,7 +127,7 @@ public:
     virtual void cancelCall(int callbackId) = 0;
     virtual int exitCode() = 0;
     virtual bool runUntil(BaseCoroutine *coroutine) = 0;
-    virtual bool yield() = 0;
+    virtual void yield() = 0;
 protected:
     EventLoopCoroutine * const q_ptr;
     static EventLoopCoroutinePrivate *getPrivateHelper(EventLoopCoroutine *coroutine)

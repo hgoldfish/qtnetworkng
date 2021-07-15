@@ -16,7 +16,8 @@ public:
     bool initContext();
     bool raise(CoroutineException *exception = nullptr);
     bool yield();
-private:
+    void cleanup() { q_ptr->cleanup(); }
+public:
     BaseCoroutine * const q_ptr;
     BaseCoroutine * previous;
     size_t stackSize;
@@ -26,14 +27,10 @@ private:
     enum BaseCoroutine::State state;
     bool bad;
     Q_DECLARE_PUBLIC(BaseCoroutine)
-private:
-    static void run_stub(BaseCoroutinePrivate *coroutine);
-    void cleanup() { q_ptr->cleanup(); }
-    friend BaseCoroutine* createMainCoroutine();
 };
 
 
-void BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
+void run_stub(BaseCoroutinePrivate *coroutine)
 {
     coroutine->state = BaseCoroutine::Started;
     coroutine->q_ptr->started.callback(coroutine->q_ptr);

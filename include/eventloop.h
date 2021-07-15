@@ -19,19 +19,19 @@ public:
     Coroutine(QObject *obj, const char *slot, size_t stackSize = DEFAULT_COROUTINE_STACK_SIZE);
     virtual ~Coroutine() override;
 public:
-    bool isRunning() const;
-    bool isFinished() const;
     Coroutine *start(quint32 msecs = 0);
     void kill(CoroutineException *e = nullptr, quint32 msecs = 0);
-    void killSync();
     void cancelStart();
     bool join();
     virtual void run() override;
+public:
     static Coroutine *current();
     static void msleep(quint32 msecs);
     static void sleep(float secs) { msleep(static_cast<quint32>(secs * 1000)); }
     static Coroutine *spawn(std::function<void()> f);
     static void preferLibev();
+protected:
+    virtual void cleanup() override;
 private:
     CoroutinePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Coroutine)

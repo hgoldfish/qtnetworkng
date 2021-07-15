@@ -67,6 +67,8 @@ enum {
     EV__IOFDSET =            0x80, /* internal use only */
     EV_IO       =         EV_READ, /* alias for type-detection */
     EV_TIMER    =      0x00000100, /* timer timed out */
+    EV_PREPARE  =      0x00004000, /* event loop about to poll */
+    EV_CHECK    =      0x00008000, /* event loop finished poll */
     EV_ASYNC    =      0x00080000, /* async intra-loop signal */
     EV_CUSTOM   =      0x01000000, /* for use by user code */
 #ifdef __cplusplus
@@ -86,7 +88,7 @@ enum {
     int priority;                /* private */        \
     int dummy;                                        \
     void *data;                  /* rw */             \
-    EV_CB_DECLARE (type)         /* private */
+    EV_CB_DECLARE(type)          /* private */
 
 #define EV_WATCHER_LIST(type)                         \
     EV_WATCHER(type)                                  \
@@ -133,6 +135,18 @@ typedef struct ev_timer
 } ev_timer;
 
 
+typedef struct ev_prepare
+{
+    EV_WATCHER(ev_prepare)
+} ev_prepare;
+
+
+typedef struct ev_check
+{
+    EV_WATCHER(ev_check)
+} ev_check;
+
+
 typedef struct ev_async
 {
     EV_WATCHER (ev_async)
@@ -149,6 +163,8 @@ union ev_any_watcher
     struct ev_watcher_list wl;
     struct ev_io io;
     struct ev_timer timer;
+    struct ev_prepare prepare;
+    struct ev_check check;
     struct ev_async async;
 };
 
@@ -175,12 +191,18 @@ enum {
 };
 
 
+void ev_ref(struct ev_loop* loop);
+void ev_unref(struct ev_loop* loop);
 ev_tstamp ev_time();
 struct ev_loop *ev_loop_new (unsigned int flags);
 ev_tstamp ev_now(struct ev_loop* loop);
 void ev_loop_destroy(struct ev_loop* loop);
 int  ev_run (struct ev_loop* loop, int flags);
 void ev_break (struct ev_loop* loop, int how);
+void ev_invoke(struct ev_loop* loop, void *w, int revents);
+unsigned int ev_pending_count(struct ev_loop *loop);
+void ev_invoke_pending(struct ev_loop *loop);
+
 
 #define ev_init(ev,cb_) do {                      \
     ((ev_watcher *)(void *)(ev))->active  = 0;    \
@@ -193,12 +215,18 @@ void ev_break (struct ev_loop* loop, int how);
     do { (ev)->fd = (fd_); (ev)->events = (events_) | EV__IOFDSET; } while (0)
 #define ev_timer_set(ev,after_,repeat_)           \
     do { ((ev_watcher_time *)(ev))->at = (after_); (ev)->repeat = (repeat_); } while (0)
+#define ev_prepare_set(ev)                   /* nop, yes, this is a serious in-joke */
+#define ev_check_set(ev)                     /* nop, yes, this is a serious in-joke */
 #define ev_async_set(ev)
 
 #define ev_io_init(ev,cb,fd,events)               \
     do { ev_init((ev), (cb)); ev_io_set((ev),(fd),(events)); } while (0)
 #define ev_timer_init(ev,cb,after,repeat)         \
     do { ev_init ((ev), (cb)); ev_timer_set((ev),(after),(repeat)); } while (0)
+#define ev_prepare_init(ev,cb)                    \
+    do { ev_init ((ev), (cb)); ev_prepare_set ((ev)); } while (0)
+#define ev_check_init(ev,cb)                      \
+    do { ev_init ((ev), (cb)); ev_check_set ((ev)); } while (0)
 #define ev_async_init(ev,cb)                      \
     do { ev_init((ev), (cb)); ev_async_set((ev)); } while (0)
 
@@ -217,6 +245,10 @@ void ev_timer_start(struct ev_loop *loop, ev_timer *w);
 void ev_timer_stop(struct ev_loop *loop, ev_timer *w);
 void ev_timer_again(struct ev_loop *loop, ev_timer *w);
 ev_tstamp ev_timer_remaining (struct ev_loop *loop, ev_timer *w);
+void ev_prepare_start(struct ev_loop *loop, ev_prepare *w);
+void ev_prepare_stop(struct ev_loop *loop, ev_prepare *w);
+void ev_check_start(struct ev_loop *loop, ev_check *w);
+void ev_check_stop(struct ev_loop *loop, ev_check *w);
 void ev_async_start(struct ev_loop *loop, ev_async *w);
 void ev_async_stop(struct ev_loop *loop, ev_async *w);
 void ev_async_send(struct ev_loop *loop, ev_async *w);

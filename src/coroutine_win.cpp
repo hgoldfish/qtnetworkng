@@ -13,7 +13,8 @@ public:
     bool initContext();
     bool raise(CoroutineException *exception = nullptr);
     bool yield();
-private:
+    void cleanup() { q_ptr->cleanup(); }
+public:
     BaseCoroutine * const q_ptr;
     BaseCoroutine * previous;
     size_t stackSize;
@@ -22,14 +23,10 @@ private:
     LPVOID context;
     bool bad;
     Q_DECLARE_PUBLIC(BaseCoroutine)
-private:
-    static void CALLBACK run_stub(BaseCoroutinePrivate *coroutine);
-    void cleanup() { q_ptr->cleanup(); }
-    friend BaseCoroutine* createMainCoroutine();
 };
 
 
-void CALLBACK BaseCoroutinePrivate::run_stub(BaseCoroutinePrivate *coroutine)
+void CALLBACK run_stub(BaseCoroutinePrivate *coroutine)
 {
     coroutine->state = BaseCoroutine::Started;
     coroutine->q_ptr->started.callback(coroutine->q_ptr);
@@ -88,7 +85,7 @@ bool BaseCoroutinePrivate::initContext()
         return true;
     }
 
-    context = CreateFiberEx(1024 * 4, stackSize, 0, (PFIBER_START_ROUTINE)BaseCoroutinePrivate::run_stub, this);
+    context = CreateFiberEx(1024 * 4, stackSize, 0, (PFIBER_START_ROUTINE)run_stub, this);
     if (!context) {
         DWORD error = GetLastError();
         qWarning() << QStringLiteral("can not create fiber: error is %1").arg(error);
@@ -137,6 +134,7 @@ bool BaseCoroutinePrivate::raise(CoroutineException *exception)
     }
 }
 
+
 bool BaseCoroutinePrivate::yield()
 {
     Q_Q(BaseCoroutine);
@@ -172,6 +170,7 @@ bool BaseCoroutinePrivate::yield()
     }
     return true;
 }
+
 
 BaseCoroutine* createMainCoroutine()
 {
@@ -272,6 +271,5 @@ void BaseCoroutine::setPrevious(BaseCoroutine *previous)
     Q_D(BaseCoroutine);
     d->previous = previous;
 }
-
 
 QTNETWORKNG_NAMESPACE_END

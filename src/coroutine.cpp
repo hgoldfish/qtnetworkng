@@ -88,6 +88,18 @@ quintptr BaseCoroutine::id() const
 }
 
 
+bool BaseCoroutine::isRunning() const
+{
+    return state() == BaseCoroutine::Started;
+}
+
+
+bool BaseCoroutine::isFinished() const
+{
+    return state() == BaseCoroutine::Stopped || state() == BaseCoroutine::Joined;
+}
+
+
 void BaseCoroutine::run()
 {
 

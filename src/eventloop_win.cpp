@@ -100,7 +100,7 @@ public:
     virtual void cancelCall(int callbackId) override;
     virtual int exitCode() override;
     virtual bool runUntil(BaseCoroutine *coroutine) override;
-    virtual bool yield() override;
+    virtual void yield() override;
     void doCallLater();
 public:
     void updateIoMask(qintptr fd);
@@ -422,13 +422,13 @@ bool WinEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
 }
 
 
-bool WinEventLoopCoroutinePrivate::yield()
+void WinEventLoopCoroutinePrivate::yield()
 {
     Q_Q(EventLoopCoroutine);
     if (!loopCoroutine.isNull()) {
-        return loopCoroutine->yield();
+        loopCoroutine->yield();
     } else {
-        return q->BaseCoroutine::yield();
+       q->BaseCoroutine::yield();
     }
 }
 
