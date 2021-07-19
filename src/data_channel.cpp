@@ -636,8 +636,8 @@ void SocketChannelPrivate::doReceive()
             packetSize = qFromBigEndian<quint32>(header.data());
             channelNumber = qFromBigEndian<quint32>(header.data() + sizeof(quint32));
 #else
-            packetSize = qFromBigEndian<quint32>(reinterpret_cast<uchar*>(header.data()));
-            channelNumber = qFromBigEndian<quint32>(reinterpret_cast<uchar*>(header.data() + sizeof(quint32)));
+            packetSize = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(header.data()));
+            channelNumber = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(header.data() + sizeof(quint32)));
 #endif
             if (packetSize > maxPacketSize) {
 #ifdef DEBUG_PROTOCOL
