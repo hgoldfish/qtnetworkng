@@ -945,6 +945,7 @@ QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, 
         }
         connection = asSocketLike(ssl);
 #else
+        Q_UNUSED(sendTlsExtHostName);
         *error = new ConnectionError();
         return QSharedPointer<SocketLike>();
 #endif
