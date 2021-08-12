@@ -503,40 +503,40 @@ static void fd_kill(struct ev_loop *loop, int fd)
 }
 
 
-///* check whether the given fd is actually valid, for error recovery */
-//static int fd_valid(int fd)
-//{
-//    return fcntl(fd, F_GETFD) != -1;
-//}
+/* check whether the given fd is actually valid, for error recovery */
+static int fd_valid(int fd)
+{
+    return fcntl(fd, F_GETFD) != -1;
+}
 
 
-///* called on EBADF to verify fds */
-//static void fd_ebadf(struct ev_loop *loop)
-//{
-//    int fd;
+/* called on EBADF to verify fds */
+static void fd_ebadf(struct ev_loop *loop)
+{
+    int fd;
 
-//    for (fd = 0; fd < loop->anfdmax; ++fd) {
-//        if (loop->anfds[fd].events) {
-//            if (!fd_valid(fd) && errno == EBADF) {
-//                fd_kill(loop, fd);
-//            }
-//        }
-//    }
-//}
+    for (fd = 0; fd < loop->anfdmax; ++fd) {
+        if (loop->anfds[fd].events) {
+            if (!fd_valid(fd) && errno == EBADF) {
+                fd_kill(loop, fd);
+            }
+        }
+    }
+}
 
 
-///* called on ENOMEM in select/poll to kill some fds and retry */
-//static void fd_enomem(struct ev_loop *loop)
-//{
-//    int fd;
+/* called on ENOMEM in select/poll to kill some fds and retry */
+static void fd_enomem(struct ev_loop *loop)
+{
+    int fd;
 
-//    for (fd = loop->anfdmax; fd--; ) {
-//        if (loop->anfds[fd].events) {
-//            fd_kill(loop, fd);
-//            break;
-//        }
-//    }
-//}
+    for (fd = loop->anfdmax; fd--; ) {
+        if (loop->anfds[fd].events) {
+            fd_kill(loop, fd);
+            break;
+        }
+    }
+}
 
 
 /* usually called after fork if backend needs to re-arm all fds from scratch */

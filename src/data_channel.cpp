@@ -636,8 +636,8 @@ void SocketChannelPrivate::doReceive()
             packetSize = qFromBigEndian<quint32>(header.data());
             channelNumber = qFromBigEndian<quint32>(header.data() + sizeof(quint32));
 #else
-            packetSize = qFromBigEndian<quint32>(reinterpret_cast<uchar*>(header.data()));
-            channelNumber = qFromBigEndian<quint32>(reinterpret_cast<uchar*>(header.data() + sizeof(quint32)));
+            packetSize = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(header.data()));
+            channelNumber = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(header.data() + sizeof(quint32)));
 #endif
             if (packetSize > maxPacketSize) {
 #ifdef DEBUG_PROTOCOL
@@ -1477,8 +1477,16 @@ void exchange(QSharedPointer<DataChannel> incoming, QSharedPointer<DataChannel> 
 {
     DataChannelPrivate::getPrivateHelper(incoming)->pluggedChannel = outgoing;
     DataChannelPrivate::getPrivateHelper(outgoing)->pluggedChannel = incoming;
-    while (!incoming->recvPacket().isEmpty()) {}
-    while (!outgoing->recvPacket().isEmpty()) {}
+    try {
+        // the receiving queue of incoming and outgoing is always empty while exchanging.
+        // if not, may be one of those peers is aborted. then we quit.
+        while (!incoming->recvPacket().isEmpty()) {}
+        while (!outgoing->recvPacket().isEmpty()) {}
+    } catch (...) {
+        incoming->abort();
+        outgoing->abort();
+        throw;
+    }
 }
 
 
