@@ -65,7 +65,7 @@ HEADERS += \
 win32 {
     SOURCES += $$PWD/src/socket_win.cpp \
         $$PWD/src/eventloop_win.cpp
-    LIBS += -lws2_32
+    LIBS += -lws2_32 -luser32
     DEFINES += "QTNETWORKNG_USE_WIN=1"
 } else: unix  {
     SOURCES += $$PWD/src/socket_unix.cpp
