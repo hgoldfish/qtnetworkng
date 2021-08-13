@@ -39,6 +39,7 @@ public:
     DataChannelPole pole() const;
     void setName(const QString &name);
     QString name() const;
+    QString errorString() const;
 
     bool isBroken() const;
     bool sendPacket(const QByteArray &packet);

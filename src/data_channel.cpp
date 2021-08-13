@@ -122,6 +122,7 @@ public:
     bool sendPacket(const QByteArray &packet);
     bool sendPacketAsync(const QByteArray &packet);
     QString toString();
+    QString errorString() const;
 
     // must be implemented by subclasses
     virtual void abort();
@@ -270,6 +271,16 @@ QString DataChannelPrivate::toString()
         state = QString::fromLatin1("ok");
     }
     return pattern.arg(clazz).arg(name).arg(state);
+}
+
+
+QString DataChannelPrivate::errorString() const
+{
+    QSharedPointer<SocketLike> socket = getBackend();
+    if (socket.isNull()) {
+        return QString();
+    }
+    return socket->errorString();
 }
 
 
@@ -1097,6 +1108,13 @@ QString DataChannel::name() const
 {
     Q_D(const DataChannel);
     return d->name;
+}
+
+
+QString DataChannel::errorString() const
+{
+    Q_D(const DataChannel);
+    return d->errorString();
 }
 
 
