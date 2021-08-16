@@ -88,7 +88,7 @@ bool BaseCoroutinePrivate::initContext()
     context = CreateFiberEx(1024 * 4, stackSize, 0, (PFIBER_START_ROUTINE)run_stub, this);
     if (!context) {
         DWORD error = GetLastError();
-        qWarning() << QStringLiteral("can not create fiber: error is %1").arg(error);
+        qWarning() << QString::fromLatin1("can not create fiber: error is %1").arg(error);
         bad = true;
         return false;
     } else {
@@ -178,7 +178,7 @@ BaseCoroutine* createMainCoroutine()
     if (!main) {
         return nullptr;
     }
-    main->setObjectName("main");
+    main->setObjectName(QString::fromLatin1("main"));
     BaseCoroutinePrivate *mainPrivate = main->d_func();
 #if ( _WIN32_WINNT > 0x0600)
         if (IsThreadAFiber()) {
@@ -200,7 +200,7 @@ BaseCoroutine* createMainCoroutine()
 #endif
     if (!mainPrivate->context) {
         DWORD error = GetLastError();
-        qWarning() << QStringLiteral("Coroutine can not malloc new memroy: error is %1").arg(error);
+        qWarning("Coroutine can not malloc new memroy: error is %d", error);
         delete main;
         return nullptr;
     }

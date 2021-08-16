@@ -682,9 +682,10 @@ void SocketChannelPrivate::doKeepalive()
         if (now - lastActiveTimestamp > keepaliveTimeout) {
             return abort();
         }
-        if (now - lastKeepaliveTimestamp > keepaliveInterval) {
+        if (now - lastKeepaliveTimestamp > keepaliveInterval && sendingQueue.isEmpty()) {
             lastKeepaliveTimestamp = now;
-            sendPacketRawAsync(CommandChannelNumber, packKeepaliveRequest());
+            QSharedPointer<ValueEvent<bool>> done;
+            sendingQueue.putForcedly(WritingPacket(CommandChannelNumber, packKeepaliveRequest(), done));
         }
     }
 }
@@ -941,6 +942,9 @@ void SocketChannel::setKeepaliveTimeout(float timeout)
 {
     Q_D(SocketChannel);
     d->keepaliveTimeout = static_cast<qint64>(timeout * 1000);
+    if (d->keepaliveTimeout < 1000) {
+        d->keepaliveTimeout = 1000;
+    }
 }
 
 
@@ -948,6 +952,23 @@ float SocketChannel::keepaliveTimeout() const
 {
     Q_D(const SocketChannel);
     return static_cast<float>(d->keepaliveTimeout) / 1000;
+}
+
+
+void SocketChannel::setKeepaliveInterval(float keepaliveInterval)
+{
+    Q_D(SocketChannel);
+    d->keepaliveInterval = static_cast<qint64>(keepaliveInterval * 1000);
+    if (d->keepaliveInterval < 200) {
+        d->keepaliveInterval = 200;
+    }
+}
+
+
+float SocketChannel::keepaliveInterval() const
+{
+    Q_D(const SocketChannel);
+    return static_cast<float>(d->keepaliveInterval) / 1000;
 }
 
 

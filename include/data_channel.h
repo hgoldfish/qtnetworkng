@@ -69,6 +69,8 @@ public:
 public:
     void setKeepaliveTimeout(float timeout);
     float keepaliveTimeout() const;
+    void setKeepaliveInterval(float keepaliveInterval);
+    float keepaliveInterval() const;
     quint32 sendingQueueSize() const;
 private:
     Q_DECLARE_PRIVATE(SocketChannel)
