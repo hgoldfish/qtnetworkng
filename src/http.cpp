@@ -1197,7 +1197,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
                 Timeout t(timeout);
                 connection = newConnectionForUrl(url, &error, sendTlsExtHostName);
             } catch (TimeoutException &) {
-                response.setError(new class RequestTimeout());
+                response.setError(new ConnectTimeout());
                 return response;
             }
             if (error != nullptr) {
