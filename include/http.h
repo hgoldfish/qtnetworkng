@@ -466,7 +466,7 @@ public:
 };
 
 
-class ConnectTimeout: public ConnectionError, RequestTimeout
+class ConnectTimeout: public RequestTimeout
 {
 public:
     virtual QString what() const;

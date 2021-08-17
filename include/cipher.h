@@ -62,9 +62,9 @@ public:
     QByteArray saltHeader() const; // `openssl enc` generate a header contains salt
     bool setPadding(bool padding);
     bool padding() const;
-    int keySize() const;
-    int ivSize() const;
-    int blockSize() const;
+    int keySize() const;   // in bytes.
+    int ivSize() const;    // in bytes.
+    int blockSize() const; // in bytes.
 public:
     QByteArray addData(const QByteArray &data) { return addData(data.constData(), data.size()); }
     QByteArray addData(const char *data, int len);
