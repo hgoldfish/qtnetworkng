@@ -25,9 +25,26 @@ class DataChannel: public QObject
 {
     Q_DISABLE_COPY(DataChannel)
 public:
+    enum ChannelError
+    {
+        RemotePeerClosedError = 1,
+        KeepaliveTimeoutError = 2,
+        ReceivingError = 3,
+        SendingError = 4,
+        InvalidCommand = 5,
+        InvalidPacket = 6,
+        UserShutdown = 7,
+
+        UnknownError = 100,
+        ProgrammingError = 101,
+        NoError = 0,
+    };
+public:
     DataChannel(DataChannelPrivate *d);
     virtual ~DataChannel();
 public:
+    ChannelError error() const;
+    QString errorString() const;
     QString toString() const;
     void setMaxPacketSize(quint32 size);
     quint32 maxPacketSize() const;                      // packet with size > maxPacketSize is an error.
