@@ -224,7 +224,7 @@ QSharedPointer<SocketLike> WithSsl<ServerType>::prepareRequest(QSharedPointer<So
     try {
         Timeout timeout(_sslHandshakeTimeout);
         QSharedPointer<SslSocket> s = QSharedPointer<SslSocket>::create(request, _configuration);
-        if (s->handshake(true)) {
+        if (s->handshake(true, QString())) {
             return asSocketLike(s);
         }
     }  catch (TimeoutException &) {

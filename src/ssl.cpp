@@ -234,6 +234,7 @@ public:
     bool isNull() const;
     bool operator==(const SslConfigurationPrivate &other) const;
     static QSharedPointer<SSL_CTX> makeContext(const SslConfiguration &config, bool asServer);
+    void setSendTlsExtHostName(bool sendTlsExtHostName);
 
     QList<Certificate> caCertificates;
     Certificate localCertificate;
@@ -241,11 +242,10 @@ public:
     QList<QByteArray> allowedNextProtocols;
     Ssl::PeerVerifyMode peerVerifyMode;
     QList<SslCipher> ciphers;
+    QSharedPointer<ChooseTlsExtNameCallback> chooseTlsExtNameCallback;
     int peerVerifyDepth;
     bool onlySecureProtocol;
     bool supportCompression;
-    bool sendTlsExtHostName;
-
 };
 
 
@@ -257,10 +257,10 @@ bool SslConfigurationPrivate::operator==(const SslConfigurationPrivate &other) c
             allowedNextProtocols == other.allowedNextProtocols &&
             peerVerifyMode == other.peerVerifyMode &&
             ciphers == other.ciphers &&
+            chooseTlsExtNameCallback == other.chooseTlsExtNameCallback &&
             peerVerifyDepth == other.peerVerifyDepth &&
             onlySecureProtocol == other.onlySecureProtocol &&
-            supportCompression == other.supportCompression &&
-            sendTlsExtHostName == other.sendTlsExtHostName;
+            supportCompression == other.supportCompression;
 }
 
 
@@ -272,10 +272,10 @@ bool SslConfigurationPrivate::isNull() const
             allowedNextProtocols.isEmpty() &&
             peerVerifyMode == Ssl::AutoVerifyPeer &&
             ciphers.isEmpty() &&
+            chooseTlsExtNameCallback.isNull() &&
             peerVerifyDepth == 4 &&
             onlySecureProtocol == true &&
-            supportCompression == true &&
-            sendTlsExtHostName == true;
+            supportCompression == true;
 }
 
 
@@ -284,9 +284,25 @@ SslConfigurationPrivate::SslConfigurationPrivate()
     , peerVerifyDepth(4)
     , onlySecureProtocol(true)
     , supportCompression(true)
-    , sendTlsExtHostName(true)
 {
+    setSendTlsExtHostName(true);
+}
 
+
+class AlwaysTheSameChooseTlsExtNameCallback: public ChooseTlsExtNameCallback
+{
+    virtual QString choose(const QString &hostName) override { return hostName; }
+};
+
+
+void SslConfigurationPrivate::setSendTlsExtHostName(bool sendTlsExtHostName)
+{
+    static QSharedPointer<ChooseTlsExtNameCallback> defaultCallback(new AlwaysTheSameChooseTlsExtNameCallback());
+    if (sendTlsExtHostName) {
+        chooseTlsExtNameCallback = defaultCallback;
+    } else {
+        chooseTlsExtNameCallback.clear();
+    }
 }
 
 
@@ -438,7 +454,13 @@ bool SslConfiguration::supportCompression() const
 
 bool SslConfiguration::sendTlsExtHostName() const
 {
-    return d->sendTlsExtHostName;
+    return !d->chooseTlsExtNameCallback.isNull();
+}
+
+
+QSharedPointer<ChooseTlsExtNameCallback> SslConfiguration::tlsExtHostNameCallback() const
+{
+    return d->chooseTlsExtNameCallback;
 }
 
 
@@ -548,7 +570,13 @@ void SslConfiguration::setSupportCompression(bool supportCompression)
 
 void SslConfiguration::setSendTlsExtHostName(bool sendTlsExtHostName)
 {
-    d->sendTlsExtHostName = sendTlsExtHostName;
+    d->setSendTlsExtHostName(sendTlsExtHostName);
+}
+
+
+void SslConfiguration::setTlsExtHostNameCallback(QSharedPointer<ChooseTlsExtNameCallback> callback)
+{
+    d->chooseTlsExtNameCallback = callback;
 }
 
 
@@ -816,7 +844,7 @@ public:
     SslConnection(const SslConfiguration &config);
     SslConnection();
     ~SslConnection();
-    bool handshake(bool asServer);
+    bool handshake(bool asServer, const QString &hostName);
     bool _handshake();
     bool close();
     qint32 recv(char *data, qint32 size, bool all);
@@ -866,8 +894,12 @@ SslConnection<SocketType>::~SslConnection()
 
 
 template<typename SocketType>
-bool SslConnection<SocketType>::handshake(bool asServer)
+bool SslConnection<SocketType>::handshake(bool asServer, const QString &hostName)
 {
+    // FIXME use verifyMode to set verifyPeerName
+    if (tlsExtHostName.isEmpty() && !hostName.isEmpty()) {
+        tlsExtHostName = hostName;
+    }
     if (rawSocket.isNull()) {
         return false;
     }
@@ -889,9 +921,12 @@ bool SslConnection<SocketType>::handshake(bool asServer)
         if(!ssl.isNull()) {
             // do not free incoming & outgoing
             SSL_set_bio(ssl.data(), incoming, outgoing);
-            if (!asServer && !tlsExtHostName.isEmpty() && config.sendTlsExtHostName()) {
-                const QByteArray &t = tlsExtHostName.toUtf8();
-                SSL_set_tlsext_host_name(ssl.data(), t.data());
+            QSharedPointer<ChooseTlsExtNameCallback> callback = config.tlsExtHostNameCallback();
+            if (!asServer && !tlsExtHostName.isEmpty() && !callback.isNull()) {
+                const QByteArray &t = callback->choose(tlsExtHostName).toUtf8();
+                if (!t.isEmpty()) {
+                    SSL_set_tlsext_host_name(ssl.data(), t.data());
+                }
             }
             return _handshake();
         } else {
@@ -1361,13 +1396,16 @@ SslSocket::~SslSocket()
 }
 
 
-bool SslSocket::handshake(bool asServer)
+bool SslSocket::handshake(bool asServer, const QString &hostName)
 {
     Q_D(SslSocket);
     if (!d->ssl.isNull()) {
         return false;
     }
-    return d->handshake(asServer);
+    if (d->tlsExtHostName.isEmpty()) {
+        d->tlsExtHostName = hostName;
+    }
+    return d->handshake(asServer, hostName);
 }
 
 
@@ -1483,7 +1521,7 @@ SslSocket *SslSocket::accept()
         QSharedPointer<SocketLike> rawSocket = d->rawSocket->accept();
         if (rawSocket) {
             QScopedPointer<SslSocket> s(new SslSocket(rawSocket, d->config));
-            if (s->d_func()->handshake(true)) {
+            if (s->d_func()->handshake(true, QString())) {
                 return s.take();
             }
         }
@@ -1518,7 +1556,7 @@ bool SslSocket::connect(const HostAddress &addr, quint16 port)
     if (!d->rawSocket->connect(addr, port)) {
         return false;
     }
-    return d->handshake(false);
+    return d->handshake(false, QString());
 }
 
 
@@ -1528,11 +1566,7 @@ bool SslSocket::connect(const QString &hostName, quint16 port, QSharedPointer<So
     if (!d->rawSocket->connect(hostName, port, dnsCache)) {
         return false;
     }
-    // FIXME use verifyMode to set verifyPeerName
-    if (d->config.sendTlsExtHostName() && d->tlsExtHostName.isEmpty()) {
-        d->tlsExtHostName = hostName;
-    }
-    return d->handshake(false);
+    return d->handshake(false, hostName);
 }
 
 

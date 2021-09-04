@@ -37,6 +37,13 @@ private:
 };
 
 
+class ChooseTlsExtNameCallback
+{
+public:
+    virtual QString choose(const QString &hostName) = 0;
+};
+
+
 class SslConfigurationPrivate;
 class SslConfiguration
 {
@@ -57,6 +64,7 @@ public:
     bool onlySecureProtocol() const;
     bool supportCompression() const;
     bool sendTlsExtHostName() const;
+    QSharedPointer<ChooseTlsExtNameCallback> tlsExtHostNameCallback() const;
 
     void addCaCertificate(const Certificate &certificate);
     void addCaCertificates(const QList<Certificate> &certificates);
@@ -71,6 +79,7 @@ public:
     void setOnlySecureProtocol(bool onlySecureProtocol);
     void setSupportCompression(bool supportCompression);
     void setSendTlsExtHostName(bool sendTlsExtHostName);
+    void setTlsExtHostNameCallback(QSharedPointer<ChooseTlsExtNameCallback> callback);
 public:
     static QList<SslCipher> supportedCiphers();
     static SslConfiguration testPurpose(const QString &commonName, const QString &countryCode, const QString &organization);
@@ -166,7 +175,7 @@ public:
     SslSocket(QSharedPointer<SocketLike> rawSocket, const SslConfiguration &config = SslConfiguration());
     virtual ~SslSocket();
 public:
-    bool handshake(bool asServer);
+    bool handshake(bool asServer, const QString &hostName);
     Certificate localCertificate() const;
     QList<Certificate> localCertificateChain() const;
     QByteArray nextNegotiatedProtocol() const;
