@@ -240,12 +240,12 @@ public:
     PrivateKey privateKey;
     QList<QByteArray> allowedNextProtocols;
     Ssl::PeerVerifyMode peerVerifyMode;
-    int peerVerifyDepth;
-    QString peerVerifyName;
     QList<SslCipher> ciphers;
+    int peerVerifyDepth;
     bool onlySecureProtocol;
     bool supportCompression;
     bool sendTlsExtHostName;
+
 };
 
 
@@ -256,9 +256,8 @@ bool SslConfigurationPrivate::operator==(const SslConfigurationPrivate &other) c
             privateKey == other.privateKey &&
             allowedNextProtocols == other.allowedNextProtocols &&
             peerVerifyMode == other.peerVerifyMode &&
-            peerVerifyDepth == other.peerVerifyDepth &&
-            peerVerifyName == other.peerVerifyName &&
             ciphers == other.ciphers &&
+            peerVerifyDepth == other.peerVerifyDepth &&
             onlySecureProtocol == other.onlySecureProtocol &&
             supportCompression == other.supportCompression &&
             sendTlsExtHostName == other.sendTlsExtHostName;
@@ -272,17 +271,20 @@ bool SslConfigurationPrivate::isNull() const
             !privateKey.isValid() &&
             allowedNextProtocols.isEmpty() &&
             peerVerifyMode == Ssl::AutoVerifyPeer &&
-            peerVerifyDepth == 4 &&
-            peerVerifyName.isEmpty() &&
             ciphers.isEmpty() &&
+            peerVerifyDepth == 4 &&
             onlySecureProtocol == true &&
-            supportCompression == true && 
+            supportCompression == true &&
             sendTlsExtHostName == true;
 }
 
 
 SslConfigurationPrivate::SslConfigurationPrivate()
-    :peerVerifyMode(Ssl::AutoVerifyPeer), peerVerifyDepth(4), onlySecureProtocol(true), supportCompression(true), sendTlsExtHostName(true)
+    : peerVerifyMode(Ssl::AutoVerifyPeer)
+    , peerVerifyDepth(4)
+    , onlySecureProtocol(true)
+    , supportCompression(true)
+    , sendTlsExtHostName(true)
 {
 
 }
@@ -410,12 +412,6 @@ Ssl::PeerVerifyMode SslConfiguration::peerVerifyMode() const
 }
 
 
-QString SslConfiguration::peerVerifyName() const
-{
-    return d->peerVerifyName;
-}
-
-
 int SslConfiguration::peerVerifyDepth() const
 {
     return d->peerVerifyDepth;
@@ -444,6 +440,7 @@ bool SslConfiguration::sendTlsExtHostName() const
 {
     return d->sendTlsExtHostName;
 }
+
 
 void SslConfiguration::addCaCertificate(const Certificate &certificate)
 {
@@ -475,12 +472,6 @@ void SslConfiguration::setPeerVerifyMode(Ssl::PeerVerifyMode mode)
 }
 
 
-void SslConfiguration::setPeerVerifyName(const QString &hostName)
-{
-    d->peerVerifyName = hostName;
-}
-
-
 void SslConfiguration::setLocalCertificate(const Certificate &certificate)
 {
     d->localCertificate = certificate;
@@ -493,12 +484,21 @@ bool SslConfiguration::setLocalCertificate(const QString &path, Ssl::EncodingFor
     if (!f.open(QIODevice::ReadOnly)) {
         return false;
     }
-    const QByteArray &data = f.readAll();
-    const Certificate &cert = Certificate::load(data, format);
+    qint64 size = f.size();
+    if (size <= 0) {
+        return false;
+    }
+    QByteArray buf(f.size(), Qt::Uninitialized);
+    qint64 bs = f.read(buf.data(), buf.size());
+    if (bs != size) {
+        return false;
+    }
+
+    const Certificate &cert = Certificate::load(buf, format);
     if (cert.isNull() || cert.isBlacklisted()) {
         return false;
     }
-    setLocalCertificate(cert);
+    d->localCertificate = cert;
     return true;
 }
 
@@ -506,6 +506,31 @@ bool SslConfiguration::setLocalCertificate(const QString &path, Ssl::EncodingFor
 void SslConfiguration::setPrivateKey(const PrivateKey &key)
 {
     d->privateKey = key;
+}
+
+
+bool SslConfiguration::setPrivateKey(const QString &fileName, Ssl::EncodingFormat format, const QByteArray &passPhrase)
+{
+    QFile f(fileName);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    qint64 size = f.size();
+    if (size <= 0) {
+        return false;
+    }
+
+    QByteArray buf(f.size(), Qt::Uninitialized);
+    qint64 bs = f.read(buf.data(), buf.size());
+    if (bs != size) {
+        return false;
+    }
+    const PrivateKey &key = PrivateKey::load(buf, format, passPhrase);
+    if (!key.isValid()) {
+        return false;
+    }
+    d->privateKey = key;
+    return true;
 }
 
 
@@ -525,6 +550,7 @@ void SslConfiguration::setSendTlsExtHostName(bool sendTlsExtHostName)
 {
     d->sendTlsExtHostName = sendTlsExtHostName;
 }
+
 
 QList<SslCipher> SslConfiguration::supportedCiphers()
 {
@@ -790,7 +816,7 @@ public:
     SslConnection(const SslConfiguration &config);
     SslConnection();
     ~SslConnection();
-    bool handshake(bool asServer, const QString &verificationPeerName);
+    bool handshake(bool asServer);
     bool _handshake();
     bool close();
     qint32 recv(char *data, qint32 size, bool all);
@@ -811,6 +837,8 @@ public:
     QSharedPointer<SSL_CTX> ctx;
     QSharedPointer<SSL> ssl;
     QList<SslError> errors;
+    QString peerVerifyName;
+    QString tlsExtHostName;
     bool asServer;
 };
 
@@ -838,7 +866,7 @@ SslConnection<SocketType>::~SslConnection()
 
 
 template<typename SocketType>
-bool SslConnection<SocketType>::handshake(bool asServer, const QString &verificationPeerName)
+bool SslConnection<SocketType>::handshake(bool asServer)
 {
     if (rawSocket.isNull()) {
         return false;
@@ -861,8 +889,8 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &verifica
         if(!ssl.isNull()) {
             // do not free incoming & outgoing
             SSL_set_bio(ssl.data(), incoming, outgoing);
-            if (!verificationPeerName.isEmpty() && !asServer && config.sendTlsExtHostName()) {
-                const QByteArray &t = verificationPeerName.toUtf8();
+            if (!asServer && !tlsExtHostName.isEmpty() && config.sendTlsExtHostName()) {
+                const QByteArray &t = tlsExtHostName.toUtf8();
                 SSL_set_tlsext_host_name(ssl.data(), t.data());
             }
             return _handshake();
@@ -1333,13 +1361,13 @@ SslSocket::~SslSocket()
 }
 
 
-bool SslSocket::handshake(bool asServer, const QString &verificationPeerName)
+bool SslSocket::handshake(bool asServer)
 {
     Q_D(SslSocket);
     if (!d->ssl.isNull()) {
         return false;
     }
-    return d->handshake(asServer, verificationPeerName);
+    return d->handshake(asServer);
 }
 
 
@@ -1374,14 +1402,14 @@ QList<Certificate> SslSocket::peerCertificateChain() const
 Ssl::PeerVerifyMode SslSocket::peerVerifyMode() const
 {
     Q_D(const SslSocket);
-    return d->config.peerVerifyMode();
+    return d->peerVerifyMode();
 }
 
 
 QString SslSocket::peerVerifyName() const
 {
     Q_D(const SslSocket);
-    return d->config.peerVerifyName();
+    return d->peerVerifyName;
 }
 
 
@@ -1434,11 +1462,19 @@ void SslSocket::setSslConfiguration(const SslConfiguration &configuration)
 }
 
 
-void SslSocket::setSendTlsExtHostName(bool sendTlsExtHostName)
+void SslSocket::setPeerVerifyName(const QString &peerVerifyName)
 {
     Q_D(SslSocket);
-    d->config.setSendTlsExtHostName(sendTlsExtHostName);
+    d->peerVerifyName = peerVerifyName;
 }
+
+
+void SslSocket::setTlsExtHostName(const QString &tlsExtHostName)
+{
+    Q_D(SslSocket);
+    d->tlsExtHostName = tlsExtHostName;
+}
+
 
 SslSocket *SslSocket::accept()
 {
@@ -1447,7 +1483,7 @@ SslSocket *SslSocket::accept()
         QSharedPointer<SocketLike> rawSocket = d->rawSocket->accept();
         if (rawSocket) {
             QScopedPointer<SslSocket> s(new SslSocket(rawSocket, d->config));
-            if (s->d_func()->handshake(true, QString())) {
+            if (s->d_func()->handshake(true)) {
                 return s.take();
             }
         }
@@ -1482,7 +1518,7 @@ bool SslSocket::connect(const HostAddress &addr, quint16 port)
     if (!d->rawSocket->connect(addr, port)) {
         return false;
     }
-    return d->handshake(false, QString());
+    return d->handshake(false);
 }
 
 
@@ -1492,7 +1528,11 @@ bool SslSocket::connect(const QString &hostName, quint16 port, QSharedPointer<So
     if (!d->rawSocket->connect(hostName, port, dnsCache)) {
         return false;
     }
-    return d->handshake(false, hostName);
+    // FIXME use verifyMode to set verifyPeerName
+    if (d->config.sendTlsExtHostName() && d->tlsExtHostName.isEmpty()) {
+        d->tlsExtHostName = hostName;
+    }
+    return d->handshake(false);
 }
 
 
@@ -1508,6 +1548,7 @@ void SslSocket::abort()
     Q_D(SslSocket);
     d->close();
 }
+
 
 bool SslSocket::listen(int backlog)
 {

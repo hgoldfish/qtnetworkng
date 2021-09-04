@@ -7,6 +7,7 @@
 #include "../socket_utils.h"
 #include "../coroutine_utils.h"
 #include "../http_proxy.h"
+#include "../ssl.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -31,7 +32,7 @@ public:
     QSharedPointer<Semaphore> getSemaphore(const QUrl &url);
     void recycle(const QUrl &url, QSharedPointer<SocketLike> connection);
     QSharedPointer<SocketLike> oldConnectionForUrl(const QUrl &url);
-    QSharedPointer<SocketLike> newConnectionForUrl(const QUrl &url, RequestError **error, bool sendTlsExtHostName = true);
+    QSharedPointer<SocketLike> newConnectionForUrl(const QUrl &url, RequestError **error);
     void removeUnusedConnections();
     QSharedPointer<Socks5Proxy> socks5Proxy() const;
     QSharedPointer<HttpProxy> httpProxy() const;
@@ -41,13 +42,17 @@ private:
     ConnectionPoolItem &getItem(const QUrl &url);
 public:
     QMap<QUrl, ConnectionPoolItem> items;
+    QSharedPointer<SocketDnsCache> dnsCache;
+    QSharedPointer<BaseProxySwitcher> proxySwitcher;
+#ifndef QTNG_NO_CRYPTO
+    SslConfiguration sslConfig;
+#endif
     int maxConnectionsPerServer;
     int timeToLive;
     float defaultConnectionTimeout;
     float defaultTimeout;
-    QSharedPointer<SocketDnsCache> dnsCache;
     CoroutineGroup *operations;
-    QSharedPointer<BaseProxySwitcher> proxySwitcher;
+
 };
 
 
@@ -68,7 +73,6 @@ public:
     int debugLevel;
     bool managingCookies;
     bool keepAlive;
-    bool sendTlsExtHostName;
     friend void setProxySwitcher(HttpSession *session, QSharedPointer<BaseProxySwitcher> switcher);
     static inline HttpSessionPrivate *getPrivateHelper(HttpSession *session) {return session->d_ptr; }
     Q_DECLARE_PUBLIC(HttpSession)

@@ -52,7 +52,6 @@ public:
     bool isNull() const;
     Certificate localCertificate() const;
     Ssl::PeerVerifyMode peerVerifyMode() const;
-    QString peerVerifyName() const;
     int peerVerifyDepth() const;
     PrivateKey privateKey() const;
     bool onlySecureProtocol() const;
@@ -65,10 +64,8 @@ public:
     bool setLocalCertificate(const QString &path, Ssl::EncodingFormat format = Ssl::Pem);
     void setPeerVerifyDepth(int depth);
     void setPeerVerifyMode(Ssl::PeerVerifyMode mode);
-    void setPeerVerifyName(const QString &hostName);
     void setPrivateKey(const PrivateKey &key);
-    void setPrivateKey(const QString &fileName, PrivateKey::Algorithm algorithm = PrivateKey::Rsa,
-                       Ssl::EncodingFormat format = Ssl::Pem, const QByteArray &passPhrase = QByteArray());
+    bool setPrivateKey(const QString &fileName, Ssl::EncodingFormat format = Ssl::Pem, const QByteArray &passPhrase = QByteArray());
     void setSslProtocol(Ssl::SslProtocol protocol);
     void setAllowedNextProtocols(const QList<QByteArray> &protocols);
     void setOnlySecureProtocol(bool onlySecureProtocol);
@@ -169,7 +166,7 @@ public:
     SslSocket(QSharedPointer<SocketLike> rawSocket, const SslConfiguration &config = SslConfiguration());
     virtual ~SslSocket();
 public:
-    bool handshake(bool asServer, const QString &verificationPeerName = QString());
+    bool handshake(bool asServer);
     Certificate localCertificate() const;
     QList<Certificate> localCertificateChain() const;
     QByteArray nextNegotiatedProtocol() const;
@@ -186,7 +183,8 @@ public:
     SslConfiguration sslConfiguration() const;
     QList<SslError> sslErrors() const;
     void setSslConfiguration(const SslConfiguration &configuration);
-    void setSendTlsExtHostName(bool sendTlsExtHostName);
+    void setPeerVerifyName(const QString &peerVerifyName);
+    void setTlsExtHostName(const QString &tlsExtHostName);
 public:
     Socket::SocketError error() const;
     QString errorString() const;

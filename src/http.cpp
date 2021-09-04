@@ -824,13 +824,13 @@ static QUrl hostOnly(const QUrl &url)
 
 
 ConnectionPool::ConnectionPool()
-    : maxConnectionsPerServer(5)
+    : dnsCache(new SocketDnsCache)
+    , proxySwitcher(new SimpleProxySwitcher)
+    , maxConnectionsPerServer(5)
     , timeToLive(60)
     , defaultConnectionTimeout(10.0)
     , defaultTimeout(20.0)
-    , dnsCache(new SocketDnsCache)
     , operations(new CoroutineGroup)
-    , proxySwitcher(new SimpleProxySwitcher)
 {
     operations->spawnWithName(QString::fromLatin1("removeUnusedConnections"), [this] {removeUnusedConnections();});
 }
@@ -892,7 +892,7 @@ QSharedPointer<SocketLike> ConnectionPool::oldConnectionForUrl(const QUrl &url)
 }
 
 
-QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, RequestError **error, bool sendTlsExtHostName/* = true*/)
+QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, RequestError **error)
 {
     QSharedPointer<SocketLike> connection;
     QSharedPointer<Socket> rawSocket;
@@ -937,15 +937,13 @@ QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, 
         connection = asSocketLike(rawSocket);
     } else {
 #ifndef QTNG_NO_CRYPTO
-        QSharedPointer<SslSocket> ssl(new SslSocket(rawSocket));
-        ssl->setSendTlsExtHostName(sendTlsExtHostName);
-        if (!ssl->handshake(false, url.host())) {
+        QSharedPointer<SslSocket> ssl(new SslSocket(rawSocket, sslConfig));
+        if (!ssl->handshake(false)) {
             *error = new ConnectionError();
             return QSharedPointer<SocketLike>();
         }
         connection = asSocketLike(ssl);
 #else
-        Q_UNUSED(sendTlsExtHostName);
         *error = new ConnectionError();
         return QSharedPointer<SocketLike>();
 #endif
@@ -1195,7 +1193,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             float timeout = request.d->connectionTimeout < 0 ? defaultConnectionTimeout : request.d->connectionTimeout;
             try {
                 Timeout t(timeout);
-                connection = newConnectionForUrl(url, &error, sendTlsExtHostName);
+                connection = newConnectionForUrl(url, &error);
             } catch (TimeoutException &) {
                 response.setError(new ConnectTimeout());
                 return response;
@@ -2916,12 +2914,6 @@ bool HttpSession::keepAlive() const
 }
 
 
-void HttpSession::setSendTlsExtHostName(bool sendTlsExtHostName)
-{
-    Q_D(HttpSession);
-    d->sendTlsExtHostName = sendTlsExtHostName;
-}
-
 QString HttpSession::defaultUserAgent() const
 {
     Q_D(const HttpSession);
@@ -3031,6 +3023,13 @@ void HttpSession::setCacheManager(QSharedPointer<HttpCacheManager> cacheManager)
 {
     Q_D(HttpSession);
     d->cacheManager = cacheManager;
+}
+
+
+SslConfiguration &HttpSession::sslConfiguration()
+{
+    Q_D(HttpSession);
+    return d->sslConfig;
 }
 
 

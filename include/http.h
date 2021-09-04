@@ -355,8 +355,6 @@ public:
     void setKeepAlive(bool keepAlive);
     bool keepAlive() const;
 
-    void setSendTlsExtHostName(bool sendTlsExtHostName);
-
     QString defaultUserAgent() const;
     void setDefaultUserAgent(const QString &userAgent);
     HttpVersion defaultVersion() const;
@@ -365,15 +363,18 @@ public:
     void setDefaultConnectionTimeout(float timeout);
     float defaultTimeout() const;
     void setDefaultTimeout(float defaultTimeout);
+
     void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache);
     QSharedPointer<SocketDnsCache> dnsCache() const;
-
     QSharedPointer<Socks5Proxy> socks5Proxy() const;
     void setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy);
     QSharedPointer<HttpProxy> httpProxy() const;
     void setHttpProxy(QSharedPointer<HttpProxy> proxy);
     QSharedPointer<HttpCacheManager> cacheManager() const;
     void setCacheManager(QSharedPointer<HttpCacheManager> cacheManager);
+#ifndef QTNG_NO_CRYPTO
+    class SslConfiguration &sslConfiguration();
+#endif
 private:
     HttpSessionPrivate *d_ptr;
     Q_DECLARE_PRIVATE(HttpSession)
