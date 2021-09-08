@@ -175,7 +175,7 @@ public:
     SslSocket(QSharedPointer<SocketLike> rawSocket, const SslConfiguration &config = SslConfiguration());
     virtual ~SslSocket();
 public:
-    bool handshake(bool asServer, const QString &hostName);
+    bool handshake(bool asServer, const QString &hostName = QString());
     Certificate localCertificate() const;
     QList<Certificate> localCertificateChain() const;
     QByteArray nextNegotiatedProtocol() const;

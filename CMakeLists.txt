@@ -12,17 +12,21 @@ endif ()
 
 project(qtnetworkng LANGUAGES C CXX ASM)
 
-# intergrate libressl
-add_subdirectory(libressl)
-
 option(QTNG_BUILD_TESTS OFF)
+option(QTNG_USE_OPENSSL OFF)
 set(CMAKE_AUTOMOC ON)
 
 find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
 find_package(Qt5Network CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
 find_package(Qt5Test CONFIG CMAKE_FIND_ROOT_PATH_BOTH)
 find_package(ZLIB)
-
+if (QTNG_USE_OPENSSL)
+    find_package(OpenSSL REQUIRED)  # CMAKE_FIND_ROOT_PATH_BOTH
+    include(CheckFunctionExists)
+else()
+    # intergrate libressl
+    add_subdirectory(libressl)
+endif()
 
 if (CMAKE_VERSION VERSION_LESS "3.1")
     if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -320,7 +324,7 @@ if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a AND NOT EXISTS ${_qt5Core_
     link_directories(${_qt5Core_install_prefix}/lib/)
 endif()
 
-target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE tls ssl crypto ${ZLIB_LINK} ${OS_EXTRA_LINK})
+target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE ssl crypto ${ZLIB_LINK} ${OS_EXTRA_LINK})
 
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)

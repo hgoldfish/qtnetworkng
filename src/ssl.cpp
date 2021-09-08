@@ -1402,9 +1402,6 @@ bool SslSocket::handshake(bool asServer, const QString &hostName)
     if (!d->ssl.isNull()) {
         return false;
     }
-    if (d->tlsExtHostName.isEmpty()) {
-        d->tlsExtHostName = hostName;
-    }
     return d->handshake(asServer, hostName);
 }
 
