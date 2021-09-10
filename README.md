@@ -28,6 +28,7 @@ Features
 * `MsgPackStream` is a new MessagePack implementation similar to `QDataStream`
 * `Cipher`, `MessageDigest`, `PublicKey`, `PrivateKey` wrap complicate LibreSSL C API.
 
+
 Examples
 --------
 
@@ -134,12 +135,14 @@ And its project file.
     
 As you can see, networking programming is done with very simple API.
 
+
 License
 -------
 
 The QtNetworkNg is distributed under LGPL 3.0 license.
 
 You can obtain a copy of LGPL 3.0 license at: https://www.gnu.org/licenses/lgpl-3.0.en.html
+
 
 Dependencies
 ------------
@@ -148,14 +151,15 @@ QtNetworkNg require QtCore, QtNetwork to build. SSL and crypto is supported usin
 
 Qt 5 - https://www.qt.io/download
 
+
 Supported Platforms
 -----------------------
 
-Linux, Android and OpenBSD is supported.
+Linux, Android, MacOS, Windows and OpenBSD is supported.
 
-Macos, iOS is not tested yet, as I have no mac machines.
+iOS is not tested yet, as I have no iOS machines. FreeBSD is never tested either.
 
-Windows is supported partially. Because the Qt eventloop is not very efficient, a separate libev event loop is provided in Linux which is not available in Windows. GZip compression is not supported under Windows if zlib library not present.
+GZip compression is not supported under Windows if zlib library not present.
 
 QtNetworkNg uses more effective boost::context asm code in arm, arm64, x86, amd64 machines, and uses native ucontext or windows fiber API in other architectures.
 
@@ -172,7 +176,7 @@ Towards 1.0
 - [x] A simple replacement for libev in Windows.
 - [ ] Add more OpenSSL functions.
 - [ ] Support verification/ALPS for https connection.
-- [ ] Support MacOS and iOS platforms.
+- [x] Support MacOS and iOS platforms.
 - [ ] Remove QtNetwork dependence.
 
 
@@ -189,6 +193,7 @@ Building
 1. Clone QtNetworkNg from github as git subrepository.
 2. include `qtnetworkng/qtnetworkng.pri` in your `project.pro` file.
 3. include `qtnetworkng.h` in you cpp files.
+
 
 How to Contribute
 -----------------
