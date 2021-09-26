@@ -34,9 +34,9 @@ public:
     QSharedPointer<SocketLike> oldConnectionForUrl(const QUrl &url);
     QSharedPointer<SocketLike> newConnectionForUrl(const QUrl &url, RequestError **error);
     void removeUnusedConnections();
-    QSharedPointer<Socks5Proxy> socks5Proxy() const;
+    QSharedPointer<SocketProxy> socketProxy() const;
     QSharedPointer<HttpProxy> httpProxy() const;
-    void setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy);
+    void setSocketProxy(QSharedPointer<SocketProxy> proxy);
     void setHttpProxy(QSharedPointer<HttpProxy> proxy);
 private:
     ConnectionPoolItem &getItem(const QUrl &url);

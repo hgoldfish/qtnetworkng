@@ -366,8 +366,8 @@ public:
 
     void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache);
     QSharedPointer<SocketDnsCache> dnsCache() const;
-    QSharedPointer<Socks5Proxy> socks5Proxy() const;
-    void setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy);
+    QSharedPointer<SocketProxy> socketProxy() const;
+    void setSocketProxy(QSharedPointer<SocketProxy> proxy);
     QSharedPointer<HttpProxy> httpProxy() const;
     void setHttpProxy(QSharedPointer<HttpProxy> proxy);
     QSharedPointer<HttpCacheManager> cacheManager() const;

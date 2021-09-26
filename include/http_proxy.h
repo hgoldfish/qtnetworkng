@@ -7,7 +7,7 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 class HttpProxyPrivate;
-class HttpProxy: public HttpHeaderManager
+class HttpProxy: public WithHttpHeaders<SocketProxy>
 {
 public:
     enum Capability
@@ -23,8 +23,8 @@ public:
     HttpProxy(HttpProxy &&other) :d_ptr(nullptr) { qSwap(d_ptr, other.d_ptr); }
     ~HttpProxy();
 public:
-    QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port);
-    QSharedPointer<Socket> connect(const HostAddress &remoteHost, quint16 port);
+    virtual QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port) override;
+    virtual QSharedPointer<Socket> connect(const HostAddress &remoteHost, quint16 port) override;
 public:
     QString hostName() const;
     quint16 port() const;
@@ -53,7 +53,7 @@ public:
     BaseProxySwitcher();
     virtual ~BaseProxySwitcher();
 public:
-    virtual QSharedPointer<Socks5Proxy> selectSocks5Proxy(const QUrl &url) = 0;
+    virtual QSharedPointer<SocketProxy> selectSocketProxy(const QUrl &url) = 0;
     virtual QSharedPointer<HttpProxy> selectHttpProxy(const QUrl &url) = 0;
 };
 
@@ -61,10 +61,10 @@ public:
 class SimpleProxySwitcher: public BaseProxySwitcher
 {
 public:
-    virtual QSharedPointer<Socks5Proxy> selectSocks5Proxy(const QUrl &url) override;
+    virtual QSharedPointer<SocketProxy> selectSocketProxy(const QUrl &url) override;
     virtual QSharedPointer<HttpProxy> selectHttpProxy(const QUrl &url) override;
 public:
-    QList<QSharedPointer<Socks5Proxy>> socks5Proxies;
+    QList<QSharedPointer<SocketProxy>> socketProxies;
     QList<QSharedPointer<HttpProxy>> httpProxies;
 };
 

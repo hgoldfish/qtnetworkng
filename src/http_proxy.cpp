@@ -213,20 +213,22 @@ BaseProxySwitcher::BaseProxySwitcher() {}
 BaseProxySwitcher::~BaseProxySwitcher() {}
 
 
-QSharedPointer<Socks5Proxy> SimpleProxySwitcher::selectSocks5Proxy(const QUrl &url)
+QSharedPointer<SocketProxy> SimpleProxySwitcher::selectSocketProxy(const QUrl &url)
 {
     Q_UNUSED(url);
-    if(socks5Proxies.size() > 0) {
-        return socks5Proxies.at(0);
+    if (!socketProxies.isEmpty()) {
+        return socketProxies.first();
+    } else if (!httpProxies.isEmpty()) {
+        return httpProxies.first();
     }
-    return QSharedPointer<Socks5Proxy>();
+    return QSharedPointer<SocketProxy>();
 }
 
 
 QSharedPointer<HttpProxy> SimpleProxySwitcher::selectHttpProxy(const QUrl &url)
 {
     Q_UNUSED(url);
-    if(httpProxies.size() > 0) {
+    if (httpProxies.size() > 0) {
         return httpProxies.at(0);
     }
     return QSharedPointer<HttpProxy>();

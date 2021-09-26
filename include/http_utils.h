@@ -183,7 +183,7 @@ class HttpHeaderManager: public WithHttpHeaders<EmptyClass> {};
 template<typename Base>
 void WithHttpHeaders<Base>::setContentLength(qint64 contentLength)
 {
-    setHeader(QStringLiteral("Content-Length"), QString::number(contentLength).toLatin1());
+    setHeader(QString::fromLatin1("Content-Length"), QString::number(contentLength).toLatin1());
 }
 
 
@@ -191,7 +191,7 @@ template<typename Base>
 qint64 WithHttpHeaders<Base>::getContentLength() const
 {
     bool ok;
-    QByteArray s = header(QStringLiteral("Content-Length"));
+    QByteArray s = header(QString::fromLatin1("Content-Length"));
     qint64 l = s.toLongLong(&ok);
     if (ok) {
         if (l >= 0) {
@@ -208,21 +208,21 @@ qint64 WithHttpHeaders<Base>::getContentLength() const
 template<typename Base>
 void WithHttpHeaders<Base>::setContentType(const QString &contentType)
 {
-    setHeader(QStringLiteral("Content-Type"), contentType.toUtf8());
+    setHeader(QString::fromLatin1("Content-Type"), contentType.toUtf8());
 }
 
 
 template<typename Base>
 QString WithHttpHeaders<Base>::getContentType() const
 {
-    return QString::fromUtf8(header(QStringLiteral("Content-Type"), "text/plain"));
+    return QString::fromUtf8(header(QString::fromLatin1("Content-Type"), "text/plain"));
 }
 
 
 template<typename Base>
 QUrl WithHttpHeaders<Base>::getLocation() const
 {
-    const QByteArray &value = header(QStringLiteral("Location"));
+    const QByteArray &value = header(QString::fromLatin1("Location"));
     if(value.isEmpty()) {
         return QUrl();
     }
@@ -238,14 +238,14 @@ QUrl WithHttpHeaders<Base>::getLocation() const
 template<typename Base>
 void WithHttpHeaders<Base>::setLocation(const QUrl &url)
 {
-    setHeader(QStringLiteral("Location"), url.toEncoded(QUrl::FullyEncoded));
+    setHeader(QString::fromLatin1("Location"), url.toEncoded(QUrl::FullyEncoded));
 }
 
 
 template<typename Base>
 QDateTime WithHttpHeaders<Base>::getLastModified() const
 {
-    const QByteArray &value = header(QStringLiteral("Last-Modified"));
+    const QByteArray &value = header(QString::fromLatin1("Last-Modified"));
     if(value.isEmpty()) {
         return QDateTime();
     }
@@ -256,21 +256,21 @@ QDateTime WithHttpHeaders<Base>::getLastModified() const
 template<typename Base>
 void WithHttpHeaders<Base>::setLastModified(const QDateTime &lastModified)
 {
-    setHeader(QStringLiteral("Last-Modified"), toHttpDate(lastModified));
+    setHeader(QString::fromLatin1("Last-Modified"), toHttpDate(lastModified));
 }
 
 
 template<typename Base>
 void WithHttpHeaders<Base>::setModifiedSince(const QDateTime &modifiedSince)
 {
-    setHeader(QStringLiteral("Modified-Since"), toHttpDate(modifiedSince));
+    setHeader(QString::fromLatin1("Modified-Since"), toHttpDate(modifiedSince));
 }
 
 
 template<typename Base>
 QDateTime WithHttpHeaders<Base>::getModifedSince() const
 {
-    const QByteArray &value = header(QStringLiteral("Modified-Since"));
+    const QByteArray &value = header(QString::fromLatin1("Modified-Since"));
     if(value.isEmpty()) {
         return QDateTime();
     }

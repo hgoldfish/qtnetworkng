@@ -39,7 +39,7 @@ private:
 };
 
 class Socks5ProxyPrivate;
-class Socks5Proxy
+class Socks5Proxy: public SocketProxy
 {
 public:
     enum Capability
@@ -58,8 +58,8 @@ public:
     Socks5Proxy(Socks5Proxy &&other) :d_ptr(nullptr) { qSwap(d_ptr, other.d_ptr); }
     ~Socks5Proxy();
 public:
-    QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port);
-    QSharedPointer<Socket> connect(const HostAddress &remoteHost, quint16 port);
+    virtual QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port) override;
+    virtual QSharedPointer<Socket> connect(const HostAddress &remoteHost, quint16 port) override;
     QSharedPointer<SocketLike> listen(quint16 port);
 
     bool isNull() const;

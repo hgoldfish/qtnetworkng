@@ -908,23 +908,18 @@ QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, 
 #endif
     }
 
-    QSharedPointer<Socks5Proxy> socks5Proxy = proxySwitcher->selectSocks5Proxy(url);
-    if (!socks5Proxy.isNull()) {
+    QSharedPointer<SocketProxy> socketProxy = proxySwitcher->selectSocketProxy(url);
+    if (!socketProxy.isNull()) {
         try {
-            rawSocket = socks5Proxy->connect(url.host(), port);
+            rawSocket = socketProxy->connect(url.host(), port);
         } catch (Socks5Exception &) {
             // handle error on next.
         }
     } else {
-        QSharedPointer<HttpProxy> httpProxy = proxySwitcher->selectHttpProxy(url);
-        if (!httpProxy.isNull()) {
-            rawSocket = httpProxy->connect(url.host(), port);
-        } else {
-            rawSocket.reset(Socket::createConnection(url.host(), port, nullptr, dnsCache));
-            if (rawSocket.isNull()) {
-                *error = new ConnectionError();
-                return QSharedPointer<SocketLike>();
-            }
+        rawSocket.reset(Socket::createConnection(url.host(), port, nullptr, dnsCache));
+        if (rawSocket.isNull()) {
+            *error = new ConnectionError();
+            return QSharedPointer<SocketLike>();
         }
     }
 
@@ -974,15 +969,18 @@ void ConnectionPool::removeUnusedConnections()
 }
 
 
-QSharedPointer<Socks5Proxy> ConnectionPool::socks5Proxy() const
+QSharedPointer<SocketProxy> ConnectionPool::socketProxy() const
 {
     QSharedPointer<SimpleProxySwitcher> sps = proxySwitcher.dynamicCast<SimpleProxySwitcher>();
     if (sps) {
-        if (!sps->socks5Proxies.isEmpty()) {
-            return sps->socks5Proxies.at(0);
+        if (!sps->socketProxies.isEmpty()) {
+            return sps->socketProxies.first();
         }
+//        else if (!sps->httpProxies.isEmpty()) {
+//           return sps->httpProxies.first();
+//        }
     }
-    return QSharedPointer<Socks5Proxy>();
+    return QSharedPointer<SocketProxy>();
 }
 
 
@@ -998,13 +996,13 @@ QSharedPointer<HttpProxy> ConnectionPool::httpProxy() const
 }
 
 
-void ConnectionPool::setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy)
+void ConnectionPool::setSocketProxy(QSharedPointer<SocketProxy> proxy)
 {
     QSharedPointer<SimpleProxySwitcher> sps = proxySwitcher.dynamicCast<SimpleProxySwitcher>();
     if (sps) {
-        sps->socks5Proxies.clear();
+        sps->socketProxies.clear();
         if (!proxy.isNull()) {
-            sps->socks5Proxies.append(proxy);
+            sps->socketProxies.append(proxy);
         }
     }
 }
@@ -2984,17 +2982,17 @@ QSharedPointer<SocketDnsCache> HttpSession::dnsCache() const
 }
 
 
-QSharedPointer<Socks5Proxy> HttpSession::socks5Proxy() const
+QSharedPointer<SocketProxy> HttpSession::socketProxy() const
 {
     Q_D(const HttpSession);
-    return d->socks5Proxy();
+    return d->socketProxy();
 }
 
 
-void HttpSession::setSocks5Proxy(QSharedPointer<Socks5Proxy> proxy)
+void HttpSession::setSocketProxy(QSharedPointer<SocketProxy> proxy)
 {
     Q_D(HttpSession);
-    d->setSocks5Proxy(proxy);
+    d->setSocketProxy(proxy);
 }
 
 
