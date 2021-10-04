@@ -73,6 +73,7 @@ public:
     HostAddress(const QHostAddress& address);
     HostAddress(QHostAddress::SpecialAddress address);
     HostAddress(const QIPv6Address &ip6Addr);
+    operator QHostAddress () const { return protocal() == IPv4Protocol ? QHostAddress(toIPv4Address()) : QHostAddress(toIPv6Address().c); }
 #endif
     ~HostAddress();
 
@@ -128,7 +129,6 @@ public:
 private:
     friend class HostAddressPrivate;
     QSharedDataPointer<HostAddressPrivate> d;
-
 };
 
 QTNETWORKNG_NAMESPACE_END

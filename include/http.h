@@ -8,11 +8,10 @@
 #include <QtCore/qjsonobject.h>
 #include <QtCore/qmimedatabase.h>
 #include <QtCore/qdir.h>
-#include <QtNetwork/qnetworkcookie.h>
-#include <QtNetwork/qnetworkcookiejar.h>
 
 #include "coroutine.h"
 #include "http_utils.h"
+#include "http_cookie.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -102,8 +101,8 @@ public:
     QUrlQuery query() const;
     void setQuery(const QMap<QString, QString> &query);
     void setQuery(const QUrlQuery &query);
-    QList<QNetworkCookie> cookies() const;
-    void setCookies(const QList<QNetworkCookie> &cookies);
+    QList<HttpCookie> cookies() const;
+    void setCookies(const QList<HttpCookie> &cookies);
     QSharedPointer<FileLike> body() const;
     void setBody(const QByteArray &body);
     void setBody(QSharedPointer<FileLike> body);
@@ -163,8 +162,8 @@ public:
     void setStatusCode(int statusCode);
     QString statusText() const;
     void setStatusText(const QString &statusText);
-    QList<QNetworkCookie> cookies() const;
-    void setCookies(const QList<QNetworkCookie> &cookies);
+    QList<HttpCookie> cookies() const;
+    void setCookies(const QList<HttpCookie> &cookies);
     HttpRequest request() const;
     void setRequest(const HttpRequest &request);
     qint64 elapsed() const;
@@ -342,8 +341,8 @@ public:
     HttpResponse when(const QUrl &url);
 
     HttpResponse send(HttpRequest &request);
-    QNetworkCookieJar &cookieJar();
-    QNetworkCookie cookie(const QUrl &url, const QString &name);
+    HttpCookieJar &cookieJar();
+    HttpCookie cookie(const QUrl &url, const QString &name);
     void setManagingCookies(bool managingCookies);
 
     void setMaxConnectionsPerServer(int maxConnectionsPerServer);

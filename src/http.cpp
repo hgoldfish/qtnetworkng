@@ -109,7 +109,7 @@ public:
     QString method;
     QUrl url;
     QUrlQuery query;
-    QList<QNetworkCookie> cookies;
+    QList<HttpCookie> cookies;
     QSharedPointer<FileLike> body;
     QString userAgent;
     qint64 maxBodySize;
@@ -235,13 +235,13 @@ void HttpRequest::setQuery(const QUrlQuery &query)
 }
 
 
-QList<QNetworkCookie> HttpRequest::cookies() const
+QList<HttpCookie> HttpRequest::cookies() const
 {
     return d->cookies;
 }
 
 
-void HttpRequest::setCookies(const QList<QNetworkCookie> &cookies)
+void HttpRequest::setCookies(const QList<HttpCookie> &cookies)
 {
     d->cookies = cookies;
 }
@@ -433,7 +433,7 @@ public:
 public:
     QUrl url;
     QString statusText;
-    QList<QNetworkCookie> cookies;
+    QList<HttpCookie> cookies;
     HttpRequest request;
     QByteArray body;
     QList<HttpResponse> history;
@@ -536,13 +536,13 @@ void HttpResponse::setStatusText(const QString &statusText)
 }
 
 
-QList<QNetworkCookie> HttpResponse::cookies() const
+QList<HttpCookie> HttpResponse::cookies() const
 {
     return d->cookies;
 }
 
 
-void HttpResponse::setCookies(const QList<QNetworkCookie> &cookies)
+void HttpResponse::setCookies(const QList<HttpCookie> &cookies)
 {
     d->cookies = cookies;
 }
@@ -1276,7 +1276,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     // merge cookies.
     if (managingCookies && response.hasHeader(QString::fromLatin1("Set-Cookie"))) {
         for (const QByteArray &value: response.multiHeader(QString::fromLatin1("Set-Cookie"))) {
-            const QList<QNetworkCookie> &cookies = QNetworkCookie::parseCookies(value);
+            const QList<HttpCookie> &cookies = HttpCookie::parseCookies(value);
             if(debugLevel > 0 && !cookies.isEmpty()) {
                 qDebug() << "receiving cookie:" << cookies[0].toRawForm();
             }
@@ -1385,11 +1385,11 @@ QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QU
     if (!request.d->cookies.isEmpty() && !request.hasHeader(QString::fromLatin1("Cookie"))) {
         QByteArray result;
         bool first = true;
-        for (const QNetworkCookie &cookie: request.d->cookies) {
+        for (const HttpCookie &cookie: request.d->cookies) {
             if (!first)
                 result += "; ";
             first = false;
-            result += cookie.toRawForm(QNetworkCookie::NameAndValueOnly);
+            result += cookie.toRawForm(HttpCookie::NameAndValueOnly);
         }
         allHeaders.append(HttpHeader(QString::fromLatin1("Cookie"), result));
     }
@@ -1402,13 +1402,13 @@ void HttpSessionPrivate::mergeCookies(HttpRequest &request, const QUrl &url)
     if (!managingCookies) {
         return;
     }
-    QList<QNetworkCookie> cookies = cookieJar.cookiesForUrl(url);
+    QList<HttpCookie> cookies = cookieJar.cookiesForUrl(url);
     if (cookies.isEmpty()) {
         return;
     }
-    for (const QNetworkCookie &cookie: cookies) {
+    for (const HttpCookie &cookie: cookies) {
         bool found = false;
-        for (const QNetworkCookie &newCookie: request.d->cookies) {
+        for (const HttpCookie &newCookie: request.d->cookies) {
             if (newCookie.hasSameIdentifier(cookie) &&
                     newCookie.isSecure() == cookie.isSecure() &&
                     newCookie.isHttpOnly() == cookie.isHttpOnly()) {
@@ -2837,25 +2837,25 @@ HttpResponse HttpSession::send(HttpRequest &request)
 }
 
 
-QNetworkCookieJar &HttpSession::cookieJar()
+HttpCookieJar &HttpSession::cookieJar()
 {
     Q_D(HttpSession);
     return d->cookieJar;
 }
 
 
-QNetworkCookie HttpSession::cookie(const QUrl &url, const QString &name)
+HttpCookie HttpSession::cookie(const QUrl &url, const QString &name)
 {
     Q_D(HttpSession);
-    const QNetworkCookieJar &jar = d->cookieJar;
-    QList<QNetworkCookie> cookies = jar.cookiesForUrl(url);
+    const HttpCookieJar &jar = d->cookieJar;
+    QList<HttpCookie> cookies = jar.cookiesForUrl(url);
     for (int i = 0; i < cookies.size(); ++i) {
-        const QNetworkCookie &cookie = cookies.at(i);
+        const HttpCookie &cookie = cookies.at(i);
         if (cookie.name() == name.toUtf8()) {
             return cookie;
         }
     }
-    return QNetworkCookie();
+    return HttpCookie();
 }
 
 

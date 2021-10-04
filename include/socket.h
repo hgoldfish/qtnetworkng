@@ -4,7 +4,7 @@
 #include <QtCore/qstring.h>
 #include <QtCore/qbytearray.h>
 #include <QtCore/qobject.h>
-#include <QtNetwork/qhostinfo.h>
+// #include <QtNetwork/qhostinfo.h>
 
 #include "hostaddress.h"
 #include "private/eventloop_p.h"
@@ -20,7 +20,7 @@ class SocketPrivate;
 class SocketDnsCache;
 class HostAddress;
 
-class Socket: public QObject
+class Socket
 {
 public:
     enum SocketType {
@@ -151,8 +151,8 @@ public:
                                   int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
     static Socket *createServer(const HostAddress &host, quint16 port, int backlog = 50);
 private:
-    SocketPrivate * const dd_ptr;
-    Q_DECLARE_PRIVATE_D(dd_ptr, Socket)
+    SocketPrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(Socket)
     Q_DISABLE_COPY(Socket)
 };
 

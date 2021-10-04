@@ -222,14 +222,14 @@ bool SocketPrivate::connect(const QString &hostName, quint16 port, QSharedPointe
 
 
 Socket::Socket(HostAddress::NetworkLayerProtocol protocol, SocketType type)
-    :dd_ptr(new SocketPrivate(protocol, type, this))
+    : d_ptr(new SocketPrivate(protocol, type, this))
 {
 
 }
 
 
 Socket::Socket(qintptr socketDescriptor)
-    :dd_ptr(new SocketPrivate(socketDescriptor, this))
+    : d_ptr(new SocketPrivate(socketDescriptor, this))
 {
 }
 
@@ -241,7 +241,7 @@ Socket::~Socket()
     if (d->readLock->isLocked() || d->writeLock->isLocked()) {
         qWarning() << "socket is deleted while receiving or sending.";
     }
-    delete dd_ptr;
+    delete d_ptr;
 }
 
 

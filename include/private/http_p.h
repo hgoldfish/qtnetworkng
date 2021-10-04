@@ -65,7 +65,7 @@ public:
     void mergeCookies(HttpRequest &request, const QUrl &url);
     HttpResponse send(HttpRequest &req);
 public:
-    QNetworkCookieJar cookieJar;
+    HttpCookieJar cookieJar;
     QSharedPointer<HttpCacheManager> cacheManager;
     QString defaultUserAgent;
     HttpVersion defaultVersion;

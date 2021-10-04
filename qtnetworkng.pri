@@ -20,6 +20,7 @@ SOURCES += \
     $$PWD/src/socket_utils.cpp \
     $$PWD/src/http_utils.cpp \
     $$PWD/src/http_proxy.cpp \
+    $$PWD/src/http_cookie.cpp \
     $$PWD/src/socks5_proxy.cpp \
     $$PWD/src/eventloop_qt.cpp \
     $$PWD/src/msgpack.cpp \
@@ -52,6 +53,7 @@ HEADERS += \
     $$PWD/include/socket_utils.h \
     $$PWD/include/http_utils.h \
     $$PWD/include/http_proxy.h \
+    $$PWD/include/http_cookie.h \
     $$PWD/include/socks5_proxy.h \
     $$PWD/include/deferred.h \
     $$PWD/include/msgpack.h \

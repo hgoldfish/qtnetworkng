@@ -17,7 +17,7 @@ option(QTNG_USE_OPENSSL OFF)
 set(CMAKE_AUTOMOC ON)
 
 find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
-find_package(Qt5Network CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
+# find_package(Qt5Network CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
 find_package(Qt5Test CONFIG CMAKE_FIND_ROOT_PATH_BOTH)
 find_package(ZLIB)
 if (QTNG_USE_OPENSSL)
@@ -51,6 +51,7 @@ set(QTNETWORKNG_SRC
     src/http.cpp
     src/http_utils.cpp
     src/http_proxy.cpp
+    src/http_cookie.cpp
     src/socks5_proxy.cpp
     src/msgpack.cpp
     src/data_channel.cpp
@@ -80,6 +81,7 @@ set(QTNETWORKNG_INCLUDE
     include/socket_server.h
     include/http_utils.h
     include/http_proxy.h
+    include/http_cookie.h
     include/socks5_proxy.h
     include/deferred.h
     include/qtnetworkng.h
@@ -89,7 +91,7 @@ set(QTNETWORKNG_INCLUDE
     include/hostaddress.h
 )
 
-SET(QTNETWORKNG_PRIVATE_INCLUDE
+set(QTNETWORKNG_PRIVATE_INCLUDE
     include/private/data_pack.h
     include/private/eventloop_p.h
     include/private/coroutine_p.h
@@ -324,14 +326,14 @@ if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a AND NOT EXISTS ${_qt5Core_
     link_directories(${_qt5Core_install_prefix}/lib/)
 endif()
 
-target_link_libraries(qtnetworkng PUBLIC Qt5::Core Qt5::Network PRIVATE ssl crypto ${ZLIB_LINK} ${OS_EXTRA_LINK})
+target_link_libraries(qtnetworkng PUBLIC Qt5::Core PRIVATE ssl crypto ${ZLIB_LINK} ${OS_EXTRA_LINK})  # Qt5::Network
 
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
 install(FILES ${QTNETWORKNG_INCLUDE} ${QTCRYPTONG_INCLUDE} DESTINATION include/qtnetworkng/)
 install(FILES ${QTNETWORKNG_PRIVATE_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} DESTINATION include/qtnetworkng/private/)
 
-IF(Qt5Test_FOUND AND QTNG_BUILD_TESTS)
+if(Qt5Test_FOUND AND QTNG_BUILD_TESTS)
     add_executable(test_ssl tests/test_ssl.cpp)
     target_link_libraries(test_ssl PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
 

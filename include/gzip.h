@@ -1,7 +1,7 @@
 #ifndef QTNG_GZIP_H
 #define QTNG_GZIP_H
 
-#include <QByteArray>
+#include <QtCore/qbytearray.h>
 #include "io_utils.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
