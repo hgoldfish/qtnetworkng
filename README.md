@@ -147,7 +147,7 @@ You can obtain a copy of LGPL 3.0 license at: https://www.gnu.org/licenses/lgpl-
 Dependencies
 ------------
 
-QtNetworkNg require QtCore, QtNetwork to build. SSL and crypto is supported using embedded LibreSSL.
+QtNetworkNg require QtCore to build. SSL and crypto is supported using embedded LibreSSL.
 
 Qt 5 - https://www.qt.io/download
 
@@ -168,16 +168,15 @@ Towards 1.0
 -----------
 
 - [ ] Complete reference documents
-- [x] Implements an HTTP 1.0 server.
+- [x] Implements an HTTP 1.1 server.
 - [x] HTTP support gzip compression.
 - [x] HttpResponse support stream.
 - [x] Support HTTP proxy and cache.
-- [ ] Built as shared library(DLL)
 - [x] A simple replacement for libev in Windows.
 - [ ] Add more OpenSSL functions.
 - [ ] Support verification/ALPS for https connection.
 - [x] Support MacOS and iOS platforms.
-- [ ] Remove QtNetwork dependence.
+- [x] Remove the QtNetwork dependence.
 
 
 Towards 2.0
@@ -185,6 +184,7 @@ Towards 2.0
 - [ ] Support HTTP/2
 - [ ] Support HTTP/3
 - [ ] Support Kademlia
+- [ ] Support Tox
 
 
 Building

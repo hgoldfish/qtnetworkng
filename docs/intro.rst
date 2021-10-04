@@ -19,13 +19,11 @@ Coroutine-based paradigm is the now and feature of network programming. Coroutin
 Cross platforms
 ---------------
 
-QtNetworkNg is tested in Linux, Android, Windows, OpenBSD. And support gcc, clang, mingw32. No dependence except Qt5 is required. Microsoft Visual C++ is not tested yet.
+QtNetworkNg is tested in Linux, Android, Windows, MacOS, and OpenBSD. And support gcc, clang, mingw32. No dependence except Qt5 is required. Microsoft Visual C++ is not tested yet.
 
-QtCore, QtNetwork is required to build QtNetworkNg. I am working hard to remove QtNetwork dependence.
+QtCore is required to build QtNetworkNg.
 
 The coroutine is implemented using boost::context asm code, and support native posix `ucontext` and windows `fiber` API. Running tests is successful in ARM, ARM64, x86, amd64.
-
-In theory, QtNetworkNg can be ran in MacOS and iOS. But there is nothing I can do before I having a MacOS machine. And mips architecture would be supported.
 
 The Qt eventloop can be replaced with libev eventloop, and SSL/cipher functions are enabled if you use cmake. In that case, embeded libev and LibreSSL is used.
 
