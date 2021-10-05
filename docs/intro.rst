@@ -9,21 +9,21 @@ Why Coroutines
 
 The Coroutine is not a new thing, Python, Go, and C# was using coroutines to simplify network programming many years ago. 
 
-The traditional network programming use threads. ``send()/recv()`` is blocked, and then the Operating System switch current thread to another ready thread until data arrived. This is very straightforward, and easy for network programming. But threads use heavy resources, thousands of connections may consume many memory. More worst, threads cause data races, data currupt, even crashes.
+The traditional network programming use threads. ``send()/recv()`` are blocked, and then the Operating System switch current thread to another ready thread until data arrived. This is very straightforward, and easy for network programming. But threads use heavy resources, thousands of connections may consume many memory. More worse, threads cause data races, data currupt, even crashes.
 
-Another choice is use callback-based paradigm. Before calling ``send()/recv()``, use ``select()/poll()/epoll()`` to determine data arriving. Although ``select()`` is blocked, but many connections are handled in one thread. Callback-based paradigm is considered "the new-age goto", hard to understand and read/write code. But it is widely used by C++ programmer for the popularity of boost::asio and other traditional C++ networking programming frameworks.
+Another choice is using callback-based paradigm. Before calling ``send()/recv()``, use ``select()/poll()/epoll()`` to determine data arriving. ``select()`` is blocked, but many connections are handled in one thread. Callback-based paradigm is considered "the new-age goto", hard to understand and read/write code. But it is used widely by C++ programmer for the popularity of boost::asio and other traditional C++ networking programming frameworks.
 
-Coroutine-based paradigm is the now and feature of network programming. Coroutine is light-weight thread which has its own stack, not managed by Operating System but QtNetworkNg. Like thread-based paradigm, ``send()/recv()`` is blocked, but switch to another coroutine in the same thread unitl data arrived. Many coroutines can be created at low cost. Because there is only one thread, no locks or other synchronization is needed. The API is straightforward like thread-based paradigm, but avoid the complexities of using threads.
+Coroutine-based paradigm is the now and the future of network programming. Coroutines are light-weight threads which have their own stack, not managed by the Operating System but QtNetworkNg. Like thread-based paradigm, ``send()/recv()`` are blocked, but switch to another coroutine in the same thread unitl data arrived. Many coroutines can be created at low cost. Because there is only one thread, there is no data race. The API is straightforward like thread-based paradigm, but avoid the complexities of using threads.
 
 
 Cross platforms
 ---------------
 
-QtNetworkNg is tested in Linux, Android, Windows, MacOS, and OpenBSD. And support gcc, clang, mingw32. No dependence except Qt5 is required. Microsoft Visual C++ is not tested yet.
+QtNetworkNg is tested in Linux, Android, Windows, MacOS, and OpenBSD. And support gcc, clang, mingw32, msvc.
 
 QtCore is required to build QtNetworkNg.
 
-The coroutine is implemented using boost::context asm code, and support native posix `ucontext` and windows `fiber` API. Running tests is successful in ARM, ARM64, x86, amd64.
+The coroutine is implemented using boost::context asm code, and support native posix `ucontext` and windows `fiber` API. Running tests is success in ARM, ARM64, x86, amd64.
 
 The Qt eventloop can be replaced with libev eventloop, and SSL/cipher functions are enabled if you use cmake. In that case, embeded libev and LibreSSL is used.
 
@@ -39,7 +39,7 @@ Assume your Qt/qmake project is project *foo*, described in ``foo.pro``, and has
     foo.pro
     main.cpp
     
-Unlike other cpp library, QtNetworkNg encourages using git subrepository, clone QtNetworkNg from github and include the ``qtnetworkng.pri`` in your ``foo.pro`` like this.
+QtNetworkNg encourages using git subrepository, clone QtNetworkNg from github and include the ``qtnetworkng.pri`` in your ``foo.pro`` like this.
 
 .. code-block:: bash
     :caption: get qtnetworkng
@@ -130,7 +130,7 @@ To build:
     
     mkdir build
     cd build
-    cmake ..   # use -DCMAKE_PREFIX_PATH=/usr/local/Qt5.12.2-static-linux-amd64/lib/cmake/ to specify another Qt version.
+    cmake ..   # use -DCMAKE_PREFIX_PATH=/usr/local/Qt5.12.11-static-linux-amd64/lib/cmake/ to specify another Qt version.
     make
     
 
@@ -221,22 +221,24 @@ This is an example to get content from url.
     {
     public:
         HtmlWindow()
-            :operations(new CoroutineGroup) {
+            : operations(new CoroutineGroup)
+        {
             operations->spawn([this] {
                 Coroutine::sleep(1);
                 loadNews();
             });
         }
 
-        ~HtmlWindow() {
+        ~HtmlWindow()
+        {
             delete operations;
         }
-
     private:
-        void loadNews() {
+        void loadNews()
+        {
             HttpSession session;
             HttpResponse response = session.get("http://www.example.com/");
-            if(response.isOk()) {
+            if (response.isOk()) {
                 setHtml(response.html());
             } else {
                 setHtml("failed");
@@ -266,9 +268,7 @@ The ``Socket`` class is a straightforward transliteration of the bsd socket inte
 
 ``Socket`` and ``SslSocket`` objects can be converted to ``SocketLike`` objects, which are useful for functions accept both ``Socket`` and ``SslSocket`` parameter.
 
-Note: ``Socket`` was designed to support any network families but now ipv4 and ipv6 is supported only, because QtNetworkNg is using ``QHostAddress`` now.
-
-There is a ``KcpSocket`` implementing KCP over UDP. It has a simpliar API like ``Socket``, and support turning to ``SocketLike`` too.
+There is a ``KcpSocket`` implementing KCP over UDP. It has a simpliar API like ``Socket``, and support converting to ``SocketLike`` too.
 
 
 Create Socket client
@@ -319,14 +319,13 @@ Combine ``Socket`` and ``Coroutine``, you can create socket server in few lines 
     
     QScopedPointer<Socket> s(Socket::createServer(HostAddress::AnyIPv4, 8000, 100));
     CoroutineGroup operations;
-    while(true) {
+    while (true) {
         QSharedPointer<Socket> request(s->accept());
-        if(request.isNull()) {
+        if (request.isNull()) {
             break;
         }
         operations.spawn([request] {
             request->sendall("hello!");
-            request->close();
         });
     }
     
@@ -381,8 +380,15 @@ Or send json data.
 With headers:
 
 .. code-block:: c++
-    :caption post 
+    :caption: post headers
     
+    QJsonObject obj;
+    obj.insert("username", "somebody");
+    obj.insert("password", "secret");
+    QMap<QString, QString> headers;
+    headers.insert("X-My-Header", "test");
+    HttpResponse resp = session.post(url, obj, headers);
+
 Get data from ``HttpResponse``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -411,7 +417,7 @@ Get data from ``HttpResponse``
 Cryptography
 ------------
 
-QtNetworkNg can load OpenSSL dynamically, and provide many cryptography routines.
+QtNetworkNg use LibreSSL or OpenSSL to provide many cryptography routines.
 
 
 Message Digest

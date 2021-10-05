@@ -1006,13 +1006,8 @@ QList<HttpCookie> HttpCookieJar::cookiesForUrl(const QUrl &url) const
         QString domain = it->domain();
         if (domain.startsWith(QLatin1Char('.'))) /// Qt6?: remove when compliant with RFC6265
             domain = domain.mid(1);
-#if QT_CONFIG(topleveldomain)
-        if (qIsEffectiveTLD(domain) && url.host() != domain)
-            continue;
-#else
         if (!domain.contains(QLatin1Char('.')) && url.host() != domain)
             continue;
-#endif // topleveldomain
 
         // insert this cookie into result, sorted by path
         QList<HttpCookie>::Iterator insertIt = result.begin();
