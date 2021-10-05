@@ -70,10 +70,26 @@ public:
     HostAddress(const IPv6Address &ip6Addr);
     HostAddress(const sockaddr *sockaddr);
 #ifdef QT_NETWORK_LIB
-    HostAddress(const QHostAddress& address);
-    HostAddress(QHostAddress::SpecialAddress address);
-    HostAddress(const QIPv6Address &ip6Addr);
-    operator QHostAddress () const { return protocal() == IPv4Protocol ? QHostAddress(toIPv4Address()) : QHostAddress(toIPv6Address().c); }
+    HostAddress(const QHostAddress& address)
+        : HostAddress()
+    {
+        if (address.protocol() == QAbstractSocket::IPv4Protocol) {
+            setAddress(address.toIPv4Address());
+        } else {
+            setAddress(address.toIPv6Address().c);
+        }
+    }
+    HostAddress(QHostAddress::SpecialAddress address)
+        : HostAddress()
+    {
+        setAddress(static_cast<HostAddress::SpecialAddress>(address));
+    }
+    HostAddress(const QIPv6Address &ip6Addr)
+        : HostAddress()
+    {
+        setAddress(ip6Addr.c);
+    }
+    operator QHostAddress () const { return protocol() == IPv4Protocol ? QHostAddress(toIPv4Address()) : QHostAddress(toIPv6Address().c); }
 #endif
     ~HostAddress();
 
@@ -116,9 +132,7 @@ public:
     bool isUniqueLocalUnicast() const;
     bool isMulticast() const;
     bool isBroadcast() const;
-
     QString toString() const;
-
     QString scopeId() const;
     void setScopeId(const QString &id);
 
@@ -128,11 +142,20 @@ public:
 
 private:
     friend class HostAddressPrivate;
-    QSharedDataPointer<HostAddressPrivate> d;
+    QExplicitlySharedDataPointer<HostAddressPrivate> d;
 };
 
 QTNETWORKNG_NAMESPACE_END
 
+QT_BEGIN_NAMESPACE
+#ifndef QT_NO_DEBUG_STREAM
 class QDebug;
 QDebug operator<<(QDebug out, const QTNETWORKNG_NAMESPACE::HostAddress &t);
+#endif
+QT_END_NAMESPACE
+
+// Q_DECLARE_SHARED(QTNETWORKNG_NAMESPACE::HostAddress);
+Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::HostAddress)
+
+
 #endif // QTNG_HOSTADDRESS_H

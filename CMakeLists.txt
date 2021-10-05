@@ -12,13 +12,10 @@ endif ()
 
 project(qtnetworkng LANGUAGES C CXX ASM)
 
-option(QTNG_BUILD_TESTS OFF)
 option(QTNG_USE_OPENSSL OFF)
 set(CMAKE_AUTOMOC ON)
 
 find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
-# find_package(Qt5Network CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
-find_package(Qt5Test CONFIG CMAKE_FIND_ROOT_PATH_BOTH)
 find_package(ZLIB)
 if (QTNG_USE_OPENSSL)
     find_package(OpenSSL REQUIRED)  # CMAKE_FIND_ROOT_PATH_BOTH
@@ -326,41 +323,9 @@ if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a AND NOT EXISTS ${_qt5Core_
     link_directories(${_qt5Core_install_prefix}/lib/)
 endif()
 
-target_link_libraries(qtnetworkng PUBLIC Qt5::Core PRIVATE ssl crypto ${ZLIB_LINK} ${OS_EXTRA_LINK})  # Qt5::Network
+target_link_libraries(qtnetworkng PUBLIC Qt5::Core PRIVATE ssl crypto ${ZLIB_LINK} ${OS_EXTRA_LINK})
 
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
 install(FILES ${QTNETWORKNG_INCLUDE} ${QTCRYPTONG_INCLUDE} DESTINATION include/qtnetworkng/)
 install(FILES ${QTNETWORKNG_PRIVATE_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} DESTINATION include/qtnetworkng/private/)
-
-if(Qt5Test_FOUND AND QTNG_BUILD_TESTS)
-    add_executable(test_ssl tests/test_ssl.cpp)
-    target_link_libraries(test_ssl PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-
-    add_executable(test_crypto tests/test_crypto.cpp ${TEST_CRYPTO_MOC_FILES})
-    target_link_libraries(test_crypto PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-
-    add_executable(test_coroutines tests/test_coroutines.cpp ${TEST_COROUTINES_MOC_FILES})
-    target_link_libraries(test_coroutines PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-
-    add_executable(sleep_coroutines tests/sleep_coroutines.cpp)
-    target_link_libraries(sleep_coroutines PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-
-    add_executable(simple_test tests/simple_test.cpp)
-    target_link_libraries(simple_test PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-
-    add_executable(many_httpget tests/many_httpget.cpp)
-    target_link_libraries(many_httpget PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-
-    add_executable(test_socket tests/test_socket.cpp)
-    target_link_libraries(test_socket PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-
-    add_executable(test_msgpack tests/test_msgpack.cpp)
-    target_link_libraries(test_msgpack PRIVATE Qt5::Core Qt5::Network Qt5::Test qtnetworkng)
-
-    add_executable(simple_httpd tests/simple_httpd.cpp)
-    target_link_libraries(simple_httpd PRIVATE Qt5::Core Qt5::Network qtnetworkng)
-
-    add_executable(test_kcp tests/test_kcp.cpp)
-    target_link_libraries(test_kcp PRIVATE Qt5::Core Qt5::Network qtnetworkng)
-endif()

@@ -77,6 +77,7 @@ HttpCookie::HttpCookie(const QByteArray &name, const QByteArray &value)
     d->value = value;
 }
 
+
 HttpCookie::HttpCookie(const HttpCookie &other)
     : d(other.d) {}
 
@@ -108,37 +109,6 @@ bool HttpCookie::operator==(const HttpCookie &other) const
         d->comment == other.d->comment &&
         d->sameSite == other.d->sameSite;
 }
-
-
-#ifdef QT_NETWORK_LIB
-HttpCookie::HttpCookie(const QNetworkCookie& cookie)
-    : d(new HttpCookiePrivate())
-{
-    d->name = cookie.name();
-    d->value = cookie.value();
-    d->expirationDate = cookie.expirationDate();
-    d->domain = cookie.domain();
-    d->path = cookie.path();
-    d->secure = cookie.secure();
-    d->comment = cookie.comment();
-    d->sameSite = cookie.sameSite();
-}
-
-
-HttpCookie::operator QNetworkCookie () const
-{
-    QNetworkCookie cookie(name(), value());
-    cookie.expirationDate = d->expirationDate();
-    cookie.domain = d->domain();
-    cookie.path = d->path();
-    cookie.secure = d->secure();
-    cookie.comment = d->comment();
-    cookie.sameSite = d->sameSite();
-    return cookie;
-}
-
-
-#endif
 
 
 bool HttpCookie::hasSameIdentifier(const HttpCookie &other) const

@@ -18,7 +18,6 @@ QTNETWORKNG_NAMESPACE_BEGIN
 
 class SocketPrivate;
 class SocketDnsCache;
-class HostAddress;
 
 class Socket
 {

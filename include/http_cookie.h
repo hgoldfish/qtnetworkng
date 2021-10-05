@@ -39,8 +39,29 @@ public:
     bool operator==(const HttpCookie &other) const;
     inline bool operator!=(const HttpCookie &other) const { return !(*this == other); }
 #ifdef QT_NETWORK_LIB
-    HttpCookie(const QNetworkCookie& cookie);
-    operator QNetworkCookie () const;
+    HttpCookie(const QNetworkCookie& cookie)
+        : HttpCookie(cookie.name(), cookie.value())
+    {
+        setExpirationDate(cookie.expirationDate());
+        setDomain(cookie.domain());
+        setPath(cookie.path());
+        setSecure(cookie.isSecure());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 1, 0)
+        setSameSitePolicy(cookie.sameSitePolicy());
+#endif
+    }
+    operator QNetworkCookie () const
+    {
+        QNetworkCookie cookie(name(), value());
+        cookie.setExpirationDate(expirationDate());
+        cookie.setDomain(domain());
+        cookie.setPath(path());
+        cookie.setSecure(isSecure());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 1, 0)
+        cookie.setSameSitePolicy(sameSitePolicy());
+#endif
+        return cookie;
+    }
 #endif
 public:
     bool isSecure() const;
@@ -104,7 +125,8 @@ class QDebug;
 QDebug operator<<(QDebug, const QTNETWORKNG_NAMESPACE::HttpCookie &);
 #endif
 QT_END_NAMESPACE
-#endif
 
-
+// Q_DECLARE_SHARED(QTNETWORKNG_NAMESPACE::HttpCookie);
 Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::HttpCookie)
+
+#endif // QTNG_HTTP_COOKIE_H

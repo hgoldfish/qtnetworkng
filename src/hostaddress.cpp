@@ -968,50 +968,8 @@ HostAddress::HostAddress(const sockaddr *sockaddr)
 }
 
 
-#ifdef QT_NETWORK_LIB
-HostAddress::HostAddress(const QHostAddress& address)
-    : d(new HostAddressPrivate())
-{
-    switch (address.protocol()){
-    case QAbstractSocket::IPv4Protocol:
-        setAddress(address.toIPv4Address());
-        break;
-    case QAbstractSocket::IPv6Protocol:
-        Q_IPV6ADDR a6;
-        a6 = address.toIPv6Address();
-        setAddress(a6.c);
-        break;
-    case QAbstractSocket::AnyIPProtocol:
-        setAddress(Any);
-        break;
-    case QAbstractSocket::UnknownNetworkLayerProtocol:
-        break;
-    }
-}
-
-
-HostAddress::HostAddress(QHostAddress::SpecialAddress address)
-    : d(new HostAddressPrivate())
-{
-    setAddress(static_cast<HostAddress::SpecialAddress>(address));
-}
-
-
-HostAddress::HostAddress(const QIPv6Address &ip6Addr)
-    : d(new HostAddressPrivate())
-{
-    IPv6Address t;
-    Q_ASSERT(sizeof(t.c) == sizeof(ip6Addr.c));
-    memcpy(t.c, ip6Addr.c, sizeof(ip6Addr.c));
-}
-
-
-#endif
-
-
 HostAddress::~HostAddress()
 {
-
 }
 
 
