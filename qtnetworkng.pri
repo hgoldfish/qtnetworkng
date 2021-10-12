@@ -31,13 +31,16 @@ SOURCES += \
     $$PWD/src/httpd2.cpp \
     $$PWD/src/socks5_server.cpp \
     $$PWD/src/random.cpp \
-    $$PWD/src/hostaddress.cpp
+    $$PWD/src/hostaddress.cpp \
+    $$PWD/src/network_interface/network_interface.cpp
 
     
 PRIVATE_HEADERS += \
     $$PWD/include/private/coroutine_p.h \
     $$PWD/include/private/http_p.h \
-    $$PWD/include/private/socket_p.h
+    $$PWD/include/private/socket_p.h \
+    $$PWD/include/private/hostaddress_p.h \
+    $$PWD/include/private/network_interface_p.h \
     $$PWD/src/kcp/ikcp.h
 
     
@@ -61,16 +64,24 @@ HEADERS += \
     $$PWD/include/socket_server.h \
     $$PWD/include/httpd.h \
     $$PWD/include/random.h \
-    $$PWD/include/hostaddress.h
+    $$PWD/include/hostaddress.h \
+    $$PWD/include/network_interface.h
 
     
 win32 {
     SOURCES += $$PWD/src/socket_win.cpp \
-        $$PWD/src/eventloop_win.cpp
+        $$PWD/src/eventloop_win.cpp \
+        $$PWD/src/network_interface/network_interface_win.cpp
     LIBS += -lws2_32 -luser32
     DEFINES += "QTNETWORKNG_USE_WIN=1"
 } else: unix  {
-    SOURCES += $$PWD/src/socket_unix.cpp
+    SOURCES += $$PWD/src/socket_unix.cpp \
+        $$PWD/src/network_interface/network_interface_unix_p.h
+    linux {
+        SOURCES += $$PWD/src/network_interface/network_interface_linux.cpp
+    } else {
+        SOURCES += $$PWD/src/network_interface/network_interface_unix.cpp
+    }
     linux {
         DEFINES += "EV_USE_EPOLL=1"
         DEFINES += "EV_USE_EVENTFD=1"

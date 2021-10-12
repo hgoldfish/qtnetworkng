@@ -62,6 +62,8 @@ set(QTNETWORKNG_SRC
     src/kcp.cpp
     src/kcp/ikcp.c
     src/kcp/ikcp.h
+
+    src/network_interface/network_interface.cpp
 )
 
 set(QTNETWORKNG_INCLUDE
@@ -86,6 +88,7 @@ set(QTNETWORKNG_INCLUDE
     include/data_channel.h
     include/kcp.h
     include/hostaddress.h
+    include/network_interface.h
 )
 
 set(QTNETWORKNG_PRIVATE_INCLUDE
@@ -94,6 +97,8 @@ set(QTNETWORKNG_PRIVATE_INCLUDE
     include/private/coroutine_p.h
     include/private/socket_p.h
     include/private/http_p.h
+    include/private/hostaddress_p.h
+    include/private/network_interface_p.h
 )
 
 set(QTCRYPTONG_SRC
@@ -143,91 +148,85 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(OS_DEPENDENDED_SRC
         src/socket_win.cpp
         src/coroutine_win.cpp
+        src/network_interface/network_interface_win.cpp
     )
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     # Android support cross build.
     if(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "arm64-v8a")
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_arm64_aapcs_elf_gas.S
             src/context/asm/make_arm64_aapcs_elf_gas.S
-            src/coroutine_fcontext.cpp
         )
     elseif(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "armeabi-v7a")
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_arm_aapcs_elf_gas.S
             src/context/asm/make_arm_aapcs_elf_gas.S
-            src/coroutine_fcontext.cpp
         )
     elseif(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "mips")
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_mips32_o32_elf_gas.S
             src/context/asm/make_mips32_o32_elf_gas.S
-            src/coroutine_fcontext.cpp
         )
     elseif(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "mips64")
         message(FATAL_ERROR Android for mips64 is not supported.)
     elseif(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "x86")
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_i386_sysv_elf_gas.S
             src/context/asm/make_i386_sysv_elf_gas.S
-            src/coroutine_fcontext.cpp
         )
     elseif(${CMAKE_ANDROID_ARCH_ABI} STREQUAL "x86_64")
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_x86_64_sysv_elf_gas.S
             src/context/asm/make_x86_64_sysv_elf_gas.S
-            src/coroutine_fcontext.cpp
         )
     else()
         message(FATAL_ERROR Android for ${CMAKE_ANDROID_ARCH_ABI} is not supported.)
     endif()
+    set(OS_DEPENDENDED_SRC
+        ${OS_DEPENDENDED_SRC}
+        src/socket_unix.cpp
+        src/coroutine_fcontext.cpp
+        src/network_interface/network_interface_unix.cpp
+    )
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     if((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
             OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "amd64"))
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_x86_64_sysv_macho_gas.S
             src/context/asm/make_x86_64_sysv_macho_gas.S
-            src/coroutine_fcontext.cpp
         )
     elseif((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "i386")
             OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "i686"))
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_i386_sysv_macho_gas.S
             src/context/asm/make_i386_sysv_macho_gas.S
-            src/coroutine_fcontext.cpp
         )
     elseif((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
             OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm64"))
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_arm64_aapcs_macho_gas.S
             src/context/asm/make_arm64_aapcs_macho_gas.S
-            src/coroutine_fcontext.cpp
         )
     elseif((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "armv7")
             OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm"))
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_arm_aapcs_macho_gas.S
             src/context/asm/make_arm_aapcs_macho_gas.S
-            src/coroutine_fcontext.cpp
         )
     else()
         message(FATAL_ERROR ${CMAKE_SYSTEM_NAME} is not supported.)
     endif()
+    set(OS_DEPENDENDED_SRC
+        ${OS_DEPENDENDED_SRC}
+        src/socket_unix.cpp
+        src/coroutine_fcontext.cpp
+        src/network_interface/network_interface_unix.cpp
+    )
 elseif(UNIX)
     # TODO should support cross build.
     if((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
             OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "amd64"))
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_x86_64_sysv_elf_gas.S
             src/context/asm/make_x86_64_sysv_elf_gas.S
             src/coroutine_fcontext.cpp
@@ -235,7 +234,6 @@ elseif(UNIX)
     elseif((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "i386")
             OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "i686"))
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_i386_sysv_elf_gas.S
             src/context/asm/make_i386_sysv_elf_gas.S
             src/coroutine_fcontext.cpp
@@ -243,7 +241,6 @@ elseif(UNIX)
     elseif((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
             OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm64"))
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_arm64_aapcs_elf_gas.S
             src/context/asm/make_arm64_aapcs_elf_gas.S
             src/coroutine_fcontext.cpp
@@ -251,7 +248,6 @@ elseif(UNIX)
     elseif((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "armv7")
             OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm"))
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_arm_aapcs_elf_gas.S
             src/context/asm/make_arm_aapcs_elf_gas.S
             src/coroutine_fcontext.cpp
@@ -259,7 +255,6 @@ elseif(UNIX)
     #ELSEIF(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "mips64")
     elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "mips")
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/context/asm/jump_mips32_o32_elf_gas.S
             src/context/asm/make_mips32_o32_elf_gas.S
             src/coroutine_fcontext.cpp
@@ -267,10 +262,27 @@ elseif(UNIX)
     else()
         # fall back to ucontext
         set(OS_DEPENDENDED_SRC
-            src/socket_unix.cpp
             src/coroutine_unix.cpp
         )
     endif()
+#    if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+#        set(OS_DEPENDENDED_SRC
+#            ${OS_DEPENDENDED_SRC}
+#            src/socket_unix.cpp
+#            src/network_interface/network_interface_linux.cpp
+#        )
+#    else()
+#        set(OS_DEPENDENDED_SRC
+#            ${OS_DEPENDENDED_SRC}
+#            src/socket_unix.cpp
+#            src/network_interface/network_interface_unix.cpp
+#        )
+#    endif()
+    set(OS_DEPENDENDED_SRC
+        ${OS_DEPENDENDED_SRC}
+        src/socket_unix.cpp
+        src/network_interface/network_interface_unix.cpp
+    )
 else()
     message(FATAL_ERROR ${CMAKE_SYSTEM_NAME} is not supported.)
 endif()

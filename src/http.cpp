@@ -3024,12 +3024,15 @@ void HttpSession::setCacheManager(QSharedPointer<HttpCacheManager> cacheManager)
 }
 
 
+#ifndef QTNG_NO_CRYPTO
+
 SslConfiguration &HttpSession::sslConfiguration()
 {
     Q_D(HttpSession);
     return d->sslConfig;
 }
 
+#endif
 
 HttpCacheManager::HttpCacheManager()
 {

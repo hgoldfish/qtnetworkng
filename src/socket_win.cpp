@@ -2,13 +2,14 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
-#include <QtNetwork/qnetworkinterface.h>
+#include <QtCore/qbytearray.h>
 #if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
 #include <QtCore/qoperatingsystemversion.h>
 #else
 #include <QtCore/qsysinfo.h>
 #endif
 #include "../include/private/socket_p.h"
+#include "../include/private/network_interface_p.h"
 
 #ifdef Q_OS_WIN
     #define QT_SOCKLEN_T int
@@ -293,9 +294,9 @@ static inline Socket::SocketType qt_socket_getType(qintptr socketDescriptor)
 inline uint scopeIdFromString(const QString &scopeid)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
-    return static_cast<uint>(QNetworkInterface::interfaceIndexFromName(scopeid));
+    return static_cast<uint>(NetworkInterface::interfaceIndexFromName(scopeid));
 #else
-    return QNetworkInterface::interfaceFromName(scopeid).index();
+    return NetworkInterface::interfaceFromName(scopeid).index();
 #endif
 }
 

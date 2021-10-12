@@ -10,11 +10,13 @@
 #include "http.h"
 #include "http_proxy.h"
 #include "http_utils.h"
+#include "http_cookie.h"
 #include "socks5_proxy.h"
 #include "msgpack.h"
 #include "httpd.h"
 #include "kcp.h"
 #include "socket_server.h"
+#include "network_interface.h"
 
 #ifndef QTNG_NO_CRYPTO
 #include "ssl.h"
