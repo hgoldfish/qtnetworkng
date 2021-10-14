@@ -30,7 +30,6 @@ public:
     void setUdpPacketSize(quint32 udpPacketSize);
     quint32 udpPacketSize() const;
     quint32 payloadSizeHint() const;
-    bool useMultiPath(int sockets = 2);
     QSharedPointer<Event> busy;
     QSharedPointer<Event> notBusy;
 public:
