@@ -80,6 +80,7 @@ public:
     static KcpSocket *createConnection(const QString &hostName, quint16 port, Socket::SocketError *error = nullptr,
                                   QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>(),
                                   int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
+    // if backlog == 0, do not bind and listen.
     static KcpSocket *createServer(const HostAddress &host, quint16 port, int backlog = 50);
 private:
     // for create SlaveKcpSocket.
