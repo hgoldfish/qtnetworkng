@@ -74,7 +74,7 @@ static PtrGetNetworkParams ptrGetNetworkParams = 0;
 
 typedef NETIO_STATUS (WINAPI *PtrConvertInterfaceLuidToName)(const NET_LUID *, PWSTR, SIZE_T);
 static PtrConvertInterfaceLuidToName ptrConvertInterfaceLuidToName = 0;
-typedef NETIOAPI_API (WINAPI *PtrConvertInterfaceLuidToIndex)(const NET_LUID *, PNET_IFINDEX);
+typedef NETIO_STATUS (WINAPI *PtrConvertInterfaceLuidToIndex)(const NET_LUID *, PNET_IFINDEX);
 static PtrConvertInterfaceLuidToIndex ptrConvertInterfaceLuidToIndex = 0;
 typedef NETIO_STATUS (WINAPI *PtrConvertInterfaceNameToLuid)(const wchar_t*, NET_LUID *);
 static PtrConvertInterfaceNameToLuid ptrConvertInterfaceNameToLuid = 0;
