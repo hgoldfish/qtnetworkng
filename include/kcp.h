@@ -30,6 +30,8 @@ public:
     void setUdpPacketSize(quint32 udpPacketSize);
     quint32 udpPacketSize() const;
     quint32 payloadSizeHint() const;
+    void setTearDownTime(float secs);
+    float tearDownTime() const;
     QSharedPointer<Event> busy;
     QSharedPointer<Event> notBusy;
 public:

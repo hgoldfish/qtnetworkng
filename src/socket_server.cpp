@@ -262,6 +262,13 @@ HostAddress BaseStreamServer::serverAddress() const
 }
 
 
+QSharedPointer<SocketLike> BaseStreamServer::serverSocket() const
+{
+    Q_D(const BaseStreamServer);
+    return d->serverSocket;
+}
+
+
 bool BaseStreamServer::serviceActions()
 {
     return true;

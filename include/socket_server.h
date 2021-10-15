@@ -36,6 +36,7 @@ public:
 public:
     quint16 serverPort() const;
     HostAddress serverAddress() const;
+    QSharedPointer<SocketLike> serverSocket() const;
 public:
     QSharedPointer<Event> started;
     QSharedPointer<Event> stopped;
