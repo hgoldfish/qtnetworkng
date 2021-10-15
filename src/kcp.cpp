@@ -1401,6 +1401,22 @@ quint32 KcpSocket::payloadSizeHint() const
 }
 
 
+void KcpSocket::setTearDownTime(float secs)
+{
+    Q_D(KcpSocket);
+    if (secs > 0) {
+        d->tearDownTime = static_cast<quint64>(secs * 1000);
+    }
+}
+
+
+float KcpSocket::tearDownTime() const
+{
+    Q_D(const KcpSocket);
+    return d->tearDownTime / 1000.0f;
+}
+
+
 Socket::SocketError KcpSocket::error() const
 {
     Q_D(const KcpSocket);
@@ -1629,7 +1645,7 @@ qint32 KcpSocket::send(const QByteArray &data)
 {
     Q_D(KcpSocket);
     qint32 bytesSent = d->send(data.data(), data.size(), false);
-    if(bytesSent == 0 && !d->isValid()) {
+    if (bytesSent == 0 && !d->isValid()) {
         return -1;
     } else {
         return bytesSent;
