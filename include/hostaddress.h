@@ -125,6 +125,7 @@ public:
     bool isInSubnet(const QPair<HostAddress, int> &subnet) const;
     static QPair<HostAddress, int> parseSubnet(const QString &subnet);
 
+    bool isIPv4() const;
     bool isLoopback() const;
     bool isGlobal() const;
     bool isLinkLocal() const;

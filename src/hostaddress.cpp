@@ -1306,6 +1306,11 @@ QPair<HostAddress, int> HostAddress::parseSubnet(const QString &subnet)
 }
 
 
+bool HostAddress::isIPv4() const
+{
+
+}
+
 bool HostAddress::isLoopback() const
 {
     return d->classify() == LoopbackAddress;
