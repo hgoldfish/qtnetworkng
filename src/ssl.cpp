@@ -1511,6 +1511,13 @@ void SslSocket::setTlsExtHostName(const QString &tlsExtHostName)
 }
 
 
+QSharedPointer<SocketLike> SslSocket::backend() const
+{
+    Q_D(const SslSocket);
+    return d->rawSocket;
+}
+
+
 SslSocket *SslSocket::accept()
 {
     Q_D(SslSocket);

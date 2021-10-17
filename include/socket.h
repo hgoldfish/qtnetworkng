@@ -201,8 +201,7 @@ SocketType *createConnection(const HostAddress &addr, quint16 port, Socket::Sock
     if (addr.isNull() || port == 0) {
         return socket;
     }
-    bool isIPv4Address;
-    addr.toIPv4Address(&isIPv4Address);
+    bool isIPv4Address = addr.isIPv4();
     if (isIPv4Address && (allowProtocol & HostAddress::IPv4Protocol)) {
         socket = func(HostAddress::IPv4Protocol);
     } else if (!isIPv4Address && (allowProtocol & HostAddress::IPv6Protocol)) {
@@ -267,15 +266,13 @@ template<typename SocketType>
 SocketType *createServer(const HostAddress &host, quint16 port, int backlog,
                          std::function<SocketType*(HostAddress::NetworkLayerProtocol)> func)
 {
-    SocketType *socket;
+    SocketType *socket = nullptr;
     if (host == HostAddress::AnyIPv4 || host == HostAddress::Any) {
         socket = func(HostAddress::IPv4Protocol);
     } else if (host == HostAddress::AnyIPv6) {
         socket = func(HostAddress::IPv6Protocol);
     } else {
-        bool isIPv4Address;
-        host.toIPv4Address(&isIPv4Address);
-        if (isIPv4Address) {
+        if (host.isIPv4()) {
             socket = func(HostAddress::IPv4Protocol);
         } else {
             socket = func(HostAddress::IPv6Protocol);

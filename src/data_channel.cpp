@@ -143,8 +143,8 @@ public:
     quint32 nextChannelNumber;
     quint32 maxPacketSize;
     quint32 payloadSizeHint;
-    Queue<QSharedPointer<VirtualChannel>> pendingChannels;
     QMap<quint32, QWeakPointer<VirtualChannel>> subChannels;
+    Queue<QSharedPointer<VirtualChannel>> pendingChannels;
     Queue<QByteArray> receivingQueue;
     Gate goThrough;
     DataChannel::ChannelError error;
@@ -232,7 +232,7 @@ public:
 DataChannelPrivate::DataChannelPrivate(DataChannelPole pole, DataChannel *parent)
     : pole(pole)
     , maxPacketSize(1024 * 64), payloadSizeHint(1400)
-    , receivingQueue(1024)  // may consume 1024 * 1024 * 64 bytes.
+    , receivingQueue(1024)  // may consume 1024 * maxPacketSize bytes.
     , error(DataChannel::NoError)
     , q_ptr(parent)
     , broken(false)
@@ -269,7 +269,8 @@ QString DataChannelPrivate::toString() const
     } else {
         state = QString::fromLatin1("ok");
     }
-    return pattern.arg(clazz).arg(name.isEmpty() ? QString::fromLatin1("unamed") : name).arg(state).arg(receivingQueue.capacity()).arg(receivingQueue.size());
+    return pattern.arg(clazz).arg(name.isEmpty() ? QString::fromLatin1("unamed") : name)
+            .arg(state).arg(receivingQueue.capacity()).arg(receivingQueue.size());
 }
 
 
@@ -281,7 +282,6 @@ void DataChannelPrivate::abort()
         pluggedChannel.clear();
     }
 
-    // FIXME if close() is called by doReceive(), may cause the queue reports deleting not empty.
     for (quint32 i = 0; i < receivingQueue.getting(); ++i) {
         receivingQueue.put(QByteArray());
     }
@@ -381,7 +381,9 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel(quint32 channelNu
     QList<QSharedPointer<VirtualChannel>> tmp;
     while (!pendingChannels.isEmpty()) {
         QSharedPointer<VirtualChannel> channel = pendingChannels.get();
-        if (channel->channelNumber() == channelNumber) {
+        if (Q_UNLIKELY(channel.isNull())) {
+            return QSharedPointer<VirtualChannel>();
+        } else if (channel->channelNumber() == channelNumber) {
             for (QSharedPointer<VirtualChannel> t: tmp) {
                 pendingChannels.returnsForcely(t);
             }

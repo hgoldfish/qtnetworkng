@@ -769,7 +769,7 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &a
             sentBytes = ::sendmsg(fd, &msg, MSG_NOSIGNAL);
         } while(sentBytes == -1 && error == EINTR);
 
-        if(sentBytes < 0) {
+        if (sentBytes < 0) {
             int e = errno;
             switch(e)
             {

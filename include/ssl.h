@@ -194,6 +194,7 @@ public:
     void setSslConfiguration(const SslConfiguration &configuration);
     void setPeerVerifyName(const QString &peerVerifyName);
     void setTlsExtHostName(const QString &tlsExtHostName);
+    QSharedPointer<SocketLike> backend() const;
 public:
     Socket::SocketError error() const;
     QString errorString() const;

@@ -715,6 +715,10 @@ bool MasterKcpSocketPrivate::close(bool force)
         return true;
     }
 
+    while (!pendingSlaves.isEmpty()) {
+        delete pendingSlaves.get();
+    }
+
     //connected and listen state would do more cleaning work.
     operations->killall();
     // always kill operations before release resources.
