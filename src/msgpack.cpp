@@ -98,10 +98,7 @@ MsgPackStreamPrivate::MsgPackStreamPrivate(QByteArray *a, QIODevice::OpenMode mo
     buf->open(mode);
     dev = buf;
     if (mode == QIODevice::ReadOnly) {
-        limit = a->size();
-        if (limit < 0) {
-            limit = std::numeric_limits<quint32>::max();
-        }
+        limit = a->size() < 0 ? std::numeric_limits<quint32>::max() : a->size();
     } else {
         limit = std::numeric_limits<quint32>::max();
     }

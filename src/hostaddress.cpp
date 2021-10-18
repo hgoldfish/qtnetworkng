@@ -1308,8 +1308,11 @@ QPair<HostAddress, int> HostAddress::parseSubnet(const QString &subnet)
 
 bool HostAddress::isIPv4() const
 {
-
+    bool yes;
+    toIPv4Address(&yes);
+    return yes;
 }
+
 
 bool HostAddress::isLoopback() const
 {
