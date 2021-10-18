@@ -6,7 +6,6 @@
 #include <QtCore/qelapsedtimer.h>
 #include <QtCore/qbytearray.h>
 #include "../socket.h"
-#include "../hostaddress.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -17,6 +16,7 @@ class HostAddress;
 
 class SocketPrivate
 {
+public:
     enum ErrorString {
         NonBlockingInitFailedErrorString,
         BroadcastingInitFailedErrorString,
@@ -71,17 +71,23 @@ public:
     bool setOption(Socket::SocketOption option, const QVariant &value);
     bool setNonblocking();
     QVariant option(Socket::SocketOption option) const;
+
+    bool joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface);
+    bool leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface);
+    NetworkInterface multicastInterface() const;
+    bool setMulticastInterface(const NetworkInterface &iface);
+
     qint32 recv(char *data, qint32 size, bool all);
     qint32 send(const char *data, qint32 size, bool all);
     qint32 recvfrom(char *data, qint32 size, HostAddress *addr, quint16 *port);
     qint32 sendto(const char *data, qint32 size, const HostAddress &addr, quint16 port);
     bool fetchConnectionParameters();
-private:
+public:
     bool setPortAndAddress(quint16 port, const HostAddress &address, qt_sockaddr *aa, int *sockAddrSize);
     bool createSocket();
-protected:
+public:
     Socket *q_ptr;
-private:
+public:
     HostAddress::NetworkLayerProtocol protocol;
     Socket::SocketType type;
     Socket::SocketError error;

@@ -62,6 +62,11 @@ public:
     bool setOption(Socket::SocketOption option, const QVariant &value);
     QVariant option(Socket::SocketOption option) const;
 
+    bool joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface = NetworkInterface());
+    bool leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface = NetworkInterface());
+    NetworkInterface multicastInterface() const;
+    bool setMulticastInterface(const NetworkInterface &iface);
+
     qint32 recv(char *data, qint32 size);
     qint32 recvall(char *data, qint32 size);
     qint32 send(const char *data, qint32 size);

@@ -4,9 +4,9 @@
 #include <QtCore/qstring.h>
 #include <QtCore/qbytearray.h>
 #include <QtCore/qobject.h>
-// #include <QtNetwork/qhostinfo.h>
 
 #include "hostaddress.h"
+#include "network_interface.h"
 #include "private/eventloop_p.h"
 #include "locks.h"
 
@@ -18,7 +18,6 @@ QTNETWORKNG_NAMESPACE_BEGIN
 
 class SocketPrivate;
 class SocketDnsCache;
-
 class Socket
 {
 public:
@@ -89,7 +88,8 @@ public:
         ReceiveBufferSizeSocketOption = 12,     // SO_RCVBUF
         MaxStreamsSocketOption = 13,            // for sctp
         NonBlockingSocketOption = 14,
-        BindExclusively = 15
+        BindExclusively = 15,
+        PathMtuSocketOption = 16
     };
     Q_ENUMS(SocketOption)
     enum BindFlag {
@@ -127,6 +127,11 @@ public:
     bool listen(int backlog);
     bool setOption(SocketOption option, const QVariant &value);
     QVariant option(SocketOption option) const;
+
+    bool joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface = NetworkInterface());
+    bool leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface = NetworkInterface());
+    NetworkInterface multicastInterface() const;
+    bool setMulticastInterface(const NetworkInterface &iface);
 
     qint32 recv(char *data, qint32 size);
     qint32 recvall(char *data, qint32 size);

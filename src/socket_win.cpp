@@ -272,8 +272,11 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
             n = IP_HOPLIMIT;
         }
         break;
+    case Socket::PathMtuSocketOption:
+        break;
     }
 }
+
 
 static inline Socket::SocketType qt_socket_getType(qintptr socketDescriptor)
 {
@@ -282,10 +285,11 @@ static inline Socket::SocketType qt_socket_getType(qintptr socketDescriptor)
     if (::getsockopt(static_cast<SOCKET>(socketDescriptor), SOL_SOCKET, SO_TYPE, (char *) &value, &valueSize) != 0) {
         WS_ERROR_DEBUG(WSAGetLastError());
     } else {
-        if (value == SOCK_STREAM)
+        if (value == SOCK_STREAM) {
             return Socket::TcpSocket;
-        else if (value == SOCK_DGRAM)
+        } else if (value == SOCK_DGRAM) {
             return Socket::UdpSocket;
+        }
     }
     return Socket::UnknownSocketType;
 }
@@ -1185,7 +1189,6 @@ QVariant SocketPrivate::option(Socket::SocketOption option) const
     // handle non-getsockopt
     switch (option) {
     case Socket::NonBlockingSocketOption:
-        return QVariant(-1); // TODO return true if nonblocking is implemented.
     case Socket::TypeOfServiceOption:
     case Socket::MaxStreamsSocketOption:
         return -1;
@@ -1225,7 +1228,6 @@ bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value
             return false;
         break;
     case Socket::NonBlockingSocketOption:
-        return false;
     case Socket::TypeOfServiceOption:
     case Socket::MaxStreamsSocketOption:
         return false;
@@ -1254,6 +1256,211 @@ bool SocketPrivate::setNonblocking()
         return false;
     }
     return true;
+}
+
+
+static bool multicastMembershipHelper(SocketPrivate *d, int how6, int how4, const HostAddress &groupAddress,
+                                      const NetworkInterface &iface)
+{
+    int level = 0;
+    int sockOpt = 0;
+    char *sockArg;
+    int sockArgSize;
+
+    ip_mreq mreq4;
+    ipv6_mreq mreq6;
+
+    if (groupAddress.protocol() == HostAddress::IPv6Protocol) {
+        level = IPPROTO_IPV6;
+        sockOpt = how6;
+        sockArg = reinterpret_cast<char *>(&mreq6);
+        sockArgSize = sizeof(mreq6);
+        memset(&mreq6, 0, sizeof(mreq6));
+        IPv6Address ip6 = groupAddress.toIPv6Address();
+        memcpy(&mreq6.ipv6mr_multiaddr, &ip6, sizeof(ip6));
+        mreq6.ipv6mr_interface = iface.index();
+    } else if (groupAddress.protocol() == HostAddress::IPv4Protocol) {
+        level = IPPROTO_IP;
+        sockOpt = how4;
+        sockArg = reinterpret_cast<char *>(&mreq4);
+        sockArgSize = sizeof(mreq4);
+        memset(&mreq4, 0, sizeof(mreq4));
+        mreq4.imr_multiaddr.s_addr = htonl(groupAddress.toIPv4Address());
+
+        if (iface.isValid()) {
+            const QList<NetworkAddressEntry> &addressEntries = iface.addressEntries();
+            bool found = false;
+            for (const NetworkAddressEntry &entry : addressEntries) {
+                const HostAddress &ip = entry.ip();
+                if (ip.protocol() == HostAddress::IPv4Protocol) {
+                    mreq4.imr_interface.s_addr = htonl(ip.toIPv4Address());
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                d->setError(Socket::NetworkError, SocketPrivate::NetworkUnreachableErrorString);
+                return false;
+            }
+        } else {
+            mreq4.imr_interface.s_addr = INADDR_ANY;
+        }
+    } else {
+        // unreachable
+        d->setError(Socket::UnsupportedSocketOperationError, SocketPrivate::ProtocolUnsupportedErrorString);
+        return false;
+    }
+
+    int res = setsockopt(static_cast<SOCKET>(d->fd), level, sockOpt, sockArg, sockArgSize);
+    if (res == -1) {
+        switch (errno) {
+        case ENOPROTOOPT:
+            d->setError(Socket::UnsupportedSocketOperationError, SocketPrivate::OperationUnsupportedErrorString);
+            break;
+        case EADDRNOTAVAIL:
+            d->setError(Socket::SocketAddressNotAvailableError, SocketPrivate::AddressNotAvailableErrorString);
+            break;
+        default:
+            d->setError(Socket::UnknownSocketError, SocketPrivate::UnknownSocketErrorString);
+            break;
+        }
+        return false;
+    }
+    return true;
+}
+
+
+bool SocketPrivate::joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
+{
+    if (!checkState()) {
+        return false;
+    }
+    if (state != Socket::BoundState) {
+        qWarning("Socket::joinMulticastGroup() should be called only at bound state.");
+        return false;
+    }
+    if (type != Socket::UdpSocket) {
+        qWarning("Socket::joinMulticastGroup() only apply to UDP socket type.");
+        return false;
+    }
+    if (protocol == HostAddress::IPv6Protocol && groupAddress.isIPv4()) {
+        qWarning("Socket is IPv6 but join to an IPv4 group.");
+        return false;
+    }
+    if (protocol == HostAddress::IPv4Protocol && !groupAddress.isIPv4()) {
+        qWarning("Socket is IPv4 but join to an IPv6 group.");
+        return false;
+    }
+
+    return multicastMembershipHelper(this, IPV6_JOIN_GROUP, IP_ADD_MEMBERSHIP, groupAddress, iface);
+}
+
+
+bool SocketPrivate::leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
+{
+    if (!checkState()) {
+        return false;
+    }
+    if (state != Socket::BoundState) {
+        qWarning("Socket::leaveMulticastGroup() should be called only at bound state.");
+        return false;
+    }
+    if (type != Socket::UdpSocket) {
+        qWarning("Socket::leaveMulticastGroup() only apply to UDP socket type.");
+        return false;
+    }
+    if (protocol == HostAddress::IPv6Protocol && groupAddress.isIPv4()) {
+        qWarning("Socket is IPv6 but leave from an IPv4 group.");
+        return false;
+    }
+    if (protocol == HostAddress::IPv4Protocol && !groupAddress.isIPv4()) {
+        qWarning("Socket is IPv4 but leave from an IPv6 group.");
+        return false;
+    }
+    return multicastMembershipHelper(this, IPV6_LEAVE_GROUP, IP_DROP_MEMBERSHIP, groupAddress, iface);
+}
+
+
+NetworkInterface SocketPrivate::multicastInterface() const
+{
+    if (!checkState()) {
+        return NetworkInterface();
+    }
+    if (type != Socket::UdpSocket) {
+        qWarning("Socket::multicastInterface() only apply to UDP socket type.");
+        return NetworkInterface();
+    }
+
+    if (protocol == HostAddress::IPv6Protocol || protocol == HostAddress::AnyIPProtocol) {
+        uint v;
+        QT_SOCKLEN_T sizeofv = sizeof(v);
+        if (::getsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_IF, (char *)&v, &sizeofv) == -1)
+            return NetworkInterface();
+        return NetworkInterface::interfaceFromIndex(v);
+    }
+
+    struct in_addr v;
+    memset(&v, 0, sizeof(v));
+    QT_SOCKLEN_T sizeofv = sizeof(v);
+    if (::getsockopt(static_cast<SOCKET>(fd), IPPROTO_IP, IP_MULTICAST_IF, (char *)&v, &sizeofv) == -1) {
+        return NetworkInterface();
+    }
+    if (v.s_addr != 0 && sizeofv >= QT_SOCKLEN_T(sizeof(v))) {
+        HostAddress ipv4(ntohl(v.s_addr));
+        const QList<NetworkInterface> &ifaces = NetworkInterface::allInterfaces();
+        for (int i = 0; i < ifaces.count(); ++i) {
+            const NetworkInterface &iface = ifaces.at(i);
+            if (!(iface.flags() & NetworkInterface::CanMulticast)) {
+                continue;
+            }
+            const QList<NetworkAddressEntry> &entries = iface.addressEntries();
+            for (int j = 0; j < entries.count(); ++j) {
+                const NetworkAddressEntry &entry = entries.at(j);
+                if (entry.ip() == ipv4) {
+                    return iface;
+                }
+            }
+        }
+    }
+    return NetworkInterface();
+}
+
+
+bool SocketPrivate::setMulticastInterface(const NetworkInterface &iface)
+{
+    if (!checkState()) {
+        return false;
+    }
+
+    if (type != Socket::UdpSocket) {
+        qWarning("Socket::multicastInterface() only apply to UDP socket type.");
+        return false;
+    }
+
+    if (protocol == HostAddress::IPv6Protocol || protocol == HostAddress::AnyIPProtocol) {
+        uint v = iface.index();
+        return (::setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_IF, (char *) &v, sizeof(v)) != -1);
+    }
+
+    struct in_addr v;
+    if (iface.isValid()) {
+        QList<NetworkAddressEntry> entries = iface.addressEntries();
+        for (int i = 0; i < entries.count(); ++i) {
+            const NetworkAddressEntry &entry = entries.at(i);
+            const HostAddress &ip = entry.ip();
+            if (ip.protocol() == HostAddress::IPv4Protocol) {
+                v.s_addr = htonl(ip.toIPv4Address());
+                int r = ::setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, (char *) &v, sizeof(v));
+                if (r != -1) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    v.s_addr = INADDR_ANY;
+    return (::setsockopt(static_cast<SOCKET>(fd), IPPROTO_IP, IP_MULTICAST_IF, (char *) &v, sizeof(v)) != -1);
 }
 
 

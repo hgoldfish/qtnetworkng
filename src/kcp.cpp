@@ -49,6 +49,10 @@ public:
     virtual bool listen(int backlog) = 0;
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) = 0;
     virtual QVariant option(Socket::SocketOption option) const = 0;
+    virtual bool joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface) = 0;
+    virtual bool leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface) = 0;
+    virtual NetworkInterface multicastInterface() const = 0;
+    virtual bool setMulticastInterface(const NetworkInterface &iface) = 0;
 public:
     void setMode(KcpSocket::Mode mode);
     qint32 send(const char *data, qint32 size, bool all);
@@ -129,6 +133,10 @@ public:
     virtual bool listen(int backlog) override;
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
     virtual QVariant option(Socket::SocketOption option) const override;
+    virtual bool joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface) override;
+    virtual bool leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface) override;
+    virtual NetworkInterface multicastInterface() const override;
+    virtual bool setMulticastInterface(const NetworkInterface &iface) override;
 public:
     virtual qint32 rawSend(const char *data, qint32 size) override;
     virtual qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port) override;
@@ -176,6 +184,10 @@ public:
     virtual bool listen(int backlog) override;
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
     virtual QVariant option(Socket::SocketOption option) const override;
+    virtual bool joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface) override;
+    virtual bool leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface) override;
+    virtual NetworkInterface multicastInterface() const override;
+    virtual bool setMulticastInterface(const NetworkInterface &iface) override;
 public:
     virtual qint32 rawSend(const char *data, qint32 size) override;
     virtual qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port) override;
@@ -1095,7 +1107,7 @@ bool MasterKcpSocketPrivate::bind(quint16 port, Socket::BindMode mode)
     if (state != Socket::UnconnectedState) {
         return false;
     }
-    if(mode & Socket::ReuseAddressHint) {
+    if (mode & Socket::ReuseAddressHint) {
         rawSocket->setOption(Socket::AddressReusable, true);
     }
     if (rawSocket->bind(port, mode)) {
@@ -1116,6 +1128,30 @@ bool MasterKcpSocketPrivate::setOption(Socket::SocketOption option, const QVaria
 QVariant MasterKcpSocketPrivate::option(Socket::SocketOption option) const
 {
     return rawSocket->option(option);
+}
+
+
+bool MasterKcpSocketPrivate::joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
+{
+    return rawSocket->joinMulticastGroup(groupAddress, iface);
+}
+
+
+bool MasterKcpSocketPrivate::leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
+{
+    return rawSocket->leaveMulticastGroup(groupAddress, iface);
+}
+
+
+NetworkInterface MasterKcpSocketPrivate::multicastInterface() const
+{
+    return rawSocket->multicastInterface();
+}
+
+
+bool MasterKcpSocketPrivate::setMulticastInterface(const NetworkInterface &iface)
+{
+    return rawSocket->setMulticastInterface(iface);
 }
 
 
@@ -1316,6 +1352,30 @@ QVariant SlaveKcpSocketPrivate::option(Socket::SocketOption option) const
     } else {
         return parent->rawSocket->option(option);
     }
+}
+
+
+bool SlaveKcpSocketPrivate::joinMulticastGroup(const HostAddress &, const NetworkInterface &)
+{
+    return false;
+}
+
+
+bool SlaveKcpSocketPrivate::leaveMulticastGroup(const HostAddress &, const NetworkInterface &)
+{
+    return false;
+}
+
+
+NetworkInterface SlaveKcpSocketPrivate::multicastInterface() const
+{
+    return NetworkInterface();
+}
+
+
+bool SlaveKcpSocketPrivate::setMulticastInterface(const NetworkInterface &)
+{
+    return false;
 }
 
 
@@ -1580,6 +1640,35 @@ QVariant KcpSocket::option(Socket::SocketOption option) const
     Q_D(const KcpSocket);
     return d->option(option);
 }
+
+
+bool KcpSocket::joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
+{
+    Q_D(KcpSocket);
+    return d->joinMulticastGroup(groupAddress, iface);
+}
+
+
+bool KcpSocket::leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
+{
+    Q_D(KcpSocket);
+    return d->leaveMulticastGroup(groupAddress, iface);
+}
+
+
+NetworkInterface KcpSocket::multicastInterface() const
+{
+    Q_D(const KcpSocket);
+    return d->multicastInterface();
+}
+
+
+bool KcpSocket::setMulticastInterface(const NetworkInterface &iface)
+{
+    Q_D(KcpSocket);
+    return d->setMulticastInterface(iface);
+}
+
 
 
 qint32 KcpSocket::recv(char *data, qint32 size)

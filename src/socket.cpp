@@ -424,6 +424,34 @@ QVariant Socket::option(Socket::SocketOption option) const
 }
 
 
+bool Socket::joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
+{
+    Q_D(Socket);
+    return d->joinMulticastGroup(groupAddress, iface);
+}
+
+
+bool Socket::leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
+{
+    Q_D(Socket);
+    return d->leaveMulticastGroup(groupAddress, iface);
+}
+
+
+NetworkInterface Socket::multicastInterface() const
+{
+    Q_D(const Socket);
+    return d->multicastInterface();
+}
+
+
+bool Socket::setMulticastInterface(const NetworkInterface &iface)
+{
+    Q_D(Socket);
+    return d->setMulticastInterface(iface);
+}
+
+
 qint32 Socket::recv(char *data, qint32 size)
 {
     Q_D(Socket);
