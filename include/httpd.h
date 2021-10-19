@@ -51,7 +51,7 @@ protected:  // util methods.
     bool endHeader();
     bool readBody();
 protected:
-    virtual QByteArray tryToHandleMagicCode(bool *done);
+    virtual QByteArray tryToHandleMagicCode(bool &done);
 private:
     QBYTEARRAYLIST headerCache;  // used for sendHeader() & endHeader()
 public:

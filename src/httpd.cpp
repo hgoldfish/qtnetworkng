@@ -73,7 +73,7 @@ QString BaseHttpRequestHandler::normalizePath(const QString &path)
 bool BaseHttpRequestHandler::parseRequest()
 {
     bool done = false;
-    const QByteArray &buf = tryToHandleMagicCode(&done);
+    const QByteArray &buf = tryToHandleMagicCode(done);
     if (done) {
         return false;
     }
@@ -156,9 +156,9 @@ bool BaseHttpRequestHandler::parseRequest()
 }
 
 
-QByteArray BaseHttpRequestHandler::tryToHandleMagicCode(bool *done)
+QByteArray BaseHttpRequestHandler::tryToHandleMagicCode(bool &done)
 {
-    *done = false;
+    done = false;
     return QByteArray();
 }
 
