@@ -384,12 +384,14 @@ static QList<NetworkInterfacePrivate *> createInterfaces(ifaddrs *rawList)
     return interfaces;
 }
 
+
 static void getAddressExtraInfo(NetworkAddressEntry *entry, struct sockaddr *sa, const char *ifname)
 {
     Q_UNUSED(entry);
     Q_UNUSED(sa);
     Q_UNUSED(ifname)
 }
+
 
 # elif defined(Q_OS_BSD4)
 #  include <net/if_dl.h>
@@ -403,7 +405,11 @@ static void getAddressExtraInfo(NetworkAddressEntry *entry, struct sockaddr *sa,
 #  include <net/if_media.h>
 #  include <net/if_types.h>
 #  include <netinet/in_var.h>
+#  ifdef Q_OS_OPENBSD
+#    include <netinet6/in6_var.h>
+#  endif
 #endif // QT_PLATFORM_UIKIT
+
 
 static int openSocket(int &socket)
 {
@@ -434,8 +440,13 @@ static NetworkInterface::InterfaceType probeIfType(int socket, int iftype, struc
 
     case IFT_IEEE1394:
         return NetworkInterface::Ieee1394;
-
+#ifndef IFT_GIF
+#define IFT_GIF 0xf0
+#endif
     case IFT_GIF:
+#ifndef IFT_STF
+#define IFT_STF 0xd7
+#endif
     case IFT_STF:
         return NetworkInterface::Virtual;
     }
@@ -461,6 +472,7 @@ static NetworkInterface::InterfaceType probeIfType(int socket, int iftype, struc
 
     return NetworkInterface::Unknown;
 }
+
 
 static QList<NetworkInterfacePrivate *> createInterfaces(ifaddrs *rawList)
 {
@@ -497,6 +509,7 @@ static QList<NetworkInterfacePrivate *> createInterfaces(ifaddrs *rawList)
         qt_safe_close(socket);
     return interfaces;
 }
+
 
 static void getAddressExtraInfo(NetworkAddressEntry *entry, struct sockaddr *sa, const char *ifname)
 {

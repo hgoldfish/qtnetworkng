@@ -122,7 +122,7 @@ QTNETWORKNG_NAMESPACE_BEGIN
 
 static NetworkInterface::InterfaceFlags convertFlags(uint rawFlags)
 {
-    NetworkInterface::InterfaceFlags flags = 0;
+    NetworkInterface::InterfaceFlags flags;
     flags |= (rawFlags & IFF_UP) ? NetworkInterface::IsUp : NetworkInterface::InterfaceFlag(0);
     flags |= (rawFlags & IFF_RUNNING) ? NetworkInterface::IsRunning : NetworkInterface::InterfaceFlag(0);
     flags |= (rawFlags & IFF_BROADCAST) ? NetworkInterface::CanBroadcast : NetworkInterface::InterfaceFlag(0);
