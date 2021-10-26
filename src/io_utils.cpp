@@ -237,7 +237,7 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
     while (true) {
         qint64 remain = INT64_MAX;
         if (bytesToCopy > 0) {
-            remain = qMax<qint64>(0, bytesToCopy - buf.size() - total);
+            remain = qMax<qint64>(0, bytesToCopy - total);
         }
         if (remain > 0 && buf.size() < 1024 * 8 && !eof) {
             qint32 nextBlockSize = qMin<qint64>(t.size(), remain);
