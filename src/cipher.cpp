@@ -1,6 +1,9 @@
 #include "../include/cipher.h"
 #include "../include/private/crypto_p.h"
 #include "../include/random.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.cipher");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -223,7 +226,7 @@ CipherPrivate::CipherPrivate(Cipher::Algorithm algo, Cipher::Mode mode, Cipher::
     cipher = getOpenSSL_CIPHER(algo, mode);
     if (!cipher) {
         hasError = true;
-        qWarning("cipher is not supported.");
+        qtng_warning << "cipher is not supported.";
         return;
     }
 
@@ -385,7 +388,7 @@ bool CipherPrivate::setOpensslPassword(const QByteArray &password, const QByteAr
         if (salt.size() == 8) {
             s = salt;
         } else {
-            qWarning("setOpensslPassword() require the length of salt is 8.");
+            qtng_warning << "setOpensslPassword() require the length of salt is 8.";
             return false;
         }
     }

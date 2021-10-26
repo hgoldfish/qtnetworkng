@@ -55,7 +55,9 @@
     #include <netdb.h>
     #include <errno.h>
 #endif
+#include "debugger.h"
 
+QTNG_LOGGER("qtng.hostaddress");
 
 #if QT_VERSION < QT_VERSION_CHECK(5, 8, 0)
 #define Q_FALLTHROUGH()
@@ -932,7 +934,7 @@ HostAddress::HostAddress(const sockaddr *sockaddr)
         break;
     }
     default:
-        qWarning() << "Unknown address type when get hostname";
+        qtng_warning << "Unknown address type when get hostname";
     }
 }
 
@@ -1437,12 +1439,12 @@ QList<HostAddress> HostAddress::getHostAddressByName(const QString &hostName)
                 break;
             }
             default:
-                qWarning() << "Unknown address type when get hostname";
+                qtng_warning << "Unknown address type when get hostname";
             }
             node = node->ai_next;
         }
         if (addresses.isEmpty()) {
-            qWarning() << "Unknown address type when get hostname";
+            qtng_warning << "Unknown address type when get hostname";
         }
         freeaddrinfo(res);
     }

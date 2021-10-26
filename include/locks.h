@@ -2,7 +2,7 @@
 #define QTNG_LOCKS_H
 
 #include <QtCore/qqueue.h>
-#include <QtCore/qdebug.h>
+#include <QtCore/qsharedpointer.h>
 #include "coroutine.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -22,8 +22,7 @@ public:
     bool isUsed() const;
     quint32 getting() const;
 private:
-    SemaphorePrivate * d_ptr;
-    Q_DECLARE_PRIVATE(Semaphore)
+    QSharedPointer<SemaphorePrivate> d;
     Q_DISABLE_COPY(Semaphore)
 };
 

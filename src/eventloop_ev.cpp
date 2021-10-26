@@ -6,7 +6,9 @@
 #include <stddef.h>
 #include "ev/ev.h"
 #include "../include/private/eventloop_p.h"
+#include "debugger.h"
 
+QTNG_LOGGER("qtng.eventloop_ev");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -207,7 +209,7 @@ void EvEventLoopCoroutinePrivate::run()
     try {
         ev_run(loop, 0);
     } catch(...) {
-        qWarning("libev eventloop got exception.");
+        qtng_warning << "libev eventloop got exception.";
     }
 }
 

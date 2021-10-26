@@ -18,6 +18,10 @@
 #ifndef QTNG_NO_CRYPTO
 #include "../include/ssl.h"
 #endif
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.http");
+
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -563,14 +567,14 @@ void HttpResponse::setRequest(const HttpRequest &request)
 QSharedPointer<SocketLike> HttpResponse::takeStream(QByteArray *readBytes)
 {
     if (d->consumed) {
-        qWarning() << "the stream is consumed. do you remember to set the streamResponse property of request to true?";
+        qtng_warning << "the stream is consumed. do you remember to set the streamResponse property of request to true?";
     }
     d->consumed = true;
     if (readBytes) {
         *readBytes = d->body;
         d->body.clear();
     } else if (!d->body.isEmpty()) {
-        qWarning("you should take care the left bytes after parsing header. please pass a non-null byte array to takeStream(): %d", d->body.size());
+        qtng_warning << "you should take care the left bytes after parsing header. please pass a non-null byte array to takeStream():" << d->body.size();
     }
     return d->stream;
 }
@@ -594,12 +598,12 @@ RequestError *toRequestError(ChunkedBlockReader::Error error)
 QSharedPointer<FileLike> HttpResponse::bodyAsFile(bool processEncoding)
 {
     if (d->consumed) {
-        qWarning("the stream is consumed. do you remember to set the streamResponse property of request to true?");
+        qtng_warning << "the stream is consumed. do you remember to set the streamResponse property of request to true?";
         return QSharedPointer<FileLike>();
     }
     d->consumed = true;
     if (!d->error.isNull() && !hasHttpError()) {
-        qWarning("the response has error, there is no avaliable body file.");
+        qtng_warning << "the response has error, there is no avaliable body file.";
         return QSharedPointer<FileLike>();
     }
 
@@ -614,7 +618,7 @@ QSharedPointer<FileLike> HttpResponse::bodyAsFile(bool processEncoding)
             return QSharedPointer<FileLike>();
         } else {
             if (d->body.size() > contentLength) {
-                qWarning("response body got too much bytes.");
+                qtng_warning << "response body got too much bytes.";
                 bodyFile = FileLike::bytes(d->body);
             } else if (d->body.size() < contentLength){
                 if (d->stream.isNull()) {
@@ -657,7 +661,7 @@ QSharedPointer<FileLike> HttpResponse::bodyAsFile(bool processEncoding)
         } else
     #endif
         if (!contentEncodingHeader.isEmpty() || !transferEncodingHeader.isEmpty()){
-            qWarning() << "unsupported content encoding." << contentEncodingHeader << transferEncodingHeader;
+            qtng_warning << "unsupported content encoding:" << contentEncodingHeader << transferEncodingHeader;
         }
     }
     return bodyFile;
@@ -960,8 +964,6 @@ void ConnectionPool::removeUnusedConnections()
         for (QMap<QUrl, ConnectionPoolItem>::const_iterator itor = items.constBegin(); itor != items.constEnd(); ++itor) {
             if (itor.value().lastUsed.secsTo(now) < timeToLive || itor.value().semaphore->isUsed()) {
                 newItems.insert(itor.key(), itor.value());
-            } else {
-                qDebug() << "remove connection:" << itor.value().lastUsed;
             }
         }
         items = newItems;
@@ -1099,14 +1101,14 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     response.d->request = request;
     if (url.scheme() != QString::fromLatin1("http") && url.scheme() != QString::fromLatin1("https")) {
         if (debugLevel > 0) {
-            qDebug() << "invalid scheme" << url.scheme();
+            qtng_debug << "invalid scheme:" << url.scheme();
         }
         response.setError(new InvalidScheme());
         return response;
     }
     if (request.d->method.isEmpty()) {
         if (debugLevel > 0) {
-            qDebug() << "empty method";
+            qtng_debug << "empty method";
         }
         response.setError(new InvalidHeader());
         return response;
@@ -1146,7 +1148,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 //        versionBytes = "HTTP/2.0";
     } else {
         if (debugLevel > 0) {
-            qDebug() << "invalid http version." << request.d->version;
+            qtng_debug << "invalid http version:" << request.d->version;
         }
         response.setError(new UnsupportedVersion());
         return response;
@@ -1167,7 +1169,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     lines.append(QByteArray("\r\n"));
     if (debugLevel > 0) {
         for (const QByteArray &line: lines) {
-            qDebug() << "sending headers:" << line;
+            qtng_debug << "sending headers:" << line;
         }
     }
     const QByteArray &headerBytes = join(lines);
@@ -1213,7 +1215,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     QScopedPointer<Coroutine> sendingReuqestBodyCoroutine(new SendRequestBodyCoroutine(Coroutine::current(), connection, request.d->body));
     if (!request.d->body.isNull()) {
         if (debugLevel > 0) {
-            qDebug() << "sending body:" << request.d->body->size();
+            qtng_debug << "sending body:" << request.d->body->size();
         }
         sendingReuqestBodyCoroutine->start();
         try {
@@ -1268,7 +1270,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         response.setHeaders(headers);
         if(debugLevel > 0)  {
             for (const HttpHeader &header: headers) {
-                qDebug() << "receiving header: " << header.name << header.value;
+                qtng_debug << "receiving header:" << header.name << header.value;
             }
         }
     }
@@ -1278,7 +1280,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         for (const QByteArray &value: response.multiHeader(QString::fromLatin1("Set-Cookie"))) {
             const QList<HttpCookie> &cookies = HttpCookie::parseCookies(value);
             if(debugLevel > 0 && !cookies.isEmpty()) {
-                qDebug() << "receiving cookie:" << cookies[0].toRawForm();
+                qtng_debug << "receiving cookie:" << cookies[0].toRawForm();
             }
             response.d->cookies.append(cookies);
         }
@@ -1293,8 +1295,10 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         if (!response.d->error.isNull()) {
             return response;
         }
-        if(debugLevel > 1 && !body.isEmpty()) {
-            qDebug() << "receiving body:" << body;
+        if (debugLevel == 1 && !body.isEmpty()) {
+            qtng_debug << "receiving body:" << body.size();
+        } else if (debugLevel > 1 && !body.isEmpty()) {
+            qtng_debug << "receiving body:" << body;
         }
         if (!ptrLock.isNull()
                 && connection->isValid()

@@ -9,6 +9,9 @@ extern "C" {
 #include "../include/certificate.h"
 #include "../include/private/qasn1element.h"
 #include "../include/private/crypto_p.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.certificate");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -100,7 +103,7 @@ static QDateTime getTimeFromASN1(const ASN1_TIME *aTime)
         return result;
 
     } else {
-        qWarning("unsupported date format detected");
+        qtng_warning << "unsupported date format detected";
         return QDateTime();
     }
 

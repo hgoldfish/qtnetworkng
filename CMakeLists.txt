@@ -37,6 +37,7 @@ endif ()
 
 
 set(QTNETWORKNG_SRC
+    src/debugger.h
     src/socket.cpp
     src/eventloop.cpp
     src/eventloop_qt.cpp

@@ -2,6 +2,9 @@
 #include <QtCore/qdatetime.h>
 #include <QtCore/qurl.h>
 #include "../include/socket_server.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.socks5server");
 
 
 #define S5_VERSION_5 0x05
@@ -115,7 +118,7 @@ void Socks5RequestHandler::logProxy(const QString &hostName, const HostAddress &
             .arg(forwardAddress.toString())
             .arg(port)
             .arg(status);
-    qDebug("%s\n", qPrintable(message));
+    printf("%s\n", qPrintable(message));
 }
 
 
@@ -236,7 +239,7 @@ bool Socks5RequestHandler::handshake()
     }
     qint32 sentBytes = request->sendall(replyHeader);
     if (sentBytes != replyHeader.size()) {
-        qDebug() << "can not send reply header.";
+        qtng_debug << "can not send reply header.";
         return false;
     }
     return ok;

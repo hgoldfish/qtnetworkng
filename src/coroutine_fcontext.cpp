@@ -8,7 +8,12 @@
 # include <sys/mman.h>
 #endif
 
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.fcontext");
+
 QTNETWORKNG_NAMESPACE_BEGIN
+
 
 #if (defined(i386) || defined(__i386__) || defined(__i386) \
      || defined(__i486__) || defined(__i586__) || defined(__i686__) \
@@ -67,11 +72,11 @@ extern "C" void run_stub(intptr_t data)
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
     } catch(const CoroutineException &e) {
-        qDebug() << "got coroutine exception:" << e.what();
+        qtng_debug << "got coroutine exception:" << e.what();
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
     } catch(...) {
-        qWarning() << "coroutine throw a unhandled exception.";
+        qtng_warning << "coroutine throw a unhandled exception.";
         coroutine->state = BaseCoroutine::Stopped;
         coroutine->q_ptr->finished.callback(coroutine->q_ptr);
 //        throw; // cause undefined behaviors
@@ -98,7 +103,7 @@ BaseCoroutinePrivate::BaseCoroutinePrivate(BaseCoroutine *q, BaseCoroutine *prev
         stack = operator new(stackSize);
 #endif
         if (!stack) {
-            qWarning("Coroutine can not malloc new memroy.");
+            qtng_warning << "Coroutine can not malloc new memroy.";
             bad = true;
         }
     }
@@ -110,19 +115,19 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
     Q_Q(BaseCoroutine);
     if (state == BaseCoroutine::Started) {
         if (q->objectName().isEmpty()) {
-            qWarning() << "do not delete running BaseCoroutine:" << q;
+            qtng_warning << "do not delete running BaseCoroutine:" << q;
         } else {
-            qWarning() << "do not delete running BaseCoroutine:" << q->objectName();
+            qtng_warning << "do not delete running BaseCoroutine:" << q->objectName();
         }
     }
     if (exception) {
-        qWarning("BaseCoroutine->exception should always be kept null.");
+        qtng_warning << "BaseCoroutine->exception should always be kept null.";
         // XXX we do not own the exception.
         //delete exception;
     }
 
     if (currentCoroutine().get() == q) {
-        qWarning("do not delete one self.");
+        qtng_warning << "do not delete one self.";
     }
 
     if (stack) {
@@ -140,7 +145,7 @@ bool BaseCoroutinePrivate::yield()
     Q_Q(BaseCoroutine);
 
     if (bad || (state != BaseCoroutine::Initialized && state != BaseCoroutine::Started)) {
-        qWarning("invalid coroutine state.");
+        qtng_warning << "invalid coroutine state.";
         return false;
     }
 
@@ -150,11 +155,11 @@ bool BaseCoroutinePrivate::yield()
 
     BaseCoroutine *old = currentCoroutine().get();
     if (!old) {
-        qWarning("can not get old coroutine.");
+        qtng_warning << "can not get old coroutine.";
         return false;
     }
     if (old == q) {
-        qWarning("yield to myself. did you call blocking functions in eventloop?");
+        qtng_warning << "yield to myself. did you call blocking functions in eventloop?";
         return false;
     }
 
@@ -162,7 +167,7 @@ bool BaseCoroutinePrivate::yield()
 
     intptr_t result = jump_fcontext(&old->d_func()->context, context, reinterpret_cast<intptr_t>(this), false);
     if (!result && state != BaseCoroutine::Stopped) {  // last coroutine private.
-        qWarning("jump_fcontext() return error.");
+        qtng_warning << "jump_fcontext() return error.";
         return false;
     }
     if (currentCoroutine().get() != old) {  // when coroutine finished, jump_fcontext auto yield to the previous.
@@ -184,14 +189,14 @@ bool BaseCoroutinePrivate::initContext()
         return true;
     }
     if (!stackSize) {
-        qDebug("is the main fiber forgot to create context?");
+        qtng_debug << "is the main fiber forgot to create context?";
         return true;
     }
 
     void * stackTop = static_cast<char*>(stack) + stackSize;
     context = make_fcontext(stackTop, stackSize, run_stub);
     if (!context) {
-        qWarning("Coroutine can not malloc new context.");
+        qtng_warning << "Coroutine can not malloc new context.";
         bad = true;
         return false;
     }
@@ -203,23 +208,23 @@ bool BaseCoroutinePrivate::raise(CoroutineException *exception)
 {
     Q_Q(BaseCoroutine);
     if (!exception) {
-        qWarning("can not kill coroutine with null exception.");
+        qtng_warning << "can not kill coroutine with null exception.";
         return false;
     }
     if (currentCoroutine().get() == q) {
-        qWarning("can not kill oneself.");
+        qtng_warning << "can not kill oneself.";
         delete exception;
         return false;
     }
 
     if (this->exception) {
-        qWarning("coroutine had been killed.");
+        qtng_warning << "coroutine had been killed.";
         delete exception;
         return false;
     }
 
     if (state == BaseCoroutine::Stopped || state == BaseCoroutine::Joined) {
-        qWarning("coroutine is stopped.");
+        qtng_warning << "coroutine is stopped.";
         delete exception;
         return false;
     }

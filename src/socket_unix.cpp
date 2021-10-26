@@ -12,7 +12,6 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-
 #ifndef SOCK_NONBLOCK
 # define SOCK_NONBLOCK O_NONBLOCK
 #endif
@@ -43,6 +42,10 @@
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
+
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.socket_unix");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -394,7 +397,7 @@ bool SocketPrivate::connect(const HostAddress &address, quint16 port)
             state = Socket::UnconnectedState;
             return false;
         default:
-            qDebug() << t << strerror(t);
+            qtng_debug << t << strerror(t);
             setError(Socket::UnknownSocketError, UnknownSocketErrorString);
             state = Socket::UnconnectedState;
             return false;
@@ -1095,19 +1098,19 @@ bool SocketPrivate::joinMulticastGroup(const HostAddress &groupAddress, const Ne
         return false;
     }
     if (state != Socket::BoundState) {
-        qWarning("Socket::joinMulticastGroup() should be called only at bound state.");
+        qtng_warning << "Socket::joinMulticastGroup() should be called only at bound state.";
         return false;
     }
     if (type != Socket::UdpSocket) {
-        qWarning("Socket::joinMulticastGroup() only apply to UDP socket type.");
+        qtng_warning << "Socket::joinMulticastGroup() only apply to UDP socket type.";
         return false;
     }
     if (protocol == HostAddress::IPv6Protocol && groupAddress.isIPv4()) {
-        qWarning("Socket is IPv6 but join to an IPv4 group.");
+        qtng_warning << "Socket is IPv6 but join to an IPv4 group.";
         return false;
     }
     if (protocol == HostAddress::IPv4Protocol && !groupAddress.isIPv4()) {
-        qWarning("Socket is IPv4 but join to an IPv6 group.");
+        qtng_warning << "Socket is IPv4 but join to an IPv6 group.";
         return false;
     }
 
@@ -1121,19 +1124,19 @@ bool SocketPrivate::leaveMulticastGroup(const HostAddress &groupAddress, const N
         return false;
     }
     if (state != Socket::BoundState) {
-        qWarning("Socket::leaveMulticastGroup() should be called only at bound state.");
+        qtng_warning << "Socket::leaveMulticastGroup() should be called only at bound state.";
         return false;
     }
     if (type != Socket::UdpSocket) {
-        qWarning("Socket::leaveMulticastGroup() only apply to UDP socket type.");
+        qtng_warning << "Socket::leaveMulticastGroup() only apply to UDP socket type.";
         return false;
     }
     if (protocol == HostAddress::IPv6Protocol && groupAddress.isIPv4()) {
-        qWarning("Socket is IPv6 but leave from an IPv4 group.");
+        qtng_warning << "Socket is IPv6 but leave from an IPv4 group.";
         return false;
     }
     if (protocol == HostAddress::IPv4Protocol && !groupAddress.isIPv4()) {
-        qWarning("Socket is IPv4 but leave from an IPv6 group.");
+        qtng_warning << "Socket is IPv4 but leave from an IPv6 group.";
         return false;
     }
     return multicastMembershipHelper(this, IPV6_LEAVE_GROUP, IP_DROP_MEMBERSHIP, groupAddress, iface);
@@ -1146,7 +1149,7 @@ NetworkInterface SocketPrivate::multicastInterface() const
         return NetworkInterface();
     }
     if (type != Socket::UdpSocket) {
-        qWarning("Socket::multicastInterface() only apply to UDP socket type.");
+        qtng_warning << "Socket::multicastInterface() only apply to UDP socket type.";
         return NetworkInterface();
     }
 
@@ -1191,7 +1194,7 @@ bool SocketPrivate::setMulticastInterface(const NetworkInterface &iface)
     }
 
     if (type != Socket::UdpSocket) {
-        qWarning("Socket::multicastInterface() only apply to UDP socket type.");
+        qtng_warning << "Socket::multicastInterface() only apply to UDP socket type.";
         return false;
     }
 

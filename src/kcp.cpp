@@ -11,6 +11,11 @@
 #include "../include/random.h"
 #include "../include/private/socket_p.h"
 #include "./kcp/ikcp.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.kcp");
+
+
 QTNETWORKNG_NAMESPACE_BEGIN
 
 const char PACKET_TYPE_UNCOMPRESSED_DATA = 0x01;
@@ -213,7 +218,7 @@ int kcp_callback(const char *buf, int len, ikcpcb *, void *user)
 {
     KcpSocketPrivate *p = static_cast<KcpSocketPrivate*>(user);
     if (!p || !buf || len > 65535) {
-        qWarning() << "kcp_callback got invalid data.";
+        qtng_warning << "kcp_callback got invalid data.";
         return -1;
     }
     const QByteArray &packet = p->makeDataPacket(buf, len);
@@ -226,7 +231,7 @@ int kcp_callback(const char *buf, int len, ikcpcb *, void *user)
                 p->errorString = QString::fromLatin1("can not send udp packet");
             }
 #ifdef DEBUG_PROTOCOL
-            qWarning() << "can not send packet.";
+            qtng_warning << "can not send packet.";
 #endif
             p->close(true);
             return -1;
@@ -362,7 +367,7 @@ qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
         qint32 nextBlockSize = qMin<qint32>(static_cast<qint32>(kcp->mss), size - count);
         int result = ikcp_send(kcp, data + count, nextBlockSize);
         if (result < 0) {
-            qWarning() << "why this happended?";
+            qtng_warning << "why this happended?";
             if (count > 0) {
                 updateKcp();
                 return count;
@@ -410,7 +415,7 @@ qint32 KcpSocketPrivate::recv(char *data, qint32 size, bool all)
         receivingQueueNotEmpty->clear();
         bool ok = receivingQueueNotEmpty->wait();
         if (!ok) {
-            qDebug() << "not receivingQueueNotEmpty->wait()";
+            qtng_debug << "not receivingQueueNotEmpty->wait()";
             return -1;
         }
     }
@@ -432,7 +437,7 @@ bool KcpSocketPrivate::handleDatagram(const char *buf, quint32 len)
         if (result < 0) {
             // invalid datagram
 #ifdef DEBUG_PROTOCOL
-            qDebug() << "invalid datagram. kcp returns" << result;
+            qtng_debug << "invalid datagram. kcp returns" << result;
 #endif
         } else {
             lastActiveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
@@ -462,7 +467,7 @@ void KcpSocketPrivate::doUpdate()
         quint64 now = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
         if (now - lastActiveTimestamp > tearDownTime && state == Socket::ConnectedState) {
 #ifdef DEBUG_PROTOCOL
-            qDebug() << "tearDown!";
+            qtng_debug << "tearDown!";
 #endif
             error = Socket::SocketTimeoutError;
             errorString = QString::fromLatin1("KcpSocket is timeout.");
@@ -482,7 +487,7 @@ void KcpSocketPrivate::doUpdate()
             const QByteArray &packet = makeKeepalivePacket();
             if (rawSend(packet.data(), packet.size()) != packet.size()) {
 #ifdef DEBUG_PROTOCOL
-                qDebug() << "can not send keep alive packet.";
+                qtng_debug << "can not send keep alive packet.";
 #endif
                 close(true);
                 return;
@@ -745,7 +750,7 @@ bool MasterKcpSocketPrivate::close(bool force)
     sendingQueueEmpty->set();
     sendingQueueNotFull->set();
 #ifdef DEBUG_PROTOCOL
-    qDebug() << "MasterKcpSocketPrivate::close() done";
+    qtng_debug << "MasterKcpSocketPrivate::close() done";
 #endif
     return true;
 }
@@ -786,7 +791,7 @@ void MasterKcpSocketPrivate::doReceive()
         qint32 len = rawSocket->recvfrom(buf.data(), buf.size(), &addr, &port);
         if (Q_UNLIKELY(len < 0 || addr.isNull() || port == 0)) {
 #ifdef DEBUG_PROTOCOL
-            qDebug() << "KcpSocket can not receive udp packet." << rawSocket->errorString();
+            qtng_debug << "KcpSocket can not receive udp packet." << rawSocket->errorString();
 #endif
             MasterKcpSocketPrivate::close(true);
             return;
@@ -796,7 +801,7 @@ void MasterKcpSocketPrivate::doReceive()
         }
         if (len < 5) {
 #ifdef DEBUG_PROTOCOL
-            qDebug() << "got invalid kcp packet smaller than 5 bytes." << QByteArray(buf.data(), len);
+            qtng_debug << "got invalid kcp packet smaller than 5 bytes." << QByteArray(buf.data(), len);
 #endif
             continue;
         }
@@ -808,7 +813,7 @@ void MasterKcpSocketPrivate::doReceive()
 #endif
         if (connectionId == 0) {
 #ifdef DEBUG_PROTOCOL
-            qDebug() << "the kcp server side returns an invalid packet with zero connection id.";
+            qtng_debug << "the kcp server side returns an invalid packet with zero connection id.";
 #endif
             continue;
         } else {
@@ -817,7 +822,7 @@ void MasterKcpSocketPrivate::doReceive()
             } else {
                 if (connectionId != this->connectionId) {
 #ifdef DEBUG_PROTOCOL
-                    qDebug() << "the kcp server side returns an invalid packet with mismatched connection id.";
+                    qtng_debug << "the kcp server side returns an invalid packet with mismatched connection id.";
 #endif
                     continue;
                 } else {
@@ -843,7 +848,7 @@ void MasterKcpSocketPrivate::doAccept()
         qint32 len = rawSocket->recvfrom(buf.data(), buf.size(), &addr, &port);
         if (Q_UNLIKELY(len < 0 || addr.isNull() || port == 0)) {
 #ifdef DEBUG_PROTOCOL
-            qDebug() << "KcpSocket can not receive udp packet." << rawSocket->errorString();
+            qtng_debug << "KcpSocket can not receive udp packet." << rawSocket->errorString();
 #endif
             MasterKcpSocketPrivate::close(true);
             return;
@@ -853,7 +858,7 @@ void MasterKcpSocketPrivate::doAccept()
         }
         if (len < 5) {
 #ifdef DEBUG_PROTOCOL
-            qDebug() << "got invalid kcp packet smaller than 5 bytes.";
+            qtng_debug << "got invalid kcp packet smaller than 5 bytes.";
 #endif
             continue;
         }
@@ -884,7 +889,7 @@ void MasterKcpSocketPrivate::doAccept()
                     }
                 } else if (connectionId != receiver->connectionId) {
 #ifdef DEBUG_PROTOCOL
-            qDebug() << "the client sent a invalid connection id";
+            qtng_debug << "the client sent a invalid connection id";
 #endif
                     continue;
                 }
@@ -905,7 +910,7 @@ void MasterKcpSocketPrivate::doAccept()
                             errorString = QString::fromLatin1("KcpSocket can not send udp packet.");
                         }
     #ifdef DEBUG_PROTOCOL
-                        qDebug() << errorString;
+                        qtng_debug << errorString;
     #endif
                         MasterKcpSocketPrivate::close(true);
                     }
@@ -915,7 +920,7 @@ void MasterKcpSocketPrivate::doAccept()
                     receiver->remotePort = port;
                     if (!receiver->handleDatagram(buf.data(), static_cast<quint32>(len))) {
 #ifdef DEBUG_PROTOCOL
-            qDebug() << "can not handle multipath packet.";
+            qtng_debug << "can not handle multipath packet.";
 #endif
                         receiversByHostAndPort.remove(receiver->originalHostAndPort);
                         receiversByConnectionId.remove(receiver->connectionId);
@@ -937,7 +942,7 @@ void MasterKcpSocketPrivate::doAccept()
                             errorString = QString::fromLatin1("KcpSocket can not send udp packet.");
                         }
 #ifdef DEBUG_PROTOCOL
-                        qDebug() << errorString;
+                        qtng_debug << errorString;
 #endif
                         MasterKcpSocketPrivate::close(true);
                     }
@@ -1264,7 +1269,7 @@ bool SlaveKcpSocketPrivate::close(bool force)
     notBusy->set();
     busy->set();
 #ifdef DEBUG_PROTOCOL
-    qDebug() << "SlaveKcpSocketPrivate::close() done.";
+    qtng_debug << "SlaveKcpSocketPrivate::close() done.";
 #endif
     return true;
 }

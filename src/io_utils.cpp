@@ -1,5 +1,8 @@
 #include "../include/io_utils.h"
 #include "../include/coroutine_utils.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.io_utils");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -109,7 +112,7 @@ QSharedPointer<FileLike> FileLike::open(const QString &filepath, const QString &
             flag |= QIODevice::ReadOnly;
         }
     } else {
-        qWarning("unknown file mode: %s", qPrintable(mode));
+        qtng_warning << "unknown file mode:" << mode;
     }
     if (!f->open(flag)) {
         return QSharedPointer<FileLike>();

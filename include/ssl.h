@@ -146,6 +146,7 @@ private:
     QScopedPointer<SslErrorPrivate> d;
 };
 uint qHash(const SslError &key, uint seed = 0);
+class Debug;
 QDebug &operator<<(QDebug &debug, const SslError &error);
 QDebug &operator<<(QDebug &debug, const SslError::Error &error);
 

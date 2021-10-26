@@ -1,5 +1,8 @@
 #include <QtCore/qlocale.h>
 #include "../include/http_utils.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.http")
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -515,7 +518,7 @@ HttpHeader HeaderSplitter::nextHeader(Error *error)
         return HttpHeader();
     }
     if (debugLevel > 2) {
-        qDebug() << "receiving data:" << line;
+        qtng_debug << "receiving data:" << line;
     }
     QList<QByteArray> headerParts = splitBytes(line, ':', 1);
     if(headerParts.size() != 2) {
@@ -615,8 +618,8 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
     }
     qint32 bytesToRead = numBytes.toInt(&ok, 16);
     if (!ok) {
-        if(debugLevel > 0) {
-            qDebug() << "got invalid chunked bytes:" << numBytes;
+        if (debugLevel > 0) {
+            qtng_debug << "got invalid chunked bytes:" << numBytes;
         }
         *error = ChunkedBlockReader::ChunkedEncodingError;
         return QByteArray();
@@ -640,7 +643,7 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
     buf.remove(0, bytesToRead + 2);
 
     if (bytesToRead == 0 && !buf.isEmpty() && debugLevel > 0) {
-        qDebug() << "bytesToRead == 0 but some bytes left.";
+        qtng_debug << "bytesToRead == 0 but some bytes left.";
     }
 
     *error = ChunkedBlockReader::NoError;

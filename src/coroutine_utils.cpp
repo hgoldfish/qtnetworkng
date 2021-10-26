@@ -1,5 +1,9 @@
 #include "../include/coroutine_utils.h"
 #include "../include/eventloop.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.coroutine");
+
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -110,7 +114,7 @@ bool CoroutineGroup::kill(const QString &name, bool join)
     QSharedPointer<Coroutine> found = get(name);
     if (!found.isNull()) {
         if (found.data() == Coroutine::current()) {
-            qWarning("killing current coroutine?");
+            qtng_warning << "killing current coroutine?";
         } else {
             if (join) {
                 if (found->isRunning()) {

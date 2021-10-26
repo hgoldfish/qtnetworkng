@@ -1,9 +1,14 @@
 #include <QtCore/qthread.h>
 #include <QtCore/qcoreapplication.h>
 #include <QtCore/qmap.h>
+#include <QtCore/qset.h>
 #include <QtCore/qcache.h>
 #include "../include/private/socket_p.h"
 #include "../include/coroutine_utils.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.socket");
+
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -239,7 +244,7 @@ Socket::~Socket()
     Q_D(Socket);
     d->abort();
     if (d->readLock->isLocked() || d->writeLock->isLocked()) {
-        qWarning() << "socket is deleted while receiving or sending.";
+        qtng_warning << "socket is deleted while receiving or sending.";
     }
     delete d_ptr;
 }

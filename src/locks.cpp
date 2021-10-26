@@ -1,35 +1,34 @@
-#include <QtCore/qpointer.h>
-#include <QtCore/qsharedpointer.h>
 #include "../include/private/eventloop_p.h"
 #include "../include/locks.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.locks");
+
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
 
-class SemaphorePrivate: public QObject
+class SemaphorePrivate
 {
 public:
-    SemaphorePrivate(Semaphore *q, int value);
+    SemaphorePrivate(int value);
     virtual ~SemaphorePrivate();
 public:
     bool acquire(bool blocking);
-    void release(int value);
-    void scheduleDelete();
-    static SemaphorePrivate *getPrivate(QSharedPointer<Semaphore> q) { return q ? q->d_ptr : nullptr;  }
+    void release(QSharedPointer<SemaphorePrivate> self, int value);
+    void scheduleDelete(QSharedPointer<SemaphorePrivate> self);
 public:
-    Semaphore * const q_ptr;
     QList<QPointer<BaseCoroutine> > waiters;
     const int init_value;
     volatile int counter;
     int notified;
-    Q_DECLARE_PUBLIC(Semaphore)
 
     friend QSharedPointer<Semaphore> acquireAny(const QList<QSharedPointer<Semaphore>> &semaphores, int value, bool blocking);
 };
 
 
-SemaphorePrivate::SemaphorePrivate(Semaphore *q, int value)
-    :q_ptr(q), init_value(value), counter(value), notified(0)
+SemaphorePrivate::SemaphorePrivate(int value)
+    : init_value(value), counter(value), notified(0)
 {
 }
 
@@ -72,22 +71,18 @@ bool SemaphorePrivate::acquire(bool blocking)
 class SemaphoreNotifyWaitersFunctor: public Functor
 {
 public:
-    SemaphoreNotifyWaitersFunctor(SemaphorePrivate *sp, bool doDelete)
+    SemaphoreNotifyWaitersFunctor(QSharedPointer<SemaphorePrivate> sp, bool doDelete)
         :sp(sp), doDelete(doDelete) {}
-    QPointer<SemaphorePrivate> sp;
+    QSharedPointer<SemaphorePrivate> sp;
     bool doDelete;
     virtual void operator() () override
     {
-        if (sp.isNull()) {
-            qWarning("SemaphorePrivate is deleted while calling notifyWaitersCallback.");
-            return;
-        }
-        while (!sp.isNull() && (sp->notified != 0 || doDelete)
-                            && (sp->counter > 0 || doDelete)
-                            && !sp->waiters.isEmpty()) {
+        while ((sp->notified != 0 || doDelete) &&
+               (sp->counter > 0 || doDelete) &&
+               !sp->waiters.isEmpty()) {
             QPointer<BaseCoroutine> waiter = sp->waiters.takeFirst();
             if (waiter.isNull()) {
-                qDebug() << "waiter was deleted.";
+                qtng_debug << "waiter was deleted.";
                 continue;
             }
             if (!doDelete) {
@@ -95,21 +90,18 @@ public:
             }
             waiter->yield();
         }
-        if (!sp.isNull()) {
-            if (doDelete) {
-                if (sp->counter != sp->init_value) {
-                    qWarning("Semaphore is deleting but caught by some one.");
-                }
-                delete sp.data();
-            } else {
-                sp->notified = 0;  // do not move this line above the last loop, see the return statement in ::acquire()
+        if (doDelete) {
+            if (sp->counter != sp->init_value) {
+                qtng_warning << "Semaphore is deleting but caught by some one.";
             }
+        } else {
+            sp->notified = 0;  // do not move this line above the loop, see the return statement in ::acquire()
         }
     }
 };
 
 
-void SemaphorePrivate::release(int value)
+void SemaphorePrivate::release(QSharedPointer<SemaphorePrivate> self, int value)
 {
     if (value <= 0) {
         return;
@@ -121,38 +113,37 @@ void SemaphorePrivate::release(int value)
     }
     counter = qMin(static_cast<int>(counter), init_value);
     if (!notified && !waiters.isEmpty()) {
-        notified = EventLoopCoroutine::get()->callLater(0, new SemaphoreNotifyWaitersFunctor(this, false));
+        notified = EventLoopCoroutine::get()->callLater(0, new SemaphoreNotifyWaitersFunctor(self, false));
     }
 }
 
 
-void SemaphorePrivate::scheduleDelete()
+void SemaphorePrivate::scheduleDelete(QSharedPointer<SemaphorePrivate> self)
 {
     if (notified) {
         EventLoopCoroutine::get()->cancelCall(notified);
         notified = 0;
     }
     counter += waiters.count();
-    EventLoopCoroutine::get()->callLater(0, new SemaphoreNotifyWaitersFunctor(this, true));
+    EventLoopCoroutine::get()->callLater(0, new SemaphoreNotifyWaitersFunctor(self, true));
 }
 
 
 Semaphore::Semaphore(int value)
-    :d_ptr(new SemaphorePrivate(this, value))
+    : d(new SemaphorePrivate(value))
 {
 }
 
 
 Semaphore::~Semaphore()
 {
-    d_ptr->scheduleDelete();
-    d_ptr = nullptr;
+    d->scheduleDelete(d);
+    d.clear();
 }
 
 
 bool Semaphore::acquire(bool blocking)
 {
-    Q_D(Semaphore);
     if (!d) {
         return false;
     }
@@ -162,7 +153,6 @@ bool Semaphore::acquire(bool blocking)
 
 bool Semaphore::acquire(int value, bool blocking)
 {
-    Q_D(Semaphore);
     if (!d) {
         return false;
     }
@@ -180,17 +170,15 @@ bool Semaphore::acquire(int value, bool blocking)
 
 void Semaphore::release(int value)
 {
-    Q_D(Semaphore);
     if (!d) {
         return;
     }
-    d->release(value);
+    d->release(d, value);
 }
 
 
 bool Semaphore::isLocked() const
 {
-    Q_D(const Semaphore);
     if (!d) {
         return false;
     }
@@ -200,7 +188,6 @@ bool Semaphore::isLocked() const
 
 bool Semaphore::isUsed() const
 {
-    Q_D(const Semaphore);
     if (!d) {
         return false;
     }
@@ -210,15 +197,11 @@ bool Semaphore::isUsed() const
 
 quint32 Semaphore::getting() const
 {
-    Q_D(const Semaphore);
     if (!d) {
-        return false;
+        return 0;
     }
     return d->waiters.size();
 }
-
-
-
 
 
 Lock::Lock()
@@ -281,7 +264,7 @@ bool RLockPrivate::acquire(bool blocking)
 void RLockPrivate::release()
 {
     if (holder != BaseCoroutine::current()->id()) {
-        qWarning("do not release other coroutine's rlock.");
+        qtng_warning << "do not release other coroutine's rlock.";
         return;
     }
     counter -= 1;
@@ -507,7 +490,7 @@ bool EventPrivate::wait(bool blocking)
     } else {
         while(!flag) {
             if (!condition.wait()) {
-                qDebug() << "event is deleted.";
+                qtng_debug << "event is deleted.";
                 break;
             }
         }
@@ -590,7 +573,7 @@ bool Gate::goThrough(bool blocking)
     } else {
         bool success = d->lock.acquire(blocking);
         if (!success) {
-            return success;
+            return false;
         } else {
             d->lock.release();
             return true;

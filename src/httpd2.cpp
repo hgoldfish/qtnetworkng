@@ -168,7 +168,7 @@ void BaseHttpProxyRequestHandler::logProxy(const QString &remoteHostName, quint1
             .arg(remoteHostName)
             .arg(remotePort)
             .arg(forwardAddress.toString());
-    qDebug("%s", qPrintable(msg));
+    qDebug("%s", qUtf8Printable(msg));
 }
 
 

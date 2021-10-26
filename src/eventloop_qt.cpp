@@ -7,8 +7,10 @@
 #include <QtCore/qtimer.h>
 #include <QtCore/qpointer.h>
 #include <QtCore/qcoreevent.h>
-
 #include "../include/private/eventloop_p.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.eventloop_qt");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -254,7 +256,7 @@ TriggerIoWatchersArgumentsFunctor::~TriggerIoWatchersArgumentsFunctor() {}
 void TriggerIoWatchersArgumentsFunctor::operator()()
 {
     if (eventloop.isNull()) {
-        qWarning("triggerIoWatchers() is called without eventloop.");
+        qtng_warning << "triggerIoWatchers() is called without eventloop.";
         return;
     }
     QtEventLoopCoroutinePrivate *d = QtEventLoopCoroutinePrivate::getPrivateHelper(eventloop.data());

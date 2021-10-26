@@ -4,6 +4,9 @@
 #ifdef QTNG_HAVE_ZLIB
 #include "../include/gzip.h"
 #endif
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.httpd")
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -84,7 +87,7 @@ bool BaseHttpRequestHandler::parseRequest()
         return false;
     }
 #ifdef DEBUG_HTTP_PROTOCOL
-    qDebug() << "first line is" << firstLine;
+    qtng_debug << "first line is" << firstLine;
 #endif
 
     const QString &commandLine = QString::fromLatin1(firstLine);
@@ -140,7 +143,7 @@ bool BaseHttpRequestHandler::parseRequest()
     setHeaders(headers);
 #ifdef DEBUG_HTTP_PROTOCOL
     for (const HttpHeader &header: headers) {
-        qDebug() << "header(" << header.name << ") = " << header.value;
+        qtng_debug << "header(" << header.name << ") = " << header.value;
     }
 #endif
     const QByteArray &connectionType = header(ConnectionHeader);
@@ -373,7 +376,7 @@ QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding
             return QSharedPointer<FileLike>();
         } else {
             if (body.size() > contentLength) {
-                qWarning("request body got too much bytes.");
+                qtng_warning << "request body got too much bytes.";
                 bodyFile = FileLike::bytes(body);
             } else if (body.size() < contentLength){
                 bodyFile = QSharedPointer<PlainBodyFile>::create(contentLength, body, request);
@@ -420,7 +423,7 @@ QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding
         } else
 #endif
         if (!contentEncodingHeader.isEmpty() || !transferEncodingHeader.isEmpty()){
-            qWarning() << "unsupported content encoding." << contentEncodingHeader << transferEncodingHeader;
+            qtng_warning << "unsupported content encoding." << contentEncodingHeader << transferEncodingHeader;
             closeConnection = Yes;
         }
     }
@@ -476,7 +479,7 @@ QSharedPointer<FileLike> StaticHttpRequestHandler::serveStaticFiles(const QDir &
     QUrl url = QUrl::fromEncoded(subPath.toLatin1());
     QFileInfo fileInfo = translatePath(dir, url.path());
 #ifdef DEBUG_HTTP_PROTOCOL
-    qDebug() << "serve path" << url.path() << fileInfo.absoluteFilePath();
+    qtng_debug << "serve path" << url.path() << fileInfo.absoluteFilePath();
 #endif
     if (!fileInfo.exists() && !loadMissingFile(fileInfo)) {
         sendError(HttpStatus::NotFound, QString::fromLatin1("File not found"));

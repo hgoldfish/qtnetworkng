@@ -7,6 +7,9 @@
 #ifdef Q_OS_UNIX
 #include <signal.h>
 #endif
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.eventloop");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -338,12 +341,12 @@ struct StartCoroutineFunctor: public Functor
     virtual void operator()() override
     {
         if (cp.isNull()) {
-            qWarning("startCouroutine is called without coroutine.");
+            qtng_warning << "startCouroutine is called without coroutine.";
             return;
         }
         cp->callbackId = 0;
         if(cp->q_func()->state() != BaseCoroutine::Initialized) {
-//            qDebug("coroutine has been started or stopped.");
+//            qtng_debug << "coroutine has been started or stopped.";
             return;
         }
         cp->q_func()->yield();
@@ -376,7 +379,7 @@ KillCoroutineFunctor::~KillCoroutineFunctor()
 void KillCoroutineFunctor::operator()()
 {
     if (cp.isNull()) {
-        qWarning("killCoroutine is called without coroutine");
+        qtng_warning << "killCoroutine is called without coroutine";
         delete e;
     } else if (cp->q_func()->state() != BaseCoroutine::Started) {
         delete e;
@@ -445,7 +448,7 @@ void Coroutine::kill(CoroutineException *e, quint32 msecs)
     } else if (isRunning()) {
         c->callLater(msecs, new KillCoroutineFunctor(d, e));
     } else {
-        qWarning("invalid state while kiling coroutine.");
+        qtng_warning << "invalid state while kiling coroutine.";
         delete e;
     }
 }
@@ -543,7 +546,7 @@ TimeoutFunctor::~TimeoutFunctor() {}
 void TimeoutFunctor::operator()()
 {
     if (out.isNull() || coroutine.isNull()) {
-        qDebug("triggerTimeout is called while timeout or coroutine is deleted.");
+        qtng_debug << "triggerTimeout is called while timeout or coroutine is deleted.";
         return;
     }
     coroutine->raise(new TimeoutException());

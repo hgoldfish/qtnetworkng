@@ -7,6 +7,10 @@
 #include "../include/private/socket_p.h"
 #include "../include/socket_utils.h"
 #include "../include/private/crypto_p.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.ssl");
+
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -335,14 +339,14 @@ QSharedPointer<SSL_CTX> SslConfigurationPrivate::makeContext(const SslConfigurat
     if (privateKey.isValid()) {
         int r = SSL_CTX_use_PrivateKey(ctx.data(), static_cast<EVP_PKEY *>(privateKey.handle()));
         if (!r) {
-            qDebug() << "can not set ssl private key.";
+            qtng_debug << "can not set ssl private key.";
         }
     }
     const Certificate &localCertificate = config.localCertificate();
     if (localCertificate.isValid()) {
         int r = SSL_CTX_use_certificate(ctx.data(), static_cast<X509 *>(localCertificate.handle()));
         if(!r) {
-            qDebug() << "can not set ssl certificate.";
+            qtng_debug << "can not set ssl certificate.";
         }
     }
     return ctx;
@@ -969,14 +973,14 @@ bool SslConnection<SocketType>::close()
 //                case SSL_ERROR_WANT_ACCEPT:
 //                case SSL_ERROR_WANT_X509_LOOKUP:
 //    //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
-//                    qDebug() << "what?";
+//                    qtng_debug << "what?";
 //                    break;
 //                case SSL_ERROR_SYSCALL:
 //                case SSL_ERROR_SSL:
-//                    // qDebug() << "underlying socket is closed.";
+//                    // qtng_debug << "underlying socket is closed.";
 //                    break;
 //                default:
-//                    qDebug() << "unkown returned value of SSL_shutdown().";
+//                    qtng_debug << "unkown returned value of SSL_shutdown().";
 //                    break;
 //                }
 //            } else if (result > 0) {
@@ -1021,13 +1025,13 @@ bool SslConnection<SocketType>::_handshake()
             case SSL_ERROR_WANT_X509_LOOKUP:
 //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
             case SSL_ERROR_SYSCALL:
-                qDebug() << "invalid ssl connection state.";
+                qtng_debug << "invalid ssl connection state.";
                 return false;
             case SSL_ERROR_SSL:
-                qDebug() << "protocol error on handshake.";
+                qtng_debug << "protocol error on handshake.";
                 return false;
             default:
-                qDebug() << "handshake error.";
+                qtng_debug << "handshake error.";
                 return false;
             }
         } else {
@@ -1051,7 +1055,7 @@ bool SslConnection<SocketType>::pumpOutgoing()
         qint32 encryptedBytesRead = BIO_read(outgoing, buf.data(), pendingBytes);
         qint32 actualWritten = rawSocket->sendall(buf.constData(), encryptedBytesRead);
         if (actualWritten < encryptedBytesRead) {
-            qDebug() << "error sending data.";
+            qtng_debug << "error sending data.";
             return false;
         }
     }
@@ -1075,7 +1079,7 @@ bool SslConnection<SocketType>::pumpIncoming()
         if (writtenToBio > 0) {
             totalWritten += writtenToBio;
         } else {
-            qDebug() << "Unable to decrypt data";
+            qtng_debug << "Unable to decrypt data";
             return false;
         }
     };
@@ -1116,7 +1120,7 @@ qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL:
             default:
-                qDebug() << "recv error.";
+                qtng_debug << "recv error.";
                 return total == 0 ? -1 : total;
             }
         } else if (result == 0) {
@@ -1167,7 +1171,7 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
 //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL:
-                qDebug() << "send error. error_code:" << error;
+                qtng_debug << "send error. error_code:" << error;
                 return -1;
             case SSL_ERROR_NONE:
                 break;
@@ -1175,7 +1179,7 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
         } else {
             total += result;
             if (total > size) {
-                qDebug() << "send too many data.";
+                qtng_debug << "send too many data.";
                 pumpOutgoing();
                 return size;
             } else if (total == size) {
@@ -2277,7 +2281,7 @@ qint32 EncryptedSocketLike::recv(char *data, qint32 size, bool all)
     } else {
         decrypted = incomingCipher->addData(buf.data(), bs);
         if (decrypted.size() != bs) {
-            qWarning("EncryptedSocketLike can not decrypt data: expected %d bytes, got %d bytes", bs, decrypted.size());
+            qtng_warning << "EncryptedSocketLike can not decrypt data: expected" << bs << "bytes, got" << decrypted.size() << "bytes";
             return -1;
         }
     }

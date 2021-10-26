@@ -5,6 +5,9 @@ extern "C" {
 }
 #include "../include/pkey.h"
 #include "../include/private/crypto_p.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.pkey");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -22,6 +25,8 @@ public:
     bool verify(const QByteArray &data, const QByteArray &hash, MessageDigest::Algorithm hashAlgo) const;
     QByteArray encrypt(const QByteArray &data) const;
     QByteArray decrypt(const QByteArray &data) const;
+    bool checkValidRsaKey(const QByteArray &data, PublicKey::RsaPadding padding, bool requirePrivate,
+                          RSA *&rsa, int &rsaSize) const;
     QByteArray rsaPublicEncrypt(const QByteArray &data, PublicKey::RsaPadding padding) const;
     QByteArray rsaPublicDecrypt(const QByteArray &data, PublicKey::RsaPadding padding) const;
     QByteArray rsaPrivateEncrypt(const QByteArray &data, PublicKey::RsaPadding padding) const;
@@ -284,7 +289,7 @@ QByteArray PublicKeyPrivate::encrypt(const QByteArray &data) const
             }
         }
     }
-    qDebug("can not encrypt data.");
+    qtng_debug << "can not encrypt data.";
     return QByteArray();
 }
 
@@ -310,33 +315,49 @@ QByteArray PublicKeyPrivate::decrypt(const QByteArray &data) const
             }
         }
     }
-    qDebug("can not decrypt data.");
+    qtng_debug << "can not decrypt data.";
     return QByteArray();
+}
+
+
+bool PublicKeyPrivate::checkValidRsaKey(const QByteArray &data, PublicKey::RsaPadding padding, bool requirePrivate,
+                                        RSA *&rsa, int &rsaSize) const
+{
+    if (pkey.isNull() || data.isEmpty()) {
+        qtng_debug << "pkey or data is null";
+        return false;
+    }
+    if (requirePrivate && !hasPrivate) {
+        qtng_debug << "not a private rsa key.";
+        return false;
+    }
+
+    if (padding != PrivateKey::PKCS1_PADDING && padding != PrivateKey::NO_PADDING) {
+        qtng_debug << "invalid padding:" << padding;
+        return false;
+    }
+
+    rsa = EVP_PKEY_get0_RSA(pkey.data());
+    if (!rsa) {
+        qtng_debug << "not rsa key.";
+        return false;
+    }
+
+    rsaSize = RSA_size(rsa);
+    if (!rsaSize) {
+        qtng_debug << "can not get rsa size.";
+        return false;
+    }
+
+    return true;
 }
 
 
 QByteArray PublicKeyPrivate::rsaPublicEncrypt(const QByteArray &data, PublicKey::RsaPadding padding) const
 {
-    if (pkey.isNull() || data.isEmpty()) {
-        qDebug("pkey or data is null");
-        return QByteArray();
-    }
-
-    if (padding != PublicKey::PKCS1_PADDING && padding != PublicKey::NO_PADDING
-            && padding != PublicKey::PKCS1_OAEP_PADDING) {
-        qDebug("invalid padding: %d", padding);
-        return QByteArray();
-    }
-
-    RSA *rsa = EVP_PKEY_get0_RSA(pkey.data());
-    if (!rsa) {
-        qDebug("can not get rsa size.");
-        return QByteArray();
-    }
-
-    int rsaSize = RSA_size(rsa);
-    if (!rsaSize) {
-        qDebug("can not get rsa size.");
+    RSA *rsa;
+    int rsaSize;
+    if (!checkValidRsaKey(data, padding, false, rsa, rsaSize)) {
         return QByteArray();
     }
 
@@ -349,7 +370,7 @@ QByteArray PublicKeyPrivate::rsaPublicEncrypt(const QByteArray &data, PublicKey:
         result.resize(rvalue);
         return result;
     } else {
-        qDebug("can not public encrypt data.");
+        qtng_debug << "can not public encrypt data.";
         return QByteArray();
     }
 }
@@ -357,24 +378,9 @@ QByteArray PublicKeyPrivate::rsaPublicEncrypt(const QByteArray &data, PublicKey:
 
 QByteArray PublicKeyPrivate::rsaPublicDecrypt(const QByteArray &data, PublicKey::RsaPadding padding) const
 {
-    if (pkey.isNull() || data.isEmpty()) {
-        qDebug("pkey or data is null");
-        return QByteArray();
-    }
-    if (padding != PublicKey::PKCS1_PADDING && padding != PublicKey::NO_PADDING) {
-        qDebug("invalid padding: %d", padding);
-        return QByteArray();
-    }
-
-    RSA *rsa = EVP_PKEY_get0_RSA(pkey.data());
-    if (!rsa) {
-        qDebug("not rsa key.");
-        return QByteArray();
-    }
-
-    int rsaSize = RSA_size(rsa);
-    if (!rsaSize) {
-        qDebug("can not get rsa size.");
+    RSA *rsa;
+    int rsaSize;
+    if (!checkValidRsaKey(data, padding, false, rsa, rsaSize)) {
         return QByteArray();
     }
 
@@ -387,7 +393,7 @@ QByteArray PublicKeyPrivate::rsaPublicDecrypt(const QByteArray &data, PublicKey:
         result.resize(rvalue);
         return result;
     } else {
-        qDebug("can not public decrypt data.");
+        qtng_debug << "can not public decrypt data.";
         return QByteArray();
     }
 }
@@ -395,29 +401,9 @@ QByteArray PublicKeyPrivate::rsaPublicDecrypt(const QByteArray &data, PublicKey:
 
 QByteArray PublicKeyPrivate::rsaPrivateEncrypt(const QByteArray &data, PrivateKey::RsaPadding padding) const
 {
-    if (pkey.isNull() || data.isEmpty()) {
-        qDebug("pkey or data is null");
-        return QByteArray();
-    }
-    if (!hasPrivate) {
-        qDebug("not a private rsa key.");
-        return QByteArray();
-    }
-
-    if (padding != PrivateKey::PKCS1_PADDING && padding != PrivateKey::NO_PADDING) {
-        qDebug("invalid padding: %d", padding);
-        return QByteArray();
-    }
-
-    RSA *rsa = EVP_PKEY_get0_RSA(pkey.data());
-    if (!rsa) {
-        qDebug("not rsa key.");
-        return QByteArray();
-    }
-
-    int rsaSize = RSA_size(rsa);
-    if (!rsaSize) {
-        qDebug("can not get rsa size.");
+    RSA *rsa;
+    int rsaSize;
+    if (!checkValidRsaKey(data, padding, true, rsa, rsaSize)) {
         return QByteArray();
     }
 
@@ -430,7 +416,7 @@ QByteArray PublicKeyPrivate::rsaPrivateEncrypt(const QByteArray &data, PrivateKe
         result.resize(rvalue);
         return result;
     } else {
-        qDebug("can not private encrypt data.");
+        qtng_debug << "can not private encrypt data.";
         return QByteArray();
     }
 }
@@ -438,30 +424,9 @@ QByteArray PublicKeyPrivate::rsaPrivateEncrypt(const QByteArray &data, PrivateKe
 
 QByteArray PublicKeyPrivate::rsaPrivateDecrypt(const QByteArray &data, PrivateKey::RsaPadding padding) const
 {
-    if (pkey.isNull() || data.isEmpty()) {
-        qDebug("pkey or data is null");
-        return QByteArray();
-    }
-    if (!hasPrivate) {
-        qDebug("not a private rsa key.");
-        return QByteArray();
-    }
-
-    if (padding != PrivateKey::PKCS1_PADDING && padding != PrivateKey::NO_PADDING
-            && padding != PrivateKey::PKCS1_OAEP_PADDING) {
-        qDebug("invalid padding: %d", padding);
-        return QByteArray();
-    }
-
-    RSA *rsa = EVP_PKEY_get0_RSA(pkey.data());
-    if (!rsa) {
-        qDebug("not rsa key.");
-        return QByteArray();
-    }
-
-    int rsaSize = RSA_size(rsa);
-    if (!rsaSize) {
-        qDebug("can not get rsa size.");
+    RSA *rsa;
+    int rsaSize;
+    if (!checkValidRsaKey(data, padding, true, rsa, rsaSize)) {
         return QByteArray();
     }
 
@@ -474,7 +439,7 @@ QByteArray PublicKeyPrivate::rsaPrivateDecrypt(const QByteArray &data, PrivateKe
         result.resize(rvalue);
         return result;
     } else {
-        qDebug("can not private decrypt data.");
+        qtng_debug << "can not private decrypt data.";
         return QByteArray();
     }
 }
