@@ -22,6 +22,7 @@ const char PACKET_TYPE_UNCOMPRESSED_DATA = 0x01;
 const char PACKET_TYPE_CREATE_MULTIPATH = 0x02;
 const char PACKET_TYPE_CLOSE= 0X03;
 const char PACKET_TYPE_KEEPALIVE = 0x04;
+
 //#define DEBUG_PROTOCOL 1
 
 
@@ -465,9 +466,10 @@ void KcpSocketPrivate::doUpdate()
     // in close(), state is set to Socket::UnconnectedState but error = NoError.
     while (state == Socket::ConnectedState || (state == Socket::UnconnectedState && error == Socket::NoError)) {
         quint64 now = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
-        if (now - lastActiveTimestamp > tearDownTime && state == Socket::ConnectedState) {
+        // now and lastActiveTimestamp both are unsigned int, we should check which is larger before apply minus operator to them.
+        if (now > lastActiveTimestamp && (now - lastActiveTimestamp > tearDownTime) && state == Socket::ConnectedState) {
 #ifdef DEBUG_PROTOCOL
-            qtng_debug << "tearDown!";
+            qtng_debug << "kcp socket tearDown!";
 #endif
             error = Socket::SocketTimeoutError;
             errorString = QString::fromLatin1("KcpSocket is timeout.");
@@ -483,7 +485,8 @@ void KcpSocketPrivate::doUpdate()
             return;
         }
 
-        if (now - lastKeepaliveTimestamp > 1000 * 5 && state == Socket::ConnectedState) {
+        // now and lastKeepaliveTimestamp both are unsigned int, we should check which is larger before apply minus operator to them.
+        if (now > lastKeepaliveTimestamp && (now - lastKeepaliveTimestamp > 1000 * 5) && state == Socket::ConnectedState) {
             const QByteArray &packet = makeKeepalivePacket();
             if (rawSend(packet.data(), packet.size()) != packet.size()) {
 #ifdef DEBUG_PROTOCOL
@@ -491,6 +494,10 @@ void KcpSocketPrivate::doUpdate()
 #endif
                 close(true);
                 return;
+            } else {
+#ifdef DEBUG_PROTOCOL
+                qtng_debug << "keep alive packet sent.";
+#endif
             }
         }
 
@@ -745,7 +752,7 @@ bool MasterKcpSocketPrivate::close(bool force)
 //    } else {
 //        rawSocket->close();
 //    }
-    // await all pending recv()/send()
+    // awake all pending recv()/send()
     receivingQueueNotEmpty->set();
     sendingQueueEmpty->set();
     sendingQueueNotFull->set();
@@ -1475,6 +1482,9 @@ void KcpSocket::setTearDownTime(float secs)
     Q_D(KcpSocket);
     if (secs > 0) {
         d->tearDownTime = static_cast<quint64>(secs * 1000);
+        if (d->tearDownTime < 1000) {
+            d->tearDownTime = 1000;
+        }
     }
 }
 

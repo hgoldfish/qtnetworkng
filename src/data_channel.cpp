@@ -682,11 +682,13 @@ void SocketChannelPrivate::doKeepalive()
     while (true) {
         Coroutine::sleep(0.2f);
         qint64 now = QDateTime::currentMSecsSinceEpoch();
-        if (now - lastActiveTimestamp > keepaliveTimeout) {
+        // now and lastActiveTimestamp both are unsigned int, we should check which is larger before apply minus operator to them.
+        if (now > lastActiveTimestamp && (now - lastActiveTimestamp > keepaliveTimeout)) {
             setError(DataChannel::KeepaliveTimeoutError);
             return abort();
         }
-        if (now - lastKeepaliveTimestamp > keepaliveInterval && sendingQueue.isEmpty()) {
+        // now and lastKeepaliveTimestamp both are unsigned int, we should check which is larger before apply minus operator to them.
+        if (now > lastKeepaliveTimestamp && (now - lastKeepaliveTimestamp > keepaliveInterval) && sendingQueue.isEmpty()) {
             lastKeepaliveTimestamp = now;
             QSharedPointer<ValueEvent<bool>> done;
             sendingQueue.putForcedly(WritingPacket(CommandChannelNumber, packKeepaliveRequest(), done));
@@ -930,9 +932,11 @@ SocketChannel::SocketChannel(QSharedPointer<SocketLike> connection, DataChannelP
 void SocketChannel::setKeepaliveTimeout(float timeout)
 {
     Q_D(SocketChannel);
-    d->keepaliveTimeout = static_cast<qint64>(timeout * 1000);
-    if (d->keepaliveTimeout < 1000) {
-        d->keepaliveTimeout = 1000;
+    if (timeout > 0) {
+        d->keepaliveTimeout = static_cast<qint64>(timeout * 1000);
+        if (d->keepaliveTimeout < 1000) {
+            d->keepaliveTimeout = 1000;
+        }
     }
 }
 
@@ -1392,7 +1396,6 @@ bool SocketLikeImpl::connect(const QString &, quint16, QSharedPointer<SocketDnsC
 
 void SocketLikeImpl::abort()
 {
-    DataChannelPrivate::getPrivateHelper(channel)->setError(DataChannel::UserShutdown);
     channel->abort();
 }
 
