@@ -248,6 +248,7 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
                 total += readBytes;
                 buf.resize(oldSize + readBytes);
             } else {
+                buf.resize(oldSize);
                 eof = true;
             }
         }
