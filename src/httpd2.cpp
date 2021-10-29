@@ -147,8 +147,8 @@ void BaseHttpProxyRequestHandler::doProxy()
     }
     if (method.toUpper() != QString::fromLatin1("HEAD")) {
         QSharedPointer<FileLike> f = response->bodyAsFile(false);
-        if (!f.isNull()) {
-            sendfile(f, this->request);
+        if (!f.isNull() && !sendfile(f, this->request)) {
+            this->request->close();
         }
     }
 }

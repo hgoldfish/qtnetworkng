@@ -83,13 +83,11 @@ public:
     Socket::SocketState state;
     Socket::SocketError error;
 
-    QSharedPointer<Event> busy;
-    QSharedPointer<Event> notBusy;
-    QSharedPointer<Event> sendingQueueNotFull;
-    QSharedPointer<Event> sendingQueueEmpty;
-    QSharedPointer<Event> receivingQueueNotEmpty;
-    QSharedPointer<RLock> kcpLock;
-    QSharedPointer<Gate> forceToUpdate;
+    Event sendingQueueNotFull;
+    Event sendingQueueEmpty;
+    Event receivingQueueNotEmpty;
+    RLock kcpLock;
+    Gate forceToUpdate;
     QByteArray receivingBuffer;
 
     const quint64 zeroTimestamp;
@@ -247,13 +245,6 @@ KcpSocketPrivate::KcpSocketPrivate(KcpSocket *q)
     , operations(new CoroutineGroup)
     , state(Socket::UnconnectedState)
     , error(Socket::NoError)
-    , busy(new Event())
-    , notBusy(new Event())
-    , sendingQueueNotFull(new Event())
-    , sendingQueueEmpty(new Event())
-    , receivingQueueNotEmpty(new Event())
-    , kcpLock(new RLock)
-    , forceToUpdate(new Gate)
     , zeroTimestamp(static_cast<quint64>(QDateTime::currentMSecsSinceEpoch()))
     , lastActiveTimestamp(zeroTimestamp)
     , lastKeepaliveTimestamp(zeroTimestamp)
@@ -264,11 +255,11 @@ KcpSocketPrivate::KcpSocketPrivate(KcpSocket *q)
 {
     kcp = ikcp_create(0, this);
     ikcp_setoutput(kcp, kcp_callback);
-    sendingQueueEmpty->set();
-    sendingQueueNotFull->set();
-    receivingQueueNotEmpty->clear();
-    busy->clear();
-    notBusy->set();
+    sendingQueueEmpty.set();
+    sendingQueueNotFull.set();
+    receivingQueueNotEmpty.clear();
+    q->busy.clear();
+    q->notBusy.set();
     setMode(mode);
 }
 
@@ -360,11 +351,11 @@ qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
             errorString = QString::fromLatin1("KcpSocket is not connected.");
             return -1;
         }
-        bool ok = sendingQueueNotFull->wait();
+        bool ok = sendingQueueNotFull.wait();
         if (!ok) {
             return -1;
         }
-        ScopedLock<RLock> l(kcpLock); Q_UNUSED(l);
+        ScopedLock<RLock> l(kcpLock);
         qint32 nextBlockSize = qMin<qint32>(static_cast<qint32>(kcp->mss), size - count);
         int result = ikcp_send(kcp, data + count, nextBlockSize);
         if (result < 0) {
@@ -413,8 +404,8 @@ qint32 KcpSocketPrivate::recv(char *data, qint32 size, bool all)
                 return len;
             }
         }
-        receivingQueueNotEmpty->clear();
-        bool ok = receivingQueueNotEmpty->wait();
+        receivingQueueNotEmpty.clear();
+        bool ok = receivingQueueNotEmpty.wait();
         if (!ok) {
             qtng_debug << "not receivingQueueNotEmpty->wait()";
             return -1;
@@ -442,7 +433,7 @@ bool KcpSocketPrivate::handleDatagram(const char *buf, quint32 len)
 #endif
         } else {
             lastActiveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
-            receivingQueueNotEmpty->set();
+            receivingQueueNotEmpty.set();
             updateKcp();
         }
         break;
@@ -463,6 +454,7 @@ bool KcpSocketPrivate::handleDatagram(const char *buf, quint32 len)
 
 void KcpSocketPrivate::doUpdate()
 {
+    Q_Q(KcpSocket);
     // in close(), state is set to Socket::UnconnectedState but error = NoError.
     while (state == Socket::ConnectedState || (state == Socket::UnconnectedState && error == Socket::NoError)) {
         quint64 now = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
@@ -503,32 +495,32 @@ void KcpSocketPrivate::doUpdate()
 
         int sendingQueueSize = ikcp_waitsnd(kcp);
         if (sendingQueueSize <= 0) {
-            sendingQueueNotFull->set();
-            sendingQueueEmpty->set();
-            busy->clear();
-            notBusy->set();
+            sendingQueueNotFull.set();
+            sendingQueueEmpty.set();
+            q->busy.clear();
+            q->notBusy.set();
         } else {
-            sendingQueueEmpty->clear();
+            sendingQueueEmpty.clear();
             if (static_cast<quint32>(sendingQueueSize) > waterLine) {
                 if (static_cast<quint32>(sendingQueueSize) > (waterLine * 1.2)) {
-                    sendingQueueNotFull->clear();
+                    sendingQueueNotFull.clear();
                 }
-                busy->set();
-                notBusy->clear();
+                q->busy.set();
+                q->notBusy.clear();
             } else {
-                sendingQueueNotFull->set();
-                busy->clear();
-                notBusy->set();
+                sendingQueueNotFull.set();
+                q->busy.clear();
+                q->notBusy.set();
             }
         }
 
         quint32 ts = ikcp_check(kcp, current);
         quint32 interval = ts - current;
         if (interval > 0) {
-            forceToUpdate->close();
+            forceToUpdate.close();
             try {
                 Timeout timeout(interval, 0); Q_UNUSED(timeout);
-                bool ok = forceToUpdate->wait();
+                bool ok = forceToUpdate.wait();
                 if (!ok) {
                     return;
                 }
@@ -543,7 +535,7 @@ void KcpSocketPrivate::doUpdate()
 void KcpSocketPrivate::updateKcp()
 {
     QSharedPointer<Coroutine> t = operations->spawnWithName(QString::fromLatin1("update_kcp"), [this] { doUpdate(); }, false);
-    forceToUpdate->open();
+    forceToUpdate.open();
 }
 
 
@@ -715,9 +707,9 @@ bool MasterKcpSocketPrivate::close(bool force)
     } else if (state == Socket::ConnectedState) {
         state = Socket::UnconnectedState;
         if (!force && error == Socket::NoError) {
-            if (!sendingQueueEmpty->isSet()) {
+            if (!sendingQueueEmpty.isSet()) {
                 updateKcp();
-                if (!sendingQueueEmpty->wait()) {
+                if (!sendingQueueEmpty.wait()) {
                     return false;
                 }
             }
@@ -753,9 +745,9 @@ bool MasterKcpSocketPrivate::close(bool force)
 //        rawSocket->close();
 //    }
     // awake all pending recv()/send()
-    receivingQueueNotEmpty->set();
-    sendingQueueEmpty->set();
-    sendingQueueNotFull->set();
+    receivingQueueNotEmpty.set();
+    sendingQueueEmpty.set();
+    sendingQueueNotFull.set();
 #ifdef DEBUG_PROTOCOL
     qtng_debug << "MasterKcpSocketPrivate::close() done";
 #endif
@@ -1245,15 +1237,16 @@ HostAddress::NetworkLayerProtocol SlaveKcpSocketPrivate::protocol() const
 
 bool SlaveKcpSocketPrivate::close(bool force)
 {
+    Q_Q(KcpSocket);
     // if `force` is true, must not block. it is called by doUpdate()
     if (state == Socket::UnconnectedState) {
         return true;
     } else if (state == Socket::ConnectedState) {
         state = Socket::UnconnectedState;
         if (!force && error != Socket::NoError) {
-            if (!sendingQueueEmpty->isSet()) {
+            if (!sendingQueueEmpty.isSet()) {
                 updateKcp();
-                if (!sendingQueueEmpty->wait()) {
+                if (!sendingQueueEmpty.wait()) {
                     return false;
                 }
             }
@@ -1270,11 +1263,11 @@ bool SlaveKcpSocketPrivate::close(bool force)
         parent.clear();
     }
     // await all pending recv()/send()
-    receivingQueueNotEmpty->set();
-    sendingQueueEmpty->set();
-    sendingQueueNotFull->set();
-    notBusy->set();
-    busy->set();
+    receivingQueueNotEmpty.set();
+    sendingQueueEmpty.set();
+    sendingQueueNotFull.set();
+    q->notBusy.set();
+    q->busy.set();
 #ifdef DEBUG_PROTOCOL
     qtng_debug << "SlaveKcpSocketPrivate::close() done.";
 #endif
@@ -1394,15 +1387,12 @@ bool SlaveKcpSocketPrivate::setMulticastInterface(const NetworkInterface &)
 KcpSocket::KcpSocket(HostAddress::NetworkLayerProtocol protocol)
     : d_ptr(new MasterKcpSocketPrivate(protocol, this))
 {
-    busy = d_ptr->busy;
-    notBusy = d_ptr->notBusy;
 }
 
 
 KcpSocket::KcpSocket(qintptr socketDescriptor)
     : d_ptr(new MasterKcpSocketPrivate(socketDescriptor, this))
 {
-
 }
 
 

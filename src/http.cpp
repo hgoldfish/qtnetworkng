@@ -1175,10 +1175,12 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     const QByteArray &headerBytes = join(lines);
 
     QScopedPointer<ScopedLock<Semaphore>> ptrLock;
+    QSharedPointer<Semaphore> lock;
 
     QSharedPointer<SocketLike> connection = request.connection();
     if (connection.isNull()) {
-        ptrLock.reset(new ScopedLock<Semaphore>(getSemaphore(url)));
+        lock = getSemaphore(url);
+        ptrLock.reset(new ScopedLock<Semaphore>(*lock));
         if (!ptrLock->isSuccess()) {
             response.setError(new ConnectionError());
             return response;

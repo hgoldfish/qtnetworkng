@@ -628,7 +628,9 @@ void SimpleHttpRequestHandler::doGET()
 {
     QSharedPointer<FileLike> f = serveStaticFiles(rootDir, path);
     if (!f.isNull()) {
-        sendfile(f, request);
+        if (!sendfile(f, request)) {
+            request->close();
+        }
         f->close();
     }
 }

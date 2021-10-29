@@ -229,9 +229,7 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
             // size() is not supported.
         }
     }
-    QByteArray buf;
-    buf.reserve(1024 * 64);
-    QByteArray t(1024 * 8, Qt::Uninitialized);
+    QVarLengthArray<char, 1024 * 16> buf;
     qint64 total = 0;
     bool eof = false;
     while (true) {
@@ -240,13 +238,15 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
             remain = qMax<qint64>(0, bytesToCopy - total);
         }
         if (remain > 0 && buf.size() < 1024 * 8 && !eof) {
-            qint32 nextBlockSize = qMin<qint64>(t.size(), remain);
-            qint32 readBytes = inputFile->read(t.data(), nextBlockSize);
+            qint32 nextBlockSize = qMin<qint64>(1024 * 8, remain);
+            qint32 oldSize = buf.size();
+            buf.resize(oldSize + nextBlockSize);
+            qint32 readBytes = inputFile->read(buf.data() , nextBlockSize);
             if (readBytes < 0) {
                 return false;
             } else if (readBytes > 0) {
                 total += readBytes;
-                buf.append(t.data(), readBytes);
+                buf.resize(oldSize + readBytes);
             } else {
                 eof = true;
             }
@@ -254,7 +254,7 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
         if (buf.isEmpty()) {
             return bytesToCopy < 0 || total == bytesToCopy;
         } else {
-            qint32 writtenBytes = outputFile->write(buf, buf.size());
+            qint32 writtenBytes = outputFile->write(buf.data(), buf.size());
             if (writtenBytes <= 0) {
                 return false;
             }

@@ -46,6 +46,7 @@ public:
         TemporaryErrorString,
         NetworkDroppedConnectionErrorString,
         ConnectionResetErrorString,
+        OutOfMemoryErrorString,
 
         UnknownSocketErrorString = -1
     };
@@ -102,8 +103,8 @@ public:
 #else
     int fd;
 #endif
-    QSharedPointer<Lock> readLock;
-    QSharedPointer<Lock> writeLock;
+    Lock readLock;
+    Lock writeLock;
 
     Q_DECLARE_PUBLIC(Socket)
 };

@@ -94,6 +94,24 @@ private:
 };
 
 
+class ThreadEventPrivate;
+class ThreadEvent
+{
+public:
+    ThreadEvent();
+    virtual ~ThreadEvent();
+public:
+    bool wait(bool blocking = true);
+    void set();
+    void clear();
+    bool isSet() const;
+    quint32 getting() const;
+private:
+    const QSharedPointer<ThreadEventPrivate> d;
+    Q_DISABLE_COPY(ThreadEvent);
+};
+
+
 template<typename Value>
 class ValueEvent
 {
@@ -125,8 +143,11 @@ void ValueEvent<Value>::send(const Value &value)
 template<typename Value>
 Value ValueEvent<Value>::wait(bool blocking)
 {
-    event.wait(blocking);
-    return value;
+    if (!event.wait(blocking)) {
+        return Value();
+    } else {
+        return value;
+    }
 }
 
 
@@ -154,31 +175,31 @@ template <typename LockType>
 class ScopedLock
 {
 public:
-    ScopedLock(QSharedPointer<LockType> lock)
-        :lock(lock), success(false)
+    ScopedLock(LockType &lock)
+        : lock(lock), success(false)
     {
-        success = lock->acquire();
+        success = lock.acquire();
     }
     ~ScopedLock()
     {
-        if (success && !lock.isNull()) {
-            lock.toStrongRef()->release();
+        if (success) {
+            lock.release();
         }
     }
     bool isSuccess() const { return success; }
 private:
-    QWeakPointer<LockType> lock;
+    LockType &lock;
     bool success;
 };
 
 
-template <typename T>
-class Queue
+template <typename T, typename EventType>
+class QueueType
 {
 public:
-    explicit Queue(quint32 capacity);
-    Queue() : Queue(UINT_MAX) {}
-    ~Queue();
+    explicit QueueType(quint32 capacity);
+    QueueType() : QueueType(UINT_MAX) {}
+    ~QueueType();
     void setCapacity(quint32 capacity);
     bool put(const T &e);             // insert e to the tail of queue. blocked until not full.
     bool putForcedly(const T& e);     // insert e to the tail of queue ignoring capacity.
@@ -197,24 +218,42 @@ public:
     bool remove(const T &e);
 private:
     QQueue<T> queue;
-    Event notEmpty;
-    Event notFull;
+    EventType notEmpty;
+    EventType notFull;
     quint32 mCapacity;
-    Q_DISABLE_COPY(Queue)
+    Q_DISABLE_COPY(QueueType)
 };
 
 
-template<typename T>
-Queue<T>::Queue(quint32 capacity)
-    :mCapacity(capacity)
+template <typename T>
+class Queue: public QueueType<T, Event>
+{
+public:
+    explicit Queue(quint32 capacity) : QueueType<T, Event>(capacity) {}
+    explicit Queue() : QueueType<T, Event>() {}
+};
+
+
+template <typename T>
+class ThreadQueue: public QueueType<T, ThreadEvent>
+{
+public:
+    explicit ThreadQueue(quint32 capacity) : QueueType<T, ThreadEvent>(capacity) {}
+    explicit ThreadQueue() : QueueType<T, ThreadEvent>() {}
+};
+
+
+template <typename T, typename EventType>
+QueueType<T, EventType>::QueueType(quint32 capacity)
+    : mCapacity(capacity)
 {
     notEmpty.clear();
     notFull.set();
 }
 
 
-template<typename T>
-Queue<T>::~Queue()
+template <typename T, typename EventType>
+QueueType<T, EventType>::~QueueType()
 {
 //    if (queue.size() > 0) {
 //        qDebug() << "queue is free with element left.";
@@ -222,8 +261,8 @@ Queue<T>::~Queue()
 }
 
 
-template<typename T>
-void Queue<T>::setCapacity(quint32 capacity)
+template <typename T, typename EventType>
+void QueueType<T, EventType>::setCapacity(quint32 capacity)
 {
     this->mCapacity = capacity;
     if (isFull()) {
@@ -234,8 +273,8 @@ void Queue<T>::setCapacity(quint32 capacity)
 }
 
 
-template<typename T>
-void Queue<T>::clear()
+template <typename T, typename EventType>
+void QueueType<T, EventType>::clear()
 {
     this->queue.clear();
     notFull.set();
@@ -243,8 +282,8 @@ void Queue<T>::clear()
 }
 
 
-template<typename T>
-bool Queue<T>::remove(const T &e)
+template <typename T, typename EventType>
+bool QueueType<T, EventType>::remove(const T &e)
 {
     int n = this->queue.removeAll(e);
     if (n > 0) {
@@ -254,7 +293,7 @@ bool Queue<T>::remove(const T &e)
             notEmpty.set();
         }
         if (isFull()) {
-            notFull.clear();
+            clear();
         } else {
             notFull.set();
         }
@@ -265,8 +304,8 @@ bool Queue<T>::remove(const T &e)
 }
 
 
-template<typename T>
-bool Queue<T>::put(const T &e)
+template <typename T, typename EventType>
+bool QueueType<T, EventType>::put(const T &e)
 {
     if (!notFull.wait()) {
         return false;
@@ -280,8 +319,8 @@ bool Queue<T>::put(const T &e)
 }
 
 
-template<typename T>
-bool Queue<T>::putForcedly(const T& e)
+template <typename T, typename EventType>
+bool QueueType<T, EventType>::putForcedly(const T& e)
 {
     queue.enqueue(e);
     notEmpty.set();
@@ -292,8 +331,8 @@ bool Queue<T>::putForcedly(const T& e)
 }
 
 
-template<typename T>
-bool Queue<T>::returns(const T &e)
+template <typename T, typename EventType>
+bool QueueType<T, EventType>::returns(const T &e)
 {
     if (!notFull.wait()) {
         return false;
@@ -307,8 +346,8 @@ bool Queue<T>::returns(const T &e)
 }
 
 
-template<typename T>
-bool Queue<T>::returnsForcely(const T& e)
+template <typename T, typename EventType>
+bool QueueType<T, EventType>::returnsForcely(const T& e)
 {
     queue.prepend(e);
     notEmpty.set();
@@ -319,8 +358,8 @@ bool Queue<T>::returnsForcely(const T& e)
 }
 
 
-template<typename T>
-T Queue<T>::get()
+template <typename T, typename EventType>
+T QueueType<T, EventType>::get()
 {
     if (!notEmpty.wait())
         return T();
@@ -335,8 +374,8 @@ T Queue<T>::get()
 }
 
 
-template<typename T>
-T Queue<T>::peek()
+template <typename T, typename EventType>
+T QueueType<T, EventType>::peek()
 {
     if (!isEmpty())
         return T();
@@ -344,15 +383,15 @@ T Queue<T>::peek()
 }
 
 
-template<typename T>
-inline bool Queue<T>::isEmpty() const
+template <typename T, typename EventType>
+inline bool QueueType<T, EventType>::isEmpty() const
 {
     return queue.isEmpty();
 }
 
 
-template<typename T>
-inline bool Queue<T>::isFull() const
+template <typename T, typename EventType>
+inline bool QueueType<T, EventType>::isFull() const
 {
     return static_cast<quint32>(queue.size()) >= mCapacity;
 }

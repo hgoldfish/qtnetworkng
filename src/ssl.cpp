@@ -893,7 +893,7 @@ SslConnection<SocketType>::SslConnection()
 template<typename SocketType>
 SslConnection<SocketType>::~SslConnection()
 {
-    close();
+    rawSocket->abort();
 }
 
 
@@ -945,110 +945,13 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &hostName
 
 
 template<typename SocketType>
-bool SslConnection<SocketType>::close()
-{
-    if (!ssl.isNull()) {
-//        while(true) {
-//            int result = SSL_shutdown(ssl.data());
-//            bool done = true;
-//            if (result < 0) {
-//                int err = SSL_get_error(ssl.data(), result);
-//                switch(err) {
-//                case SSL_ERROR_WANT_READ:
-//                    if (pumpOutgoing()) {
-//                        if (pumpIncoming()) {
-//                            done = false;
-//                        }
-//                    }
-//                    break;
-//                case SSL_ERROR_WANT_WRITE:
-//                    if (pumpOutgoing()) {
-//                        done = false;
-//                    }
-//                    break;
-//                case SSL_ERROR_NONE:
-//                case SSL_ERROR_ZERO_RETURN:
-//                    break;
-//                case SSL_ERROR_WANT_CONNECT:
-//                case SSL_ERROR_WANT_ACCEPT:
-//                case SSL_ERROR_WANT_X509_LOOKUP:
-//    //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
-//                    qtng_debug << "what?";
-//                    break;
-//                case SSL_ERROR_SYSCALL:
-//                case SSL_ERROR_SSL:
-//                    // qtng_debug << "underlying socket is closed.";
-//                    break;
-//                default:
-//                    qtng_debug << "unkown returned value of SSL_shutdown().";
-//                    break;
-//                }
-//            } else if (result > 0) {
-//                // success.
-//            } else { // result == 0
-//                done = false;
-//                // process the second SSL_shutdown();
-//                // https://www.openssl.org/docs/manmaster/man3/SSL_shutdown.html
-//            }
-//            if (done) {
-//                break;
-//            }
-//        }
-        ssl.reset();
-    }
-    if (!ctx.isNull()) {
-        ctx.reset();
-    }
-    rawSocket->abort();
-    return true;
-}
-
-
-template<typename SocketType>
-bool SslConnection<SocketType>::_handshake()
-{
-    while (true) {
-        int result = asServer ? SSL_accept(ssl.data()) : SSL_connect(ssl.data());
-        if (result <= 0) {
-            int err = SSL_get_error(ssl.data(), result);
-            switch (err) {
-            case SSL_ERROR_WANT_READ:
-                if (!pumpOutgoing()) return false;
-                if (!pumpIncoming()) return false;
-                break;
-            case SSL_ERROR_WANT_WRITE:
-                if (!pumpOutgoing()) return false;
-                break;
-            case SSL_ERROR_ZERO_RETURN:
-            case SSL_ERROR_WANT_CONNECT:
-            case SSL_ERROR_WANT_ACCEPT:
-            case SSL_ERROR_WANT_X509_LOOKUP:
-//            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
-            case SSL_ERROR_SYSCALL:
-                qtng_debug << "invalid ssl connection state.";
-                return false;
-            case SSL_ERROR_SSL:
-                qtng_debug << "protocol error on handshake.";
-                return false;
-            default:
-                qtng_debug << "handshake error.";
-                return false;
-            }
-        } else {
-            return true;
-        }
-    }
-}
-
-
-template<typename SocketType>
 bool SslConnection<SocketType>::pumpOutgoing()
 {
     if (ssl.isNull()) {
         return false;
     }
     int pendingBytes;
-    QVarLengthArray<char, 4096> buf;
+    QVarLengthArray<char, 1024 * 8> buf;
     BIO *outgoing = SSL_get_wbio(ssl.data());
     while (outgoing && rawSocket->isValid() && (pendingBytes = BIO_pending(outgoing)) > 0) {
         buf.resize(pendingBytes);
@@ -1084,6 +987,46 @@ bool SslConnection<SocketType>::pumpIncoming()
         }
     };
     return true;
+}
+
+
+template<typename SocketType>
+bool SslConnection<SocketType>::_handshake()
+{
+    if (ssl.isNull()) {
+        return false;
+    }
+    while (true) {
+        int result = asServer ? SSL_accept(ssl.data()) : SSL_connect(ssl.data());
+        if (result <= 0) {
+            int err = SSL_get_error(ssl.data(), result);
+            switch (err) {
+            case SSL_ERROR_WANT_READ:
+                if (!pumpOutgoing()) return false;
+                if (!pumpIncoming()) return false;
+                break;
+            case SSL_ERROR_WANT_WRITE:
+                if (!pumpOutgoing()) return false;
+                break;
+            case SSL_ERROR_ZERO_RETURN:
+            case SSL_ERROR_WANT_CONNECT:
+            case SSL_ERROR_WANT_ACCEPT:
+            case SSL_ERROR_WANT_X509_LOOKUP:
+//            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+            case SSL_ERROR_SYSCALL:
+                qtng_debug << "invalid ssl connection state.";
+                return false;
+            case SSL_ERROR_SSL:
+                qtng_debug << "protocol error on handshake.";
+                return false;
+            default:
+                qtng_debug << "handshake error.";
+                return false;
+            }
+        } else {
+            return true;
+        }
+    }
 }
 
 
@@ -1162,6 +1105,8 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
                     return total == 0 ? -1 : total;
                 }
                 break;
+            case SSL_ERROR_NONE:
+                break;
             case SSL_ERROR_ZERO_RETURN:
                 // may the remote peer close the connection.
                 return total == 0 ? -1 : total;
@@ -1171,19 +1116,16 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
 //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL:
+            default:
                 qtng_debug << "send error. error_code:" << error;
                 return -1;
-            case SSL_ERROR_NONE:
-                break;
             }
         } else {
             total += result;
             if (total > size) {
                 qtng_debug << "send too many data.";
-                pumpOutgoing();
                 return size;
             } else if (total == size) {
-                pumpOutgoing();
                 return total;
             } else {
                 if (all) {
@@ -1195,6 +1137,52 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
         }
     }
 }
+
+
+template<typename SocketType>
+bool SslConnection<SocketType>::close()
+{
+    if (ssl.isNull()) {
+        return false;
+    }
+    while (true) {
+        int result = SSL_shutdown(ssl.data());
+        if (result < 0) {
+            int err = SSL_get_error(ssl.data(), result);
+            switch(err) {
+            case SSL_ERROR_WANT_READ:
+                if (!pumpOutgoing()) return false;
+                if (!pumpIncoming()) return false;
+                break;
+            case SSL_ERROR_WANT_WRITE:
+                if (!pumpOutgoing()) return false;
+                break;
+            case SSL_ERROR_NONE:
+            case SSL_ERROR_ZERO_RETURN:
+                return false;
+            case SSL_ERROR_WANT_CONNECT:
+            case SSL_ERROR_WANT_ACCEPT:
+            case SSL_ERROR_WANT_X509_LOOKUP:
+//            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+                qtng_debug << "what?";
+                return false;
+            case SSL_ERROR_SYSCALL:
+            case SSL_ERROR_SSL:
+                qtng_debug << "underlying socket is closed.";
+                return false;
+            default:
+                qtng_debug << "unkown returned value of SSL_shutdown().";
+                return false;
+            }
+        } else if (result > 0) {
+            return true;
+        } else { // result == 0
+            // process the second SSL_shutdown();
+            // https://www.openssl.org/docs/manmaster/man3/SSL_shutdown.html
+        }
+    }
+}
+
 
 
 template<typename SocketType>

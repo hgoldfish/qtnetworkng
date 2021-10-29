@@ -309,7 +309,7 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::call(std::function<void()> func)
 {
-    ScopedLock<Semaphore> lock(semaphore);
+    ScopedLock<Semaphore> lock(*semaphore);
     if (!lock.isSuccess()) {
         return;
     }

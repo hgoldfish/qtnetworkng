@@ -1,3 +1,6 @@
+#include <QtCore/qwaitcondition.h>
+#include <QtCore/qmutex.h>
+#include <QtCore/qpointer.h>
 #include "../include/private/eventloop_p.h"
 #include "../include/locks.h"
 #include "debugger.h"
@@ -341,22 +344,17 @@ bool RLock::isOwned() const
 class ConditionPrivate
 {
 public:
-    ConditionPrivate(Condition *q);
+    ConditionPrivate();
     ~ConditionPrivate();
 public:
     bool wait();
     void notify(int value);
-private:
+public:
     QList<QSharedPointer<Lock> > waiters;
-    Condition * const q_ptr;
-    Q_DECLARE_PUBLIC(Condition)
 };
 
 
-ConditionPrivate::ConditionPrivate(Condition *q)
-    :q_ptr(q)
-{
-}
+ConditionPrivate::ConditionPrivate() {}
 
 
 ConditionPrivate::~ConditionPrivate()
@@ -398,7 +396,7 @@ void ConditionPrivate::notify(int value)
 
 
 Condition::Condition()
-    :d_ptr(new ConditionPrivate(this))
+    : d_ptr(new ConditionPrivate())
 {
 }
 
@@ -491,7 +489,7 @@ bool EventPrivate::wait(bool blocking)
         while(!flag) {
             if (!condition.wait()) {
                 qtng_debug << "event is deleted.";
-                break;
+                return false;
             }
         }
         return flag;
@@ -543,6 +541,157 @@ quint32 Event::getting() const
 {
     Q_D(const Event);
     return d->condition.getting();
+}
+
+
+struct Behold {
+    QPointer<EventLoopCoroutine> eventloop;
+    QWeakPointer<Condition> condition;
+};
+
+
+class ThreadEventPrivate
+{
+public:
+    ThreadEventPrivate();
+    void notify();
+    bool wait(bool blocking);
+    quint32 getting() const;
+public:
+    QSharedPointer<QWaitCondition> condition;
+    QSharedPointer<QMutex> mutex;
+    QList<Behold> holds;
+    QAtomicInteger<bool> flag;
+    QAtomicInteger<int> count;  // only for condition
+};
+
+
+class NotifiyCondition: public Functor
+{
+public:
+    NotifiyCondition(QSharedPointer<Condition> condition) : condition(condition) {}
+    virtual void operator()() { condition->notifyAll(); }
+    QSharedPointer<Condition> condition;
+};
+
+
+ThreadEventPrivate::ThreadEventPrivate()
+    : condition(new QWaitCondition())
+    , mutex(new QMutex())
+    , flag(false)
+    , count(0)
+{}
+
+
+void ThreadEventPrivate::notify()
+{
+    condition->wakeAll();
+    mutex->lock();
+    QSharedPointer<EventLoopCoroutine> eventloop = currentLoop()->get();
+    for (const Behold &hold: holds) {
+        if (hold.eventloop.data() == eventloop.data() && !hold.condition.isNull()) {
+            hold.condition.toStrongRef()->notifyAll();
+        } else if (!hold.eventloop.isNull() && !hold.condition.isNull()) {
+            hold.eventloop.data()->callLaterThreadSafe(0, new NotifiyCondition(hold.condition.toStrongRef()));
+        }
+    }
+    mutex->unlock();
+}
+
+
+bool ThreadEventPrivate::wait(bool blocking)
+{
+    if (!blocking || flag.loadAcquire()) {
+        return flag.loadAcquire();
+    }
+
+    EventLoopCoroutine *eventloop = currentLoop()->get().data();
+
+    if (!eventloop) {
+        mutex->lock();
+        ++count;
+        this->condition->wait(mutex.data());
+        --count;
+        mutex->unlock();
+    } else {
+        QSharedPointer<Condition> condition;
+        mutex->lock();
+        for (const Behold &hold: holds) {
+            if (hold.eventloop.data() == eventloop) {
+                condition = hold.condition.toStrongRef();
+                break;
+            }
+        }
+        if (condition.isNull()) {
+            condition.reset(new Condition());
+            Behold hold;
+            hold.condition = condition.toWeakRef();
+            hold.eventloop = eventloop;
+            holds.append(hold);
+        }
+        mutex->unlock();
+        condition->wait();
+    }
+    return flag.loadAcquire();
+}
+
+
+quint32 ThreadEventPrivate::getting() const
+{
+    quint32 count = 0;
+    mutex->lock();
+    for (const Behold &hold: holds) {
+        if (!hold.condition.isNull()) {
+            count += hold.condition.toStrongRef()->getting();
+        }
+    }
+    mutex->unlock();
+    return count;
+}
+
+
+ThreadEvent::ThreadEvent()
+    : d(new ThreadEventPrivate())
+{}
+
+
+ThreadEvent::~ThreadEvent()
+{
+    d->notify();
+}
+
+
+bool ThreadEvent::wait(bool blocking)
+{
+    return d->wait(blocking);
+}
+
+
+void ThreadEvent::set()
+{
+    if (d->flag.loadAcquire()) {
+        return;
+    }
+    d->flag.storeRelease(true);
+    d->notify();
+}
+
+
+void ThreadEvent::clear()
+{
+    d->flag.storeRelease(false);
+}
+
+
+bool ThreadEvent::isSet() const
+{
+    return d->flag.loadAcquire();
+}
+
+
+quint32 ThreadEvent::getting() const
+{
+    return d->getting();
 }
 
 

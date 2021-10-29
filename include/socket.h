@@ -45,6 +45,7 @@ public:
         SocketAddressNotAvailableError = 10,
         UnsupportedSocketOperationError = 11,
         UnfinishedSocketOperationError = 12,
+        OutOfMemoryError = 13,
 
         // define for proxy and ssl, not used here.
         ProxyAuthenticationRequiredError = 101,

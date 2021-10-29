@@ -440,7 +440,7 @@ QString CertificatePrivate::toString() const
     if (x509.isNull()) {
         return QString();
     }
-    QByteArray result;
+    QByteArray result(1024 * 64, Qt::Uninitialized);
     QScopedPointer<BIO, BioCleaner> bio(BIO_new(BIO_s_mem()));
     if (bio.isNull())
         return QString();
@@ -448,10 +448,9 @@ QString CertificatePrivate::toString() const
     // FIXME I have got nothing.
     X509_print(bio.data(), x509.data());
 
-    QVarLengthArray<char, 1024 * 64> data;
-    int count = BIO_read(bio.data(), data.data(), data.size());
+    int count = BIO_read(bio.data(), result.data(), result.size());
     if (count > 0) {
-        result = QByteArray(data.data(), count);
+        result.resize(count);
     }
     return QString::fromLatin1(result);
 }

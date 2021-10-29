@@ -32,8 +32,8 @@ public:
     quint32 payloadSizeHint() const;
     void setTearDownTime(float secs);
     float tearDownTime() const;
-    QSharedPointer<Event> busy;
-    QSharedPointer<Event> notBusy;
+    Event busy;
+    Event notBusy;
 public:
     Socket::SocketError error() const;
     QString errorString() const;

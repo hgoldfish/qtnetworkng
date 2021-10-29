@@ -14,8 +14,8 @@ QTNETWORKNG_NAMESPACE_BEGIN
 
 SocketPrivate::SocketPrivate(HostAddress::NetworkLayerProtocol protocol,
         Socket::SocketType type, Socket *parent)
-    :q_ptr(parent), protocol(protocol), type(type), error(Socket::NoError),
-      state(Socket::UnconnectedState), readLock(new Lock), writeLock(new Lock)
+    : q_ptr(parent), protocol(protocol), type(type), error(Socket::NoError)
+    , state(Socket::UnconnectedState)
 {
 #ifdef Q_OS_WIN
     initWinSock();
@@ -35,7 +35,7 @@ SocketPrivate::SocketPrivate(HostAddress::NetworkLayerProtocol protocol,
 
 
 SocketPrivate::SocketPrivate(qintptr socketDescriptor, Socket *parent)
-    :q_ptr(parent), error(Socket::NoError), readLock(new Lock), writeLock(new Lock)
+    :q_ptr(parent), error(Socket::NoError)
 {
 #ifdef Q_OS_WIN
     initWinSock();
@@ -169,6 +169,9 @@ void SocketPrivate::setError(Socket::SocketError error, ErrorString errorString)
     case UnknownSocketErrorString:
         socketErrorString = QString::fromLatin1("Unknown error");
         break;
+    case OutOfMemoryErrorString:
+        socketErrorString = QString::fromLatin1("Out of memeory.");
+        break;
     }
     this->errorString = socketErrorString;
 }
@@ -243,7 +246,7 @@ Socket::~Socket()
 {
     Q_D(Socket);
     d->abort();
-    if (d->readLock->isLocked() || d->writeLock->isLocked()) {
+    if (d->readLock.isLocked() || d->writeLock.isLocked()) {
         qtng_warning << "socket is deleted while receiving or sending.";
     }
     delete d_ptr;
@@ -384,13 +387,13 @@ void Socket::close()
 {
     Q_D(Socket);
     d->close();
-    if (d->readLock->isLocked()) {
-        d->readLock->acquire();
-        d->readLock->release();
+    if (d->readLock.isLocked()) {
+        d->readLock.acquire();
+        d->readLock.release();
     }
-    if (d->writeLock->isLocked()) {
-        d->writeLock->acquire();
-        d->writeLock->release();
+    if (d->writeLock.isLocked()) {
+        d->writeLock.acquire();
+        d->writeLock.release();
     }
 }
 
@@ -399,11 +402,11 @@ void Socket::abort()
 {
     Q_D(Socket);
     d->abort();
-    if (d->readLock->isLocked()) {
-        d->readLock->release();
+    if (d->readLock.isLocked()) {
+        d->readLock.release();
     }
-    if (d->writeLock->isLocked()) {
-        d->writeLock->release();
+    if (d->writeLock.isLocked()) {
+        d->writeLock.release();
     }
 }
 
@@ -537,7 +540,7 @@ QByteArray Socket::recv(qint32 size)
     }
     QByteArray bs(size, Qt::Uninitialized);
     qint32 bytes = d->recv(bs.data(), bs.size(), false);
-    if(bytes > 0) {
+    if (bytes > 0) {
         bs.resize(static_cast<int>(bytes));
         return bs;
     }
@@ -554,7 +557,7 @@ QByteArray Socket::recvall(qint32 size)
     }
     QByteArray bs(size, Qt::Uninitialized);
     qint32 bytes = d->recv(bs.data(), bs.size(), true);
-    if(bytes > 0) {
+    if (bytes > 0) {
         bs.resize(static_cast<int>(bytes));
         return bs;
     }
@@ -570,7 +573,7 @@ qint32 Socket::send(const QByteArray &data)
         return -1;
     }
     qint32 bytesSent = d->send(data.data(), data.size(), false);
-    if(bytesSent == 0 && !d->checkState()) {
+    if (bytesSent == 0 && !d->checkState()) {
         return -1;
     } else {
         return bytesSent;
@@ -598,7 +601,7 @@ QByteArray Socket::recvfrom(qint32 size, HostAddress *addr, quint16 *port)
     }
     QByteArray bs(size, Qt::Uninitialized);
     qint32 bytes = d->recvfrom(bs.data(), size, addr, port);
-    if(bytes > 0) {
+    if (bytes > 0) {
         bs.resize(bytes);
         return bs;
     }

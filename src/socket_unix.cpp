@@ -636,8 +636,14 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
                 return -1;
             case EMSGSIZE:
             case ENOBUFS:
-            case ENOMEM:
+                if (type != Socket::UdpSocket) {
+                    qtng_warning << "not a udp socket!";
+                }
                 setError(Socket::DatagramTooLargeError, DatagramTooLargeErrorString);
+                return -1;
+            case ENOMEM:
+                setError(Socket::OutOfMemoryError, OutOfMemoryErrorString);
+                abort();
                 return -1;
             case EPIPE:
             case ECONNRESET:
