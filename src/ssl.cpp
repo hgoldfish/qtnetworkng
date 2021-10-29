@@ -953,7 +953,7 @@ bool SslConnection<SocketType>::pumpOutgoing()
     int pendingBytes;
     QVarLengthArray<char, 1024 * 8> buf;
     BIO *outgoing = SSL_get_wbio(ssl.data());
-    while (outgoing && rawSocket->isValid() && (pendingBytes = BIO_pending(outgoing)) > 0) {
+    while (outgoing && (pendingBytes = BIO_pending(outgoing)) > 0) {
         buf.resize(pendingBytes);
         qint32 encryptedBytesRead = BIO_read(outgoing, buf.data(), pendingBytes);
         qint32 actualWritten = rawSocket->sendall(buf.constData(), encryptedBytesRead);
@@ -1124,8 +1124,10 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
             total += result;
             if (total > size) {
                 qtng_debug << "send too many data.";
+                if (!pumpOutgoing()) return false;
                 return size;
             } else if (total == size) {
+                if (!pumpOutgoing()) return false;
                 return total;
             } else {
                 if (all) {
