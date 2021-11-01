@@ -477,7 +477,7 @@ Q_GLOBAL_STATIC(QMimeDatabase, mimeDatabase);
 QSharedPointer<FileLike> StaticHttpRequestHandler::serveStaticFiles(const QDir &dir, const QString &subPath)
 {
     QUrl url = QUrl::fromEncoded(subPath.toLatin1());
-    QFileInfo fileInfo = translatePath(dir, url.path());
+    QFileInfo fileInfo = safeJoinPath(dir, url.path());
 #ifdef DEBUG_HTTP_PROTOCOL
     qtng_debug << "serve path" << url.path() << fileInfo.absoluteFilePath();
 #endif
@@ -578,31 +578,6 @@ QSharedPointer<FileLike> StaticHttpRequestHandler::listDirectory(const QDir &dir
     sendHeader(QByteArray("Content-Length"), QByteArray::number(data.size()));
     endHeader();
     return FileLike::bytes(data);
-}
-
-
-QFileInfo StaticHttpRequestHandler::translatePath(const QDir &dir, const QString &subPath)
-{
-    // remove '.' && '.."
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
-    const QStringList &list = subPath.split(QLatin1String("/"), Qt::SkipEmptyParts);
-#else
-    const QStringList &list = subPath.split(QLatin1String("/"), QString::SkipEmptyParts);
-#endif
-    QStringList l;
-    for (const QString &part: list) {
-        if (part == QLatin1String(".")) { // if part contains space, it is not dot dir.
-            continue;
-        } else if (part == QLatin1String("..")) {
-            if (!l.isEmpty()) {
-                l.removeLast();
-            }
-        } else {
-            l.append(part);
-        }
-    }
-    QString normalPath = l.join(QLatin1String("/")); // without the leading slash.
-    return QFileInfo(dir, normalPath);
 }
 
 

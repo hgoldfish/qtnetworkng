@@ -1,3 +1,4 @@
+#include <QtCore/qdir.h>
 #include "../include/io_utils.h"
 #include "../include/coroutine_utils.h"
 #include "debugger.h"
@@ -262,6 +263,48 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
             buf.remove(0, writtenBytes);
         }
     }
+}
+
+
+static inline QString makeSafePath(const QString &subPath)
+{
+    // remove '.' && '.."
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+    const QStringList &list = subPath.split(QLatin1String("/"), Qt::SkipEmptyParts);
+#else
+    const QStringList &list = subPath.split(QLatin1String("/"), QString::SkipEmptyParts);
+#endif
+    QStringList l;
+    for (const QString &part: list) {
+        if (part == QLatin1String(".")) { // if part contains space, it is not dot dir.
+            continue;
+        } else if (part == QLatin1String("..")) {
+            if (!l.isEmpty()) {
+                l.removeLast();
+            }
+        } else {
+            l.append(part);
+        }
+    }
+    return l.join(QLatin1String("/")); // without the leading slash.
+}
+
+
+QString safeJoinPath(const QString &parentDir, const QString &subPath)
+{
+    const QString &normalPath = makeSafePath(subPath);
+    if (parentDir.endsWith("/")) {
+        return parentDir + normalPath;
+    } else {
+        return parentDir + QLatin1String("/") + normalPath;
+    }
+}
+
+
+QFileInfo safeJoinPath(const QDir &parentDir, const QString &subPath)
+{
+    const QString &normalPath = makeSafePath(subPath);
+    return QFileInfo(parentDir, normalPath);
 }
 
 

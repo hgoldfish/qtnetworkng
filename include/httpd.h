@@ -80,7 +80,6 @@ public:
 protected:
     virtual QSharedPointer<FileLike> serveStaticFiles(const QDir &dir, const QString &subPath);
     virtual QSharedPointer<FileLike> listDirectory(const QDir &dir, const QString &displayDir);
-    virtual QFileInfo translatePath(const QDir &dir, const QString &subPath);
     virtual bool loadMissingFile(const QFileInfo &fileInfo);
     virtual QFileInfo getIndexFile(const QDir &dir);
 protected:

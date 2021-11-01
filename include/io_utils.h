@@ -2,6 +2,7 @@
 #define QTNG_IO_UTILS_H
 
 #include <QtCore/qsharedpointer.h>
+#include <QtCore/qfileinfo.h>
 #include <QtCore/qfile.h>
 #include "socket.h"
 
@@ -62,6 +63,11 @@ private:
 
 
 bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy=-1);
+
+
+// join subPath with parentDir as its virtual root.
+QString safeJoinPath(const QString &parentDir, const QString &subPath);
+QFileInfo safeJoinPath(const QDir &parentDir, const QString &subPath);
 
 QTNETWORKNG_NAMESPACE_END
 
