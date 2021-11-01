@@ -8,7 +8,7 @@ class HelloRequestHandler: public SimpleHttpRequestHandler
 public:
     virtual void doGET() override
     {
-        if (path == "/hello/") {
+        if (path == QString::fromLatin1("/hello/")) {
             sendResponse(HttpStatus::OK);
             sendHeader("Content-Type", "text/plain");
             sendHeader("Content-Length", "0");
@@ -25,17 +25,17 @@ public:
 };
 
 
-class HelloHttpServer: public TcpServer<HelloRequestHandler>
+class HelloHttpServer: public SslServer<HelloRequestHandler>
 {
 public:
     HelloHttpServer(const HostAddress &serverAddress, quint16 serverPort)
-        : TcpServer(serverAddress, serverPort) {}
+        : SslServer(serverAddress, serverPort) {}
 };
 
 
 int main()
 {
-    HelloHttpServer httpd(HostAddress::Any, 8000);
+    HelloHttpServer httpd(HostAddress::Any, 8443);
     httpd.serveForever();
     return 0;
 }

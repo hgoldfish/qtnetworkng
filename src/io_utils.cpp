@@ -241,7 +241,7 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
             qint32 nextBlockSize = qMin<qint64>(1024 * 8, remain);
             qint32 oldSize = buf.size();
             buf.resize(oldSize + nextBlockSize);
-            qint32 readBytes = inputFile->read(buf.data() , nextBlockSize);
+            qint32 readBytes = inputFile->read(buf.data() + oldSize , nextBlockSize);
             if (readBytes < 0) {
                 return false;
             } else if (readBytes > 0) {

@@ -1122,17 +1122,18 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
             }
         } else {
             total += result;
-            if (total > size) {
+            if (Q_UNLIKELY(total > size)) {
                 qtng_debug << "send too many data.";
                 if (!pumpOutgoing()) return false;
                 return size;
-            } else if (total == size) {
+            } else if (Q_LIKELY(total == size)) {
                 if (!pumpOutgoing()) return false;
                 return total;
             } else {
                 if (all) {
                     continue;
                 } else {
+                    if (!pumpOutgoing()) return false;
                     return total;
                 }
             }
@@ -1144,7 +1145,7 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
 template<typename SocketType>
 bool SslConnection<SocketType>::close()
 {
-    if (ssl.isNull()) {
+    if (ssl.isNull() || !rawSocket->isValid()) {
         return false;
     }
     while (true) {
