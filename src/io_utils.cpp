@@ -293,7 +293,7 @@ static inline QString makeSafePath(const QString &subPath)
 QString safeJoinPath(const QString &parentDir, const QString &subPath)
 {
     const QString &normalPath = makeSafePath(subPath);
-    if (parentDir.endsWith("/")) {
+    if (parentDir.endsWith(QLatin1String("/"))) {
         return parentDir + normalPath;
     } else {
         return parentDir + QLatin1String("/") + normalPath;

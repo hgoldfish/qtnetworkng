@@ -39,7 +39,9 @@
 ****************************************************************************/
 
 #include <QtCore/qatomic.h>
+#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
 #include <QtCore/qdeadlinetimer.h>
+#endif
 #include <QtCore/qlist.h>
 #include <QtCore/qreadwritelock.h>
 #include <QtCore/qstring.h>
@@ -254,7 +256,7 @@ void NetworkAddressEntry::setBroadcast(const HostAddress &newBroadcast)
 }
 
 
-#if QT_VERSION > QT_VERSION_CHECK(5, 8, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
 
 bool NetworkAddressEntry::isLifetimeKnown() const
 {
@@ -437,8 +439,11 @@ QList<HostAddress> NetworkInterface::allAddresses()
         if ((p->flags & NetworkInterface::IsUp) == 0) {
             continue;
         }
-
+#if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
         for (const NetworkAddressEntry &entry : qAsConst(p->addressEntries)) {
+#else
+		for (const NetworkAddressEntry &entry : p->addressEntries) {
+#endif
             result += entry.ip();
         }
     }

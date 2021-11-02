@@ -89,7 +89,7 @@ static void resolveLibs()
     if (!done) {
         done = true;
 
-        QLibrary lib("iphlpapi");
+        QLibrary lib(QLatin1String("iphlpapi"));
         if (!lib.load()) {
             return;
         }
@@ -400,7 +400,7 @@ static QList<NetworkInterfacePrivate *> interfaceListingVista()
             NetworkAddressEntry entry;
             entry.setIp(HostAddress(addr->Address.lpSockaddr));
             entry.setPrefixLength(addr->OnLinkPrefixLength);
-
+#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
             auto toDeadline = [](ULONG lifetime) -> QDeadlineTimer {
                 if (lifetime == 0xffffffffUL)
                     return QDeadlineTimer::Forever;
@@ -410,7 +410,7 @@ static QList<NetworkInterfacePrivate *> interfaceListingVista()
             entry.setDnsEligibility(addr->Flags & IP_ADAPTER_ADDRESS_DNS_ELIGIBLE ?
                                         NetworkAddressEntry::DnsEligible :
                                         NetworkAddressEntry::DnsIneligible);
-
+#endif
             iface->addressEntries << entry;
         }
     }

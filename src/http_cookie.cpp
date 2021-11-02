@@ -41,7 +41,6 @@
 #include <QtCore/qlocale.h>
 #include <QtCore/qregularexpression.h>
 #include <QtCore/qdebug.h>
-#include <QtCore/qstringview.h>
 #include "../include/hostaddress.h"
 #include "../include/http_cookie.h"
 
@@ -528,7 +527,9 @@ static QDateTime parseDateString(const QByteArray &dateString)
             switch (end - 1) {
             case 4:
                 minutes = atoi(dateString.mid(at + 3, 2).constData());
+#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
                 Q_FALLTHROUGH();
+#endif
             case 2:
                 hours = atoi(dateString.mid(at + 1, 2).constData());
                 break;
@@ -848,7 +849,7 @@ QList<HttpCookie> HttpCookiePrivate::parseSetCookieHeaderLine(const QByteArray &
                     if (ok) {
                         if (secs <= 0) {
                             //earliest representable time (RFC6265 section 5.2.2)
-                            cookie.setExpirationDate(QDateTime::fromSecsSinceEpoch(0));
+                            cookie.setExpirationDate(QDateTime::fromMSecsSinceEpoch(0));
                         } else {
                             cookie.setExpirationDate(now.addSecs(secs));
                         }
@@ -964,7 +965,7 @@ static inline bool isParentDomain(const QString &domain, const QString &referenc
     if (!reference.startsWith(QLatin1Char('.')))
         return domain == reference;
 
-    return domain.endsWith(reference) || domain == QStringView{reference}.mid(1);
+    return domain.endsWith(reference) || domain == reference.mid(1);
 }
 
 
