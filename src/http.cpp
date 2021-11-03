@@ -1133,12 +1133,13 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         }
     }
 
-    mergeCookies(request, url);
-    QList<HttpHeader> allHeaders = makeHeaders(request, url);
-
     if (request.d->version == HttpVersion::Unknown) {
         request.d->version = defaultVersion;
     }
+
+    mergeCookies(request, url);
+    QList<HttpHeader> allHeaders = makeHeaders(request, url);
+
     QByteArray versionBytes;
     if (request.d->version == HttpVersion::Http1_0) {
         versionBytes = "HTTP/1.0";
