@@ -199,7 +199,9 @@ void BaseHttpRequestHandler::doGET()
         sendHeader("Content-Type", "text/html");
         sendHeader("Content-Length", QByteArray::number(body.size()));
     }
-    endHeader();
+    if (!endHeader()) {
+        return;
+    }
     if (!body.isEmpty()) {
         request->sendall(body);
     }
@@ -540,7 +542,9 @@ QSharedPointer<FileLike> StaticHttpRequestHandler::serveStaticFiles(const QDir &
     sendHeader(QByteArray("Content-Type"), contentType.toUtf8());
     sendHeader(QByteArray("Content-Length"), QByteArray::number(f->size()));
     sendHeader(QByteArray("Last-Modified"), fileInfo.lastModified().toString(Qt::RFC2822Date).toUtf8());
-    endHeader();
+    if (!endHeader()) {
+        return QSharedPointer<FileLike>();
+    }
     return FileLike::rawFile(f);
 }
 
@@ -576,7 +580,9 @@ QSharedPointer<FileLike> StaticHttpRequestHandler::listDirectory(const QDir &dir
     sendResponse(HttpStatus::OK);
     sendHeader(QByteArray("Content-Type"), QByteArray("text/html; charset=utf-8"));
     sendHeader(QByteArray("Content-Length"), QByteArray::number(data.size()));
-    endHeader();
+    if (!endHeader()) {
+        return QSharedPointer<FileLike>();
+    }
     return FileLike::bytes(data);
 }
 

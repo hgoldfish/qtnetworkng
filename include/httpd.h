@@ -105,12 +105,9 @@ protected:
 
 class BaseHttpProxyRequestHandler: public BaseHttpRequestHandler
 {
-public:
-    BaseHttpProxyRequestHandler();
 protected:
     virtual void logRequest(qtng::HttpStatus status, int bodySize) override;
     virtual void logError(qtng::HttpStatus status, const QString &shortMessage, const QString &longMessage) override;
-    virtual void finish() override;
     virtual void doMethod() override;
     virtual void doCONNECT() override;
 protected:
@@ -121,8 +118,6 @@ protected:
 protected:
     virtual QSharedPointer<class HttpResponse> sendRequest(class HttpRequest &request) = 0;
     virtual void exchangeAsync(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward) = 0;
-protected:
-    bool isExchanging;
 };
 
 

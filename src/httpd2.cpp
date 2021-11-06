@@ -5,19 +5,6 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 
-BaseHttpProxyRequestHandler::BaseHttpProxyRequestHandler()
-    : isExchanging(false)
-{}
-
-
-void BaseHttpProxyRequestHandler::finish()
-{
-    if (!isExchanging) {
-        request->close();
-    }
-}
-
-
 void BaseHttpProxyRequestHandler::logRequest(qtng::HttpStatus, int)
 {}
 
@@ -65,12 +52,15 @@ void BaseHttpProxyRequestHandler::doCONNECT()
     }
 
     sendResponse(OK, QString::fromLatin1("Connection established"));
-    endHeader();
+    if (!endHeader()) {
+        return;
+    }
+
 
     logProxy(host, port, forwardAddress, true);
     closeConnection = Yes;
-    isExchanging = true;
     exchangeAsync(request, forward);
+    request.clear();
 }
 
 
@@ -148,6 +138,7 @@ void BaseHttpProxyRequestHandler::doProxy()
     if (method.toUpper() != QString::fromLatin1("HEAD")) {
         QSharedPointer<FileLike> f = response->bodyAsFile(false);
         if (!f.isNull() && !sendfile(f, this->request)) {
+            closeConnection = Yes;
             this->request->close();
         }
     }
