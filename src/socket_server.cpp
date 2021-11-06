@@ -345,7 +345,9 @@ void BaseRequestHandler::handle()
 
 void BaseRequestHandler::finish()
 {
-    request->close();
+    if (!request.isNull()) {
+        request->close();
+    }
 }
 
 

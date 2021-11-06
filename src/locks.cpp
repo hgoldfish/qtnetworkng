@@ -344,55 +344,8 @@ bool RLock::isOwned() const
 class ConditionPrivate
 {
 public:
-    ConditionPrivate();
-    ~ConditionPrivate();
-public:
-    bool wait();
-    void notify(int value);
-public:
     QList<QSharedPointer<Lock> > waiters;
 };
-
-
-ConditionPrivate::ConditionPrivate() {}
-
-
-ConditionPrivate::~ConditionPrivate()
-{
-    notify(waiters.size());
-}
-
-
-bool ConditionPrivate::wait()
-{
-    QSharedPointer<Lock> waiter(new Lock());
-    if (!waiter->acquire())
-        return false;
-    waiters.append(waiter);
-    try {
-        if (waiter->acquire()) {
-            waiter->release();
-            waiters.removeOne(waiter);
-            return true;
-        } else {
-            waiters.removeOne(waiter);
-            return false;
-        }
-    } catch (...) {
-        waiter->release();
-        waiters.removeOne(waiter);
-        throw;
-    }
-}
-
-
-void ConditionPrivate::notify(int value)
-{
-    for (int i = 0; i < value && !waiters.isEmpty(); ++i) {
-        QSharedPointer<Lock> waiter = waiters.takeFirst();
-        waiter->release();
-    }
-}
 
 
 Condition::Condition()
@@ -403,6 +356,7 @@ Condition::Condition()
 
 Condition::~Condition()
 {
+    notify(d_ptr->waiters.size());
     delete d_ptr;
 }
 
@@ -410,21 +364,41 @@ Condition::~Condition()
 bool Condition::wait()
 {
     Q_D(Condition);
-    return d->wait();
+    QSharedPointer<Lock> waiter(new Lock());
+    if (!waiter->acquire())
+        return false;
+    d->waiters.append(waiter);
+    try {
+        if (waiter->acquire()) {
+            waiter->release();
+            d->waiters.removeOne(waiter);
+            return true;
+        } else {
+            d->waiters.removeOne(waiter);
+            return false;
+        }
+    } catch (...) {
+        waiter->release();
+        d->waiters.removeOne(waiter);
+        throw;
+    }
 }
 
 
 void Condition::notify(int value)
 {
     Q_D(Condition);
-    d->notify(value);
+    for (int i = 0; i < value && !d->waiters.isEmpty(); ++i) {
+        QSharedPointer<Lock> waiter = d->waiters.takeFirst();
+        waiter->release();
+    }
 }
 
 
 void Condition::notifyAll()
 {
     Q_D(Condition);
-    d->notify(d->waiters.size());
+    notify(d->waiters.size());
 }
 
 

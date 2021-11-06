@@ -1094,22 +1094,22 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
             switch (error = SSL_get_error(ssl.data(), result)) {
             case SSL_ERROR_WANT_READ:
                 if (!pumpOutgoing()) {
-                    return total == 0 ? -1 : total;
+                    return -1;
                 }
                 if (!pumpIncoming()) {
-                    return total == 0 ? -1 : total;
+                    return -1;
                 }
                 break;
             case SSL_ERROR_WANT_WRITE:
                 if (!pumpOutgoing()) {
-                    return total == 0 ? -1 : total;
+                    return -1;
                 }
                 break;
             case SSL_ERROR_NONE:
                 break;
             case SSL_ERROR_ZERO_RETURN:
                 // may the remote peer close the connection.
-                return total == 0 ? -1 : total;
+                return -1;
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
@@ -1124,16 +1124,16 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
             total += result;
             if (Q_UNLIKELY(total > size)) {
                 qtng_debug << "send too many data.";
-                if (!pumpOutgoing()) return false;
+                if (!pumpOutgoing()) return -1;
                 return size;
             } else if (Q_LIKELY(total == size)) {
-                if (!pumpOutgoing()) return false;
+                if (!pumpOutgoing()) return -1;
                 return total;
             } else {
                 if (all) {
                     continue;
                 } else {
-                    if (!pumpOutgoing()) return false;
+                    if (!pumpOutgoing()) return -1;
                     return total;
                 }
             }

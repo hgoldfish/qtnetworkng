@@ -290,21 +290,21 @@ static inline QString makeSafePath(const QString &subPath)
 }
 
 
-QString safeJoinPath(const QString &parentDir, QString &subPath)
+QString safeJoinPath(const QString &parentDir, const QString &subPath)
 {
-    subPath = makeSafePath(subPath);
+    const QString &safeSubPath = makeSafePath(subPath);
     if (parentDir.endsWith(QLatin1String("/"))) {
-        return parentDir + subPath;
+        return parentDir + safeSubPath;
     } else {
-        return parentDir + QLatin1String("/") + subPath;
+        return parentDir + QLatin1String("/") + safeSubPath;
     }
 }
 
 
-QFileInfo safeJoinPath(const QDir &parentDir, QString &subPath)
+QFileInfo safeJoinPath(const QDir &parentDir, const QString &subPath)
 {
-    subPath = makeSafePath(subPath);
-    return QFileInfo(parentDir, subPath);
+    const QString &safeSubPath = makeSafePath(subPath);
+    return QFileInfo(parentDir, safeSubPath);
 }
 
 

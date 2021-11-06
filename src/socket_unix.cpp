@@ -772,7 +772,7 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &a
 
     ssize_t sentBytes = 0;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
-    while(true) {
+    while (true) {
         if (!checkState()) {
             return -1;
         }
