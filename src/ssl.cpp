@@ -851,6 +851,7 @@ public:
     bool handshake(bool asServer, const QString &hostName);
     bool _handshake();
     bool close();
+    void abort();
     qint32 recv(char *data, qint32 size, bool all);
     qint32 send(const char *data, qint32 size, bool all);
     bool pumpOutgoing();
@@ -1186,6 +1187,12 @@ bool SslConnection<SocketType>::close()
     }
 }
 
+
+template<typename SocketType>
+void SslConnection<SocketType>::abort()
+{
+    rawSocket->abort();
+}
 
 
 template<typename SocketType>
@@ -1579,7 +1586,7 @@ void SslSocket::close()
 void SslSocket::abort()
 {
     Q_D(SslSocket);
-    d->close();
+    d->abort();
 }
 
 
