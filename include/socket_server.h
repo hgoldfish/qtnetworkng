@@ -38,8 +38,8 @@ public:
     HostAddress serverAddress() const;
     QSharedPointer<SocketLike> serverSocket() const;
 public:
-    QSharedPointer<Event> started;
-    QSharedPointer<Event> stopped;
+    Event started;
+    Event stopped;
 protected:
     virtual bool serverBind();                          // bind()
     virtual bool serverActivate();                      // listen()

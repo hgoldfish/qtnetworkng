@@ -38,22 +38,18 @@ private:
 
 
 BaseStreamServer::BaseStreamServer(const HostAddress &serverAddress, quint16 serverPort)
-    : started(new Event())
-    , stopped(new Event())
-    , d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
+    : d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
 {
-    started->clear();
-    stopped->set();
+    started.clear();
+    stopped.set();
 }
 
 
 BaseStreamServer::BaseStreamServer(BaseStreamServerPrivate *d)
-    : started(new Event())
-    , stopped(new Event())
-    , d_ptr(d)
+    : d_ptr(d)
 {
-    started->clear();
-    stopped->set();
+    started.clear();
+    stopped.set();
 }
 
 
@@ -134,8 +130,8 @@ void BaseStreamServer::serverClose()
 void BaseStreamServerPrivate::serveForever()
 {
     Q_Q(BaseStreamServer);
-    q->started->set();
-    q->stopped->clear();
+    q->started.set();
+    q->stopped.clear();
     while (true) {
         QSharedPointer<SocketLike> request = q->getRequest();
         if (request.isNull()) {
@@ -164,8 +160,8 @@ void BaseStreamServerPrivate::serveForever()
         }
     }
     q->serverClose();
-    q->started->clear();
-    q->stopped->set();
+    q->started.clear();
+    q->stopped.set();
 }
 
 
@@ -193,7 +189,7 @@ bool BaseStreamServer::start()
 {
     Q_D(BaseStreamServer);
 
-    if (started->isSet() || d->operations->has(QString::fromLatin1("serve"))) {
+    if (started.isSet() || d->operations->has(QString::fromLatin1("serve"))) {
         return true;
     }
     d->serverSocket = serverCreate();
