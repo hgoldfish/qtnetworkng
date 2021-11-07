@@ -73,6 +73,7 @@ Edit ``main.cpp``.
 .. code-block:: c++
     :caption: get web page.
     
+    #include <QtCore/qdebug.h>
     #include "qtnetworkng/qtnetworkng.h"
     
     using namespace qtng;
@@ -412,6 +413,7 @@ Get data from ``HttpResponse``
     qDebug() << resp.json();  // as QJsonDocument
     qDebug() << resp.html();  // as UTF8 QString
     qDebug() << resp.body();  // as QByteArray
+    qDebug() << resp.bodyAsFile() // as a FileLike which can be read or write.
 
 
 Cryptography

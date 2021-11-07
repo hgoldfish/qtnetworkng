@@ -34,6 +34,7 @@ Examples
 
 Here comes a simple example to get web pages.
 
+    #include <QtCore/qdebug.h>
     #include "qtnetworkng.h"
     
     int main(int argc, char **argv)
@@ -46,6 +47,7 @@ Here comes a simple example to get web pages.
     
 And another exmaple to make IPv4 tcp connection.
 
+    #include <QtCore/qdebug.h>
     #include "qtnetworkng.h"
     
     int main(int argc, char **argv)

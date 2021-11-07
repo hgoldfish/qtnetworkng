@@ -25,7 +25,8 @@ QtNetworkNg is a coroutine-based network toolkit, like boost::asio but uses conc
 
 .. code-block:: c++
     
-    #include "qtnetworkng/qtnetworkng.h"
+    #include <QtCore/qdebug.h>
+    #include "qtnetworkng.h"
     
     int main(int argc, char **argv)
     {
@@ -43,7 +44,8 @@ And another example to make IPv4 tcp connection.
 
 .. code-block:: c++
     
-    #include "qtnetworkng/qtnetworkng.h"
+    #include <QtCore/qdebug.h>
+    #include "qtnetworkng.h"
     
     int main(int argc, char **argv)
     {
@@ -62,9 +64,9 @@ To create IPv4 tcp server.
     CoroutineGroup workers;
     s.bind(HostAddress::AnyIPv4, 8000);
     s.listen(100);
-    while(true) {
+    while (true) {
         QSharedPointer<Socket> request(s.accept());
-        if(request.isNull()) {
+        if (request.isNull()) {
             break;
         }
         workers.spawn([request] {
@@ -81,7 +83,7 @@ A Qt GUI example to fetch web page.
     // main.cpp
     #include <QApplication>
     #include <QTextBrowser>
-    #include "qtnetworkng/qtnetworkng.h"
+    #include "qtnetworkng.h"
 
     using namespace qtng;
 
@@ -95,7 +97,7 @@ A Qt GUI example to fetch web page.
     };
     
     HtmlWindow::HtmlWindow()
-        :operations(new CoroutineGroup)
+        : operations(new CoroutineGroup)
     {
         operations->spawn([this] {
             Coroutine::sleep(1);

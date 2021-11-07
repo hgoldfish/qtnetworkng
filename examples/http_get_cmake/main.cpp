@@ -1,3 +1,4 @@
+#include <QtCore/qdebug.h>
 #include "qtnetworkng.h"
 
 int main(int argc, char **argv)
