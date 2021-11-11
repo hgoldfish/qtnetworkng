@@ -954,7 +954,8 @@ bool SslConnection<SocketType>::pumpOutgoing()
     int pendingBytes;
     QVarLengthArray<char, 1024 * 8> buf;
     BIO *outgoing = SSL_get_wbio(ssl.data());
-    while (outgoing && (pendingBytes = BIO_pending(outgoing)) > 0) {
+    Q_ASSERT(outgoing);
+    while ((pendingBytes = BIO_pending(outgoing)) > 0) {
         buf.resize(pendingBytes);
         qint32 encryptedBytesRead = BIO_read(outgoing, buf.data(), pendingBytes);
         qint32 actualWritten = rawSocket->sendall(buf.constData(), encryptedBytesRead);
@@ -978,7 +979,8 @@ bool SslConnection<SocketType>::pumpIncoming()
         return false;
     int totalWritten = 0;
     BIO *incoming = SSL_get_rbio(ssl.data());
-    while (incoming && totalWritten < buf.size()) {
+    Q_ASSERT(incoming);
+    while (totalWritten < buf.size()) {
         int writtenToBio = BIO_write(incoming, buf.constData() + totalWritten, buf.size() - totalWritten);
         if (writtenToBio > 0) {
             totalWritten += writtenToBio;
@@ -1149,6 +1151,7 @@ bool SslConnection<SocketType>::close()
     if (ssl.isNull() || !rawSocket->isValid()) {
         return false;
     }
+    int tried = 0;
     while (true) {
         int result = SSL_shutdown(ssl.data());
         if (result < 0) {
@@ -1183,6 +1186,11 @@ bool SslConnection<SocketType>::close()
         } else { // result == 0
             // process the second SSL_shutdown();
             // https://www.openssl.org/docs/manmaster/man3/SSL_shutdown.html
+            if (tried > 0) {
+                return 0;
+            } else {
+                ++tried;
+            }
         }
     }
 }

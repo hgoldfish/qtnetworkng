@@ -93,13 +93,8 @@ public:
             }
             waiter->yield();
         }
-        if (doDelete) {
-            if (sp->counter != sp->init_value) {
-                qtng_warning << "Semaphore is deleting but caught by some one.";
-            }
-        } else {
-            sp->notified = 0;  // do not move this line above the loop, see the return statement in ::acquire()
-        }
+        // do not move this line above the loop, see the return statement in ::acquire()
+        sp->notified = 0;
     }
 };
 

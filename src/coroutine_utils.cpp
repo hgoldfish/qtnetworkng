@@ -109,6 +109,19 @@ bool CoroutineGroup::has(const QString &name)
 }
 
 
+bool CoroutineGroup::isCurrent(const QString &name)
+{
+    QListIterator<QSharedPointer<Coroutine>> itor(coroutines);
+    while (itor.hasNext()) {
+        QSharedPointer<Coroutine> coroutine = itor.next();
+        if (coroutine->objectName() == name && coroutine == Coroutine::current()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 bool CoroutineGroup::kill(const QString &name, bool join)
 {
     QSharedPointer<Coroutine> found = get(name);

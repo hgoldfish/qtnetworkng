@@ -1256,7 +1256,7 @@ bool SlaveKcpSocketPrivate::close(bool force)
     } else {  // there can be no other states.
         state = Socket::UnconnectedState;
     }
-    operations->kill(QString::fromLatin1("update_kcp"));
+    operations->killall();
     if (!parent.isNull()) {
         parent->removeSlave(originalHostAndPort);
         parent->removeSlave(connectionId);

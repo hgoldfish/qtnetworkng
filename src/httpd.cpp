@@ -479,9 +479,9 @@ Q_GLOBAL_STATIC(QMimeDatabase, mimeDatabase);
 QSharedPointer<FileLike> StaticHttpRequestHandler::serveStaticFiles(const QDir &dir, const QString &subPath)
 {
     QUrl url = QUrl::fromEncoded(subPath.toLatin1());
-    QFileInfo fileInfo = safeJoinPath(dir, url.path());
+    QFileInfo fileInfo = safeJoinPath(dir, url.path()).first;
 #ifdef DEBUG_HTTP_PROTOCOL
-    qtng_debug << "serve path" << url.path() << fileInfo.absoluteFilePath();
+    qtng_debug << "serve path" << subPath << "from" << fileInfo.absoluteFilePath();
 #endif
     if (!fileInfo.exists() && !loadMissingFile(fileInfo)) {
         sendError(HttpStatus::NotFound, QString::fromLatin1("File not found"));

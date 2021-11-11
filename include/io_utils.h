@@ -65,9 +65,9 @@ private:
 bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy=-1);
 
 
-// join subPath with parentDir as its virtual root.
-QString safeJoinPath(const QString &parentDir, const QString &subPath);
-QFileInfo safeJoinPath(const QDir &parentDir, const QString &subPath);
+// join the subPath with parentDir as its virtual root. return the final path and the normalized path
+QPair<QString, QString> safeJoinPath(const QString &parentDir, const QString &subPath);
+QPair<QFileInfo, QString> safeJoinPath(const QDir &parentDir, const QString &subPath);
 
 
 QTNETWORKNG_NAMESPACE_END
