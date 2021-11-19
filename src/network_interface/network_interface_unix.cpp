@@ -45,6 +45,7 @@
 #endif
 #include <ifaddrs.h>
 #include <net/if.h>
+#include <netinet/in.h>
 #include <qplatformdefs.h>
 
 #include "../../include/private/network_interface_p.h"
