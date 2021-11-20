@@ -58,8 +58,8 @@ private:
 extern "C" void run_stub(intptr_t data)
 {
     BaseCoroutinePrivate *coroutine = reinterpret_cast<BaseCoroutinePrivate*>(data);
-    if(!coroutine) {
-        qDebug() << "run_stub got invalid coroutine.";
+    if (!coroutine) {
+        qtng_debug << "run_stub got invalid coroutine.";
         return;
     }
     coroutine->state = BaseCoroutine::Started;

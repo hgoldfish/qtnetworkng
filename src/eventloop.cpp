@@ -78,13 +78,13 @@ YieldCurrentFunctor::YieldCurrentFunctor()
 void YieldCurrentFunctor::operator ()()
 {
     if (coroutine.isNull()) {
-        qDebug() << "coroutine is deleted while YieldCurrentFunctor called.";
+        qtng_debug << "coroutine is deleted while YieldCurrentFunctor called.";
         return;
     }
     try {
         coroutine->yield();
     } catch(CoroutineException &e) {
-        qDebug() << "do not send exception to event loop, just delete event loop:" << e.what();
+        qtng_debug << "do not send exception to event loop, just delete event loop:" << e.what();
     }
 }
 

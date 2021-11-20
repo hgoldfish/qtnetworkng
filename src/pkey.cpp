@@ -914,7 +914,7 @@ PrivateKeyWriter &PrivateKeyWriter::setPassword(const QByteArray &password)
 {
     Q_D(PrivateKeyWriter);
     if (d->algo == Cipher::Null) {
-        qDebug() << "no cipher specified.";
+        qtng_debug << "no cipher specified.";
     }
     d->password = password;
     d->callback.reset();
@@ -926,7 +926,7 @@ PrivateKeyWriter &PrivateKeyWriter::setPassword(QSharedPointer<PasswordCallback>
 {
     Q_D(PrivateKeyWriter);
     if (d->algo == Cipher::Null) {
-        qDebug() << "no cipher specified.";
+        qtng_debug << "no cipher specified.";
     }
     d->callback = callback;
     d->password.clear();

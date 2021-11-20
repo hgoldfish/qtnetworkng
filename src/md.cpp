@@ -184,17 +184,17 @@ QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray 
 
 //    int rvalue = EVP_PKEY_derive_init(pctx);
 //    if (rvalue <= 0) {
-//        qDebug() << "can not init scrypt kdf.";
+//        qtng_debug << "can not init scrypt kdf.";
 //        return QByteArray();
 //    }
 //    rvalue = EVP_PKEY_CTX_set1_pbe_pass(pctx, password.data(), password.size());
 //    if (rvalue <= 0) {
-//        qDebug() << "can not set scrypt password.";
+//        qtng_debug << "can not set scrypt password.";
 //        return QByteArray();
 //    }
 //    rvalue = EVP_PKEY_CTX_set1_scrypt_salt(pctx, salt.data(), salt.size());
 //    if (rvalue <= 0) {
-//        qDebug() << "can not set scrypt salt.";
+//        qtng_debug << "can not set scrypt salt.";
 //        return QByteArray();
 //    }
 

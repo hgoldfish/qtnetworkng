@@ -84,7 +84,7 @@ void initWinSock()
     if (err != 0) {
         /* Tell the user that we could not find a usable */
         /* Winsock DLL.                                  */
-        qDebug("WSAStartup failed with error: %d\n", err);
+        qtng_debug << "WSAStartup failed with error:" << err;
     }
 }
 

@@ -177,7 +177,7 @@ void QtEventLoopCoroutinePrivate::handleIoEvent(int socket, QSocketNotifier *n)
     Q_UNUSED(socket)
 
     if (!n) {
-        qDebug() << "can not retrieve sender() while handling qt io event.";
+        qtng_debug << "can not retrieve sender() while handling qt io event.";
         return;
     }
 
@@ -414,7 +414,7 @@ int startQtLoop()
     if (!eventLoop.isNull()) {
         qtEventLoop = dynamic_cast<QtEventLoopCoroutine*>(eventLoop.data());
         if (!qtEventLoop) {
-            qDebug() << "current eventloop is not Qt.";
+            qtng_debug << "current eventloop is not Qt.";
             return -1;
         }
     } else {

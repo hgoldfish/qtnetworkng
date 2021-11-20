@@ -256,7 +256,7 @@ template <typename T, typename EventType>
 QueueType<T, EventType>::~QueueType()
 {
 //    if (queue.size() > 0) {
-//        qDebug() << "queue is free with element left.";
+//        qtng_debug << "queue is free with element left.";
 //    }
 }
 

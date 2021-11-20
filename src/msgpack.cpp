@@ -1,5 +1,5 @@
-#include <QBuffer>
-#include <QDebug>
+#include <QtCore/qbuffer.h>
+#include <QtCore/qdebug.h>
 #include "../include/msgpack.h"
 
 #undef  CHECK_STREAM_PRECOND

@@ -607,23 +607,23 @@ Certificate CertificatePrivate::generate(const PublicKey &publickey, const Priva
     Certificate cert;
     QScopedPointer<X509, X509Cleaner> x509(X509_new());
     if (x509.isNull()) {
-        qDebug() << "can not allocate X509.";
+        qtng_debug << "can not allocate X509.";
         return cert;
     }
     int r = X509_set_version(x509.data(), 2);
     ASN1_INTEGER *i = X509_get_serialNumber(x509.data());
     if (!r || !i) {
-        qDebug() << "can not set version and serial number.";
+        qtng_debug << "can not set version and serial number.";
         return cert;
     }
     ASN1_INTEGER_set(i, serialNumber);
     X509_set_pubkey(x509.data(), static_cast<EVP_PKEY*>(publickey.handle()));
     if (!setSubjectInfos(x509.data(), subjectInfoes)) {
-        qDebug() << "can not set subject infos.";
+        qtng_debug << "can not set subject infos.";
         return cert;
     }
     if (!setIssuerInfos(x509.data(), subjectInfoes)) {
-        qDebug() << "can not set issuer infos.";
+        qtng_debug << "can not set issuer infos.";
         return cert;
     }
     //FIXME set datetime
@@ -633,29 +633,29 @@ Certificate CertificatePrivate::generate(const PublicKey &publickey, const Priva
         if (r) {
             r = X509_set1_notBefore(x509.data(), t.data());
             if(!r) {
-                qDebug() << "can not set effective date.";
+                qtng_debug << "can not set effective date.";
             }
         } else {
-            qDebug() << "invalid x509 effective date:" << effectiveDate;
+            qtng_debug << "invalid x509 effective date:" << effectiveDate;
         }
         r = ASN1_TIME_set_string(t.data(), toText(expiryDate).c_str());
         if (r) {
             r = X509_set1_notAfter(x509.data(), t.data());
             if(!r) {
-                qDebug() << "can not set expiry date";
+                qtng_debug << "can not set expiry date";
             }
         } else {
-            qDebug() << "invalid x509 expiry date:" << expiryDate;
+            qtng_debug << "invalid x509 expiry date:" << expiryDate;
         }
     }
     const EVP_MD *md = getOpenSSL_MD(signAlgo);
     if (!md) {
-        qDebug() << "can not find md.";
+        qtng_debug << "can not find md.";
         return cert;
     }
     r = X509_sign(x509.data(), static_cast<EVP_PKEY*>(caKey.handle()), md);
     if (!r) {
-        qDebug() << "can not sign certificate.";
+        qtng_debug << "can not sign certificate.";
         return cert;
     }
     cert.d->init(x509.take());

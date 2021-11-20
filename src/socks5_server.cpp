@@ -201,7 +201,7 @@ void Socks5RequestHandler::handle()
         doConnect(hostName, addr, port);
         break;
     default:
-        qDebug() << "unsupported command: " << commandHeader.at(1);
+        qtng_debug << "unsupported command: " << commandHeader.at(1);
         doFailed(hostName, addr, port);
         break;
     }

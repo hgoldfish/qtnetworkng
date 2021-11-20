@@ -480,7 +480,7 @@ static QDateTime parseDateString(const QByteArray &dateString)
     int at = 0;
     while (at < dateString.length()) {
 #ifdef PARSEDATESTRINGDEBUG
-        qDebug() << dateString.mid(at);
+        qtng_debug << dateString.mid(at);
 #endif
         bool isNum = isNumber(dateString[at]);
 
@@ -489,7 +489,7 @@ static QDateTime parseDateString(const QByteArray &dateString)
             && checkStaticArray(month, dateString, at, months, sizeof(months)- 1)) {
             ++month;
 #ifdef PARSEDATESTRINGDEBUG
-            qDebug() << "Month:" << month;
+            qtng_debug << "Month:" << month;
 #endif
             at += 3;
             continue;
@@ -501,7 +501,7 @@ static QDateTime parseDateString(const QByteArray &dateString)
             int sign = (at >= 0 && dateString[at - 1] == '-') ? -1 : 1;
             zoneOffset = sign * zoneOffsets[zoneOffset] * 60 * 60;
 #ifdef PARSEDATESTRINGDEBUG
-            qDebug() << "Zone:" << month;
+            qtng_debug << "Zone:" << month;
 #endif
             at += 3;
             continue;
@@ -544,7 +544,7 @@ static QDateTime parseDateString(const QByteArray &dateString)
                 int sign = dateString[at] == '-' ? -1 : 1;
                 zoneOffset = sign * ((minutes * 60) + (hours * 60 * 60));
 #ifdef PARSEDATESTRINGDEBUG
-                qDebug() << "Zone offset:" << zoneOffset << hours << minutes;
+                qtng_debug << "Zone offset:" << zoneOffset << hours << minutes;
 #endif
                 at += end;
                 continue;
@@ -571,7 +571,7 @@ static QDateTime parseDateString(const QByteArray &dateString)
                         h += 12;
                 time = QTime(h, m, s, ms);
 #ifdef PARSEDATESTRINGDEBUG
-                qDebug() << "Time:" << list << timeRx.matchedLength();
+                qtng_debug << "Time:" << list << timeRx.matchedLength();
 #endif
                 at += match.capturedLength();
                 continue;
@@ -588,7 +588,7 @@ static QDateTime parseDateString(const QByteArray &dateString)
                 year = atoi(dateString.mid(at, 4).constData());
                 at += 4;
 #ifdef PARSEDATESTRINGDEBUG
-                qDebug() << "Year:" << year;
+                qtng_debug << "Year:" << year;
 #endif
                 continue;
             }
@@ -611,7 +611,7 @@ static QDateTime parseDateString(const QByteArray &dateString)
             }
             at += length;
 #ifdef PARSEDATESTRINGDEBUG
-            qDebug() << "Saving" << x;
+            qtng_debug << "Saving" << x;
 #endif
             continue;
         }
@@ -723,12 +723,12 @@ static QDateTime parseDateString(const QByteArray &dateString)
         else if (couldBe[i] & AYEAR && year == -1) year = unknown[i];
     }
 #ifdef PARSEDATESTRINGDEBUG
-        qDebug() << "Final set" << year << month << day;
+        qtng_debug << "Final set" << year << month << day;
 #endif
 
     if (year == -1 || month == -1 || day == -1) {
 #ifdef PARSEDATESTRINGDEBUG
-        qDebug() << "Parser failure" << year << month << day;
+        qtng_debug << "Parser failure" << year << month << day;
 #endif
         return QDateTime();
     }
