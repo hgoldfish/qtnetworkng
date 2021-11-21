@@ -58,6 +58,7 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -108,7 +109,6 @@ static inline int qt_safe_socket(int domain, int type, int protocol, int flags =
     do {                                        \
         var = cmd;                              \
     } while (var == -1 && errno == EINTR)
-
 
 static inline int qt_safe_close(int fd)
 {
