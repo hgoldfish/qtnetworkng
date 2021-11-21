@@ -10,6 +10,9 @@
 #endif
 #include "../include/private/socket_p.h"
 #include "../include/private/network_interface_p.h"
+#include "debugger.h"
+
+QTNG_LOGGER("qtng.socket.win");
 
 #ifdef Q_OS_WIN
     #define QT_SOCKLEN_T int
@@ -127,8 +130,7 @@ static QByteArray qt_prettyDebug(const char *data, int len, int maxLength)
         case '\r': out += "\\r"; break;
         case '\t': out += "\\t"; break;
         default:
-            QString tmp;
-            tmp.sprintf("\\%o", c);
+            QString tmp = QString::asprintf("\\%o", c);
             out += tmp.toLatin1().constData();
         }
     }
@@ -195,7 +197,7 @@ static inline void qt_socket_getPortAndAddress(SOCKET socketDescriptor, const qt
         if (port)
             WSANtohs(socketDescriptor, sa4->sin_port, port);
     } else {
-        qWarning("qt_socket_getPortAndAddress can only handle AF_INET6 and AF_INET");
+        qtng_warning << "qt_socket_getPortAndAddress can only handle AF_INET6 and AF_INET";
     }
 }
 
@@ -539,6 +541,46 @@ bool SocketPrivate::bind(const HostAddress &a, quint16 port, Socket::BindMode mo
 }
 
 
+static bool setErrorFromWASError(SocketPrivate *d, int err)
+{
+    switch (err) {
+    case WSANOTINITIALISED:
+        d->setError(Socket::UnknownSocketError, SocketPrivate::UnknownSocketErrorString);
+    case WSAEISCONN:
+        d->state = Socket::ConnectedState;
+        d->fetchConnectionParameters();
+        return true;
+    case WSAEADDRINUSE:
+        d->setError(Socket::NetworkError, SocketPrivate::AddressInuseErrorString);
+        break;
+    case WSAECONNREFUSED:
+        d->setError(Socket::ConnectionRefusedError, SocketPrivate::ConnectionRefusedErrorString);
+        break;
+    case WSAETIMEDOUT:
+        d->setError(Socket::NetworkError, SocketPrivate::ConnectionTimeOutErrorString);
+        break;
+    case WSAEACCES:
+        d->setError(Socket::SocketAccessError, SocketPrivate::AccessErrorString);
+        break;
+    case WSAEHOSTUNREACH:
+        d->setError(Socket::NetworkError, SocketPrivate::HostUnreachableErrorString);
+        break;
+    case WSAENETUNREACH:
+        d->setError(Socket::NetworkError, SocketPrivate::NetworkUnreachableErrorString);
+        break;
+    case WSAEINVAL:
+    case WSAEALREADY:
+        d->setError(Socket::UnfinishedSocketOperationError, SocketPrivate::InvalidSocketErrorString);
+        break;
+    default:
+        d->setError(Socket::UnknownSocketError, SocketPrivate::UnknownSocketErrorString);
+        break;
+    }
+    d->state = Socket::UnconnectedState;
+    return false;
+}
+
+
 bool SocketPrivate::connect(const HostAddress &address, quint16 port)
 {
     //if (!checkState()) {
@@ -569,6 +611,7 @@ bool SocketPrivate::connect(const HostAddress &address, quint16 port)
 
     state = Socket::ConnectingState;
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
+    int tries = 0;
     while (true) {
         if (!checkState())
             return false;
@@ -579,102 +622,38 @@ bool SocketPrivate::connect(const HostAddress &address, quint16 port)
         if (connectResult == SOCKET_ERROR) {
             int err = WSAGetLastError();
             WS_ERROR_DEBUG(err);
-
             switch (err) {
             case WSANOTINITIALISED:
-                setError(Socket::UnknownSocketError, UnknownSocketErrorString);
-                return false;
-            case WSAEISCONN:
-                state = Socket::ConnectedState;
-                fetchConnectionParameters();
-                return true;
-            case WSAEWOULDBLOCK: {
+                break;
+            case WSAEWOULDBLOCK:
                 // If WSAConnect returns WSAEWOULDBLOCK on the second
                 // connection attempt, we have to check SO_ERROR's
                 // value to detect ECONNREFUSED. If we don't get
                 // ECONNREFUSED, we'll have to treat it as an
                 // unfinished operation.
-                int value = 0;
-                QT_SOCKLEN_T valueSize = sizeof(value);
-                bool tryAgain = false;
-                int tries = 0;
-                do {
+                ++tries;
+                if (tries >= 2) {
+                    int value = 0;
+                    QT_SOCKLEN_T valueSize = sizeof(value);
                     if (::getsockopt(static_cast<SOCKET>(fd), SOL_SOCKET, SO_ERROR, (char *) &value, &valueSize) == 0) {
                         if (value != NOERROR) {
                             // MSDN says getsockopt with SO_ERROR clears the error, but it's not actually cleared
                             // and this can affect all subsequent WSAConnect attempts, so clear it now.
                             const int val = NO_ERROR;
                             ::setsockopt(static_cast<SOCKET>(fd), SOL_SOCKET, SO_ERROR, reinterpret_cast<const char*>(&val), sizeof val);
-                        }
-
-                        if (value == WSAECONNREFUSED) {
-                            setError(Socket::ConnectionRefusedError, ConnectionRefusedErrorString);
-                            state = Socket::UnconnectedState;
-                            return false;
-                        }
-                        if (value == WSAETIMEDOUT) {
-                            setError(Socket::NetworkError, ConnectionTimeOutErrorString);
-                            state = Socket::UnconnectedState;
-                            return false;
-                        }
-                        if (value == WSAEHOSTUNREACH) {
-                            setError(Socket::NetworkError, HostUnreachableErrorString);
-                            state = Socket::UnconnectedState;
-                            return false;
-                        }
-                        if (value == WSAEADDRNOTAVAIL) {
-                            setError(Socket::NetworkError, AddressNotAvailableErrorString);
-                            state = Socket::UnconnectedState;
-                            return false;
-                        }
-                        if (value == NOERROR) {
-                            // When we get WSAEWOULDBLOCK the outcome was not known, so a
-                            // NOERROR might indicate that the result of the operation
-                            // is still unknown. We try again to increase the chance that we did
-                            // get the correct result.
-                            tryAgain = !tryAgain;
+                            if (value != WSAEWOULDBLOCK) {
+                                return setErrorFromWASError(this, value);
+                            }
                         }
                     }
-                    tries++;
-                } while (tryAgain && (tries < 2));
-            }
+                }
 #if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
                     Q_FALLTHROUGH();
 #endif
             case WSAEINPROGRESS:
                 break;
-            case WSAEADDRINUSE:
-                setError(Socket::NetworkError, AddressInuseErrorString);
-                state = Socket::UnconnectedState;
-                return false;
-            case WSAECONNREFUSED:
-                setError(Socket::ConnectionRefusedError, ConnectionRefusedErrorString);
-                state = Socket::UnconnectedState;
-                return false;
-            case WSAETIMEDOUT:
-                setError(Socket::NetworkError, ConnectionTimeOutErrorString);
-                state = Socket::UnconnectedState;
-                return false;
-            case WSAEACCES:
-                setError(Socket::SocketAccessError, AccessErrorString);
-                state = Socket::UnconnectedState;
-                return false;
-            case WSAEHOSTUNREACH:
-                setError(Socket::NetworkError, HostUnreachableErrorString);
-                state = Socket::UnconnectedState;
-                return false;
-            case WSAENETUNREACH:
-                setError(Socket::NetworkError, NetworkUnreachableErrorString);
-                state = Socket::UnconnectedState;
-                return false;
-            case WSAEINVAL:
-            case WSAEALREADY:
-                setError(Socket::UnfinishedSocketOperationError, InvalidSocketErrorString);
-                state = Socket::UnconnectedState;
-                return false;
             default:
-                setError(Socket::UnknownSocketError, UnknownSocketErrorString);
-                return false;
+                return setErrorFromWASError(this, err);
             }
             watcher.start();
         } else {
@@ -732,8 +711,7 @@ bool SocketPrivate::listen(int backlog)
             setError(Socket::UnknownSocketError, UnknownSocketErrorString);
             break;
         case WSAEADDRINUSE:
-            setError(Socket::AddressInUseError,
-                     PortInuseErrorString);
+            setError(Socket::AddressInUseError, PortInuseErrorString);
             break;
         default:
             break;
@@ -774,9 +752,6 @@ bool SocketPrivate::fetchConnectionParameters()
     memset(&sa, 0, sizeof(sa));
     if (::getsockname(static_cast<SOCKET>(fd), &sa.a, &sockAddrSize) == 0) {
         qt_socket_getPortAndAddress(static_cast<SOCKET>(fd), &sa, &localPort, &localAddress);
-#if defined (SOCKET_DEBUG)
-        qDebug() << "fetch connection parameters" << "localPort=" << localPort << "localAddress=" << localAddress;
-#endif
         // Determine protocol family
         switch (sa.a.sa_family) {
         case AF_INET:
@@ -793,8 +768,7 @@ bool SocketPrivate::fetchConnectionParameters()
         int err = WSAGetLastError();
         WS_ERROR_DEBUG(err);
         if (err == WSAENOTSOCK) {
-            setError(Socket::UnsupportedSocketOperationError,
-                InvalidSocketErrorString);
+            setError(Socket::UnsupportedSocketOperationError, InvalidSocketErrorString);
             return false;
         }
     }
@@ -821,13 +795,13 @@ bool SocketPrivate::fetchConnectionParameters()
     this->type = qt_socket_getType(fd);
 
 #if defined (SOCKET_DEBUG)
-    QString socketProtocolStr = "UnknownProtocol";
-    if (protocol == HostAddress::IPv4Protocol) socketProtocolStr = "IPv4Protocol";
-    else if (protocol == HostAddress::IPv6Protocol) socketProtocolStr = "IPv6Protocol";
+    QString socketProtocolStr = QString::fromLatin1("UnknownProtocol");
+    if (protocol == HostAddress::IPv4Protocol) socketProtocolStr = QString::fromLatin1("IPv4Protocol");
+    else if (protocol == HostAddress::IPv6Protocol) socketProtocolStr = QString::fromLatin1("IPv6Protocol");
 
-    QString socketTypeStr = "UnknownSocketType";
-    if (type == Socket::TcpSocket) socketTypeStr = "TcpSocket";
-    else if (type == Socket::UdpSocket) socketTypeStr = "UdpSocket";
+    QString socketTypeStr = QString::fromLatin1("UnknownSocketType");
+    if (type == Socket::TcpSocket) socketTypeStr = QString::fromLatin1("TcpSocket");
+    else if (type == Socket::UdpSocket) socketTypeStr = QString::fromLatin1("UdpSocket");
 
     qDebug("SocketPrivate::fetchConnectionParameters() localAddress == %s, localPort = %i, peerAddress == %s, peerPort = %i, socketProtocol == %s, socketType == %s", localAddress.toString().toLatin1().constData(), localPort, peerAddress.toString().toLatin1().constData(), peerPort, socketProtocolStr.toLatin1().constData(), socketTypeStr.toLatin1().constData());
 #endif
@@ -1084,10 +1058,10 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, HostAddress *addr, quint
             qt_socket_getPortAndAddress(static_cast<SOCKET>(fd), &aa, port, addr);
 #if defined (SOCKET_DEBUG)
             bool printSender = (ret != -1);
-            qDebug("SocketPrivate::recvfrom(%p \"%s\", %lli, %s, %i) == %lli",
-                   data, qt_prettyDebug(data, qMin<qint64>(ret, 16), ret).data(), size,
+            qDebug("SocketPrivate::recvfrom(%p \"%s\", %i, %s, %i) == %i",
+                   data, qt_prettyDebug(data, qMin<qint32>(ret, 16), ret).data(), size,
                    printSender ? addr->toString().toLatin1().constData() : "(unknown)",
-                   printSender ? port : 0, ret);
+                   printSender ? *port : 0, ret);
 #endif
             return ret;
         } else {

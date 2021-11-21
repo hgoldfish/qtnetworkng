@@ -40,7 +40,6 @@
 
 #include <QtCore/qlocale.h>
 #include <QtCore/qregularexpression.h>
-#include <QtCore/qdebug.h>
 #include "../include/hostaddress.h"
 #include "../include/http_cookie.h"
 
