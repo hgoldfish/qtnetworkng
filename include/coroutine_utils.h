@@ -23,7 +23,7 @@ T callInEventLoop(std::function<T ()> func)
     QSharedPointer<T> result(new T());
     QSharedPointer<Event> done(new Event());
 
-    auto wrapper = [result, done, func]() mutable
+    std::function<void()> wrapper = [result, done, func]() mutable
     {
         *result = func();
         done->set();
@@ -47,7 +47,7 @@ inline void callInEventLoop(std::function<void ()> func, quint32 msecs = 0)
 
     QSharedPointer<Event> done(new Event());
 
-    auto wrapper = [done, func]() {
+    std::function<void()> wrapper = [done, func]() {
         func();
         done->set();
     };
@@ -90,7 +90,7 @@ template <typename Func1>
 void qAwait(const typename QtPrivate::FunctionPointer<Func1>::Object *obj, Func1 signal)
 {
     QAwaitHelper0 helper;
-    const auto connection = QObject::connect(obj, signal, &helper, &QAwaitHelper0::call, Qt::DirectConnection);
+    const QMetaObject::Connection connection = QObject::connect(obj, signal, &helper, &QAwaitHelper0::call, Qt::DirectConnection);
     try {
         helper.event.wait();
         QObject::disconnect(connection);
@@ -117,7 +117,7 @@ ARG1 qAwait(const Obj *obj,
 {
     QSharedPointer<ValueEvent<ARG1>> event(new ValueEvent<ARG1>());
     QAwaitHelper1<ARG1> helper(event);
-    const auto connection = QObject::connect(obj, signal, &helper, &QAwaitHelper1<ARG1>::call, Qt::DirectConnection);
+    const QMetaObject::Connection connection = QObject::connect(obj, signal, &helper, &QAwaitHelper1<ARG1>::call, Qt::DirectConnection);
     try {
         return event->wait();
         QObject::disconnect(connection);
@@ -144,7 +144,7 @@ std::tuple<ARG1, ARGS...> qAwait(const Obj *obj,
 {
     QSharedPointer<ValueEvent<std::tuple<ARG1, ARG2, ARGS...>>> event(new ValueEvent<std::tuple<ARG1, ARG2, ARGS...>>());
     QAwaitHelper<ARG1, ARG2, ARGS...> helper(event);
-    const auto connection = QObject::connect(obj, signal, &helper, &QAwaitHelper<ARG1, ARG2, ARGS...>::call, Qt::DirectConnection);
+    const QMetaObject::Connection connection = QObject::connect(obj, signal, &helper, &QAwaitHelper<ARG1, ARG2, ARGS...>::call, Qt::DirectConnection);
     try {
         return event->wait();
         QObject::disconnect(connection);

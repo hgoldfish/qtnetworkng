@@ -38,6 +38,7 @@
 **
 ****************************************************************************/
 
+#include <functional>
 #include <QtCore/qset.h>
 #include <QtCore/qalgorithms.h>
 #if defined(QT_NO_CLOCK_MONOTONIC)
@@ -547,7 +548,7 @@ static void getAddressExtraInfo(NetworkAddressEntry *entry, struct sockaddr *sa,
     }
     qt_safe_close(s6);
 
-    auto toDeadline = [](time_t when) {
+    std::function<void(time_t)> toDeadline = [](time_t when) {
         QDeadlineTimer deadline = QDeadlineTimer::Forever;
         if (when) {
 #if defined(QT_NO_CLOCK_MONOTONIC)
