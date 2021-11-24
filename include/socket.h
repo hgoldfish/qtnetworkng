@@ -203,15 +203,15 @@ template<typename SocketType>
 SocketType *createConnection(const HostAddress &addr, quint16 port, Socket::SocketError *error,
                              int allowProtocol, std::function<SocketType*(HostAddress::NetworkLayerProtocol)> func)
 {
-    SocketType *socket = nullptr;
+    QScopedPointer<SocketType> socket;
     if (addr.isNull() || port == 0) {
-        return socket;
+        return nullptr;
     }
     bool isIPv4Address = addr.isIPv4();
     if (isIPv4Address && (allowProtocol & HostAddress::IPv4Protocol)) {
-        socket = func(HostAddress::IPv4Protocol);
+        socket.reset(func(HostAddress::IPv4Protocol));
     } else if (!isIPv4Address && (allowProtocol & HostAddress::IPv6Protocol)) {
-        socket = func(HostAddress::IPv6Protocol);
+        socket.reset(func(HostAddress::IPv6Protocol));
     }
     if (socket) {
         bool done = socket->connect(addr, port);
@@ -219,12 +219,11 @@ SocketType *createConnection(const HostAddress &addr, quint16 port, Socket::Sock
             if (error) {
                 *error = Socket::NoError;
             }
-            return socket;
+            return socket.take();
         } else {
             if (error) {
                 *error = socket->error();
             }
-            delete socket;
         }
     }
     return nullptr;

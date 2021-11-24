@@ -548,7 +548,7 @@ void WinEventLoopCoroutinePrivate::createInternalWindow()
                                 nullptr);                // windows creation data.
 
     if (!internalHwnd) {
-        qErrnoWarning("CreateWindow() for QEventDispatcherWin32 internal window failed");
+        qErrnoWarning("CreateWindow() for WinEventLoopCoroutine internal window failed");
         return;
     }
 

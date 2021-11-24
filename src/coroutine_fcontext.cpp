@@ -116,7 +116,7 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
     if (state == BaseCoroutine::Started) {
         if (q->objectName().isEmpty()) {
             qtng_warning << "do not delete running BaseCoroutine:" << q;
-        } else {
+        } else if (!q->objectName().contains(QString::fromLatin1("eventloop_coroutine"))) {
             qtng_warning << "do not delete running BaseCoroutine:" << q->objectName();
         }
     }
