@@ -402,7 +402,7 @@ public:
     template<typename T>
     T call(std::function<T()> func);
 
-    inline void call(std::function<void()> func);
+    void call(std::function<void()> func);
 private:
     // for map()
     template<typename T, typename S>
@@ -420,7 +420,7 @@ private:
 template<typename T, typename S>
 QList<T> ThreadPool::map(std::function<T(S)> func, const QList<S> &l)
 {
-    std::function<T(S)> f = [this, func] (const S &s) -> T { return this->apply<T, S>(s); } ;
+    std::function<T(S)> f = [this, func] (const S &s) -> T { return this->apply<T, S>(func, s); } ;
     return CoroutineGroup::map(f, l);
 }
 
@@ -428,7 +428,7 @@ QList<T> ThreadPool::map(std::function<T(S)> func, const QList<S> &l)
 template<typename S>
 void ThreadPool::each(std::function<void(S)> func, const QList<S> &l)
 {
-    std::function<void(S)> f = [this, func] (const S &s) -> void { this->apply<S>(s); } ;
+    std::function<void(S)> f = [this, func] (const S &s) -> void { this->apply<S>(func, s); } ;
     CoroutineGroup::each(f, l);
 }
 
