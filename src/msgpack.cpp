@@ -141,7 +141,7 @@ bool MsgPackStreamPrivate::readBytes(char *data, qint64 len)
     qint64 total = 0;
     while (total < len) {
         qint64 bs = dev->read(data, (len - total));
-        if (bs < 0) {
+        if (bs <= 0) {
             status = MsgPackStream::ReadPastEnd;
             return false;
         }
