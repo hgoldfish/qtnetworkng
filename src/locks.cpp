@@ -638,10 +638,9 @@ bool ThreadEvent::wait(bool blocking)
 
 void ThreadEvent::set()
 {
-    if (d->flag.loadAcquire()) {
+    if (d->flag.fetchAndStoreRelaxed(true)) {
         return;
     }
-    d->flag.storeRelease(true);
     d->notify();
 }
 

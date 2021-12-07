@@ -548,7 +548,7 @@ static void getAddressExtraInfo(NetworkAddressEntry *entry, struct sockaddr *sa,
     }
     qt_safe_close(s6);
 
-    std::function<void(time_t)> toDeadline = [](time_t when) {
+    std::function<QDeadlineTimer(time_t)> toDeadline = [](time_t when) {
         QDeadlineTimer deadline = QDeadlineTimer::Forever;
         if (when) {
 #if defined(QT_NO_CLOCK_MONOTONIC)
