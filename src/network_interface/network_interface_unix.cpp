@@ -41,8 +41,11 @@
 #include <functional>
 #include <QtCore/qset.h>
 #include <QtCore/qalgorithms.h>
+#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
+#include <QtCore/qdeadlinetimer.h>
 #if defined(QT_NO_CLOCK_MONOTONIC)
 #include <QtCore/qdatetime.h>
+#endif
 #endif
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -540,6 +543,9 @@ static void getAddressExtraInfo(NetworkAddressEntry *entry, struct sockaddr *sa,
                                                       flags & IN6_IFF_TEMPORARY,
                                                       flags & IN6_IFF_DEPRECATED);
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 8, 0)
+    qt_safe_close(s6);
+#else
     // get lifetimes
     ifr.ifr_addr = *reinterpret_cast<struct sockaddr_in6 *>(sa);
     if (qt_safe_ioctl(s6, SIOCGIFALIFETIME_IN6, &ifr) < 0) {
@@ -547,6 +553,7 @@ static void getAddressExtraInfo(NetworkAddressEntry *entry, struct sockaddr *sa,
         return;
     }
     qt_safe_close(s6);
+
 
     std::function<QDeadlineTimer(time_t)> toDeadline = [](time_t when) {
         QDeadlineTimer deadline = QDeadlineTimer::Forever;
@@ -562,6 +569,7 @@ static void getAddressExtraInfo(NetworkAddressEntry *entry, struct sockaddr *sa,
     };
     entry->setAddressLifetime(toDeadline(ifr.ifr_ifru.ifru_lifetime.ia6t_preferred),
                               toDeadline(ifr.ifr_ifru.ifru_lifetime.ia6t_expire));
+#endif
 }
 
 # else  // Generic version
