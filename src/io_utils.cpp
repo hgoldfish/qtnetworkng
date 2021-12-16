@@ -91,7 +91,7 @@ QSharedPointer<FileLike> FileLike::rawFile(QSharedPointer<QFile> f)
 
 QSharedPointer<FileLike> FileLike::open(const QString &filepath, const QString &mode)
 {
-    QScopedPointer<QFile> f(new QFile(filepath));
+    QSharedPointer<QFile> f(new QFile(filepath));
     QIODevice::OpenMode flag = QIODevice::NotOpen;
     if (mode == QString() || mode == QLatin1String("r") || mode == QLatin1String("r+") || mode == QLatin1String("rb")
             || mode == QLatin1String("rb+") || mode == QLatin1String("r+b")) {
@@ -118,7 +118,10 @@ QSharedPointer<FileLike> FileLike::open(const QString &filepath, const QString &
     if (!f->open(flag)) {
         return QSharedPointer<FileLike>();
     } else {
-        return FileLike::rawFile(f.take());
+        if (flag & QIODevice::Append && !f->seek(f->size())) {
+            return QSharedPointer<FileLike>();
+        }
+        return FileLike::rawFile(f);
     }
 }
 
