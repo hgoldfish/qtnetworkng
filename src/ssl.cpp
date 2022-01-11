@@ -365,11 +365,15 @@ SslConfiguration::SslConfiguration(const SslConfiguration &other)
 }
 
 
+#ifdef Q_COMPILER_RVALUE_REFS
+
 SslConfiguration::SslConfiguration(SslConfiguration &&other)
     :d(nullptr)
 {
     qSwap(d, other.d);
 }
+
+#endif
 
 
 SslConfiguration::~SslConfiguration()

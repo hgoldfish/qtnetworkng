@@ -2,6 +2,7 @@
 #define QTNG_MSGPACK_H
 
 #include <limits>
+#include <type_traits>
 #include <QtCore/qvariant.h>
 #include <QtCore/qiodevice.h>
 #include <QtCore/qdatetime.h>
@@ -272,6 +273,34 @@ MsgPackStream &operator<<(MsgPackStream &s, const QHash<K, V> &map)
         s << itor.value();
     }
     return s;
+}
+
+
+template <typename>
+struct is_qt_pointer
+{
+    static constexpr bool value = false;
+};
+
+
+template <typename Tp>
+struct is_qt_pointer<QSharedPointer<Tp>>
+{
+    static constexpr bool value = true;
+};
+
+
+template <typename T>
+inline typename std::enable_if<!is_qt_pointer<T>::value, T>::type s_allocate()
+{
+    return T();
+}
+
+
+template <typename T>
+inline typename std::enable_if<is_qt_pointer<T>::value, T>::type s_allocate()
+{
+    return T::create();
 }
 
 

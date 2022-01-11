@@ -26,6 +26,7 @@ public:
     static QSharedPointer<FileLike> rawFile(QFile *f) { return rawFile(QSharedPointer<QFile>(f)); }
     static QSharedPointer<FileLike> open(const QString &filepath, const QString &mode = QString());
     static QSharedPointer<FileLike> bytes(const QByteArray &data);
+    static QSharedPointer<FileLike> bytes(QByteArray *data);
 };
 
 
@@ -48,6 +49,7 @@ class BytesIO: public FileLike
 {
 public:
     BytesIO(const QByteArray &buf, qint32 pos = 0);
+    BytesIO(QByteArray *buf, qint32 pos = 0);
     BytesIO();
     virtual ~BytesIO() override;
     virtual qint32 read(char *data, qint32 size) override;
@@ -62,8 +64,72 @@ private:
 };
 
 
-bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy=-1);
+bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy=-1, int suitableBlockSize = 1024 * 8);
 
+
+class PosixPathPrivate;
+class PosixPath
+{
+public:
+    PosixPath();
+    PosixPath(const QString &path);
+    PosixPath(const PosixPath &other);
+#ifdef Q_COMPILER_RVALUE_REFS
+    PosixPath(PosixPath &&other);
+    PosixPath &operator=(PosixPath &&other) Q_DECL_NOTHROW;
+#endif
+    ~PosixPath();
+    PosixPath &operator=(const PosixPath &other);
+//    void swap(PosixPath &other) Q_DECL_NOTHROW { qSwap(d, other.d); }
+    bool operator==(const PosixPath &other) const;
+    inline bool operator!=(const PosixPath &other) const { return !(*this == other); }
+public:
+    PosixPath operator / (const QString &path) const;
+    PosixPath operator | (const QString &path) const;
+public:
+    bool isNull() const;
+
+    bool isFile() const;
+    bool isDir() const;
+    bool isSymLink() const;
+    bool isAbsolute() const;
+    bool isExecutable() const;
+    bool isReadable() const;
+    bool isRelative() const;
+    bool isRoot() const;
+    bool isWritable() const;
+    bool exists() const;
+    qint64 size() const;
+
+    QString path() const;
+    QFileInfo fileInfo() const;
+    QString parentDir() const;          // returns QString() for /
+    PosixPath parentPath() const;       // returns null for /
+    QString name() const;               // returns QString() form /
+    QString baseName() const;           // xxx.tar.bz -> xxx
+    QString suffix() const;             // xxx.tar.bz -> bz
+    QString completeBaseName() const;   // xxx.tar.bz -> xxx.tar
+    QString completeSuffix() const;     // xxx.tar.bz -> tar.bz
+    QString toAbsolute() const;
+    QString relativePath(const QString &other) const;
+    QString relativePath(const PosixPath &other) const;
+    bool isChildOf(const PosixPath &other) const;
+    bool hasChildOf(const PosixPath &other) const;
+
+    QDateTime created() const;
+    QDateTime lastModified() const;
+    QDateTime lastRead() const;
+
+    QStringList listdir() const;
+    QList<PosixPath> children() const;
+
+    static PosixPath cwd();
+private:
+    QSharedDataPointer<PosixPathPrivate> d;
+};
+
+
+QDebug &operator << (QDebug &, const PosixPath &);
 
 // join the subPath with parentDir as its virtual root. return the final path and the normalized path
 QPair<QString, QString> safeJoinPath(const QString &parentDir, const QString &subPath);

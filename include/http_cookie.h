@@ -33,7 +33,9 @@ public:
     explicit HttpCookie(const QByteArray &name = QByteArray(), const QByteArray &value = QByteArray());
     HttpCookie(const HttpCookie &other);
     ~HttpCookie();
+#ifdef Q_COMPILER_RVALUE_REFS
     HttpCookie &operator=(HttpCookie &&other) noexcept { swap(other); return *this; }
+#endif
     HttpCookie &operator=(const HttpCookie &other);
     void swap(HttpCookie &other) noexcept { qSwap(d, other.d); }
     bool operator==(const HttpCookie &other) const;

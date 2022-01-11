@@ -50,7 +50,9 @@ class SslConfiguration
 public:
     SslConfiguration();
     SslConfiguration(const SslConfiguration &other);
+#ifdef Q_COMPILER_RVALUE_REFS
     SslConfiguration(SslConfiguration &&other);
+#endif
     ~SslConfiguration();
 public:
     QList<QByteArray> allowedNextProtocols() const;
