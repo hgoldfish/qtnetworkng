@@ -381,13 +381,14 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel(quint32 channelNu
         return QSharedPointer<VirtualChannel>();
     }
 
-    QSharedPointer<VirtualChannel> ret;
+    QSharedPointer<VirtualChannel> found;
     QList<QSharedPointer<VirtualChannel>> tmp;
     while (!pendingChannels.isEmpty()) {
         QSharedPointer<VirtualChannel> channel = pendingChannels.get();
         if (Q_UNLIKELY(channel.isNull())) {
+            return QSharedPointer<VirtualChannel>();
         } else if (channel->channelNumber() == channelNumber) {
-            ret = channel;
+            found = channel;
             break;
         } else {
             tmp.append(channel);
@@ -396,7 +397,7 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel(quint32 channelNu
     for (int i = tmp.size() - 1; i >= 0; i--) {
         pendingChannels.returnsForcely(tmp.at(i));
     }
-    return ret;
+    return found;
 }
 
 
