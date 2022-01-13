@@ -17,6 +17,14 @@ struct MsgPackExtData
     QByteArray payload;
 };
 
+
+class MsgPackExtUserData
+{
+public:
+    virtual ~MsgPackExtUserData();
+};
+
+
 class MsgPackStreamPrivate;
 class MsgPackStream
 {
@@ -41,6 +49,8 @@ public:
     quint32 lengthLimit() const;
     void setVersion(int version);
     int version() const;
+    void setUserData(intptr_t key, MsgPackExtUserData *userData);  // take the ownership
+    template<typename T> T *userData(intptr_t key) const { return dynamic_cast<T *>(getUserData(key)); }
 
     MsgPackStream &operator>>(bool &b);
     MsgPackStream &operator>>(quint8 &u8);
@@ -79,10 +89,12 @@ public:
     MsgPackStream &operator<<(const QVariant &v);
     bool writeBytes(const char *data, qint64 len);
     bool writeExtHeader(quint32 len, quint8 msgpackType);
-
+private:
+    MsgPackExtUserData *getUserData(intptr_t key) const;
 private:
     MsgPackStreamPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(MsgPackStream)
+    Q_DISABLE_COPY(MsgPackStream);
 };
 
 

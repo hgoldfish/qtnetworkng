@@ -38,6 +38,11 @@ static inline QDateTime unpackDatetime(const QByteArray &bs)
     return QDateTime::fromMSecsSinceEpoch(msecs);
 }
 
+MsgPackExtUserData::~MsgPackExtUserData()
+{
+}
+
+
 class MsgPackStreamPrivate
 {
 public:
@@ -46,14 +51,7 @@ public:
     MsgPackStreamPrivate(QByteArray *a, QIODevice::OpenMode mode);
     MsgPackStreamPrivate(const QByteArray &a);
     ~MsgPackStreamPrivate();
-
-    QIODevice *dev;
-    MsgPackStream::Status status;
-    quint32 limit;
-    int version;
-    bool owndev;
-    bool flushWrites;
-
+public:
     bool readBytes(char *data, qint64 len);
     inline bool readBytes(quint8 *data, int len);
     bool readExtHeader(quint32 &len, quint8 &msgpackType);
@@ -64,6 +62,14 @@ public:
     bool unpack_ulonglong(quint64 &u64);
     bool unpackString(QString &s);
     bool unpack(QVariant &v);
+public:
+    QMap<intptr_t, MsgPackExtUserData*> userData;
+    QIODevice *dev;
+    MsgPackStream::Status status;
+    quint32 limit;
+    int version;
+    bool owndev;
+    bool flushWrites;
 };
 
 MsgPackStreamPrivate::MsgPackStreamPrivate()
@@ -121,8 +127,13 @@ MsgPackStreamPrivate::MsgPackStreamPrivate(const QByteArray &a)
 
 MsgPackStreamPrivate::~MsgPackStreamPrivate()
 {
-    if (owndev)
+    if (owndev) {
         delete dev;
+    }
+    for (QMap<intptr_t, MsgPackExtUserData*>::const_iterator itor = userData.constBegin(); itor != userData.constEnd(); ++itor) {
+        delete itor.value();
+    }
+    userData.clear();
 }
 
 
@@ -969,6 +980,20 @@ int MsgPackStream::version() const
 {
     Q_D(const MsgPackStream);
     return d->version;
+}
+
+
+void MsgPackStream::setUserData(intptr_t key, MsgPackExtUserData *userData)
+{
+    Q_D(MsgPackStream);
+    d->userData.insert(key, userData);
+}
+
+
+MsgPackExtUserData *MsgPackStream::getUserData(intptr_t key) const
+{
+    Q_D(const MsgPackStream);
+    return d->userData.value(key);
 }
 
 
