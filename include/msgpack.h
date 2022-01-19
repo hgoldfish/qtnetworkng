@@ -337,7 +337,7 @@ MsgPackStream& operator>>(MsgPackStream& s, QList<T> &list)
     }
     list.reserve(len);
     for (quint32 i = 0; i < len; ++i) {
-        T t;
+        T t = s_allocate<T>();
         s >> t;
         list.append(t);
         if (s.atEnd())
@@ -368,7 +368,7 @@ MsgPackStream& operator>>(MsgPackStream& s, QVector<T> &list)
     }
     list.reserve(len);
     for (quint32 i = 0; i < len; ++i) {
-        T t;
+        T t = s_allocate<T>();
         s >> t;
         list.append(t);
         if (s.atEnd())
@@ -398,12 +398,12 @@ MsgPackStream& operator>>(MsgPackStream& s, QMap<K, V> &map)
         return s;
     }
     for (quint32 i = 0; i < len; ++i) {
-        K k;
+        K k = s_allocate<K>();
         s >> k;
         if (s.status() != MsgPackStream::Ok) {
             break;
         }
-        V v;
+        V v = s_allocate<V>();
         s >> v;
         if (s.status() != MsgPackStream::Ok) {
             break;
@@ -435,12 +435,12 @@ MsgPackStream& operator>>(MsgPackStream& s, QHash<K, V> &map)
     }
     map.reserve(len);
     for (quint32 i = 0; i < len; ++i) {
-        K k;
+        K k = s_allocate<K>();
         s >> k;
         if (s.status() != MsgPackStream::Ok) {
             break;
         }
-        V v;
+        V v = s_allocate<V>();
         s >> v;
         if (s.status() != MsgPackStream::Ok) {
             break;
