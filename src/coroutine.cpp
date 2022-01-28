@@ -113,15 +113,18 @@ CurrentCoroutineStorage &currentCoroutine()
 }
 
 
-BaseCoroutine *CurrentCoroutineStorage::get()
+BaseCoroutine *CurrentCoroutineStorage::get(bool createIfNotExists/* = true*/)
 {
     if (storage.hasLocalData()) {
         return storage.localData().value;
     }
-    BaseCoroutine *main = createMainCoroutine();
-    main->setObjectName(QString::fromLatin1("main_coroutine"));
-    storage.localData().value = main;
-    return main;
+    if (createIfNotExists) {
+        BaseCoroutine *main = createMainCoroutine();
+        main->setObjectName(QString::fromLatin1("main_coroutine"));
+        storage.localData().value = main;
+        return main;
+    }
+    return nullptr;
 }
 
 
