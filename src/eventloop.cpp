@@ -279,15 +279,17 @@ void CurrentLoopStorage::clean()
 
 
 ScopedIoWatcher::ScopedIoWatcher(EventLoopCoroutine::EventType event, qintptr fd)
+    : event(event), fd(fd), watcherId(0)
 {
-    QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
-    watcherId = eventLoop->createWatcher(event, fd, new YieldCurrentFunctor());
 }
 
 
 void ScopedIoWatcher::start()
 {
     QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
+    if (watcherId <= 0) {
+        watcherId = eventLoop->createWatcher(event, fd, new YieldCurrentFunctor());
+    }
     eventLoop->startWatcher(watcherId);
     eventLoop->yield();
 }
@@ -295,8 +297,10 @@ void ScopedIoWatcher::start()
 
 ScopedIoWatcher::~ScopedIoWatcher()
 {
-    QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
-    eventLoop->removeWatcher(watcherId);
+    if (watcherId > 0) {
+        QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
+        eventLoop->removeWatcher(watcherId);
+    }
 }
 
 

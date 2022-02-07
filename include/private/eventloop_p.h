@@ -105,6 +105,8 @@ public:
     ~ScopedIoWatcher();
     void start();
 private:
+    EventLoopCoroutine::EventType event;
+    qintptr fd;
     int watcherId;
 };
 
