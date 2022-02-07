@@ -1,5 +1,8 @@
 #include <QtCore/qdir.h>
 #include <QtCore/qdatetime.h>
+#ifdef Q_OS_UNIX
+#include <unistd.h>
+#endif
 #include "../include/io_utils.h"
 #include "../include/coroutine_utils.h"
 #include "debugger.h"
@@ -47,7 +50,8 @@ QByteArray FileLike::read(qint32 size)
     } else if (readBytes >= size) {
         return buf;
     } else {
-        return buf.left(readBytes);
+        buf.resize(readBytes);
+        return buf;
     }
 }
 
@@ -60,15 +64,79 @@ qint32 FileLike::write(const QByteArray &data)
 
 qint32 RawFile::read(char *data, qint32 size)
 {
+#ifdef Q_OS_UNIX
+    int fd = f->handle();
+    if (fd <= 0) {
+        return -1;
+    }
+    ScopedIoWatcher watcher(EventLoopCoroutine::Read, f->handle());
+    while (true) {
+        ssize_t r = 0;
+        do {
+            r = ::read(fd, data, static_cast<size_t>(size));
+        } while (r < 0 && errno == EINTR);
+        if (r < 0) {
+            int e = errno;
+            switch (e) {
+#if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
+            case EWOULDBLOCK:
+#endif
+            case EAGAIN:
+                break;
+            case EBADF:
+            case EINVAL:
+            case EIO:
+            default:
+                return -1;
+            }
+        } else {
+            return r;
+        }
+        watcher.start();
+    }
+#else
     qint64 len = f->read(data, size);
     return static_cast<qint32>(len);
+#endif
 }
 
 
 qint32 RawFile::write(const char *data, qint32 size)
 {
+#ifdef Q_OS_UNIX
+    int fd = f->handle();
+    if (fd <= 0) {
+        return -1;
+    }
+    ScopedIoWatcher watcher(EventLoopCoroutine::Read, f->handle());
+    while (true) {
+        ssize_t r = 0;
+        do {
+            r = ::write(fd, data, static_cast<size_t>(size));
+        } while (r < 0 && errno == EINTR);
+        if (r <= 0) {
+            int e = errno;
+            switch (e) {
+#if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
+            case EWOULDBLOCK:
+#endif
+            case EAGAIN:
+                break;
+            case EBADF:
+            case EINVAL:
+            case EIO:
+            default:
+                return -1;
+            }
+        } else {
+            return r;
+        }
+        watcher.start();
+    }
+#else
     qint64 len = f->write(data, size);
     return static_cast<qint32>(len);
+#endif
 }
 
 
