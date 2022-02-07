@@ -45,10 +45,10 @@ void DeferCallThread::run()
 }
 
 
-void NewThreadCoroutine::run()
-{
-    callInThread(func);
-}
+//void NewThreadCoroutine::run()
+//{
+//    callInThread(func);
+//}
 
 
 CoroutineGroup::CoroutineGroup()
