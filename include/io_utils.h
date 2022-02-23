@@ -40,6 +40,11 @@ public:
     virtual void close() override;
     virtual qint64 size() override;
 public:
+    bool seek(qint64 pos);
+    QString fileName() const;
+public:
+    static QSharedPointer<RawFile> open(const QString &filepath, const QString &mode = QString());
+public:
     QSharedPointer<QFile> f;
 };
 

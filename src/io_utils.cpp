@@ -152,13 +152,27 @@ qint64 RawFile::size()
 }
 
 
-QSharedPointer<FileLike> FileLike::rawFile(QSharedPointer<QFile> f)
+bool RawFile::seek(qint64 pos)
 {
-    return QSharedPointer<RawFile>::create(f).dynamicCast<FileLike>();
+#ifdef Q_OS_UNIX
+    int fd = f->handle();
+    if (fd <= 0) {
+        return false;
+    }
+    return ::lseek64(fd, pos, SEEK_SET) >= 0;
+#else
+    return f->seek(pos)
+#endif
 }
 
 
-QSharedPointer<FileLike> FileLike::open(const QString &filepath, const QString &mode)
+QString RawFile::fileName() const
+{
+    return f->fileName();
+}
+
+
+QSharedPointer<RawFile> RawFile::open(const QString &filepath, const QString &mode)
 {
     QSharedPointer<QFile> f(new QFile(filepath));
     QIODevice::OpenMode flag = QIODevice::NotOpen;
@@ -185,13 +199,26 @@ QSharedPointer<FileLike> FileLike::open(const QString &filepath, const QString &
         qtng_warning << "unknown file mode:" << mode;
     }
     if (!f->open(flag)) {
-        return QSharedPointer<FileLike>();
+        return QSharedPointer<RawFile>();
     } else {
-        if (flag & QIODevice::Append && !f->seek(f->size())) {
-            return QSharedPointer<FileLike>();
+        QSharedPointer<RawFile> openFile(new RawFile(f));
+        if (flag & QIODevice::Append && !openFile->seek(f->size())) {
+            return QSharedPointer<RawFile>();
         }
-        return FileLike::rawFile(f);
+        return openFile;
     }
+}
+
+
+QSharedPointer<FileLike> FileLike::rawFile(QSharedPointer<QFile> f)
+{
+    return QSharedPointer<RawFile>::create(f).dynamicCast<FileLike>();
+}
+
+
+QSharedPointer<FileLike> FileLike::open(const QString &filepath, const QString &mode)
+{
+    return RawFile::open(filepath, mode).staticCast<FileLike>();
 }
 
 
