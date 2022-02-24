@@ -244,6 +244,7 @@ CipherPrivate::~CipherPrivate()
     if (context) {
         EVP_CIPHER_CTX_free(context);
     }
+    cleanupOpenSSL();
 }
 
 

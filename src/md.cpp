@@ -86,6 +86,7 @@ MessageDigestPrivate::~MessageDigestPrivate()
     if (context) {
         EVP_MD_CTX_free(context);
     }
+    cleanupOpenSSL();
 }
 
 

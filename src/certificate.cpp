@@ -863,6 +863,7 @@ Certificate::Certificate()
 Certificate::Certificate(const Certificate &other)
     : d(other.d)
 {
+    initOpenSSL();
 }
 
 
@@ -875,6 +876,7 @@ Certificate::Certificate(Certificate &&other)
 
 Certificate::~Certificate()
 {
+    cleanupOpenSSL();
 }
 
 

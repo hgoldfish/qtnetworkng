@@ -899,6 +899,7 @@ template<typename SocketType>
 SslConnection<SocketType>::~SslConnection()
 {
     rawSocket->abort();
+    cleanupOpenSSL();
 }
 
 
