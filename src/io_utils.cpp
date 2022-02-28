@@ -161,7 +161,7 @@ bool RawFile::seek(qint64 pos)
     }
     return ::lseek64(fd, pos, SEEK_SET) >= 0;
 #else
-    return f->seek(pos)
+    return f->seek(pos);
 #endif
 }
 
@@ -172,37 +172,50 @@ QString RawFile::fileName() const
 }
 
 
+static inline bool isTheMode(const QString &mode, const QString &essential)
+{
+    QString t = mode;
+    t.remove(QLatin1Char('+'));
+    t.remove(QLatin1Char('b'));
+    return t == essential;
+}
+
+
 QSharedPointer<RawFile> RawFile::open(const QString &filepath, const QString &mode)
 {
     QSharedPointer<QFile> f(new QFile(filepath));
-    QIODevice::OpenMode flag = QIODevice::NotOpen;
-    if (mode == QString() || mode == QLatin1String("r") || mode == QLatin1String("r+") || mode == QLatin1String("rb")
-            || mode == QLatin1String("rb+") || mode == QLatin1String("r+b")) {
-        flag |= QIODevice::ReadOnly;
+    QIODevice::OpenMode flags = QIODevice::NotOpen;
+    if (mode == QString() || isTheMode(mode, QString::fromUtf8("r"))) {
+        flags |= QIODevice::ReadOnly;
         if (mode.contains(QLatin1Char('+'))) {
-            flag |= QIODevice::WriteOnly;
+            flags |= QIODevice::WriteOnly;
         }
-    } else if (mode == QLatin1String("w") || mode == QLatin1String("w+") || mode == QLatin1String("wb")
-               || mode == QLatin1String("wb+") || mode == QLatin1String("w+b")) {
-        flag |= QIODevice::WriteOnly;
-        flag |= QIODevice::Truncate;
+    } else if (isTheMode(mode, QString::fromUtf8("w"))
+               || isTheMode(mode, QString::fromUtf8("rw"))
+               || isTheMode(mode, QString::fromUtf8("wr"))) {
+        flags |= QIODevice::WriteOnly;
+        flags |= QIODevice::Truncate;
         if (mode.contains(QLatin1Char('+'))) {
-            flag |= QIODevice::ReadOnly;
+            flags |= QIODevice::ReadOnly;
         }
-    } else if (mode == QLatin1String("a") || mode == QLatin1String("a+") || mode == QLatin1String("ab")
-               || mode == QLatin1String("ab+") || mode == QLatin1String("a+b")) {
-        flag |= QIODevice::WriteOnly | QIODevice::Append;
+    } else if (isTheMode(mode, QString::fromUtf8("a"))) {
+        flags |= QIODevice::WriteOnly | QIODevice::Append;
         if (mode.contains(QLatin1Char('+'))) {
-            flag |= QIODevice::ReadOnly;
+            flags |= QIODevice::ReadOnly;
+        }
+    } else if (isTheMode(mode, QString::fromUtf8("x"))) {
+        flags |= QIODevice::WriteOnly | QIODevice::NewOnly;
+        if (mode.contains(QLatin1Char('+'))) {
+            flags |= QIODevice::ReadOnly;
         }
     } else {
         qtng_warning << "unknown file mode:" << mode;
     }
-    if (!f->open(flag)) {
+    if (!f->open(flags)) {
         return QSharedPointer<RawFile>();
     } else {
         QSharedPointer<RawFile> openFile(new RawFile(f));
-        if (flag & QIODevice::Append && !openFile->seek(f->size())) {
+        if ((flags & QIODevice::Append) && !openFile->seek(f->size())) {
             return QSharedPointer<RawFile>();
         }
         return openFile;
