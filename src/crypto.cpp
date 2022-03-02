@@ -36,7 +36,7 @@ void cleanupOpenSSL()
     }
     EVP_cleanup();
     CRYPTO_cleanup_all_ex_data();
-    ERR_remove_state(0);
+    // ERR_remove_state(0);  // deprecated
     ERR_free_strings();
     sk_SSL_COMP_free(SSL_COMP_get_compression_methods());
 }

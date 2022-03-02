@@ -837,4 +837,28 @@ QList<HostAddress> SocketDnsCache::resolve(const QString &hostName)
     }
 }
 
+
+bool SocketDnsCache::hasHost(const QString &hostName) const
+{
+    Q_D(const SocketDnsCache);
+    return d->cache.contains(hostName);
+}
+
+
+void SocketDnsCache::addHost(const QString &hostName, const QList<HostAddress> &addrList)
+{
+    Q_D(SocketDnsCache);
+    d->cache.insert(hostName, new QList<HostAddress>(addrList));
+}
+
+
+void SocketDnsCache::addHost(const QString &hostName, const HostAddress &addr)
+{
+    Q_D(SocketDnsCache);
+    QList<HostAddress> *addrList = new QList<HostAddress>();
+    addrList->append(addr);
+    d->cache.insert(hostName, addrList);
+}
+
+
 QTNETWORKNG_NAMESPACE_END

@@ -193,6 +193,9 @@ public:
     virtual ~SocketDnsCache();
 public:
     QList<HostAddress> resolve(const QString &hostName);
+    bool hasHost(const QString &hostName) const;
+    void addHost(const QString &hostName, const QList<HostAddress> &addrList);
+    void addHost(const QString &hostName, const HostAddress &addr);
 private:
     SocketDnsCachePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(SocketDnsCache)
