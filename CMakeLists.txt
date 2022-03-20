@@ -333,7 +333,11 @@ if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a AND NOT EXISTS ${_qt5Core_
     elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         set(OS_EXTRA_LINK ws2_32 qtpcre2)
     endif()
-    link_directories(${_qt5Core_install_prefix}/lib/)
+    if(${CMAKE_VERSION} VERSION_GREATER "3.13.0")
+        target_link_directories(qtnetworkng PUBLIC ${_qt5Core_install_prefix}/lib/)
+    else()
+        link_directories(${_qt5Core_install_prefix}/lib/)
+    endif()
 endif()
 
 target_link_libraries(qtnetworkng PUBLIC Qt5::Core PRIVATE ssl crypto ${ZLIB_LINK} ${OS_EXTRA_LINK})
