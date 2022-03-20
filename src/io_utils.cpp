@@ -2,6 +2,9 @@
 #include <QtCore/qdatetime.h>
 #ifdef Q_OS_UNIX
 #include <unistd.h>
+    #ifdef Q_OS_ANDROID
+        #include <errno.h>
+    #endif
 #endif
 #include "../include/io_utils.h"
 #include "../include/coroutine_utils.h"
@@ -484,6 +487,7 @@ bool PosixPath::operator==(const PosixPath &other) const
     } else if (!d && other.d) {
         return false;
     } else {
+        // FIXME does not handle absolute path.
         return d->path == other.d->path;
     }
 }
