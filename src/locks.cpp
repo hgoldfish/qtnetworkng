@@ -554,17 +554,21 @@ ThreadEventPrivate::ThreadEventPrivate()
 
 void ThreadEventPrivate::notify()
 {
-    condition->wakeAll();
     mutex->lock();
     QSharedPointer<EventLoopCoroutine> eventloop = currentLoop()->get();
-    for (const Behold &hold: holds) {
+    QMutableListIterator<Behold> itor(holds);
+    while (itor.hasNext()) {
+        const Behold hold = itor.next();
         if (hold.eventloop.data() == eventloop.data() && !hold.condition.isNull()) {
             hold.condition.toStrongRef()->notifyAll();
         } else if (!hold.eventloop.isNull() && !hold.condition.isNull()) {
             hold.eventloop.data()->callLaterThreadSafe(0, new NotifiyCondition(hold.condition.toStrongRef()));
+        } else {   // hold.eventloop.isNull() || hold.condition.isNull()
+            itor.remove();
         }
     }
     mutex->unlock();
+    condition->wakeAll();
 }
 
 
@@ -607,8 +611,8 @@ bool ThreadEventPrivate::wait(bool blocking)
 
 quint32 ThreadEventPrivate::getting() const
 {
-    quint32 count = 0;
     mutex->lock();
+    quint32 count = this->count;
     for (const Behold &hold: holds) {
         if (!hold.condition.isNull()) {
             count += hold.condition.toStrongRef()->getting();
@@ -638,7 +642,7 @@ bool ThreadEvent::wait(bool blocking)
 
 void ThreadEvent::set()
 {
-    if (d->flag.fetchAndStoreRelaxed(true)) {
+    if (d->flag.fetchAndStoreAcquire(true)) {
         return;
     }
     d->notify();
@@ -647,7 +651,8 @@ void ThreadEvent::set()
 
 void ThreadEvent::clear()
 {
-    d->flag.storeRelease(false);
+    // d->flag.storeRelease(false);
+    d->flag.testAndSetAcquire(true, false);
 }
 
 
