@@ -1049,7 +1049,7 @@ bool HostAddress::operator ==(SpecialAddress other) const
 }
 
 
-void HostAddress::swap(HostAddress &other) noexcept
+void HostAddress::swap(HostAddress &other) Q_DECL_NOEXCEPT
 {
     d.swap(other.d);
 }
@@ -1454,7 +1454,7 @@ QList<HostAddress> HostAddress::getHostAddressByName(const QString &hostName)
     return addresses;
 }
 
-uint qHash(const HostAddress &key, uint seed) noexcept
+uint qHash(const HostAddress &key, uint seed) Q_DECL_NOEXCEPT
 {
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
     return qHashBits(key.d->ipv6.a6.c, 16, seed);

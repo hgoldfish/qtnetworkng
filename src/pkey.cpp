@@ -338,7 +338,12 @@ bool PublicKeyPrivate::checkValidRsaKey(const QByteArray &data, PublicKey::RsaPa
         return false;
     }
 
+#if OPENSSL_VERSION_MAJOR >= 3
+    const RSA *t = EVP_PKEY_get0_RSA(pkey.data());
+    rsa = const_cast<RSA *>(t);
+#else
     rsa = EVP_PKEY_get0_RSA(pkey.data());
+#endif
     if (!rsa) {
         qtng_debug << "not rsa key.";
         return false;

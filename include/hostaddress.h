@@ -93,7 +93,7 @@ public:
 #endif
     ~HostAddress();
 
-    HostAddress &operator=(HostAddress &&other) noexcept
+    HostAddress &operator=(HostAddress &&other) Q_DECL_NOEXCEPT
     { swap(other); return *this; }
     HostAddress &operator=(const HostAddress &other);
     HostAddress &operator=(SpecialAddress address);
@@ -106,7 +106,7 @@ public:
     inline bool operator !=(SpecialAddress address) const
     { return !operator==(address); }
 
-    void swap(HostAddress &other) noexcept;
+    void swap(HostAddress &other) Q_DECL_NOEXCEPT;
     void clear();
 public:
     void setAddress(const IPv4Address ipv4);
