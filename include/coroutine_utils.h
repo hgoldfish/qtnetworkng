@@ -168,19 +168,24 @@ private:
 };
 
 
+inline QSharedPointer<Event> spawnInThread(const std::function<void()> &func)
+{
+    QSharedPointer<Event> done = QSharedPointer<Event>::create();
+    DeferCallThread *thread = new DeferCallThread(func, done, EventLoopCoroutine::get());
+    thread->start();
+    return done;
+}
+
+
 template<typename T>
 T callInThread(std::function<T()> func)
 {
-    QSharedPointer<T> result(new T());
-    QSharedPointer<Event> done(new Event());
+    QSharedPointer<T> result = QSharedPointer<T>::create();
     std::function<void()> makeResult = [result, func]() mutable
     {
         *result = func();
     };
-
-    DeferCallThread *thread = new DeferCallThread(makeResult, done, EventLoopCoroutine::get());
-    thread->start();
-    done->wait();
+    spawnInThread(makeResult)->wait();
     return *result;
 }
 
@@ -203,7 +208,6 @@ T callInThread(std::function<T(ARG1, ARG2)> func, ARG1 arg1, ARG2 arg2)
 }
 
 
-
 template<typename T, typename ARG1, typename ARG2, typename ARG3>
 T callInThread(std::function<T(ARG1, ARG2, ARG3)> func, ARG1 arg1, ARG2 arg2, ARG3 arg3)
 {
@@ -213,37 +217,37 @@ T callInThread(std::function<T(ARG1, ARG2, ARG3)> func, ARG1 arg1, ARG2 arg2, AR
 }
 
 
-
-inline void callInThread(const std::function<void ()> &func)
+template<typename T, typename ARG1, typename ARG2, typename ARG3, typename ARG4>
+T callInThread(std::function<T(ARG1, ARG2, ARG3)> func, ARG1 arg1, ARG2 arg2, ARG3 arg3, ARG4 arg4)
 {
-    QSharedPointer<Event> done(new Event());
-    DeferCallThread *thread = new DeferCallThread(func, done, EventLoopCoroutine::get());
-    thread->start();
-    done->wait();
-    //thread.wait();
+    return callInThread<T>([func, arg1, arg2, arg3, arg4] () -> T {
+        return func(arg1, arg2, arg3, arg4);
+    });
 }
 
 
-//class NewThreadCoroutine: public Coroutine
-//{
-//public:
-//    NewThreadCoroutine(const std::function<void ()> &func)
-//        :func(func) {}
-//    std::function<void ()> func;
-//    virtual void run() override;
-//};
+inline void callInThread(const std::function<void ()> &func)
+{
+    spawnInThread(func)->wait();
+}
 
 
-//inline Coroutine *spawnInThread(const std::function<void ()> &func)
-//{
-//    Coroutine *coroutine = new NewThreadCoroutine(func);
-//    coroutine->start();
-//    return coroutine;
-//}
+class CoroutineThreadPrivate;
+class CoroutineThread: public QThread
+{
+public:
+    explicit CoroutineThread(quint32 capacity = UINT_MAX);
+    virtual ~CoroutineThread() override;
+    virtual void run() override;
+public:
+    void apply(const std::function<void()> &f);
+private:
+    CoroutineThreadPrivate * const dd_ptr;
+    Q_DECLARE_PRIVATE_D(dd_ptr, CoroutineThread);
+};
 
 
 class Coroutine;
-
 class CoroutineGroup: public QObject
 {
 public:

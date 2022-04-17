@@ -184,17 +184,20 @@ void QAsn1Element::write(QDataStream &stream) const
     stream.writeRawData(mValue.data(), mValue.size());
 }
 
+
 QAsn1Element QAsn1Element::fromBool(bool val)
 {
+    const char negOne = std::numeric_limits<char>::is_signed ? -1 : 0xff;
     return QAsn1Element(QAsn1Element::BooleanType,
-        QByteArray(1, val ? static_cast<char>(0xff) : 0x00));
+        QByteArray(1, val ? negOne : 0x00));
 }
 
 QAsn1Element QAsn1Element::fromInteger(unsigned int val)
 {
+    const char negOne = std::numeric_limits<char>::is_signed ? -1 : 0xff;
     QAsn1Element elem(QAsn1Element::IntegerType);
     while (val > 127) {
-        elem.mValue.prepend(static_cast<char>(val) & static_cast<char>(0xff));
+        elem.mValue.prepend(static_cast<char>(val) & negOne);
         val >>= 8;
     }
     elem.mValue.prepend(val & 0x7f);

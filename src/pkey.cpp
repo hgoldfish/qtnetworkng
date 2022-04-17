@@ -465,11 +465,16 @@ static int pem_password_cb(char *buf, int size, int rwflag, void *userdata)
 
     PasswordCallback *callback = static_cast<PasswordCallback*>(userdata);
     const QByteArray &password = callback->get(rwflag == 1);
-    int move = qMin<int>(size, password.size());
-    if (!move) {
+    int move = qMin<int>(size - 1, password.size());
+    if (move <= 0) {
         return 0;
     }
+#if defined(Q_CC_MSVC)
+    strncpy_s(buf, size, password.data(), static_cast<size_t>(move));
+#else
     strncpy(buf, password.data(), static_cast<size_t>(move));
+    // buf[move - 1] = '\0';
+#endif
     return move;
 }
 

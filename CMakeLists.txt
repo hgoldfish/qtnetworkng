@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 2.8.8 FATAL_ERROR)
 
 if (POLICY CMP0025)
-  cmake_policy(SET CMP0025 NEW)
+    cmake_policy(SET CMP0025 NEW)
 endif ()
 if (POLICY CMP0020)
-  cmake_policy(SET CMP0020 NEW)
+    cmake_policy(SET CMP0020 NEW)
 endif ()
 if (POLICY CMP0071)
-  cmake_policy(SET CMP0071 NEW)
+    cmake_policy(SET CMP0071 NEW)
 endif ()
 
 project(qtnetworkng LANGUAGES C CXX ASM)
@@ -341,8 +341,8 @@ if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a AND NOT EXISTS ${_qt5Core_
 endif()
 
 target_link_libraries(qtnetworkng PUBLIC Qt5::Core PRIVATE ssl crypto ${ZLIB_LINK} ${OS_EXTRA_LINK})
-
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
 install(FILES ${QTNETWORKNG_INCLUDE} ${QTCRYPTONG_INCLUDE} DESTINATION include/qtnetworkng/)
 install(FILES ${QTNETWORKNG_PRIVATE_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} DESTINATION include/qtnetworkng/private/)
+

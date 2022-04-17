@@ -235,7 +235,7 @@ bool Socks5RequestHandler::handshake()
     if (ok) {
         replyHeader[1] = S5_AUTHMETHOD_NONE;
     } else {
-        replyHeader[1] = static_cast<char>(S5_AUTHMETHOD_NOTACCEPTABLE);
+        replyHeader[1] = std::numeric_limits<char>::is_signed ? -1 : S5_AUTHMETHOD_NOTACCEPTABLE;
     }
     qint32 sentBytes = request->sendall(replyHeader);
     if (sentBytes != replyHeader.size()) {

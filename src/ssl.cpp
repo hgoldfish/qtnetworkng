@@ -773,7 +773,7 @@ Certificate SslError::certificate() const
 uint qHash(const SslError &key, uint seed)
 {
     // 2x boost::hash_combine inlined:
-    seed ^= qHash(key.error())       + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    seed ^= static_cast<int>(key.error()) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     seed ^= qHash(key.certificate()) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     return seed;
 }

@@ -127,6 +127,7 @@ QSharedPointer<Socket> Socks5ProxyPrivate::getControlSocket() const
         throw Socks5Exception(Socks5Exception::ProxyProtocolError);
     }
 
+    Q_CONSTEXPR char negOne = std::numeric_limits<char>::is_signed ? -1 : S5_AUTHMETHOD_NOTACCEPTABLE;
     if(helloResponse.at(1) == S5_AUTHMETHOD_PASSWORD) {
         if(user.isEmpty() || password.isEmpty()) {
             throw Socks5Exception(Socks5Exception::ProxyAuthenticationRequiredError);
@@ -152,7 +153,7 @@ QSharedPointer<Socket> Socks5ProxyPrivate::getControlSocket() const
         if(authResponse.at(0) != 0x1) {
             throw Socks5Exception(Socks5Exception::ProxyAuthenticationRequiredError);
         }
-    } else if(helloResponse.at(1) == static_cast<char>(S5_AUTHMETHOD_NOTACCEPTABLE)) {
+    } else if(helloResponse.at(1) == negOne) {
         throw Socks5Exception(Socks5Exception::ProxyProtocolError);
     }
     return s;

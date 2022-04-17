@@ -206,13 +206,16 @@ QSharedPointer<RawFile> RawFile::open(const QString &filepath, const QString &mo
         if (mode.contains(QLatin1Char('+'))) {
             flags |= QIODevice::ReadOnly;
         }
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
     } else if (isTheMode(mode, QString::fromUtf8("x"))) {
         flags |= QIODevice::WriteOnly | QIODevice::NewOnly;
         if (mode.contains(QLatin1Char('+'))) {
             flags |= QIODevice::ReadOnly;
         }
+#endif
     } else {
         qtng_warning << "unknown file mode:" << mode;
+        return QSharedPointer<RawFile>();
     }
     if (!f->open(flags)) {
         return QSharedPointer<RawFile>();

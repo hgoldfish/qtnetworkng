@@ -45,10 +45,36 @@ void DeferCallThread::run()
 }
 
 
-//void NewThreadCoroutine::run()
-//{
-//    callInThread(func);
-//}
+class CoroutineThreadPrivate: public BaseCoroutine
+{
+public:
+    CoroutineThreadPrivate(quint32 capacity)
+        : BaseCoroutine(nullptr), tasks(capacity) {}
+    virtual void run() override;
+public:
+    ThreadQueue<std::function<void()>> tasks;
+};
+
+
+void CoroutineThreadPrivate::run()
+{
+    CoroutineGroup operations;
+    while (true) {
+        std::function<void()> f = tasks.get();
+        if (!f) {
+            return;
+        }
+        operations.spawn(f);
+    }
+}
+
+
+CoroutineThread::CoroutineThread(quint32 capacity)
+    : dd_ptr(new CoroutineThreadPrivate(capacity)) {}
+CoroutineThread::~CoroutineThread() { delete dd_ptr; }
+void CoroutineThread::run() { currentLoop()->getOrCreate()->runUntil(dd_ptr); }
+void CoroutineThread::apply(const std::function<void()> &f) { dd_ptr->tasks.put(f); }
+
 
 
 CoroutineGroup::CoroutineGroup()
@@ -242,7 +268,7 @@ private:
     QQueue<ThreadPoolWorkItem> queue;
     QMutex mutex;
     QWaitCondition hasWork;
-    QAtomicInteger<bool> exiting;
+    QAtomicInteger<int> exiting;
 };
 
 

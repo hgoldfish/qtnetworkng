@@ -515,7 +515,7 @@ quint32 Event::getting() const
 
 struct Behold {
     QPointer<EventLoopCoroutine> eventloop;
-    QWeakPointer<Condition> condition;
+    QSharedPointer<Condition> condition;
 };
 
 
@@ -525,13 +525,16 @@ public:
     ThreadEventPrivate();
     void notify();
     bool wait(bool blocking);
-    quint32 getting() const;
+    quint32 getting();
+    inline void incref();
+    inline bool decref();
 public:
-    QSharedPointer<QWaitCondition> condition;
-    QSharedPointer<QMutex> mutex;
+    QWaitCondition condition;
+    QMutex mutex;
     QList<Behold> holds;
-    QAtomicInteger<bool> flag;
+    QAtomicInteger<int> flag;
     QAtomicInteger<int> count;  // only for condition
+    QAtomicInteger<quint32> ref;
 };
 
 
@@ -545,81 +548,120 @@ public:
 
 
 ThreadEventPrivate::ThreadEventPrivate()
-    : condition(new QWaitCondition())
-    , mutex(new QMutex())
-    , flag(false)
+    : flag(false)
     , count(0)
+    , ref(1)
 {}
 
 
 void ThreadEventPrivate::notify()
 {
-    mutex->lock();
-    QSharedPointer<EventLoopCoroutine> eventloop = currentLoop()->get();
+    incref();
+    mutex.lock();
+    QSharedPointer<EventLoopCoroutine> current = currentLoop()->get();
     QMutableListIterator<Behold> itor(holds);
-    while (itor.hasNext()) {
-        const Behold hold = itor.next();
-        if (hold.eventloop.data() == eventloop.data() && !hold.condition.isNull()) {
-            hold.condition.toStrongRef()->notifyAll();
-        } else if (!hold.eventloop.isNull() && !hold.condition.isNull()) {
-            hold.eventloop.data()->callLaterThreadSafe(0, new NotifiyCondition(hold.condition.toStrongRef()));
-        } else {   // hold.eventloop.isNull() || hold.condition.isNull()
+    // XXX the flag can be false.
+    while (itor.hasNext() && ref.loadAcquire() > 1) {
+        const Behold &hold = itor.next();
+        QSharedPointer<Condition> holdCondition = hold.condition;
+        EventLoopCoroutine *holdEventloop = hold.eventloop.data();
+        if (holdEventloop) {
+            if (holdEventloop == current) {
+                holdCondition->notifyAll();
+            } else {
+                holdEventloop->callLaterThreadSafe(0, new NotifiyCondition(holdCondition));
+            }
+        } else {
             itor.remove();
         }
     }
-    mutex->unlock();
-    condition->wakeAll();
+    mutex.unlock();
+    // XXX the flag can be false.
+    if (count.loadAcquire() > 0) {
+        condition.wakeAll();
+    }
+    decref();
 }
 
 
 bool ThreadEventPrivate::wait(bool blocking)
 {
-    if (!blocking || flag.loadAcquire()) {
-        return flag.loadAcquire();
+    bool f = flag.loadAcquire();
+    if (!blocking || f) {
+        return f;
     }
 
-    EventLoopCoroutine *eventloop = currentLoop()->get().data();
-
-    if (!eventloop) {
-        mutex->lock();
+    incref();
+    mutex.lock();
+    EventLoopCoroutine *current = currentLoop()->get().data();
+    Q_ASSERT(!f);
+    if (!current) {
         ++count;
-        this->condition->wait(mutex.data());
+        while (!(f = flag.loadAcquire()) && ref.loadAcquire() > 1) {
+            this->condition.wait(&mutex);
+        }
         --count;
-        mutex->unlock();
+        mutex.unlock();
     } else {
         QSharedPointer<Condition> condition;
-        mutex->lock();
+        // should we use QMap<EventLoopCoroutine *, Hold> to accelerate?
         for (const Behold &hold: holds) {
-            if (hold.eventloop.data() == eventloop) {
-                condition = hold.condition.toStrongRef();
+            if (hold.eventloop.data() == current) {
+                condition = hold.condition;
                 break;
             }
         }
         if (condition.isNull()) {
             condition.reset(new Condition());
             Behold hold;
-            hold.condition = condition.toWeakRef();
-            hold.eventloop = eventloop;
+            hold.condition = condition;
+            hold.eventloop = current;
             holds.append(hold);
         }
-        mutex->unlock();
-        condition->wait();
+        mutex.unlock();
+        while (!(f = flag.loadAcquire()) && ref.loadAcquire() > 1) {
+            try {
+                condition->wait();
+            } catch (...) {
+                decref();
+                throw;
+            }
+        }
     }
-    return flag.loadAcquire();
+    decref();
+    return f;
 }
 
 
-quint32 ThreadEventPrivate::getting() const
+quint32 ThreadEventPrivate::getting()
 {
-    mutex->lock();
-    quint32 count = this->count;
+    incref();
+    mutex.lock();
+    quint32 count = this->count.loadAcquire();
     for (const Behold &hold: holds) {
         if (!hold.condition.isNull()) {
-            count += hold.condition.toStrongRef()->getting();
+            count += hold.condition->getting();
         }
     }
-    mutex->unlock();
+    mutex.unlock();
+    decref();
     return count;
+}
+
+
+void ThreadEventPrivate::incref()
+{
+    ref.ref();
+}
+
+
+bool ThreadEventPrivate::decref()
+{
+    if (!ref.deref()) {
+        delete this;
+        return false;
+    }
+    return true;
 }
 
 
@@ -630,19 +672,30 @@ ThreadEvent::ThreadEvent()
 
 ThreadEvent::~ThreadEvent()
 {
-    d->notify();
+    if (d->decref()) {
+        d->notify();
+    }
+    d = nullptr;
 }
 
 
 bool ThreadEvent::wait(bool blocking)
 {
-    return d->wait(blocking);
+    if (d) {
+        return d->wait(blocking);
+    } else {
+        return false;
+    }
 }
 
 
 void ThreadEvent::set()
 {
-    if (d->flag.fetchAndStoreAcquire(true)) {
+    if (!d) {
+        return;
+    }
+
+    if (d->flag.fetchAndStoreRelease(true)) {
         return;
     }
     d->notify();
@@ -651,19 +704,28 @@ void ThreadEvent::set()
 
 void ThreadEvent::clear()
 {
-    // d->flag.storeRelease(false);
-    d->flag.testAndSetAcquire(true, false);
+    if (!d) {
+        return;
+    }
+    d->flag.storeRelease(false);
+    // d->flag.testAndSetAcquire(true, false);
 }
 
 
 bool ThreadEvent::isSet() const
 {
+    if (!d) {
+        return false;
+    }
     return d->flag.loadAcquire();
 }
 
 
 quint32 ThreadEvent::getting() const
 {
+    if (!d) {
+        return 0;
+    }
     return d->getting();
 }
 

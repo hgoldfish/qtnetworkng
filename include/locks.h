@@ -108,7 +108,7 @@ public:
     bool isSet() const;
     quint32 getting() const;
 private:
-    const QSharedPointer<ThreadEventPrivate> d;
+    ThreadEventPrivate *d;
     Q_DISABLE_COPY(ThreadEvent);
 };
 
@@ -386,8 +386,9 @@ bool QueueType<T, EventType, ReadWriteLockType>::returnsForcely(const T& e)
 template <typename T, typename EventType, typename ReadWriteLockType>
 T QueueType<T, EventType, ReadWriteLockType>::get()
 {
-    if (!notEmpty.wait())
+    if (!notEmpty.wait()) {
         return T();
+    }
     lock.lockForWrite();
     const T &e = queue.dequeue();
     if (this->queue.isEmpty()) {

@@ -217,15 +217,18 @@ QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::getOrCreate()
             eventLoop.reset(new EvEventLoopCoroutine());
             eventLoop->setObjectName(QString::fromLatin1("libev_eventloop_coroutine"));
             storage.setLocalData(eventLoop);
+            // qtng_debug << "create libev eventloop coroutine.";
         } else {
             if (QCoreApplication::instance() && QCoreApplication::instance()->thread() == QThread::currentThread()) {
                 eventLoop.reset(new QtEventLoopCoroutine());
                 eventLoop->setObjectName(QString::fromLatin1("qt_eventloop_coroutine"));
                 storage.setLocalData(eventLoop);
+                // qtng_debug << "create qt eventloop coroutine.";
             } else {
                 eventLoop.reset(new EvEventLoopCoroutine());
                 eventLoop->setObjectName(QString::fromLatin1("libev_eventloop_coroutine"));
                 storage.setLocalData(eventLoop);
+                // qtng_debug << "create libev eventloop coroutine.";
             }
         }
 #elif QTNETWORKNG_USE_WIN
