@@ -337,7 +337,17 @@ if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a AND NOT EXISTS ${_qt5Core_
     endif()
 endif()
 
-target_link_libraries(qtnetworkng PUBLIC Qt5::Core PRIVATE ssl crypto ${ZLIB_LINK} ${OS_EXTRA_LINK})
+if (QTNG_USE_OPENSSL)
+    target_include_directories(qtnetworkng PRIVATE ${OPENSSL_INCLUDE_DIR})
+    if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+        set(OS_EXTRA_LINK ${OS_EXTRA_LINK} "ws2_32")
+    endif()
+else()
+    set(OPENSSL_LIBRARIES crypto ssl)
+endif()
+
+target_link_libraries(qtnetworkng PUBLIC Qt5::Core PRIVATE ${OPENSSL_LIBRARIES} ${ZLIB_LINK} ${OS_EXTRA_LINK})
+
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
 install(FILES ${QTNETWORKNG_INCLUDE} ${QTCRYPTONG_INCLUDE} DESTINATION include/qtnetworkng/)
