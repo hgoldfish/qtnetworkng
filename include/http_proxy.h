@@ -23,8 +23,8 @@ public:
     HttpProxy(HttpProxy &&other) :d_ptr(nullptr) { qSwap(d_ptr, other.d_ptr); }
     ~HttpProxy();
 public:
-    virtual QSharedPointer<Socket> connect(const QString &remoteHost, quint16 port) override;
-    virtual QSharedPointer<Socket> connect(const HostAddress &remoteHost, quint16 port) override;
+    virtual QSharedPointer<SocketLike> connect(const QString &remoteHost, quint16 port) override;
+    virtual QSharedPointer<SocketLike> connect(const HostAddress &remoteHost, quint16 port) override;
 public:
     QString hostName() const;
     quint16 port() const;

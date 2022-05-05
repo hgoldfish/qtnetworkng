@@ -23,13 +23,13 @@ HttpProxy::HttpProxy()
 
 
 HttpProxy::HttpProxy(const QString &hostName, quint16 port, const QString &user, const QString &password)
-    :d_ptr(new HttpProxyPrivate(hostName, port, user, password))
+    : d_ptr(new HttpProxyPrivate(hostName, port, user, password))
 {
 }
 
 
 HttpProxy::HttpProxy(const HttpProxy &other)
-    :d_ptr(new HttpProxyPrivate(other.d_ptr->hostName, other.d_ptr->port,
+    : d_ptr(new HttpProxyPrivate(other.d_ptr->hostName, other.d_ptr->port,
                                 other.d_ptr->user, other.d_ptr->password))
 {
 }
@@ -87,15 +87,15 @@ bool HttpProxy::operator==(const HttpProxy &other) const
 #endif
 
 
-QSharedPointer<Socket> HttpProxy::connect(const QString &remoteHost, quint16 port)
+QSharedPointer<SocketLike> HttpProxy::connect(const QString &remoteHost, quint16 port)
 {
     Q_D(HttpProxy);
     if (remoteHost.isEmpty()) {
-        return QSharedPointer<Socket>();
+        return QSharedPointer<SocketLike>();
     }
     QSharedPointer<Socket> connection(Socket::createConnection(d->hostName, d->port));
     if (connection.isNull()) {
-        return QSharedPointer<Socket>();
+        return QSharedPointer<SocketLike>();
     }
 
     QBYTEARRAYLIST lines;
@@ -110,38 +110,38 @@ QSharedPointer<Socket> HttpProxy::connect(const QString &remoteHost, quint16 por
     lines.append("\r\n");
     const QByteArray &headersBytes = join(lines);
     if (connection->sendall(headersBytes) != headersBytes.size()) {
-        return QSharedPointer<Socket>();
+        return QSharedPointer<SocketLike>();
     }
 
-    HeaderSplitter headerSplitter(asSocketLike(connection));
+    HeaderSplitter headerSplitter(asSocketLike(connection), 3);
     HeaderSplitter::Error headerSplitterError;
     QByteArray statusLine = headerSplitter.nextLine(&headerSplitterError);
     if (statusLine.isEmpty() || headerSplitterError != HeaderSplitter::NoError) {
-        return QSharedPointer<Socket>();
+        return QSharedPointer<SocketLike>();
     }
     QStringList commands = QString::fromLatin1(statusLine).split(QRegExp(QString::fromLatin1("\\s+")));
     if (commands.size() < 3) {
-        return QSharedPointer<Socket>();
+        return QSharedPointer<SocketLike>();
     }
     if (commands.at(0) != QLatin1String("HTTP/1.0") && commands.at(0) != QLatin1String("HTTP/1.1")) {
-        return QSharedPointer<Socket>();
+        return QSharedPointer<SocketLike>();
     }
-    if (commands.at(1) != QLatin1String("200")) {
-        return QSharedPointer<Socket>();
+    if (commands.at(1).toInt() != 200) {
+        return QSharedPointer<SocketLike>();
     }
     const int MaxHeaders = 64;
     headerSplitter.headers(MaxHeaders, &headerSplitterError);
     if (headerSplitterError != HeaderSplitter::NoError) {
-        return QSharedPointer<Socket>();
+        return QSharedPointer<SocketLike>();
     }
-    return connection;
+    return asSocketLike(connection);
 }
 
 
-QSharedPointer<Socket> HttpProxy::connect(const HostAddress &remoteHost, quint16 port)
+QSharedPointer<SocketLike> HttpProxy::connect(const HostAddress &remoteHost, quint16 port)
 {
     if (remoteHost.isNull()) {
-        return QSharedPointer<Socket>();
+        return QSharedPointer<SocketLike>();
     }
     QString hostName;
     if (remoteHost.protocol() == HostAddress::IPv6Protocol) {

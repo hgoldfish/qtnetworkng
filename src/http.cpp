@@ -899,7 +899,6 @@ QSharedPointer<SocketLike> ConnectionPool::oldConnectionForUrl(const QUrl &url)
 QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, RequestError **error)
 {
     QSharedPointer<SocketLike> connection;
-    QSharedPointer<Socket> rawSocket;
     quint16 port;
     if (url.scheme() == QString::fromLatin1("http")) {
         port = static_cast<quint16>(url.port(80));
@@ -915,28 +914,32 @@ QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, 
     QSharedPointer<SocketProxy> socketProxy = proxySwitcher->selectSocketProxy(url);
     if (!socketProxy.isNull()) {
         try {
-            rawSocket = socketProxy->connect(url.host(), port);
+            connection = socketProxy->connect(url.host(), port);
         } catch (Socks5Exception &) {
             // handle error on next.
         }
+        if (connection.isNull() || !connection->isValid()) {
+            *error = new ConnectionError();
+            return QSharedPointer<SocketLike>();
+        }
     } else {
+        QSharedPointer<Socket> rawSocket;
         rawSocket.reset(Socket::createConnection(url.host(), port, nullptr, dnsCache));
         if (rawSocket.isNull()) {
             *error = new ConnectionError();
             return QSharedPointer<SocketLike>();
         }
-    }
 
-    if (rawSocket.isNull() || !rawSocket->isValid()) {
-        *error = new ConnectionError();
-        return QSharedPointer<SocketLike>();
-    }
-
-    if (url.scheme() == QString::fromLatin1("http")) {
+        if (rawSocket.isNull() || !rawSocket->isValid()) {
+            *error = new ConnectionError();
+            return QSharedPointer<SocketLike>();
+        }
         connection = asSocketLike(rawSocket);
-    } else {
+    }
+
+    if (url.scheme() == QString::fromLatin1("https")) {
 #ifndef QTNG_NO_CRYPTO
-        QSharedPointer<SslSocket> ssl(new SslSocket(rawSocket, sslConfig));
+        QSharedPointer<SslSocket> ssl(new SslSocket(connection, sslConfig));
         if (!ssl->handshake(false, url.host())) {
             *error = new ConnectionError();
             return QSharedPointer<SocketLike>();

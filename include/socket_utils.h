@@ -76,8 +76,8 @@ private:
 class SocketProxy
 {
 public:
-    virtual QSharedPointer<Socket> connect(const HostAddress &addr, quint16 port) = 0;
-    virtual QSharedPointer<Socket> connect(const QString &addr, quint16 port) = 0;
+    virtual QSharedPointer<SocketLike> connect(const HostAddress &addr, quint16 port) = 0;
+    virtual QSharedPointer<SocketLike> connect(const QString &addr, quint16 port) = 0;
 };
 
 

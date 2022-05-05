@@ -126,7 +126,7 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
         //delete exception;
     }
 
-    if (currentCoroutine().get() == q) {
+    if (currentCoroutine().get(false) == q) {
         qtng_warning << "do not delete one self.";
     }
 
