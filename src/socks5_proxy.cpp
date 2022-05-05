@@ -75,8 +75,8 @@ public:
     }
 public:
     QSharedPointer<Socket> getControlSocket() const;
-    QSharedPointer<Socket> connect(const QString &hostName, quint16 port) const;
-    QSharedPointer<Socket> connect(const HostAddress &host, quint16 port) const;
+    QSharedPointer<SocketLike> connect(const QString &hostName, quint16 port) const;
+    QSharedPointer<SocketLike> connect(const HostAddress &host, quint16 port) const;
     QSharedPointer<SocketLike> listen(quint16 port) const;
 public:
     QString hostName;
@@ -313,7 +313,7 @@ static QSharedPointer<Socket> sendConnectRequest(QSharedPointer<Socket> s, const
 }
 
 
-QSharedPointer<Socket> Socks5ProxyPrivate::connect(const QString &hostName, quint16 port) const
+QSharedPointer<SocketLike> Socks5ProxyPrivate::connect(const QString &hostName, quint16 port) const
 {
     QSharedPointer<Socket> s = getControlSocket();
     QByteArray connectRequest = makeConnectRequest();
@@ -322,11 +322,15 @@ QSharedPointer<Socket> Socks5ProxyPrivate::connect(const QString &hostName, quin
         throw Socks5Exception(Socks5Exception::ProxyProtocolError);
     }
 
-    return sendConnectRequest(s, connectRequest);
+    QSharedPointer<Socket> ret = sendConnectRequest(s, connectRequest);
+    if (ret) {
+        return asSocketLike(ret);
+    }
+    return QSharedPointer<SocketLike>();
 }
 
 
-QSharedPointer<Socket> Socks5ProxyPrivate::connect(const HostAddress &host, quint16 port) const
+QSharedPointer<SocketLike> Socks5ProxyPrivate::connect(const HostAddress &host, quint16 port) const
 {
     QSharedPointer<Socket> s = getControlSocket();
     QByteArray connectRequest = makeConnectRequest();
@@ -335,7 +339,11 @@ QSharedPointer<Socket> Socks5ProxyPrivate::connect(const HostAddress &host, quin
         throw Socks5Exception(Socks5Exception::ProxyProtocolError);
     }
 
-    return sendConnectRequest(s, connectRequest);
+    QSharedPointer<Socket> ret = sendConnectRequest(s, connectRequest);
+    if (ret) {
+        return asSocketLike(ret);
+    }
+    return QSharedPointer<SocketLike>();
 }
 
 
@@ -467,14 +475,14 @@ void Socks5Proxy::setPassword(const QString &password)
 }
 
 
-QSharedPointer<Socket> Socks5Proxy::connect(const QString &hostName, quint16 port)
+QSharedPointer<SocketLike> Socks5Proxy::connect(const QString &hostName, quint16 port)
 {
     Q_D(const Socks5Proxy);
     return d->connect(hostName, port);
 }
 
 
-QSharedPointer<Socket> Socks5Proxy::connect(const HostAddress &host, quint16 port)
+QSharedPointer<SocketLike> Socks5Proxy::connect(const HostAddress &host, quint16 port)
 {
     Q_D(const Socks5Proxy);
     return d->connect(host, port);

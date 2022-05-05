@@ -83,7 +83,7 @@ BaseCoroutinePrivate::~BaseCoroutinePrivate()
         munmap(stack, stackSize);
     }
 
-    if (currentCoroutine().get() == q) {
+    if (currentCoroutine().get(false) == q) {
         qWarning("do not delete one self.");
     }
     if (context) {
