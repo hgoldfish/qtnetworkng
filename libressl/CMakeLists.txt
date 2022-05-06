@@ -144,6 +144,9 @@ if(MSVC)
 			"C4706" # assignment within conditional expression
 			"C4996" # The POSIX name for this item is deprecated.
 				# Instead, use the ISO C and C++ conformant name
+                        "C5045" # /Qspectre
+                        "C4710" # didn't inline
+                        "C4711" # didn't inline
 		)
 	elseif(CMAKE_C_COMPILER_ID MATCHES "Intel")
 		add_definitions(-D_CRT_SUPPRESS_RESTRICT)
