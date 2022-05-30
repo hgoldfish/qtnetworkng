@@ -162,7 +162,11 @@ bool RawFile::seek(qint64 pos)
     if (fd <= 0) {
         return false;
     }
+#if defined(_LARGEFILE64_SOURCE)
     return ::lseek64(fd, pos, SEEK_SET) >= 0;
+#else
+    return ::lseek(fd, pos, SEEK_SET) >= 0;
+#endif
 #else
     return f->seek(pos);
 #endif

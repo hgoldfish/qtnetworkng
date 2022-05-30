@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 2.8.8 FATAL_ERROR)
 
+if (POLICY CMP0048)
+    cmake_policy(SET CMP0048 NEW)
+endif()
 if (POLICY CMP0020)
     cmake_policy(SET CMP0020 NEW)
 endif ()
@@ -11,6 +14,8 @@ project(qtnetworkng LANGUAGES C CXX ASM)
 
 option(QTNG_USE_OPENSSL OFF)
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC OFF)
+set(CMAKE_AUTORCC OFF)
 
 find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
 find_package(ZLIB)
