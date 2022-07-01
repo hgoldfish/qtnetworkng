@@ -1308,7 +1308,6 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         }
         if (!ptrLock.isNull()
                 && connection->isValid()
-                && response.d->statusCode == 200
                 && response.header(KnownHeader::ConnectionHeader).toLower() == "keep-alive"
                 && keepAlive) {
             recycle(response.d->url, connection);
