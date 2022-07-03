@@ -44,6 +44,7 @@ public:
     QString fileName() const;
 public:
     static QSharedPointer<RawFile> open(const QString &filepath, const QString &mode = QString());
+    static QSharedPointer<RawFile> open(const QString &filepath, QIODevice::OpenMode mode);
 public:
     QSharedPointer<QFile> f;
 };
