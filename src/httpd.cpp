@@ -318,7 +318,7 @@ void BaseHttpRequestHandler::sendCommandLine(HttpStatus status, const QString &s
         versionStr = QString::fromLatin1("HTTP/1.1");
     }
     const QString &firstLine = QString::fromLatin1("%1 %2 %3\r\n").arg(versionStr).arg(static_cast<int>(status)).arg(shortMessage);
-    headerCache.append(firstLine.toUtf8());
+    headerCache.prepend(firstLine.toUtf8());
 }
 
 

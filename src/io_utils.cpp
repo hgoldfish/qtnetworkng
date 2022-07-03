@@ -251,6 +251,21 @@ QSharedPointer<RawFile> RawFile::open(const QString &filepath, const QString &mo
 }
 
 
+QSharedPointer<RawFile> RawFile::open(const QString &filepath, QIODevice::OpenMode mode)
+{
+    QSharedPointer<QFile> f(new QFile(filepath));
+    if (!f->open(mode)) {
+        return QSharedPointer<RawFile>();
+    } else {
+        QSharedPointer<RawFile> openFile(new RawFile(f));
+        if ((mode & QIODevice::Append) && !openFile->seek(f->size())) {
+            return QSharedPointer<RawFile>();
+        }
+        return openFile;
+    }
+}
+
+
 QSharedPointer<FileLike> FileLike::rawFile(QSharedPointer<QFile> f)
 {
     return QSharedPointer<RawFile>::create(f).dynamicCast<FileLike>();
