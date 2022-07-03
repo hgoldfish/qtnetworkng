@@ -2,6 +2,7 @@
 #include <QtCore/qdatetime.h>
 #ifdef Q_OS_UNIX
 #include <unistd.h>
+#include <fcntl.h>
     #ifdef Q_OS_ANDROID
         #include <errno.h>
     #endif
@@ -111,7 +112,7 @@ qint32 RawFile::write(const char *data, qint32 size)
     if (fd <= 0) {
         return -1;
     }
-    ScopedIoWatcher watcher(EventLoopCoroutine::Read, f->handle());
+    ScopedIoWatcher watcher(EventLoopCoroutine::Write, f->handle());
     while (true) {
         ssize_t r = 0;
         do {
@@ -228,6 +229,23 @@ QSharedPointer<RawFile> RawFile::open(const QString &filepath, const QString &mo
         if ((flags & QIODevice::Append) && !openFile->seek(f->size())) {
             return QSharedPointer<RawFile>();
         }
+        #ifdef Q_OS_UNIX
+            int fd = f->handle();
+            if (fd <= 0) {
+                return QSharedPointer<RawFile>();
+            }
+            #if !defined(Q_OS_VXWORKS)
+                int flags = ::fcntl(fd, F_GETFL, 0);
+                if (flags == -1 || ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+                    return QSharedPointer<RawFile>();
+                }
+            #else // Q_OS_VXWORKS
+                int onoff = 1;
+                if (::ioctl(fd, FIONBIO, (int)&onoff) < 0) {
+                    return QSharedPointer<RawFile>();
+                }
+            #endif // Q_OS_VXWORKS
+        #endif
         return openFile;
     }
 }
