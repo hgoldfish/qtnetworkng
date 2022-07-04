@@ -108,11 +108,13 @@ QSharedPointer<Socket> Socks5ProxyPrivate::getControlSocket() const
     QByteArray helloRequest;
     helloRequest.reserve(3);
     helloRequest.append(static_cast<char>(S5_VERSION_5));
-    helloRequest.append(static_cast<char>(S5_PASSWORDAUTH_VERSION));
-    helloRequest.append(static_cast<char>(S5_AUTHMETHOD_NONE));
+    helloRequest.append(static_cast<char>(1));
     if(!user.isEmpty() && !password.isEmpty()) {
-        helloRequest.append(S5_AUTHMETHOD_PASSWORD);
+        helloRequest.append(static_cast<char>(S5_AUTHMETHOD_PASSWORD));
+    } else {
+        helloRequest.append(static_cast<char>(S5_AUTHMETHOD_NONE));
     }
+
     qint64 sentBytes = s->sendall(helloRequest);
     if(sentBytes < helloRequest.size()) {
         throw Socks5Exception(Socks5Exception::ProxyProtocolError);
