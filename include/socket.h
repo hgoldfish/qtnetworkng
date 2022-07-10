@@ -117,6 +117,8 @@ public:
     SocketType type() const;
     SocketState state() const;
     HostAddress::NetworkLayerProtocol protocol() const;
+    QString localAddressURI() const;
+    QString peerAddressURI() const;
 
     Socket *accept();
     bool bind(const HostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform);

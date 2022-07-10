@@ -336,6 +336,44 @@ HostAddress::NetworkLayerProtocol Socket::protocol() const
 }
 
 
+QString Socket::localAddressURI() const
+{
+    Q_D(const Socket);
+    QString address;
+    if (d->type == Socket::TcpSocket) {
+        address = QLatin1String("tcp://%1:%2");
+    } else {
+        address = QLatin1String("udp://%1:%2");
+    }
+    if (d->localAddress.protocol() == HostAddress::IPv6Protocol) {
+        address = address.arg(QString::fromLatin1("[%1]").arg(d->localAddress.toString()));
+    } else {
+        address = address.arg(d->localAddress.toString());
+    }
+    address = address.arg(d->localPort);
+    return address;
+}
+
+
+QString Socket::peerAddressURI() const
+{
+    Q_D(const Socket);
+    QString address;
+    if (d->type == Socket::TcpSocket) {
+        address = QLatin1String("tcp://%1:%2");
+    } else {
+        address = QLatin1String("udp://%1:%2");
+    }
+    if (d->peerAddress.protocol() == HostAddress::IPv6Protocol) {
+        address = address.arg(QString::fromLatin1("[%1]").arg(d->peerAddress.toString()));
+    } else {
+        address = address.arg(d->peerAddress.toString());
+    }
+    address = address.arg(d->peerPort);
+    return address;
+}
+
+
 Socket *Socket::accept()
 {
     Q_D(Socket);

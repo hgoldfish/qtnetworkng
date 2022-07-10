@@ -30,6 +30,8 @@ public:
     virtual Socket::SocketType type() const = 0;
     virtual Socket::SocketState state() const = 0;
     virtual HostAddress::NetworkLayerProtocol protocol() const = 0;
+    virtual QString localAddressURI() const = 0;
+    virtual QString peerAddressURI() const = 0;
 
     virtual QSharedPointer<SocketLike> accept() = 0;
     virtual Socket *acceptRaw() = 0;

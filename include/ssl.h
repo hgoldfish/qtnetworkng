@@ -211,6 +211,8 @@ public:
     Socket::SocketType type() const;
     Socket::SocketState state() const;
     HostAddress::NetworkLayerProtocol protocol() const;
+    QString localAddressURI() const;
+    QString peerAddressURI() const;
 
     SslSocket *accept();
     Socket *acceptRaw();

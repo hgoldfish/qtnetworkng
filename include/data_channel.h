@@ -88,6 +88,7 @@ public:
     void setKeepaliveInterval(float keepaliveInterval);
     float keepaliveInterval() const;
     quint32 sendingQueueSize() const;
+    QSharedPointer<SocketLike> connection() const;
 private:
     Q_DECLARE_PRIVATE(SocketChannel)
 };

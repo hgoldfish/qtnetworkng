@@ -1716,6 +1716,20 @@ HostAddress::NetworkLayerProtocol SslSocket::protocol() const
 }
 
 
+QString SslSocket::localAddressURI() const
+{
+    Q_D(const SslSocket);
+    return QLatin1String("ssl+") + d->rawSocket->localAddressURI();
+}
+
+
+QString SslSocket::peerAddressURI() const
+{
+    Q_D(const SslSocket);
+    return QLatin1String("ssl+") + d->rawSocket->peerAddressURI();
+}
+
+
 qint32 SslSocket::recv(char *data, qint32 size)
 {
     Q_D(SslSocket);
@@ -1843,6 +1857,8 @@ public:
     virtual Socket::SocketType type() const override;
     virtual Socket::SocketState state() const override;
     virtual HostAddress::NetworkLayerProtocol protocol() const override;
+    virtual QString localAddressURI() const override;
+    virtual QString peerAddressURI() const override;
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
@@ -1942,6 +1958,18 @@ Socket::SocketState SocketLikeImpl::state() const
 HostAddress::NetworkLayerProtocol SocketLikeImpl::protocol() const
 {
     return s->protocol();
+}
+
+
+QString SocketLikeImpl::localAddressURI() const
+{
+    return s->localAddressURI();
+}
+
+
+QString SocketLikeImpl::peerAddressURI() const
+{
+    return s->peerAddressURI();
 }
 
 
@@ -2098,6 +2126,8 @@ public:
     virtual Socket::SocketType type() const override;
     virtual Socket::SocketState state() const override;
     virtual HostAddress::NetworkLayerProtocol protocol() const override;
+    virtual QString localAddressURI() const override;
+    virtual QString peerAddressURI() const override;
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
@@ -2205,6 +2235,18 @@ Socket::SocketState EncryptedSocketLike::state() const
 HostAddress::NetworkLayerProtocol EncryptedSocketLike::protocol() const
 {
     return s->protocol();
+}
+
+
+QString EncryptedSocketLike::localAddressURI() const
+{
+    return QLatin1String("encrypted+") + s->localAddressURI();
+}
+
+
+QString EncryptedSocketLike::peerAddressURI() const
+{
+    return QLatin1String("encrypted+") + s->peerAddressURI();
 }
 
 

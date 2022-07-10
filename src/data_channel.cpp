@@ -975,6 +975,13 @@ quint32 SocketChannel::sendingQueueSize() const
 }
 
 
+QSharedPointer<SocketLike> SocketChannel::connection() const
+{
+    Q_D(const SocketChannel);
+    return d->connection;
+}
+
+
 VirtualChannel::VirtualChannel(DataChannel *parentChannel, DataChannelPole pole, quint32 channelNumber)
     :DataChannel(new VirtualChannelPrivate(parentChannel, pole, channelNumber, this))
 {
@@ -1194,6 +1201,8 @@ public:
     virtual Socket::SocketType type() const override;
     virtual Socket::SocketState state() const override;
     virtual HostAddress::NetworkLayerProtocol protocol() const override;
+    virtual QString localAddressURI() const override;
+    virtual QString peerAddressURI() const override;
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
@@ -1357,6 +1366,28 @@ HostAddress::NetworkLayerProtocol SocketLikeImpl::protocol() const
         return HostAddress::UnknownNetworkLayerProtocol;
     } else {
         return backend->protocol();
+    }
+}
+
+
+QString SocketLikeImpl::localAddressURI() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return QString();
+    } else {
+        return QLatin1String("datachannel+") + backend->localAddressURI();
+    }
+}
+
+
+QString SocketLikeImpl::peerAddressURI() const
+{
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return QString();
+    } else {
+        return QLatin1String("datachannel+") + backend->peerAddressURI();
     }
 }
 

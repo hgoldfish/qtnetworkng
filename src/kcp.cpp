@@ -1563,6 +1563,35 @@ HostAddress::NetworkLayerProtocol KcpSocket::protocol() const
 }
 
 
+QString KcpSocket::localAddressURI() const
+{
+    Q_D(const KcpSocket);
+    QString address = QLatin1String("kcp://%1:%2");
+    const HostAddress &localAddress = d->localAddress();
+    if (localAddress.protocol() == HostAddress::IPv6Protocol) {
+        address = address.arg(QString::fromLatin1("[%1]").arg(localAddress.toString()));
+    } else {
+        address = address.arg(localAddress.toString());
+    }
+    address = address.arg(d->localPort());
+    return address;
+}
+
+
+QString KcpSocket::peerAddressURI() const
+{
+    Q_D(const KcpSocket);
+    QString address = QLatin1String("kcp://%1:%2");
+    if (d->remoteAddress.protocol() == HostAddress::IPv6Protocol) {
+        address = address.arg(QString::fromLatin1("[%1]").arg(d->remoteAddress.toString()));
+    } else {
+        address = address.arg(d->remoteAddress.toString());
+    }
+    address = address.arg(d->remotePort);
+    return address;
+}
+
+
 KcpSocket *KcpSocket::accept()
 {
     Q_D(KcpSocket);
@@ -1814,6 +1843,8 @@ public:
     virtual Socket::SocketType type() const override;
     virtual Socket::SocketState state() const override;
     virtual HostAddress::NetworkLayerProtocol protocol() const override;
+    virtual QString localAddressURI() const override;
+    virtual QString peerAddressURI() const override;
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
@@ -1913,6 +1944,18 @@ Socket::SocketState SocketLikeImpl::state() const
 HostAddress::NetworkLayerProtocol SocketLikeImpl::protocol() const
 {
     return s->protocol();
+}
+
+
+QString SocketLikeImpl::localAddressURI() const
+{
+    return s->localAddressURI();
+}
+
+
+QString SocketLikeImpl::peerAddressURI() const
+{
+    return s->peerAddressURI();
 }
 
 

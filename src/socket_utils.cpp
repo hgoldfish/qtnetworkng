@@ -45,6 +45,8 @@ public:
     virtual Socket::SocketType type() const override;
     virtual Socket::SocketState state() const override;
     virtual HostAddress::NetworkLayerProtocol protocol() const override;
+    virtual QString localAddressURI() const override;
+    virtual QString peerAddressURI() const override;
 
     virtual Socket *acceptRaw() override;
     virtual QSharedPointer<SocketLike> accept() override;
@@ -145,6 +147,18 @@ Socket::SocketState SocketLikeImpl::state() const
 HostAddress::NetworkLayerProtocol SocketLikeImpl::protocol() const
 {
     return s->protocol();
+}
+
+
+QString SocketLikeImpl::localAddressURI() const
+{
+    return s->localAddressURI();
+}
+
+
+QString SocketLikeImpl::peerAddressURI() const
+{
+    return s->peerAddressURI();
 }
 
 
