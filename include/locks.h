@@ -88,6 +88,9 @@ public:
     void clear();
     bool isSet() const;
     quint32 getting() const;
+public:
+    void link(Event &other);
+    void unlink(Event &other);
 private:
     EventPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Event)
@@ -107,6 +110,9 @@ public:
     void clear();
     bool isSet() const;
     quint32 getting() const;
+public:
+    void link(ThreadEvent &other);
+    void unlink(ThreadEvent &other);
 private:
     ThreadEventPrivate *d;
     Q_DISABLE_COPY(ThreadEvent);
@@ -217,7 +223,7 @@ public:
     inline quint32 size() const;
     inline quint32 getting() const;
     inline bool contains(const T &e);
-private:
+public:
     QQueue<T> queue;
     EventType notEmpty;
     EventType notFull;
@@ -225,6 +231,21 @@ private:
     quint32 mCapacity;
     Q_DISABLE_COPY(QueueType)
 };
+
+
+template <typename T, typename EventType, typename ReadWriteLockType>
+class MultiQueueType
+{
+public:
+    inline void addQueue(QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue);
+    inline void removeQueue(QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue);
+    inline T wait();
+private:
+    EventType notEmpty;
+    QList<QSharedPointer<QueueType<T, EventType, ReadWriteLockType>>> queues;
+    ReadWriteLockType lock;
+};
+
 
 
 struct DummpyReadWriteLock
@@ -245,12 +266,20 @@ public:
 
 
 template <typename T>
+class MultiQueue: public MultiQueueType<T, Event, DummpyReadWriteLock> {};
+
+
+template <typename T>
 class ThreadQueue: public QueueType<T, ThreadEvent, QReadWriteLock>
 {
 public:
     explicit ThreadQueue(quint32 capacity) : QueueType<T, ThreadEvent, QReadWriteLock>(capacity) {}
     explicit ThreadQueue() : QueueType<T, ThreadEvent, QReadWriteLock>() {}
 };
+
+
+template <typename T>
+class MultiThreadQueue: public MultiQueueType<T, ThreadEvent, QReadWriteLock> {};
 
 
 template <typename T, typename EventType, typename ReadWriteLockType>
@@ -474,6 +503,64 @@ inline bool QueueType<T, EventType, ReadWriteLockType>::contains(const T &e)
     return t;
 }
 
+
+template <typename T, typename EventType, typename ReadWriteLockType>
+inline void MultiQueueType<T, EventType, ReadWriteLockType>::addQueue(QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue)
+{
+    lock.lockForWrite();
+    queue.notEmpty.link(notEmpty);
+    queues.append(queue);
+    lock.unlock();
+}
+
+
+template <typename T, typename EventType, typename ReadWriteLockType>
+inline void MultiQueueType<T, EventType, ReadWriteLockType>::removeQueue(QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue)
+{
+    lock.lockForWrite();
+    queue.notEmpty.unlink(notEmpty);
+    queues.removeOne(queue);
+    lock.unlock();
+}
+
+
+template <typename T, typename EventType, typename ReadWriteLockType>
+inline T MultiQueueType<T, EventType, ReadWriteLockType>::wait()
+{
+    notEmpty.wait();
+    T result;
+    lock.lockForWrite();
+    bool allEmpty = true;
+    int i = 0;
+    for (; i < queues.size(); ++i) {
+        QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue = queues.at(i);
+        if (!queue->isEmpty()) {
+            result = queue.get();
+//            // let's move the queue to the first
+//            if (i >= 10) {
+//                for (int j = i; j > 0; --j) {
+//                    queues[j] = queues[j - 1];
+//                }
+//                queues[0] = queue;
+//            }
+            allEmpty = queue.isEmpty();
+            break;
+        }
+    }
+    if (allEmpty) {
+        // resume from the i + 1 element.
+        ++i;
+        for (; i < queues.size(); ++i) {
+            QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue = queues.at(i);
+            if (!queue.isEmpty()) {
+                allEmpty = false;
+                break;
+            }
+        }
+    }
+    lock.unlock();
+    return result;
+}
 
 QTNETWORKNG_NAMESPACE_END
 

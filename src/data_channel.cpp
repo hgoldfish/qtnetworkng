@@ -15,7 +15,7 @@
 
 QTNG_LOGGER("qtng.data_channel");
 
-//#define DEBUG_PROTOCOL
+// #define DEBUG_PROTOCOL
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -118,6 +118,7 @@ public:
     virtual ~DataChannelPrivate();
 
     // called by the public class DataChannel
+    QSharedPointer<VirtualChannel> makeChannelInternal(DataChannelPole pole, quint32 channelNumber);
     QSharedPointer<VirtualChannel> makeChannel();
     QSharedPointer<VirtualChannel> takeChannel();
     QSharedPointer<VirtualChannel> takeChannel(quint32 channelNumber);
@@ -126,7 +127,7 @@ public:
     bool sendPacket(const QByteArray &packet);
     bool sendPacketAsync(const QByteArray &packet);
     QString toString() const;
-    void setError(DataChannel::ChannelError error) { if (this->error != DataChannel::NoError) this->error = error; }
+    void setError(DataChannel::ChannelError error) { if (this->error == DataChannel::NoError) this->error = error; }
 
     // must be implemented by subclasses
     virtual void abort();
@@ -134,6 +135,8 @@ public:
     virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &payload, bool blocking) = 0;
     virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) = 0;
     virtual void cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray&)> subCheckPacket) = 0;
+    virtual quint32 maxPayloadSize() const = 0;
+    virtual quint32 payloadSizeHint() const = 0;
     virtual quint32 headerSize() const = 0;
     virtual QSharedPointer<SocketLike> getBackend() const = 0;
 
@@ -145,8 +148,6 @@ public:
     QString name;
     DataChannelPole pole;
     quint32 nextChannelNumber;
-    quint32 maxPacketSize;
-    quint32 payloadSizeHint;
     QMap<quint32, QWeakPointer<VirtualChannel>> subChannels;
     Queue<QSharedPointer<VirtualChannel>> pendingChannels;
     Queue<QByteArray> receivingQueue;
@@ -192,6 +193,8 @@ public:
     virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking) override;
     virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) override;
     virtual void cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray&)> subCheckPacket) override;
+    virtual quint32 maxPayloadSize() const override;
+    virtual quint32 payloadSizeHint() const override;
     virtual quint32 headerSize() const override;
     virtual QSharedPointer<SocketLike> getBackend() const override;
     void doSend();
@@ -202,6 +205,8 @@ public:
     const QSharedPointer<SocketLike> connection;
     Queue<WritingPacket> sendingQueue;
     CoroutineGroup *operations;
+    quint32 _maxPayloadSize;
+    quint32 _payloadSizeHint;
     qint64 lastActiveTimestamp;
     qint64 lastKeepaliveTimestamp;
     qint64 keepaliveTimeout;
@@ -221,10 +226,10 @@ public:
     virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking) override;
     virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) override;
     virtual void cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray&)> subCheckPacket) override;
+    virtual quint32 maxPayloadSize() const override;
+    virtual quint32 payloadSizeHint() const override;
     virtual quint32 headerSize() const override;
     virtual QSharedPointer<SocketLike> getBackend() const override;
-
-    bool handleIncomingPacket(const QByteArray &packet);
 
     QPointer<DataChannel> parentChannel;
     quint32 channelNumber;
@@ -235,8 +240,7 @@ public:
 
 DataChannelPrivate::DataChannelPrivate(DataChannelPole pole, DataChannel *parent)
     : pole(pole)
-    , maxPacketSize(1024 * 64), payloadSizeHint(1400)
-    , receivingQueue(1024)  // may consume 1024 * maxPacketSize bytes.
+    , receivingQueue(1024)  // may consume 1024 * maxPayloadSize bytes.
     , error(DataChannel::NoError)
     , q_ptr(parent)
     , broken(false)
@@ -328,7 +332,17 @@ bool DataChannelPrivate::handleIncomingPacket(quint32 channelNumber, const QByte
             subChannels.remove(channelNumber);
         } else {
             QSharedPointer<VirtualChannel> c = channel.toStrongRef();
-            if (!c->d_func()->handleIncomingPacket(payload)) {
+            const int headerSize = sizeof(quint32);
+            if (payload.size() < headerSize) {
+                return false;
+            }
+            #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
+                quint32 channelNumber = qFromBigEndian<quint32>(payload.constData());
+            #else
+                quint32 channelNumber = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(packet.constData()));
+            #endif
+            const QByteArray &packet = payload.mid(headerSize);
+            if (!c->d_func()->handleIncomingPacket(channelNumber, packet)) {
                 c->abort();
             }
         }
@@ -341,9 +355,18 @@ bool DataChannelPrivate::handleIncomingPacket(quint32 channelNumber, const QByte
 }
 
 
-QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannel()
+QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannelInternal(DataChannelPole pole, quint32 channelNumber)
 {
     Q_Q(DataChannel);
+    QSharedPointer<VirtualChannel> channel(new VirtualChannel(q, pole, channelNumber));
+    channel->d_func()->receivingQueue.setCapacity(receivingQueue.capacity());
+    subChannels.insert(channelNumber, channel);
+    return channel;
+}
+
+
+QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannel()
+{
     if (isBroken()) {
 #ifdef DEBUG_PROTOCOL
         qtng_debug << "the data channel is broken, can not make channel.";
@@ -351,17 +374,9 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannel()
         return QSharedPointer<VirtualChannel>();
     }
     quint32 channelNumber = nextChannelNumber;
-    if (pole == NegativePole) {
-        --nextChannelNumber;
-    } else {
-        ++nextChannelNumber;
-    }
+    nextChannelNumber += this->pole;
+    QSharedPointer<VirtualChannel> channel = makeChannelInternal(DataChannelPole::PositivePole, channelNumber);
     sendPacketRaw(CommandChannelNumber, packMakeChannelRequest(channelNumber), false);
-    QSharedPointer<VirtualChannel> channel(new VirtualChannel(q, DataChannelPole::PositivePole, channelNumber));
-    channel->setMaxPacketSize(maxPacketSize - sizeof(quint32));
-    channel->setPayloadSizeHint(payloadSizeHint - sizeof(quint32));
-    channel->setCapacity(receivingQueue.capacity());
-    subChannels.insert(channelNumber, channel);
     return channel;
 }
 
@@ -419,9 +434,6 @@ QByteArray DataChannelPrivate::recvPacket()
 
 bool DataChannelPrivate::sendPacket(const QByteArray &packet)
 {
-    if (static_cast<quint32>(packet.size()) > maxPacketSize) {
-        return false;
-    }
     if (!goThrough.wait()) {
         return false;
     }
@@ -431,16 +443,12 @@ bool DataChannelPrivate::sendPacket(const QByteArray &packet)
 
 bool DataChannelPrivate::sendPacketAsync(const QByteArray &packet)
 {
-    if (static_cast<quint32>(packet.size()) > maxPacketSize) {
-        return false;
-    }
     return sendPacketRaw(DataChannelNumber, packet, false);
 }
 
 
 bool DataChannelPrivate::handleCommand(const QByteArray &packet)
 {
-    Q_Q(DataChannel);
     quint8 command;
     quint32 channelNumber;
     bool isCommand = unpackCommand(packet, &command, &channelNumber);
@@ -449,11 +457,7 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
         return false;
     }
     if (command == MAKE_CHANNEL_REQUEST) {
-        QSharedPointer<VirtualChannel> channel(new VirtualChannel(q, DataChannelPole::NegativePole, channelNumber));
-        channel->setMaxPacketSize(maxPacketSize - sizeof(quint32));
-        channel->setPayloadSizeHint(payloadSizeHint - sizeof(quint32));
-        channel->setCapacity(receivingQueue.capacity());
-        subChannels.insert(channelNumber, channel);
+        QSharedPointer<VirtualChannel> channel = makeChannelInternal(DataChannelPole::NegativePole, channelNumber);
         sendPacketRaw(CommandChannelNumber, packChannelMadeRequest(channelNumber), false);
         pendingChannels.put(channel);
         return true;
@@ -473,14 +477,14 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
         sendPacketRaw(CommandChannelNumber, packDestoryChannelRequest(channelNumber), false);
         return true;
     } else if (command == DESTROY_CHANNEL_REQUEST) {
-        takeChannel(channelNumber); // remove channel from pending channels.
-        if (subChannels.contains(channelNumber)) {
+        bool nothing = takeChannel(channelNumber).isNull(); // remove channel from pending channels.
+        if (nothing && subChannels.contains(channelNumber)) {
             QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
+            cleanChannel(channelNumber, false);
             if (!channel.isNull()) {
-                cleanChannel(channelNumber, false);
                 QSharedPointer<VirtualChannel> strong = channel.toStrongRef();
                 strong->d_func()->parentChannel.clear();
-                // do not worry, the receiving queue is still ok after aborted.
+                // the receiving queue is still ok after aborted.
                 strong->d_func()->setError(DataChannel::RemotePeerClosedError);
                 strong->d_func()->abort();
             }
@@ -515,6 +519,8 @@ SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection
     , connection(connection)
     , sendingQueue(256)
     , operations(new CoroutineGroup())
+    , _maxPayloadSize(1024 * 64 - sizeof(quint32) * 2)
+    , _payloadSizeHint(1400)
     , lastActiveTimestamp(QDateTime::currentMSecsSinceEpoch())
     , lastKeepaliveTimestamp(lastActiveTimestamp)
     , keepaliveTimeout(1000 * 10)
@@ -544,6 +550,9 @@ SocketChannelPrivate::~SocketChannelPrivate()
 bool SocketChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking)
 {
     if (broken || packet.isEmpty()) {
+        return false;
+    }
+    if (static_cast<quint32>(packet.size()) > _maxPayloadSize) {
         return false;
     }
     if (blocking) {
@@ -639,9 +648,6 @@ void SocketChannelPrivate::doReceive()
         try {
             const QByteArray &header = connection->recvall(headerSize);
             if (header.size() != headerSize) {
-#ifdef DEBUG_PROTOCOL
-                qtng_debug << "data channel is disconnected:" << header.size();
-#endif
                 setError(DataChannel::ReceivingError);
                 return abort();
             }
@@ -652,9 +658,9 @@ void SocketChannelPrivate::doReceive()
             packetSize = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(header.data()));
             channelNumber = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(header.data() + sizeof(quint32)));
 #endif
-            if (packetSize > maxPacketSize) {
+            if (packetSize > _maxPayloadSize) {
 #ifdef DEBUG_PROTOCOL
-                qtng_debug << QString::fromLatin1("packetSize %1 is larger than %2").arg(packetSize).arg(maxPacketSize);
+                qtng_debug << QString::fromLatin1("packetSize %1 is larger than %2").arg(packetSize).arg(maxPayloadSize);
 #endif
                 setError(DataChannel::InvalidPacket);
                 return abort();
@@ -694,6 +700,9 @@ void SocketChannelPrivate::doKeepalive()
         if (now > lastKeepaliveTimestamp && (now - lastKeepaliveTimestamp > keepaliveInterval) && sendingQueue.isEmpty()) {
             lastKeepaliveTimestamp = now;
             QSharedPointer<ValueEvent<bool>> done;
+#ifdef DEBUG_PROTOCOL
+            qCDebug(qtng_logger) << "sending keepalive packet.";
+#endif
             sendingQueue.putForcedly(WritingPacket(CommandChannelNumber, packKeepaliveRequest(), done));
         }
     }
@@ -706,6 +715,9 @@ void SocketChannelPrivate::abort()
         return;
     }
     broken = true;
+#ifdef DEBUG_PROTOCOL
+    qCDebug(qtng_logger) << "socket data channel abort:" << error;
+#endif
     Coroutine *current = Coroutine::current();
     connection->abort();
 
@@ -771,6 +783,18 @@ void SocketChannelPrivate::cleanSendingPacket(quint32 subChannelNumber, std::fun
 }
 
 
+quint32 SocketChannelPrivate::maxPayloadSize() const
+{
+    return _maxPayloadSize;
+}
+
+
+quint32 SocketChannelPrivate::payloadSizeHint() const
+{
+    return _payloadSizeHint;
+}
+
+
 quint32 SocketChannelPrivate::headerSize() const
 {
     return static_cast<int>(sizeof(quint32) + sizeof(quint32));
@@ -807,22 +831,6 @@ bool VirtualChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArra
     data.append(reinterpret_cast<char*>(header), sizeof(quint32));
     data.append(packet);
     return getPrivateHelper(parentChannel)->sendPacketRaw(this->channelNumber, data, blocking);
-}
-
-
-bool VirtualChannelPrivate::handleIncomingPacket(const QByteArray &packet)
-{
-    const int headerSize = sizeof(quint32);
-    if (packet.size() < headerSize) {
-        return false;
-    }
-#if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
-    quint32 channelNumber = qFromBigEndian<quint32>(packet.constData());
-#else
-    quint32 channelNumber = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(packet.constData()));
-#endif
-    const QByteArray &payload = packet.mid(headerSize);
-    return DataChannelPrivate::handleIncomingPacket(channelNumber, payload);
 }
 
 
@@ -891,6 +899,26 @@ bool VirtualChannelPrivate::isBroken() const
 }
 
 
+quint32 VirtualChannelPrivate::maxPayloadSize() const
+{
+    if (isBroken()) {
+        return 1400;
+    } else {
+        return parentChannel->maxPayloadSize() - sizeof(quint32);
+    }
+}
+
+
+quint32 VirtualChannelPrivate::payloadSizeHint() const
+{
+    if (isBroken()) {
+        return 1400;
+    } else {
+        return parentChannel->payloadSizeHint() - sizeof(quint32);
+    }
+}
+
+
 quint32 VirtualChannelPrivate::headerSize() const
 {
     return sizeof(quint32);
@@ -929,6 +957,24 @@ SocketChannel::SocketChannel(QSharedPointer<KcpSocket> connection, DataChannelPo
 SocketChannel::SocketChannel(QSharedPointer<SocketLike> connection, DataChannelPole pole)
     :DataChannel(new SocketChannelPrivate(connection, pole, this))
 {
+}
+
+void SocketChannel::setMaxPacketSize(quint32 size)
+{
+    Q_D(SocketChannel);
+    if (size < 64) {
+        qtng_warning << "the max packet size of DataChannel should not lesser than 64.";
+        return;
+    }
+    d->_maxPayloadSize = size - sizeof(quint32) - sizeof(quint32);
+    d->_payloadSizeHint = qMin(d->_payloadSizeHint, d->_maxPayloadSize);
+}
+
+
+void SocketChannel::setPayloadSizeHint(quint32 payloadSizeHint)
+{
+    Q_D(SocketChannel);
+    d->_payloadSizeHint = qMin(payloadSizeHint, d->_maxPayloadSize);
 }
 
 
@@ -986,6 +1032,13 @@ VirtualChannel::VirtualChannel(DataChannel *parentChannel, DataChannelPole pole,
     :DataChannel(new VirtualChannelPrivate(parentChannel, pole, channelNumber, this))
 {
 
+}
+
+
+quint32 VirtualChannel::channelNumber() const
+{
+    Q_D(const VirtualChannel);
+    return d->channelNumber;
 }
 
 
@@ -1097,35 +1150,24 @@ QString DataChannel::toString() const
 }
 
 
-void DataChannel::setMaxPacketSize(quint32 size)
-{
-    Q_D(DataChannel);
-    if (size < 64) {
-        qtng_warning << "the max packet size of DataChannel should not lesser than 64.";
-    }
-    d->maxPacketSize = size;
-    d->payloadSizeHint = qMin(d->payloadSizeHint, size - d->headerSize());
-}
-
-
 quint32 DataChannel::maxPacketSize() const
 {
     Q_D(const DataChannel);
-    return d->maxPacketSize;
+    return d->maxPayloadSize() + d->headerSize();
 }
 
 
-void DataChannel::setPayloadSizeHint(quint32 payloadSizeHint)
+quint32 DataChannel::maxPayloadSize() const
 {
-    Q_D(DataChannel);
-    d->payloadSizeHint = qMin(payloadSizeHint, d->maxPacketSize - d->headerSize());
+    Q_D(const DataChannel);
+    return d->maxPayloadSize();
 }
 
 
 quint32 DataChannel::payloadSizeHint() const
 {
     Q_D(const DataChannel);
-    return d->payloadSizeHint;
+    return d->payloadSizeHint();
 }
 
 
@@ -1172,13 +1214,6 @@ QString DataChannel::name() const
 {
     Q_D(const DataChannel);
     return d->name;
-}
-
-
-quint32 VirtualChannel::channelNumber() const
-{
-    Q_D(const VirtualChannel);
-    return d->channelNumber;
 }
 
 

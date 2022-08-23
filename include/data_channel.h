@@ -46,10 +46,9 @@ public:
     ChannelError error() const;
     QString errorString() const;
     QString toString() const;
-    void setMaxPacketSize(quint32 size);
     quint32 maxPacketSize() const;                      // packet with size > maxPacketSize is an error.
-    void setPayloadSizeHint(quint32 payloadSizeHint);   // usually set to tcp/udp mtu.
-    quint32 payloadSizeHint() const;                    // should be <= maxPacketSize - headerSize
+    quint32 maxPayloadSize() const;                     // maxPacketSize - headerSize(4 or 8)
+    quint32 payloadSizeHint() const;                    // should be <= maxPayloadSize
     void setCapacity(quint32 packets);                  // channel blocked if there are n packets not read.
     quint32 capacity() const;                           // so, a data channel may consume `maxPacketSize * capacity` bytes of receiving buffer memory.
     quint32 receivingQueueSize() const;
@@ -83,6 +82,8 @@ public:
     SocketChannel(QSharedPointer<KcpSocket> socket, DataChannelPole pole);
     SocketChannel(QSharedPointer<SocketLike> socket, DataChannelPole pole);
 public:
+    void setMaxPacketSize(quint32 size);
+    void setPayloadSizeHint(quint32 payloadSizeHint);   // usually set to tcp/udp mtu.
     void setKeepaliveTimeout(float timeout);
     float keepaliveTimeout() const;
     void setKeepaliveInterval(float keepaliveInterval);

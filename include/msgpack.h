@@ -69,6 +69,8 @@ public:
     MsgPackStream &operator>>(MsgPackExtData &ext);
     MsgPackStream &operator>>(QVariant &v);
     bool readBytes(char *data, qint64 len);
+    bool readArrayHeader(quint32 &len);
+    bool readMapHeader(quint32 &len);
     bool readExtHeader(quint32 &len, quint8 msgpackType);
 
     MsgPackStream &operator<<(bool b);
@@ -87,7 +89,10 @@ public:
     MsgPackStream &operator<<(const QDateTime &dt);
     MsgPackStream &operator<<(const MsgPackExtData &ext);
     MsgPackStream &operator<<(const QVariant &v);
+
     bool writeBytes(const char *data, qint64 len);
+    bool writeArrayHeader(quint32 len);
+    bool writeMapHeader(quint32 len);
     bool writeExtHeader(quint32 len, quint8 msgpackType);
 private:
     MsgPackExtUserData *getUserData(intptr_t key) const;
@@ -164,15 +169,18 @@ inline quint32 _msgpack_load32(quint8 *p) { return qFromBigEndian<quint32>(stati
 inline quint64 _msgpack_load64(quint8 *p) { return qFromBigEndian<quint64>(static_cast<const uchar*>(p)); }
 #endif
 
+
 inline void _msgpack_store8(quint8 *p, quint8 i)
 {
     *p = i;
 }
 
+
 inline void _msgpack_store8(quint8 *p, qint8 i)
 {
     *p = static_cast<quint8>(static_cast<qint32>(i));
 }
+
 
 inline quint8 _msgpack_load8(quint8 *p)
 {
@@ -183,22 +191,9 @@ inline quint8 _msgpack_load8(quint8 *p)
 template <typename T>
 MsgPackStream& operator<<(MsgPackStream& s, const QList<T> &list)
 {
-    quint32 len = list.size();
-    quint8 p[5];
-    if (len <= 15) {
-        p[0] = FirstByte::FIXARRAY | len;
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 1);
-    } else if (len <= std::numeric_limits<quint16>::max()) {
-        p[0] = FirstByte::ARRAY16;
-        _msgpack_store16(p + 1, static_cast<quint16>(len));
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 3);
-    } else {
-        p[0] = FirstByte::ARRAY32;
-        _msgpack_store32(p + 1, len);
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 5);
-    }
-    if (s.status() != MsgPackStream::Ok)
+    if (!s.writeArrayHeader(list.size())) {
         return s;
+    }
     for (int i = 0; i < list.size(); ++i)
         s << list[i];
     return s;
@@ -208,22 +203,9 @@ MsgPackStream& operator<<(MsgPackStream& s, const QList<T> &list)
 template <typename T>
 MsgPackStream& operator<<(MsgPackStream& s, const QVector<T> &list)
 {
-    quint32 len = list.size();
-    quint8 p[5];
-    if (len <= 15) {
-        p[0] = FirstByte::FIXARRAY | len;
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 1);
-    } else if (len <= std::numeric_limits<quint16>::max()) {
-        p[0] = FirstByte::ARRAY16;
-        _msgpack_store16(p + 1, static_cast<quint16>(len));
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 3);
-    } else {
-        p[0] = FirstByte::ARRAY32;
-        _msgpack_store32(p + 1, len);
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 5);
-    }
-    if (s.status() != MsgPackStream::Ok)
+    if (!s.writeArrayHeader(list.size())) {
         return s;
+    }
     for (int i = 0; i < list.size(); ++i)
         s << list[i];
     return s;
@@ -233,24 +215,11 @@ MsgPackStream& operator<<(MsgPackStream& s, const QVector<T> &list)
 template<typename K, typename V>
 MsgPackStream &operator<<(MsgPackStream &s, const QMap<K, V> &map)
 {
-    quint32 len = map.size();
-    quint8 p[5];
-    if (len <= 15) {
-        p[0] = FirstByte::FIXMAP | len;
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 1);
-    } else if (len <= std::numeric_limits<quint16>::max()) {
-        p[0] = FirstByte::MAP16;
-        _msgpack_store16(p + 1, static_cast<quint16>(len));
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 3);
-    } else {
-        p[0] = FirstByte::MAP32;
-        _msgpack_store32(p + 1, len);
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 5);
-    }
-    if (s.status() != MsgPackStream::Ok)
+    if (!s.writeMapHeader(map.size())) {
         return s;
+    }
     QMapIterator<K, V> itor(map);
-    while(itor.hasNext()) {
+    while (itor.hasNext()) {
         itor.next();
         s << itor.key();
         s << itor.value();
@@ -262,24 +231,11 @@ MsgPackStream &operator<<(MsgPackStream &s, const QMap<K, V> &map)
 template<typename K, typename V>
 MsgPackStream &operator<<(MsgPackStream &s, const QHash<K, V> &map)
 {
-    quint32 len = map.size();
-    quint8 p[5];
-    if (len <= 15) {
-        p[0] = FirstByte::FIXMAP | len;
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 1);
-    } else if (len <= std::numeric_limits<quint16>::max()) {
-        p[0] = FirstByte::MAP16;
-        _msgpack_store16(p + 1, static_cast<quint16>(len));
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 3);
-    } else {
-        p[0] = FirstByte::MAP32;
-        _msgpack_store32(p + 1, len);
-        s.writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 5);
-    }
-    if (s.status() != MsgPackStream::Ok)
+    if (!s.writeMapHeader(map.size())) {
         return s;
+    }
     QMapIterator<K, V> itor(map);
-    while(itor.hasNext()) {
+    while (itor.hasNext()) {
         itor.next();
         s << itor.key();
         s << itor.value();
@@ -319,22 +275,11 @@ inline typename std::enable_if<is_qt_pointer<T>::value, T>::type s_allocate()
 template <typename T>
 MsgPackStream& operator>>(MsgPackStream& s, QList<T> &list)
 {
-    list.clear();
-    quint8 p[5];
     quint32 len = 0;
-    s.readBytes((char *)p, 1);
-    if (p[0] >= FirstByte::FIXARRAY && p[0] <= (FirstByte::FIXARRAY + 0xf)) {
-        len = p[0] & 0xf;
-    } else if (p[0] == FirstByte::ARRAY16) {
-        s.readBytes((char *)p + 1, 2);
-        len = _msgpack_load16(p + 1);
-    } else if (p[0] == FirstByte::ARRAY32) {
-        s.readBytes((char *)p + 1, 4);
-        len = _msgpack_load32(p + 1);
-    } else {
-        s.setStatus(MsgPackStream::ReadCorruptData);
+    if (!s.readArrayHeader(len)) {
         return s;
     }
+    list.clear();
     list.reserve(len);
     for (quint32 i = 0; i < len; ++i) {
         T t = s_allocate<T>();
@@ -350,22 +295,11 @@ MsgPackStream& operator>>(MsgPackStream& s, QList<T> &list)
 template <typename T>
 MsgPackStream& operator>>(MsgPackStream& s, QVector<T> &list)
 {
-    list.clear();
-    quint8 p[5];
     quint32 len = 0;
-    s.readBytes((char *)p, 1);
-    if (p[0] >= FirstByte::FIXARRAY && p[0] <= (FirstByte::FIXARRAY + 0xf)) {
-        len = p[0] & 0xf;
-    } else if (p[0] == FirstByte::ARRAY16) {
-        s.readBytes((char *)p + 1, 2);
-        len = _msgpack_load16(p + 1);
-    } else if (p[0] == FirstByte::ARRAY32) {
-        s.readBytes((char *)p + 1, 4);
-        len = _msgpack_load32(p + 1);
-    } else {
-        s.setStatus(MsgPackStream::ReadCorruptData);
+    if (!s.readArrayHeader(len)) {
         return s;
     }
+    list.clear();
     list.reserve(len);
     for (quint32 i = 0; i < len; ++i) {
         T t = s_allocate<T>();
@@ -381,22 +315,12 @@ MsgPackStream& operator>>(MsgPackStream& s, QVector<T> &list)
 template <typename K, typename V>
 MsgPackStream& operator>>(MsgPackStream& s, QMap<K, V> &map)
 {
-    map.clear();
-    quint8 p[5];
     quint32 len = 0;
-    s.readBytes((char *)p, 1);
-    if (p[0] >= FirstByte::FIXMAP && p[0] <= (FirstByte::FIXMAP + 0xf)) {
-        len = p[0] & 0xf;
-    } else if (p[0] == FirstByte::MAP16) {
-        s.readBytes((char *)p + 1, 2);
-        len = _msgpack_load16(p + 1);
-    } else if (p[0] == FirstByte::MAP32) {
-        s.readBytes((char *)p + 1, 4);
-        len = _msgpack_load32(p + 1);
-    } else {
-        s.setStatus(MsgPackStream::ReadCorruptData);
+    if (!s.readMapHeader(len)) {
         return s;
     }
+    map.clear();
+    map.reserve(len);
     for (quint32 i = 0; i < len; ++i) {
         K k = s_allocate<K>();
         s >> k;
@@ -417,22 +341,11 @@ MsgPackStream& operator>>(MsgPackStream& s, QMap<K, V> &map)
 template <typename K, typename V>
 MsgPackStream& operator>>(MsgPackStream& s, QHash<K, V> &map)
 {
-    map.clear();
-    quint8 p[5];
     quint32 len = 0;
-    s.readBytes((char *)p, 1);
-    if (p[0] >= FirstByte::FIXMAP && p[0] <= (FirstByte::FIXMAP + 0xf)) {
-        len = p[0] & 0xf;
-    } else if (p[0] == FirstByte::MAP16) {
-        s.readBytes((char *)p + 1, 2);
-        len = _msgpack_load16(p + 1);
-    } else if (p[0] == FirstByte::MAP32) {
-        s.readBytes((char *)p + 1, 4);
-        len = _msgpack_load32(p + 1);
-    } else {
-        s.setStatus(MsgPackStream::ReadCorruptData);
+    if (!s.readMapHeader(len)) {
         return s;
     }
+    map.clear();
     map.reserve(len);
     for (quint32 i = 0; i < len; ++i) {
         K k = s_allocate<K>();

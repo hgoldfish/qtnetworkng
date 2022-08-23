@@ -489,6 +489,9 @@ QByteArray CertificatePrivate::save(Ssl::EncodingFormat format) const
 Certificate CertificatePrivate::load(const QByteArray &data, Ssl::EncodingFormat format)
 {
     Certificate cert;
+    if (data.isEmpty()) {
+        return cert;
+    }
     if (format == Ssl::Pem) {
         QSharedPointer<BIO> bio(BIO_new_mem_buf(data.data(), data.size()), BIO_free);
         if (bio.isNull()) {

@@ -417,6 +417,8 @@ private:
     Event * const q_ptr;
     Condition condition;
     volatile bool flag;
+    QList<Event *> linkTo;
+    QList<Event *> linkFrom;
     Q_DECLARE_PUBLIC(Event)
 };
 
@@ -432,6 +434,12 @@ EventPrivate::~EventPrivate()
     if (!flag && condition.getting() > 0) {
         condition.notifyAll();
     }
+    for (Event *event: linkFrom) {
+        event->d_ptr->linkTo.removeOne(q_ptr);
+    }
+    for (Event *event: linkTo) {
+        event->d_ptr->linkFrom.removeOne(q_ptr);
+    }
 }
 
 
@@ -440,6 +448,9 @@ void EventPrivate::set()
     if (!flag) {
         flag = true;
         condition.notifyAll();
+        for (Event *other: linkTo) {
+            other->set();
+        }
     }
 }
 
@@ -513,6 +524,22 @@ quint32 Event::getting() const
 }
 
 
+void Event::link(Event &other)
+{
+    Q_D(Event);
+    d->linkTo.append(&other);
+    other.d_func()->linkFrom.append(this);
+}
+
+
+void Event::unlink(Event &other)
+{
+    Q_D(Event);
+    d->linkTo.removeOne(&other);
+    other.d_ptr->linkFrom.removeOne(this);
+}
+
+
 struct Behold {
     QPointer<EventLoopCoroutine> eventloop;
     QSharedPointer<Condition> condition;
@@ -532,6 +559,8 @@ public:
     QWaitCondition condition;
     QMutex mutex;
     QList<Behold> holds;
+    QList<ThreadEvent *> linkTo;
+    QList<ThreadEvent *> linkFrom;
     QAtomicInteger<int> flag;
     QAtomicInteger<int> count;  // only for condition
     QAtomicInteger<quint32> ref;
@@ -727,6 +756,34 @@ quint32 ThreadEvent::getting() const
         return 0;
     }
     return d->getting();
+}
+
+
+void ThreadEvent::link(ThreadEvent &other)
+{
+    if (!d) {
+        return;
+    }
+    d->mutex.lock();
+    d->linkTo.append(&other);
+    d->mutex.unlock();
+    other.d->mutex.lock();
+    other.d->linkFrom.append(this);
+    other.d->mutex.unlock();
+}
+
+
+void ThreadEvent::unlink(ThreadEvent &other)
+{
+    if (!d) {
+        return;
+    }
+    d->mutex.lock();
+    d->linkTo.removeOne(&other);
+    d->mutex.unlock();
+    other.d->mutex.lock();
+    other.d->linkFrom.removeOne(this);
+    other.d->mutex.unlock();
 }
 
 

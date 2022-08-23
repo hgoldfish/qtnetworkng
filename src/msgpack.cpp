@@ -29,13 +29,40 @@ QTNETWORKNG_NAMESPACE_BEGIN
 
 static inline QDateTime unpackDatetime(const QByteArray &bs)
 {
+    quint32 seconds;
+    qint64 nanoseconds;
+
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
-    quint64 t = qFromBigEndian<quint64>(static_cast<const void*>(bs.constData()));
+    if (bs.size() == 4) {
+        seconds = qFromBigEndian<quint32>(static_cast<const void *>(bs.constData()));
+        nanoseconds = 0;
+    } else if (bs.size() == 8) {
+        quint64 t = qFromBigEndian<quint64>(static_cast<const void*>(bs.constData()));
+        seconds = t & 0x00000003ffffffffL;
+        nanoseconds = t >> 34;
+    } else if (bs.size() == 12) {
+        seconds = qFromBigEndian<quint32>(static_cast<const void *>(bs.constData()));
+        nanoseconds = qFromBigEndian<quint32>(static_cast<const void *>(bs.constData() + 4));
+    } else {
+        Q_UNREACHABLE();
+    }
 #else
-    quint64 t = qFromBigEndian<quint64>(static_cast<const uchar*>(static_cast<const void*>(bs.constData())));
+    if (bs.size() == 4) {
+        seconds = qFromBigEndian<quint32>(static_cast<const uchar*>(static_cast<const void *>(bs.constData())));
+        nanoseconds = 0;
+    } else if (bs.size() == 8) {
+        quint64 t = qFromBigEndian<quint64>(static_cast<const uchar*>(static_cast<const void*>(bs.constData())));
+        seconds = t & 0x00000003ffffffffL;
+        nanoseconds = t >> 34;
+    } else if (bs.size() == 12) {
+        seconds = qFromBigEndian<quint32>(static_cast<const uchar*>(static_cast<const void *>(bs.constData())));
+        nanoseconds = qFromBigEndian<quint32>(static_cast<const uchar*>(static_cast<const void *>(bs.constData() + 4)));
+    } else {
+        Q_UNREACHABLE();
+    }
 #endif
-    qint64 msecs = (t & 0x00000003ffffffffL) * 1000 + (t >> 34) / 1000;
-    return QDateTime::fromMSecsSinceEpoch(msecs);
+    return QDateTime::fromMSecsSinceEpoch(seconds * 1000 + nanoseconds / 1000);
+
 }
 
 MsgPackExtUserData::~MsgPackExtUserData()
@@ -54,9 +81,13 @@ public:
 public:
     bool readBytes(char *data, qint64 len);
     inline bool readBytes(quint8 *data, int len);
+    bool readArrayHeader(quint32 &len);
+    bool readMapHeader(quint32 &len);
     bool readExtHeader(quint32 &len, quint8 &msgpackType);
     bool writeBytes(const char *data, qint64 len);
     inline bool writeBytes(const quint8 *data, int len);
+    bool writeArrayHeader(quint32 len);
+    bool writeMapHeader(quint32 len);
     bool writeExtHeader(quint32 len, quint8 msgpackType);
     bool unpack_longlong(qint64 &i64);
     bool unpack_ulonglong(quint64 &u64);
@@ -170,6 +201,46 @@ bool MsgPackStreamPrivate::readBytes(char *data, qint64 len)
 bool MsgPackStreamPrivate::readBytes(quint8 *data, int len)
 {
     return readBytes(static_cast<char*>(static_cast<void*>(data)), len);
+}
+
+
+bool MsgPackStreamPrivate::readArrayHeader(quint32 &len)
+{
+    quint8 p[5];
+    readBytes((char *)p, 1);
+    if (p[0] >= FirstByte::FIXARRAY && p[0] <= (FirstByte::FIXARRAY + 0xf)) {
+        len = p[0] & 0xf;
+    } else if (p[0] == FirstByte::ARRAY16) {
+        readBytes((char *)p + 1, 2);
+        len = _msgpack_load16(p + 1);
+    } else if (p[0] == FirstByte::ARRAY32) {
+        readBytes((char *)p + 1, 4);
+        len = _msgpack_load32(p + 1);
+    } else {
+        status = MsgPackStream::ReadCorruptData;
+        return false;
+    }
+    return true;
+}
+
+
+bool MsgPackStreamPrivate::readMapHeader(quint32 &len)
+{
+    quint8 p[5];
+    readBytes((char *)p, 1);
+    if (p[0] >= FirstByte::FIXMAP && p[0] <= (FirstByte::FIXMAP + 0xf)) {
+        len = p[0] & 0xf;
+    } else if (p[0] == FirstByte::MAP16) {
+        readBytes((char *)p + 1, 2);
+        len = _msgpack_load16(p + 1);
+    } else if (p[0] == FirstByte::MAP32) {
+        readBytes((char *)p + 1, 4);
+        len = _msgpack_load32(p + 1);
+    } else {
+        status = MsgPackStream::ReadCorruptData;
+        return false;
+    }
+    return true;
 }
 
 
@@ -537,7 +608,18 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
                 return false;
             }
         }
-        v.setValue(ext);
+        if (ext.type == 0xff) {
+            if (ext.payload.size() == 4 || ext.payload.size() == 8 || ext.payload.size() == 12) {
+                const QDateTime &dt = unpackDatetime(ext.payload);
+                v.setValue(dt);
+            } else {
+                qDebug() << "the datetime require 4/8/12 bytes.";
+                status = MsgPackStream::ReadCorruptData;
+                return false;
+            }
+        } else {
+            v.setValue(ext);
+        }
     } else if (p[0] == FirstByte::EXT16) {
         if (!readBytes(p + 1, 3)) {
             return false;
@@ -556,7 +638,18 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
                 return false;
             }
         }
-        v.setValue(ext);
+        if (ext.type == 0xff) {
+            if (ext.payload.size() == 4 || ext.payload.size() == 8 || ext.payload.size() == 12) {
+                const QDateTime &dt = unpackDatetime(ext.payload);
+                v.setValue(dt);
+            } else {
+                qDebug() << "the datetime require 4/8/12 bytes.";
+                status = MsgPackStream::ReadCorruptData;
+                return false;
+            }
+        } else {
+            v.setValue(ext);
+        }
     } else if (p[0] == FirstByte::EXT32) {
         if (!readBytes(p + 1, 5)) {
             return false;
@@ -579,7 +672,18 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
                 return false;
             }
         }
-        v.setValue(ext);
+        if (ext.type == 0xff) {
+            if (ext.payload.size() == 4 || ext.payload.size() == 8 || ext.payload.size() == 12) {
+                const QDateTime &dt = unpackDatetime(ext.payload);
+                v.setValue(dt);
+            } else {
+                qDebug() << "the datetime require 4/8/12 bytes.";
+                status = MsgPackStream::ReadCorruptData;
+                return false;
+            }
+        } else {
+            v.setValue(ext);
+        }
     } else if (p[0] == FirstByte::FLOAT32) {
         if (!readBytes(p + 1, 4)) {
             return false;
@@ -646,9 +750,15 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
         if (!readBytes(ext.payload.data(), len)) {
             return false;
         }
-        if (ext.type == 0xff && ext.payload.size() == 8) {
-            const QDateTime &dt = unpackDatetime(ext.payload);
-            v.setValue(dt);
+        if (ext.type == 0xff) {
+            if (ext.payload.size() == 4 || ext.payload.size() == 8) {
+                const QDateTime &dt = unpackDatetime(ext.payload);
+                v.setValue(dt);
+            } else {
+                qDebug() << "the datetime require 4/8/12 bytes.";
+                status = MsgPackStream::ReadCorruptData;
+                return false;
+            }
         } else {
             v.setValue(ext);
         }
@@ -820,6 +930,44 @@ bool MsgPackStreamPrivate::writeBytes(const char *data, qint64 len)
 bool MsgPackStreamPrivate::writeBytes(const quint8 *data, int len)
 {
     return writeBytes(static_cast<const char*>(static_cast<const void*>(data)), len);
+}
+
+
+bool MsgPackStreamPrivate::writeArrayHeader(quint32 len)
+{
+    quint8 p[5];
+    if (len <= 15) {
+        p[0] = FirstByte::FIXARRAY | len;
+        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 1);
+    } else if (len <= std::numeric_limits<quint16>::max()) {
+        p[0] = FirstByte::ARRAY16;
+        _msgpack_store16(p + 1, static_cast<quint16>(len));
+        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 3);
+    } else {
+        p[0] = FirstByte::ARRAY32;
+        _msgpack_store32(p + 1, len);
+        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 5);
+    }
+    return status == MsgPackStream::Ok;
+}
+
+
+bool MsgPackStreamPrivate::writeMapHeader(quint32 len)
+{
+    quint8 p[5];
+    if (len <= 15) {
+        p[0] = FirstByte::FIXMAP | len;
+        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 1);
+    } else if (len <= std::numeric_limits<quint16>::max()) {
+        p[0] = FirstByte::MAP16;
+        _msgpack_store16(p + 1, static_cast<quint16>(len));
+        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 3);
+    } else {
+        p[0] = FirstByte::MAP32;
+        _msgpack_store32(p + 1, len);
+        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 5);
+    }
+    return status == MsgPackStream::Ok;
 }
 
 
@@ -1226,17 +1374,23 @@ MsgPackStream &MsgPackStream::operator>>(QDateTime &dt)
     quint32 len;
     quint8 msgpackType;
     d->readExtHeader(len, msgpackType);
-    if (len != 8 || msgpackType != 0xff) {
+    if (msgpackType != 0xff) {
         d->status = ReadCorruptData;
         dt = QDateTime();
         return *this;
     }
-    quint8 p[8];
-    if (!d->readBytes(p, 8)) {
+    quint8 p[len];
+    if (!d->readBytes(p, len)) {
         dt = QDateTime();
         return *this;
     }
-    dt = unpackDatetime(QByteArray(static_cast<char*>(static_cast<void*>(p)), 8));
+    if (len == 4 || len == 8 || len == 12) {
+        dt = unpackDatetime(QByteArray(static_cast<char*>(static_cast<void*>(p)), len));
+    } else {
+        qDebug() << "the datetime require 4/8/12 bytes.";
+        d->status = MsgPackStream::ReadCorruptData;
+        dt = QDateTime();
+    }
     return *this;
 }
 
@@ -1271,6 +1425,20 @@ bool MsgPackStream::readBytes(char *data, qint64 len)
 {
     Q_D(MsgPackStream);
     return d->readBytes(data, len);
+}
+
+
+bool MsgPackStream::readArrayHeader(quint32 &len)
+{
+    Q_D(MsgPackStream);
+    return d->readArrayHeader(len);
+}
+
+
+bool MsgPackStream::readMapHeader(quint32 &len)
+{
+    Q_D(MsgPackStream);
+    return d->readMapHeader(len);
 }
 
 
@@ -1608,6 +1776,20 @@ bool MsgPackStream::writeBytes(const char *data, qint64 len)
 {
     Q_D(MsgPackStream);
     return d->writeBytes(data, len);
+}
+
+
+bool MsgPackStream::writeArrayHeader(quint32 len)
+{
+    Q_D(MsgPackStream);
+    return d->writeArrayHeader(len);
+}
+
+
+bool MsgPackStream::writeMapHeader(quint32 len)
+{
+    Q_D(MsgPackStream);
+    return d->writeMapHeader(len);
 }
 
 

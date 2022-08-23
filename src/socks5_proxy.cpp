@@ -152,7 +152,7 @@ QSharedPointer<Socket> Socks5ProxyPrivate::getControlSocket() const
         if(authResponse.at(0) != S5_PASSWORDAUTH_VERSION) {
             throw Socks5Exception(Socks5Exception::ProxyProtocolError);
         }
-        if(authResponse.at(0) != 0x1) {
+        if(authResponse.at(1) != 0x0) {
             throw Socks5Exception(Socks5Exception::ProxyAuthenticationRequiredError);
         }
     } else if(helloResponse.at(1) == negOne) {

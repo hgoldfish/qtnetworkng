@@ -203,7 +203,7 @@ QSharedPointer<RawFile> RawFile::open(const QString &filepath, const QString &mo
                || isTheMode(mode, QString::fromUtf8("wr"))) {
         flags |= QIODevice::WriteOnly;
         flags |= QIODevice::Truncate;
-        if (mode.contains(QLatin1Char('+'))) {
+        if (mode.contains(QLatin1Char('+')) || mode.contains(QLatin1Char('r'))) {
             flags |= QIODevice::ReadOnly;
         }
     } else if (isTheMode(mode, QString::fromUtf8("a"))) {
