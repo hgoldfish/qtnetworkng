@@ -29,8 +29,8 @@ QTNETWORKNG_NAMESPACE_BEGIN
 
 static inline QDateTime unpackDatetime(const QByteArray &bs)
 {
-    quint32 seconds;
-    qint64 nanoseconds;
+    quint64 seconds;
+    quint64 nanoseconds;
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     if (bs.size() == 4) {

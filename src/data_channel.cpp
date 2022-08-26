@@ -457,11 +457,17 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
         return false;
     }
     if (command == MAKE_CHANNEL_REQUEST) {
+#ifdef DEBUG_PROTOCOL
+        qtng_debug << "make channel request:" << channelNumber;
+#endif
         QSharedPointer<VirtualChannel> channel = makeChannelInternal(DataChannelPole::NegativePole, channelNumber);
         sendPacketRaw(CommandChannelNumber, packChannelMadeRequest(channelNumber), false);
         pendingChannels.put(channel);
         return true;
     } else if (command == CHANNEL_MADE_REQUEST) {
+#ifdef DEBUG_PROTOCOL
+        qtng_debug << "channel made request:" << channelNumber;
+#endif
         if (subChannels.contains(channelNumber)) {
             QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
             if (channel.isNull()) {
@@ -477,6 +483,9 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
         sendPacketRaw(CommandChannelNumber, packDestoryChannelRequest(channelNumber), false);
         return true;
     } else if (command == DESTROY_CHANNEL_REQUEST) {
+#ifdef DEBUG_PROTOCOL
+        qtng_debug << "destroy channel request:" << channelNumber;
+#endif
         bool nothing = takeChannel(channelNumber).isNull(); // remove channel from pending channels.
         if (nothing && subChannels.contains(channelNumber)) {
             QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
@@ -660,7 +669,7 @@ void SocketChannelPrivate::doReceive()
 #endif
             if (packetSize > _maxPayloadSize) {
 #ifdef DEBUG_PROTOCOL
-                qtng_debug << QString::fromLatin1("packetSize %1 is larger than %2").arg(packetSize).arg(maxPayloadSize);
+                qtng_debug << QString::fromLatin1("packetSize %1 is larger than %2").arg(packetSize).arg(_maxPayloadSize);
 #endif
                 setError(DataChannel::InvalidPacket);
                 return abort();

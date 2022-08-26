@@ -320,7 +320,6 @@ MsgPackStream& operator>>(MsgPackStream& s, QMap<K, V> &map)
         return s;
     }
     map.clear();
-    map.reserve(len);
     for (quint32 i = 0; i < len; ++i) {
         K k = s_allocate<K>();
         s >> k;
