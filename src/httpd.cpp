@@ -23,7 +23,7 @@ static const QString DEFAULT_ERROR_MESSAGE = QString::fromLatin1("<!DOCTYPE HTML
                                      "        <p>Message: %2.</p>\n"
                                      "        <p>Error code explanation: %1 - %3.</p>\n"
                                      "    </body>\n"
-                                     "</html>");
+                                     "</html>\n");
 static const QString DEFAULT_ERROR_CONTENT_TYPE = QString::fromLatin1("text/html;charset=utf-8");
 
 
