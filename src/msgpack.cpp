@@ -632,6 +632,11 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
         }
         MsgPackExtData ext;
         ext.type = p[3];
+        if (len > limit) {
+            qDebug() << "read ext length is too large.";
+            status = MsgPackStream::ReadCorruptData;
+            return false;
+        }
         if (len > 0) {
             ext.payload.resize(static_cast<int>(len));
             if (!readBytes(ext.payload.data(), len)) {
@@ -1379,18 +1384,17 @@ MsgPackStream &MsgPackStream::operator>>(QDateTime &dt)
         dt = QDateTime();
         return *this;
     }
-    quint8 p[len];
-    if (!d->readBytes(p, len)) {
-        dt = QDateTime();
-        return *this;
-    }
-    if (len == 4 || len == 8 || len == 12) {
-        dt = unpackDatetime(QByteArray(static_cast<char*>(static_cast<void*>(p)), len));
-    } else {
+    if (len != 4 && len != 8 && len != 12) {
         qDebug() << "the datetime require 4/8/12 bytes.";
         d->status = MsgPackStream::ReadCorruptData;
         dt = QDateTime();
     }
+    quint8 p[12];
+    if (!d->readBytes(p, len)) {
+        dt = QDateTime();
+        return *this;
+    }
+    dt = unpackDatetime(QByteArray(static_cast<char*>(static_cast<void*>(p)), len));
     return *this;
 }
 
