@@ -34,6 +34,8 @@ public:
         InvalidCommand = 5,
         InvalidPacket = 6,
         UserShutdown = 7,
+        PluggedChannelError = 8,
+        PakcetTooLarge = 9,
 
         UnknownError = 100,
         ProgrammingError = 101,

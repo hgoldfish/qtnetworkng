@@ -25,6 +25,7 @@ const quint8 DESTROY_CHANNEL_REQUEST = 3;
 const quint8 SLOW_DOWN_REQUEST = 4;
 const quint8 GO_THROUGH_REQUEST = 5;
 const quint8 KEEPALIVE_REQUEST = 6;
+const quint32 DefaultPacketSize = 1024 * 64;
 
 
 static QByteArray packMakeChannelRequest(quint32 channelNumber)
@@ -127,10 +128,9 @@ public:
     bool sendPacket(const QByteArray &packet);
     bool sendPacketAsync(const QByteArray &packet);
     QString toString() const;
-    void setError(DataChannel::ChannelError error) { if (this->error == DataChannel::NoError) this->error = error; }
 
     // must be implemented by subclasses
-    virtual void abort();
+    virtual void abort(DataChannel::ChannelError reason);
     virtual bool isBroken() const = 0;
     virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &payload, bool blocking) = 0;
     virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) = 0;
@@ -143,7 +143,7 @@ public:
     // called by the subclasses.
     bool handleCommand(const QByteArray &packet);
     void notifyChannelClose(quint32 channelNumber);
-    bool handleIncomingPacket(quint32 channelNumber, const QByteArray &payload);
+    DataChannel::ChannelError handleIncomingPacket(quint32 channelNumber, const QByteArray &payload);
 
     QString name;
     DataChannelPole pole;
@@ -158,7 +158,6 @@ public:
 
     Q_DECLARE_PUBLIC(DataChannel)
     DataChannel * const q_ptr;
-    bool broken;
 
     inline static DataChannelPrivate *getPrivateHelper(QPointer<DataChannel> channel) { return channel.data()->d_func(); }
     inline static DataChannelPrivate *getPrivateHelper(QSharedPointer<DataChannel> channel) { return channel.data()->d_func(); }
@@ -189,7 +188,7 @@ public:
     SocketChannelPrivate(QSharedPointer<SocketLike> connection, DataChannelPole pole, SocketChannel *parent);
     virtual ~SocketChannelPrivate() override;
     virtual bool isBroken() const override;
-    virtual void abort() override;
+    virtual void abort(DataChannel::ChannelError reason) override;
     virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking) override;
     virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) override;
     virtual void cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray&)> subCheckPacket) override;
@@ -222,7 +221,7 @@ public:
     VirtualChannelPrivate(DataChannel* parentChannel, DataChannelPole pole, quint32 channelNumber, VirtualChannel *parent);
     virtual ~VirtualChannelPrivate() override;
     virtual bool isBroken() const override;
-    virtual void abort() override;
+    virtual void abort(DataChannel::ChannelError reason) override;
     virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking) override;
     virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) override;
     virtual void cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray&)> subCheckPacket) override;
@@ -243,7 +242,6 @@ DataChannelPrivate::DataChannelPrivate(DataChannelPole pole, DataChannel *parent
     , receivingQueue(1024)  // may consume 1024 * maxPayloadSize bytes.
     , error(DataChannel::NoError)
     , q_ptr(parent)
-    , broken(false)
 {
     if (pole == DataChannelPole::NegativePole) {
         nextChannelNumber = 0xffffffff;
@@ -265,28 +263,24 @@ DataChannelPrivate::~DataChannelPrivate()
 
 QString DataChannelPrivate::toString() const
 {
-    QString pattern = QString::fromLatin1("<%1 (name = %2, state = %3, capacity = %4, queue_size = %5)>");
-    QString clazz, state;
+    Q_Q(const DataChannel);
+    QString pattern = QString::fromLatin1("<%1 (name = %2, error = %3, capacity = %4, queue_size = %5)>");
+    QString clazz;
     if (dynamic_cast<const VirtualChannel*>(this)) {
         clazz = QString::fromLatin1("VirtualChannel");
     } else {
         clazz = QString::fromLatin1("SocketChannel");
     }
-    if (broken) {
-        state = QString::fromLatin1("closed");
-    } else {
-        state = QString::fromLatin1("ok");
-    }
     return pattern.arg(clazz).arg(name.isEmpty() ? QString::fromLatin1("unamed") : name)
-            .arg(state).arg(receivingQueue.capacity()).arg(receivingQueue.size());
+            .arg(q->errorString()).arg(receivingQueue.capacity()).arg(receivingQueue.size());
 }
 
 
-void DataChannelPrivate::abort()
+void DataChannelPrivate::abort(DataChannel::ChannelError reason)
 {
-    Q_ASSERT(broken); // must be called by subclasses's close method.
+    Q_ASSERT(error != DataChannel::NoError); // must be called by subclasses's close method.
     if (!pluggedChannel.isNull()) {
-        pluggedChannel->abort();
+        getPrivateHelper(pluggedChannel)->abort(reason);
         pluggedChannel.clear();
     }
 
@@ -302,18 +296,21 @@ void DataChannelPrivate::abort()
         if (!subChannel.isNull()) {
             QSharedPointer<VirtualChannel> strong = subChannel.toStrongRef();
             strong->d_func()->parentChannel.clear();
-            strong->d_func()->setError(this->error);
-            strong->d_func()->abort();
+            strong->d_func()->abort(this->error);
         }
     }
     subChannels.clear();
 }
 
 
-bool DataChannelPrivate::handleIncomingPacket(quint32 channelNumber, const QByteArray &payload)
+DataChannel::ChannelError DataChannelPrivate::handleIncomingPacket(quint32 channelNumber, const QByteArray &payload)
 {
     if (!pluggedChannel.isNull()) {
-        return getPrivateHelper(pluggedChannel)->sendPacketRaw(channelNumber, payload, false);
+        if (!getPrivateHelper(pluggedChannel)->sendPacketRaw(channelNumber, payload, false)) {
+            return DataChannel::PluggedChannelError;
+        } else {
+            return DataChannel::NoError;
+        }
     }
 
     if (channelNumber == DataChannelNumber) {
@@ -322,7 +319,11 @@ bool DataChannelPrivate::handleIncomingPacket(quint32 channelNumber, const QByte
         }
         receivingQueue.putForcedly(payload);
     } else if (channelNumber == CommandChannelNumber) {
-        return handleCommand(payload);
+        if (!handleCommand(payload)) {
+            return DataChannel::InvalidCommand;
+        } else {
+            return DataChannel::NoError;
+        }
     } else if (subChannels.contains(channelNumber)) {
         QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
         if (channel.isNull()) {
@@ -334,7 +335,10 @@ bool DataChannelPrivate::handleIncomingPacket(quint32 channelNumber, const QByte
             QSharedPointer<VirtualChannel> c = channel.toStrongRef();
             const int headerSize = sizeof(quint32);
             if (payload.size() < headerSize) {
-                return false;
+#ifdef DEBUG_PROTOCOL
+                qtng_debug << "the sub channel got an too small packet: " << channelNumber << payload.size() << headerSize;
+#endif
+                return DataChannel::InvalidPacket;
             }
             #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
                 quint32 channelNumber = qFromBigEndian<quint32>(payload.constData());
@@ -342,8 +346,12 @@ bool DataChannelPrivate::handleIncomingPacket(quint32 channelNumber, const QByte
                 quint32 channelNumber = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(packet.constData()));
             #endif
             const QByteArray &packet = payload.mid(headerSize);
-            if (!c->d_func()->handleIncomingPacket(channelNumber, packet)) {
-                c->abort();
+            DataChannel::ChannelError handlePacketResult = c->d_func()->handleIncomingPacket(channelNumber, packet);
+            if (handlePacketResult != DataChannel::NoError) {
+#ifdef DEBUG_PROTOCOL
+                qtng_debug << "the sub channel got an too small packet: " << channelNumber << payload.size() << headerSize;
+#endif
+                getPrivateHelper(c)->abort(handlePacketResult);
             }
         }
     } else {
@@ -351,7 +359,7 @@ bool DataChannelPrivate::handleIncomingPacket(quint32 channelNumber, const QByte
         qtng_debug << "channel is destroyed and data is abondoned: " << channelNumber;
 #endif
     }
-    return true;
+    return DataChannel::NoError;
 }
 
 
@@ -418,7 +426,7 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel(quint32 channelNu
 
 QByteArray DataChannelPrivate::recvPacket()
 {
-    if (receivingQueue.isEmpty() && broken) {
+    if (receivingQueue.isEmpty() && error != DataChannel::NoError) {
         return QByteArray();
     }
     const QByteArray &packet = receivingQueue.get();
@@ -494,8 +502,7 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
                 QSharedPointer<VirtualChannel> strong = channel.toStrongRef();
                 strong->d_func()->parentChannel.clear();
                 // the receiving queue is still ok after aborted.
-                strong->d_func()->setError(DataChannel::RemotePeerClosedError);
-                strong->d_func()->abort();
+                strong->d_func()->abort(DataChannel::RemotePeerClosedError);
             }
         }
         return true;
@@ -516,7 +523,7 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
 
 void DataChannelPrivate::notifyChannelClose(quint32 channelNumber)
 {
-    if (broken) {
+    if (error != DataChannel::NoError) {
         return;
     }
     sendPacketRaw(CommandChannelNumber, packDestoryChannelRequest(channelNumber), false);
@@ -528,14 +535,14 @@ SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection
     , connection(connection)
     , sendingQueue(256)
     , operations(new CoroutineGroup())
-    , _maxPayloadSize(1024 * 64 - sizeof(quint32) * 2)
-    , _payloadSizeHint(1400)
+    , _maxPayloadSize(DefaultPacketSize - sizeof(quint32) * 2)
+    , _payloadSizeHint(1400)  // tcp fragment size.
     , lastActiveTimestamp(QDateTime::currentMSecsSinceEpoch())
     , lastKeepaliveTimestamp(lastActiveTimestamp)
     , keepaliveTimeout(1000 * 10)
     , keepaliveInterval(1000 * 2)
 {
-    connection->setOption(Socket::LowDelayOption, true);
+    // connection->setOption(Socket::LowDelayOption, true);
     connection->setOption(Socket::KeepAliveOption, false); // we do it!
     operations->spawnWithName(QString::fromLatin1("receiving"), [this] {
         this->doReceive();
@@ -551,17 +558,20 @@ SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection
 
 SocketChannelPrivate::~SocketChannelPrivate()
 {
-    abort();
+    abort(DataChannel::UserShutdown);
     delete operations;
 }
 
 
 bool SocketChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking)
 {
-    if (broken || packet.isEmpty()) {
+    if (error != DataChannel::NoError || packet.isEmpty()) {
         return false;
     }
     if (static_cast<quint32>(packet.size()) > _maxPayloadSize) {
+#ifdef DEBUG_PROTOCOL
+        qtng_debug << "the packet size is too large." << packet.size() << _maxPayloadSize;
+#endif
         return false;
     }
     if (blocking) {
@@ -584,21 +594,20 @@ void SocketChannelPrivate::doSend()
         try {
             writingPacket = sendingQueue.get();
         } catch (CoroutineExitException) {
-            setError(DataChannel::ProgrammingError);
-            return abort();
+            Q_ASSERT(error != DataChannel::NoError);
+            return;
         } catch (...) {
-            setError(DataChannel::UnknownError);
-            return abort();
+            return abort(DataChannel::UnknownError);
         }
         if (!writingPacket.isValid()) {
-            setError(DataChannel::ProgrammingError);
-            return abort();
+            Q_ASSERT(error != DataChannel::NoError);
+            return;
         }
-        if (broken) {
+        if (error != DataChannel::NoError) {
             if (!writingPacket.done.isNull()) {
                 writingPacket.done->send(false);
             }
-            return abort();
+            return;
         }
 
         uchar header[sizeof(quint32) + sizeof(quint32)];
@@ -616,17 +625,13 @@ void SocketChannelPrivate::doSend()
             if (!writingPacket.done.isNull()) {
                 writingPacket.done->send(false);
             }
-#ifdef DEBUG_PROTOCOL
-            qtng_debug << "coroutine is killed while sending packet.";
-#endif
-            setError(DataChannel::ProgrammingError);
-            return abort();
+            Q_ASSERT(error != DataChannel::NoError);
+            return;
         } catch(...) {
 #ifdef DEBUG_PROTOCOL
             qtng_debug << "unhandled exception while sending packet.";
 #endif
-            setError(DataChannel::UnknownError);
-            return abort();
+            return abort(DataChannel::UnknownError);
         }
 
         if (sentBytes == data.size()) {
@@ -640,8 +645,7 @@ void SocketChannelPrivate::doSend()
             } else {
                 writingPacket.done->send(false);
             }
-            setError(DataChannel::SendingError);
-            return abort();
+            return abort(DataChannel::SendingError);
         }
     }
 }
@@ -657,8 +661,7 @@ void SocketChannelPrivate::doReceive()
         try {
             const QByteArray &header = connection->recvall(headerSize);
             if (header.size() != headerSize) {
-                setError(DataChannel::ReceivingError);
-                return abort();
+                return abort(DataChannel::ReceivingError);
             }
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
             packetSize = qFromBigEndian<quint32>(header.data());
@@ -671,24 +674,22 @@ void SocketChannelPrivate::doReceive()
 #ifdef DEBUG_PROTOCOL
                 qtng_debug << QString::fromLatin1("packetSize %1 is larger than %2").arg(packetSize).arg(_maxPayloadSize);
 #endif
-                setError(DataChannel::InvalidPacket);
-                return abort();
+                return abort(DataChannel::PakcetTooLarge);
             }
             payload = connection->recvall(static_cast<qint32>(packetSize));
             if (payload.size() != static_cast<int>(packetSize)) {
                 qtng_debug << "invalid packet does not fit packet size:" << packetSize;
-                setError(DataChannel::ReceivingError);
-                return abort();
+                return abort(DataChannel::ReceivingError);
             }
         } catch (CoroutineExitException) {
-            setError(DataChannel::ProgrammingError);
-            return abort();
+            Q_ASSERT(error != DataChannel::NoError);
+            return;
         } catch (...) {
-            setError(DataChannel::UnknownError);
-            return abort();
+            return abort(DataChannel::UnknownError);
         }
-        if (!handleIncomingPacket(channelNumber, payload)) {
-            return abort();
+        DataChannel::ChannelError handlePacketResult = handleIncomingPacket(channelNumber, payload);
+        if (handlePacketResult != DataChannel::NoError) {
+            return abort(handlePacketResult);
         }
         lastActiveTimestamp = QDateTime::currentMSecsSinceEpoch();
     }
@@ -698,16 +699,18 @@ void SocketChannelPrivate::doReceive()
 void SocketChannelPrivate::doKeepalive()
 {
     while (true) {
-        Coroutine::sleep(0.2f);
+        Coroutine::sleep(0.5f);
         qint64 now = QDateTime::currentMSecsSinceEpoch();
         // now and lastActiveTimestamp both are unsigned int, we should check which is larger before apply minus operator to them.
         if (now > lastActiveTimestamp && (now - lastActiveTimestamp > keepaliveTimeout)) {
-            setError(DataChannel::KeepaliveTimeoutError);
-            return abort();
+#ifdef DEBUG_PROTOCOL
+            qCDebug(qtng_logger) << "channel is timeout.";
+#endif
+            return abort(DataChannel::KeepaliveTimeoutError);
         }
         // now and lastKeepaliveTimestamp both are unsigned int, we should check which is larger before apply minus operator to them.
         if (now > lastKeepaliveTimestamp && (now - lastKeepaliveTimestamp > keepaliveInterval) && sendingQueue.isEmpty()) {
-            lastKeepaliveTimestamp = now;
+            // lastKeepaliveTimestamp = now;  // no need to update the timestamp as the doSend() does it.
             QSharedPointer<ValueEvent<bool>> done;
 #ifdef DEBUG_PROTOCOL
             qCDebug(qtng_logger) << "sending keepalive packet.";
@@ -718,12 +721,12 @@ void SocketChannelPrivate::doKeepalive()
 }
 
 
-void SocketChannelPrivate::abort()
+void SocketChannelPrivate::abort(DataChannel::ChannelError reason)
 {
-    if (broken) {
+    if (error != DataChannel::NoError) {
         return;
     }
-    broken = true;
+    error = reason;
 #ifdef DEBUG_PROTOCOL
     qCDebug(qtng_logger) << "socket data channel abort:" << error;
 #endif
@@ -745,13 +748,13 @@ void SocketChannelPrivate::abort()
     if (operations->get(QString::fromLatin1("keepalive")).data() != current) {
         operations->kill(QString::fromLatin1("keepalive"));
     }
-    DataChannelPrivate::abort();
+    DataChannelPrivate::abort(reason);
 }
 
 
 bool SocketChannelPrivate::isBroken() const
 {
-    return broken || !connection->isValid();
+    return error != DataChannel::NoError || !connection->isValid();
 }
 
 
@@ -824,13 +827,16 @@ VirtualChannelPrivate::VirtualChannelPrivate(DataChannel *parentChannel, DataCha
 
 VirtualChannelPrivate::~VirtualChannelPrivate()
 {
-    abort();
+    abort(DataChannel::UserShutdown);
 }
 
 
 bool VirtualChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking)
 {
-    if (broken || parentChannel.isNull() || packet.isEmpty()) {
+    if (error != DataChannel::NoError || parentChannel.isNull() || packet.isEmpty()) {
+#ifdef DEBUG_PROTOCOL
+        qtng_debug << "the packet is empty?" << (error != DataChannel::NoError) << parentChannel.isNull() << packet.isEmpty();
+#endif
         return false;
     }
     uchar header[sizeof(quint32)];
@@ -843,23 +849,23 @@ bool VirtualChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArra
 }
 
 
-void VirtualChannelPrivate::abort()
+void VirtualChannelPrivate::abort(DataChannel::ChannelError reason)
 {
-    if (broken) {
+    if (error != DataChannel::NoError) {
         return;
     }
-    broken = true;
+    error = reason;
     if (!parentChannel.isNull()) {
         getPrivateHelper(parentChannel)->cleanChannel(channelNumber, true);
     }
-    DataChannelPrivate::abort();
+    DataChannelPrivate::abort(reason);
 }
 
 
 void VirtualChannelPrivate::cleanChannel(quint32 channelNumber, bool sendDestroyPacket)
 {
     int found = subChannels.remove(channelNumber);
-    if (broken || parentChannel.isNull() || found <= 0) {
+    if (error != DataChannel::NoError || parentChannel.isNull() || found <= 0) {
         return;
     }
     if (sendDestroyPacket) {
@@ -882,8 +888,9 @@ void VirtualChannelPrivate::cleanChannel(quint32 channelNumber, bool sendDestroy
 
 void VirtualChannelPrivate::cleanSendingPacket(quint32 subChannelNumber, std::function<bool(const QByteArray &packet)> subCheckPacket)
 {
-    if (broken || parentChannel.isNull())
+    if (error != DataChannel::NoError || parentChannel.isNull()) {
         return;
+    }
     getPrivateHelper(parentChannel)->cleanSendingPacket(this->channelNumber, [subChannelNumber, subCheckPacket](const QByteArray &packet) {
         const int headerSize = sizeof(quint32);
         if (packet.size() < headerSize) {
@@ -904,7 +911,7 @@ void VirtualChannelPrivate::cleanSendingPacket(quint32 subChannelNumber, std::fu
 
 bool VirtualChannelPrivate::isBroken() const
 {
-    return broken || parentChannel.isNull() || parentChannel->isBroken();
+    return error != DataChannel::NoError || parentChannel.isNull() || parentChannel->isBroken();
 }
 
 
@@ -936,7 +943,7 @@ quint32 VirtualChannelPrivate::headerSize() const
 
 QSharedPointer<SocketLike> VirtualChannelPrivate::getBackend() const
 {
-    if (broken || parentChannel.isNull()) {
+    if (error != DataChannel::NoError || parentChannel.isNull()) {
         return QSharedPointer<SocketLike>();
     }
     return getPrivateHelper(parentChannel)->getBackend();
@@ -971,7 +978,9 @@ SocketChannel::SocketChannel(QSharedPointer<SocketLike> connection, DataChannelP
 void SocketChannel::setMaxPacketSize(quint32 size)
 {
     Q_D(SocketChannel);
-    if (size < 64) {
+    if (size == 0) {
+        size = DefaultPacketSize;
+    } else if (size < 64) {
         qtng_warning << "the max packet size of DataChannel should not lesser than 64.";
         return;
     }
@@ -1094,8 +1103,7 @@ QByteArray DataChannel::recvPacket()
 void DataChannel::abort()
 {
     Q_D(DataChannel);
-    d->setError(DataChannel::UserShutdown);
-    d->abort();
+    d->abort(DataChannel::UserShutdown);
 }
 
 
@@ -1145,9 +1153,18 @@ QString DataChannel::errorString() const
         return QString::fromLatin1("Can not parse command or unknown command.");
     case UserShutdown:
         return QString::fromLatin1("Programmer shutdown channel manually.");
+    case PluggedChannelError:
+        return QString::fromLatin1("The plugged channel has error.");
+    case PakcetTooLarge:
+        return QString::fromLatin1("The packet is too large.");
+    case UnknownError:
+        return QString::fromLatin1("Caught unknown error.");
+    case ProgrammingError:
+        return QString::fromLatin1("The QtNetwork programmer do a stupid thing.");
     case NoError:
-    default:
         return QString();
+    default:
+        Q_UNREACHABLE();
     }
 }
 
