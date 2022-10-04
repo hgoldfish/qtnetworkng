@@ -15,7 +15,7 @@
 
 QTNG_LOGGER("qtng.data_channel");
 
-// #define DEBUG_PROTOCOL
+#define DEBUG_PROTOCOL
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -26,6 +26,7 @@ const quint8 SLOW_DOWN_REQUEST = 4;
 const quint8 GO_THROUGH_REQUEST = 5;
 const quint8 KEEPALIVE_REQUEST = 6;
 const quint32 DefaultPacketSize = 1024 * 64;
+const quint32 DefaultPayloadSize = 1400;
 
 
 static QByteArray packMakeChannelRequest(quint32 channelNumber)
@@ -287,7 +288,7 @@ void DataChannelPrivate::abort(DataChannel::ChannelError reason)
     for (quint32 i = 0; i < receivingQueue.getting(); ++i) {
         receivingQueue.put(QByteArray());
     }
-    for (quint32 i = 0;i < pendingChannels.getting(); ++i) {
+    for (quint32 i = 0; i < pendingChannels.getting(); ++i) {
         pendingChannels.put(QSharedPointer<VirtualChannel>());
     }
     goThrough.open();
@@ -325,14 +326,13 @@ DataChannel::ChannelError DataChannelPrivate::handleIncomingPacket(quint32 chann
             return DataChannel::NoError;
         }
     } else if (subChannels.contains(channelNumber)) {
-        QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
+        QSharedPointer<VirtualChannel> channel = subChannels.value(channelNumber).toStrongRef();
         if (channel.isNull()) {
 #ifdef DEBUG_PROTOCOL
             qtng_debug << "channel is destroyed and data is abondoned: " << channelNumber;
 #endif
             subChannels.remove(channelNumber);
         } else {
-            QSharedPointer<VirtualChannel> c = channel.toStrongRef();
             const int headerSize = sizeof(quint32);
             if (payload.size() < headerSize) {
 #ifdef DEBUG_PROTOCOL
@@ -346,12 +346,12 @@ DataChannel::ChannelError DataChannelPrivate::handleIncomingPacket(quint32 chann
                 quint32 channelNumber = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(packet.constData()));
             #endif
             const QByteArray &packet = payload.mid(headerSize);
-            DataChannel::ChannelError handlePacketResult = c->d_func()->handleIncomingPacket(channelNumber, packet);
+            DataChannel::ChannelError handlePacketResult = channel->d_func()->handleIncomingPacket(channelNumber, packet);
             if (handlePacketResult != DataChannel::NoError) {
 #ifdef DEBUG_PROTOCOL
                 qtng_debug << "the sub channel got an too small packet: " << channelNumber << payload.size() << headerSize;
 #endif
-                getPrivateHelper(c)->abort(handlePacketResult);
+                getPrivateHelper(channel)->abort(handlePacketResult);
             }
         }
     } else {
@@ -536,7 +536,7 @@ SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection
     , sendingQueue(256)
     , operations(new CoroutineGroup())
     , _maxPayloadSize(DefaultPacketSize - sizeof(quint32) * 2)
-    , _payloadSizeHint(1400)  // tcp fragment size.
+    , _payloadSizeHint(DefaultPayloadSize)  // tcp fragment size.
     , lastActiveTimestamp(QDateTime::currentMSecsSinceEpoch())
     , lastKeepaliveTimestamp(lastActiveTimestamp)
     , keepaliveTimeout(1000 * 10)
@@ -654,7 +654,7 @@ void SocketChannelPrivate::doSend()
 void SocketChannelPrivate::doReceive()
 {
     const size_t headerSize = sizeof(quint32) + sizeof(quint32);
-    quint32 packetSize;
+    quint32 payloadSize;
     quint32 channelNumber;
     QByteArray payload;
     while (true) {
@@ -664,22 +664,22 @@ void SocketChannelPrivate::doReceive()
                 return abort(DataChannel::ReceivingError);
             }
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
-            packetSize = qFromBigEndian<quint32>(header.data());
+            payloadSize = qFromBigEndian<quint32>(header.data());
             channelNumber = qFromBigEndian<quint32>(header.data() + sizeof(quint32));
 #else
             packetSize = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(header.data()));
             channelNumber = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(header.data() + sizeof(quint32)));
 #endif
-            if (packetSize > _maxPayloadSize) {
+            if (payloadSize > _maxPayloadSize) {
 #ifdef DEBUG_PROTOCOL
-                qtng_debug << QString::fromLatin1("packetSize %1 is larger than %2").arg(packetSize).arg(_maxPayloadSize);
+                qtng_debug << QString::fromLatin1("packetSize %1 is larger than %2").arg(payloadSize).arg(_maxPayloadSize);
 #endif
                 return abort(DataChannel::PakcetTooLarge);
             }
-            payload = connection->recvall(static_cast<qint32>(packetSize));
-            if (payload.size() != static_cast<int>(packetSize)) {
-                qtng_debug << "invalid packet does not fit packet size:" << packetSize;
-                return abort(DataChannel::ReceivingError);
+            payload = connection->recvall(static_cast<qint32>(payloadSize));
+            if (payload.size() != static_cast<int>(payloadSize)) {
+                qtng_debug << "invalid packet does not fit packet size:" << payloadSize << payload.size();
+                return abort(DataChannel::InvalidPacket);
             }
         } catch (CoroutineExitException) {
             Q_ASSERT(error != DataChannel::NoError);
@@ -992,6 +992,12 @@ void SocketChannel::setMaxPacketSize(quint32 size)
 void SocketChannel::setPayloadSizeHint(quint32 payloadSizeHint)
 {
     Q_D(SocketChannel);
+    if (payloadSizeHint == 0) {
+        payloadSizeHint = DefaultPayloadSize;
+    } else if (payloadSizeHint < 64) {
+        qtng_warning << "the payload size hint of DataChannel should not lesser than 64.";
+        return;
+    }
     d->_payloadSizeHint = qMin(payloadSizeHint, d->_maxPayloadSize);
 }
 

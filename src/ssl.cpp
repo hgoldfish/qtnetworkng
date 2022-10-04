@@ -928,7 +928,7 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &hostName
     ctx = SslConfigurationPrivate::makeContext(config, asServer);
     if (!ctx.isNull()) {
         ssl.reset(SSL_new(ctx.data()), SSL_free);
-        if(!ssl.isNull()) {
+        if (!ssl.isNull()) {
             // do not free incoming & outgoing
             SSL_set_bio(ssl.data(), incoming, outgoing);
             QSharedPointer<ChooseTlsExtNameCallback> callback = config.tlsExtHostNameCallback();
@@ -938,12 +938,13 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &hostName
                     SSL_set_tlsext_host_name(ssl.data(), t.data());
                 }
             }
-            return _handshake();
-        } else {
-            ctx.reset();
+            if (_handshake()) {
+                return true;
+            }
+            ssl.clear();
         }
+        ctx.clear();
     }
-
     BIO_free(incoming);
     BIO_free(outgoing);
     return false;
@@ -965,7 +966,6 @@ bool SslConnection<SocketType>::pumpOutgoing()
         qint32 encryptedBytesRead = BIO_read(outgoing, buf.data(), pendingBytes);
         qint32 actualWritten = rawSocket->sendall(buf.constData(), encryptedBytesRead);
         if (actualWritten < encryptedBytesRead) {
-            qtng_debug << "error sending data.";
             return false;
         }
     }
@@ -977,11 +977,13 @@ template<typename SocketType>
 bool SslConnection<SocketType>::pumpIncoming()
 {
     if (ssl.isNull()) {
+        qtng_warning << "ssl is null while pump incoming.";
         return false;
     }
     const QByteArray &buf = rawSocket->recv(1024 * 8);
-    if (buf.isEmpty())
+    if (buf.isEmpty()) {
         return false;
+    }
     int totalWritten = 0;
     BIO *incoming = SSL_get_rbio(ssl.data());
     Q_ASSERT(incoming);
@@ -1001,9 +1003,7 @@ bool SslConnection<SocketType>::pumpIncoming()
 template<typename SocketType>
 bool SslConnection<SocketType>::_handshake()
 {
-    if (ssl.isNull()) {
-        return false;
-    }
+    Q_ASSERT(!ssl.isNull());
     while (true) {
         int result = asServer ? SSL_accept(ssl.data()) : SSL_connect(ssl.data());
         if (result <= 0) {
@@ -1047,13 +1047,11 @@ qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
     qint32 total = 0;
     while (true) {
         int result = SSL_read(ssl.data(), data + total, size - total);
-        if (result < 0) {
-            switch (SSL_get_error(ssl.data(), result)) {
+        if (result <= 0) {
+            int err = SSL_get_error(ssl.data(), result);
+            switch (err) {
             case SSL_ERROR_WANT_READ:
-                if (!pumpOutgoing()) {
-                    return total == 0 ? -1 : total;
-                }
-                if (!pumpIncoming()) {
+                if (!pumpOutgoing() || !pumpIncoming()) {
                     return total == 0 ? -1 : total;
                 }
                 break;
@@ -1063,7 +1061,8 @@ qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
                 }
                 break;
             case SSL_ERROR_ZERO_RETURN:
-                return total == 0 ? -1 :total;
+                qtng_debug << "error zero return.";
+                return total;
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
@@ -1071,11 +1070,9 @@ qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL:
             default:
-                qtng_debug << "recv error.";
+                qtng_debug << "ssl recv error. error code:" << err;
                 return total == 0 ? -1 : total;
             }
-        } else if (result == 0) {
-            return total;
         } else {
             total += result;
             if (all && total < size) {
@@ -1095,16 +1092,14 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
         return -1;
     }
     qint32 total = 0;
+    // be careful for dead lock
     while (true) {
         int result = SSL_write(ssl.data(), data + total, size - total);
         if (result <= 0) {
-            int error;
-            switch (error = SSL_get_error(ssl.data(), result)) {
+            int err = SSL_get_error(ssl.data(), result);
+            switch (err) {
             case SSL_ERROR_WANT_READ:
-                if (!pumpOutgoing()) {
-                    return -1;
-                }
-                if (!pumpIncoming()) {
+                if (!pumpOutgoing() || !pumpIncoming()) {
                     return -1;
                 }
                 break;
@@ -1125,7 +1120,7 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL:
             default:
-                qtng_debug << "send error. error_code:" << error;
+                qtng_debug << "ssl send error. error_code:" << err;
                 return -1;
             }
         } else {

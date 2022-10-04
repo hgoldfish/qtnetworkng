@@ -286,6 +286,9 @@ qint32 SocketLikeImpl::sendall(const QByteArray &data)
 
 QSharedPointer<SocketLike> asSocketLike(QSharedPointer<Socket> s)
 {
+    if (!s) {
+        return QSharedPointer<SocketLike>();
+    }
     return QSharedPointer<SocketLikeImpl>::create(s).dynamicCast<SocketLike>();
 }
 

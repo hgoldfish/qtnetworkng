@@ -193,7 +193,14 @@ public:
             lock.release();
         }
     }
-    bool isSuccess() const { return success; }
+    inline void release()
+    {
+        if (success) {
+            lock.release();
+            success = false;
+        }
+    }
+    inline bool isSuccess() const { return success; }
 private:
     LockType &lock;
     bool success;

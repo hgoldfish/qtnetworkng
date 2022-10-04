@@ -84,8 +84,8 @@ public:
     SocketChannel(QSharedPointer<KcpSocket> socket, DataChannelPole pole);
     SocketChannel(QSharedPointer<SocketLike> socket, DataChannelPole pole);
 public:
-    void setMaxPacketSize(quint32 size);
-    void setPayloadSizeHint(quint32 payloadSizeHint);   // usually set to tcp/udp mtu.
+    void setMaxPacketSize(quint32 size);                // set to 0 for the default 64k
+    void setPayloadSizeHint(quint32 payloadSizeHint);   // usually set to tcp/udp mtu, set to 0 for the default 1400
     void setKeepaliveTimeout(float timeout);
     float keepaliveTimeout() const;
     void setKeepaliveInterval(float keepaliveInterval);
