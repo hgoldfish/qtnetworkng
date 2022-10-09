@@ -247,6 +247,45 @@ private:
 };
 
 
+inline QSharedPointer<Deferred<QSharedPointer<Coroutine>>> waitForAny()
+{
+    return QSharedPointer<Deferred<QSharedPointer<Coroutine>>>::create();
+}
+
+template<typename... CS>
+QSharedPointer<Deferred<QSharedPointer<Coroutine>>> waitForAny(QSharedPointer<Coroutine> c1, CS... cs)
+{
+    QSharedPointer<Deferred<QSharedPointer<Coroutine>>> df = waitForAny(cs...);
+    QWeakPointer<Coroutine> c1w = c1.toWeakRef();
+    int callbackId = c1->finished.addCallback([c1w, df] (BaseCoroutine *) {
+        df->callback(c1w.toStrongRef());
+    });
+
+    df->addCallback([c1w, callbackId] (QSharedPointer<Coroutine>) {
+        if (!c1w.isNull()) {
+            c1w.toStrongRef()->finished.remove(callbackId);
+        }
+    });
+    return df;
+}
+
+
+template<typename... CS>
+QSharedPointer<Coroutine> any(CS... cs)
+{
+    QSharedPointer<Deferred<QSharedPointer<Coroutine>>> df = waitForAny(cs...);
+    QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>> event
+            = QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>>::create();
+    df->addCallback([event] (QSharedPointer<Coroutine> c) { event->send(c); });
+    try {
+        return event->wait();
+    } catch (...) {
+        df->callback(nullptr);
+        throw;
+    }
+}
+
+
 class Coroutine;
 class CoroutineGroup: public QObject
 {
@@ -265,6 +304,7 @@ public:
     bool joinall();
     int size() const { return coroutines.size(); }
     bool isEmpty() const { return coroutines.isEmpty(); }
+    QSharedPointer<Coroutine> any();
 
     inline QSharedPointer<Coroutine> spawnWithName(const QString &name, const std::function<void()> &func, bool replace = false);
     inline QSharedPointer<Coroutine> spawn(const std::function<void()> &func);

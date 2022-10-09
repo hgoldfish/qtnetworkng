@@ -218,6 +218,38 @@ bool CoroutineGroup::joinall()
 }
 
 
+QSharedPointer<Coroutine> CoroutineGroup::any()
+{
+    QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>> event
+            = QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>>::create();
+
+    QList<QPair<QWeakPointer<Coroutine>, int>> toRemove;
+    for (QSharedPointer<Coroutine> c: coroutines) {
+        QWeakPointer<Coroutine> cw = c.toWeakRef();
+        int callbackId = c->finished.addCallback([event, cw] (BaseCoroutine *) { event->send(cw.toStrongRef()); });
+        toRemove.append(qMakePair(cw, callbackId));
+    }
+    try {
+        QSharedPointer<Coroutine> c = event->wait();
+        for (const QPair<QWeakPointer<Coroutine>, int> &item: toRemove) {
+            QSharedPointer<Coroutine> c = item.first.toStrongRef();
+            if (!c.isNull()) {
+                c->finished.remove(item.second);
+            }
+        }
+        return c;
+    } catch (...) {
+        for (const QPair<QWeakPointer<Coroutine>, int> &item: toRemove) {
+            QSharedPointer<Coroutine> c = item.first.toStrongRef();
+            if (!c.isNull()) {
+                c->finished.remove(item.second);
+            }
+        }
+        throw;
+    }
+}
+
+
 class DeleteCoroutineFunctor: public Functor
 {
 public:

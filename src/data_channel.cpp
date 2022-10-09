@@ -15,7 +15,7 @@
 
 QTNG_LOGGER("qtng.data_channel");
 
-#define DEBUG_PROTOCOL
+//#define DEBUG_PROTOCOL
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
