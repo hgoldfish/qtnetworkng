@@ -926,10 +926,12 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &hostName
     }
 
     ctx = SslConfigurationPrivate::makeContext(config, asServer);
+    bool freeBIOs = true;
     if (!ctx.isNull()) {
         ssl.reset(SSL_new(ctx.data()), SSL_free);
         if (!ssl.isNull()) {
             // do not free incoming & outgoing
+            freeBIOs = false;
             SSL_set_bio(ssl.data(), incoming, outgoing);
             QSharedPointer<ChooseTlsExtNameCallback> callback = config.tlsExtHostNameCallback();
             if (!asServer && !tlsExtHostName.isEmpty() && !callback.isNull()) {
@@ -945,8 +947,10 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &hostName
         }
         ctx.clear();
     }
-    BIO_free(incoming);
-    BIO_free(outgoing);
+    if (freeBIOs) {
+        BIO_free(incoming);
+        BIO_free(outgoing);
+    }
     return false;
 }
 
