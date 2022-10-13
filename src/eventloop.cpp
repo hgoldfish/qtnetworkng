@@ -4,9 +4,6 @@
 #include <QtCore/qthread.h>
 #include "../include/private/eventloop_p.h"
 #include "../include/locks.h"
-#ifdef Q_OS_UNIX
-#include <signal.h>
-#endif
 #include "debugger.h"
 
 QTNG_LOGGER("qtng.eventloop");
