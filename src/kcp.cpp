@@ -70,7 +70,6 @@ public:
     virtual qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port) = 0;
 
     QByteArray makeDataPacket(const char *data, qint32 size);
-    QByteArray makeShutdownPacket();
     QByteArray makeShutdownPacket(quint32 connectionId);
     QByteArray makeKeepalivePacket();
     QByteArray makeMultiPathPacket(quint32 connectionId);
@@ -553,24 +552,6 @@ QByteArray KcpSocketPrivate::makeDataPacket(const char *data, qint32 size)
 }
 
 
-QByteArray KcpSocketPrivate::makeShutdownPacket()
-{
-    // should be larger than 5 bytes. tail bytes are discard.
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
-    QByteArray packet = randomBytes(QRandomGenerator::global()->bounded(5, 64));
-#else
-    QByteArray packet = randomBytes(5 + qrand() % (64 - 5));
-#endif
-    packet.data()[0] = PACKET_TYPE_CLOSE;
-#if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
-    qToBigEndian<quint32>(this->connectionId, packet.data() + 1);
-#else
-    qToBigEndian<quint32>(this->connectionId, reinterpret_cast<uchar*>(packet.data() + 1));
-#endif
-    return packet;
-}
-
-
 QByteArray KcpSocketPrivate::makeShutdownPacket(quint32 connectionId)
 {
     // should be larger than 5 bytes. tail bytes are discard.
@@ -713,7 +694,7 @@ bool MasterKcpSocketPrivate::close(bool force)
                     return false;
                 }
             }
-            const QByteArray &packet = makeShutdownPacket();
+            const QByteArray &packet = makeShutdownPacket(this->connectionId);
             rawSend(packet.constData(), packet.size());
         }
     } else if (state == Socket::ListeningState) {
@@ -1250,7 +1231,7 @@ bool SlaveKcpSocketPrivate::close(bool force)
                     return false;
                 }
             }
-            const QByteArray &packet = makeShutdownPacket();
+            const QByteArray &packet = makeShutdownPacket(this->connectionId);
             rawSend(packet.constData(), packet.size());
         }
     } else {  // there can be no other states.
