@@ -111,11 +111,11 @@ public:
     QFileInfo fileInfo() const;
     QString parentDir() const;          // returns QString() for /
     PosixPath parentPath() const;       // returns null for /
-    QString name() const;               // returns QString() form /
-    QString baseName() const;           // xxx.tar.bz -> xxx
-    QString suffix() const;             // xxx.tar.bz -> bz
-    QString completeBaseName() const;   // xxx.tar.bz -> xxx.tar
-    QString completeSuffix() const;     // xxx.tar.bz -> tar.bz
+    QString name() const;               // returns QString() for /
+    QString baseName() const;           // xxx.tar.bz -> xxx;        .fish. -> .fish
+    QString suffix() const;             // xxx.tar.bz -> bz;         .fish. ->
+    QString completeBaseName() const;   // xxx.tar.bz -> xxx.tar     .fish. -> .fish
+    QString completeSuffix() const;     // xxx.tar.bz -> tar.bz      .fish. ->
     QString toAbsolute() const;
     QString relativePath(const QString &other) const;
     QString relativePath(const PosixPath &other) const;
@@ -129,7 +129,14 @@ public:
     QStringList listdir() const;
     QList<PosixPath> children() const;
 
+    bool mkdir(bool createParents = false);
+    bool touch();
+    QSharedPointer<RawFile> open(const QString &mode = QString());
+
     static PosixPath cwd();
+    static QChar point;
+    static QString pointpoint;
+    static QChar seperator;
 private:
     QSharedDataPointer<PosixPathPrivate> d;
 };

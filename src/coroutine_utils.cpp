@@ -203,6 +203,21 @@ bool CoroutineGroup::killall(bool join)
 }
 
 
+bool CoroutineGroup::join(const QString &name)
+{
+    QSharedPointer<Coroutine> found = get(name);
+    if (!found.isNull()) {
+        if (found.data() == Coroutine::current()) {
+            qtng_warning << "joining current coroutine?";
+        } else {
+            found->join();
+            return true;
+        }
+    }
+    return false;
+}
+
+
 bool CoroutineGroup::joinall()
 {
     bool hasCoroutines = !coroutines.isEmpty();

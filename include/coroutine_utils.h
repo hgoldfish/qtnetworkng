@@ -301,6 +301,7 @@ public:
     bool isCurrent(const QString &name);
     bool kill(const QString &name, bool join = true);
     bool killall(bool join = true);
+    bool join(const QString &name);
     bool joinall();
     int size() const { return coroutines.size(); }
     bool isEmpty() const { return coroutines.isEmpty(); }

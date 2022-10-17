@@ -466,12 +466,26 @@ public:
 #else
         parts = path.split(QLatin1String("/"), QString::SkipEmptyParts);
 #endif
+
+        // "[space]..[space]" is not acceptable.
+        for (int i = 0; i < parts.size(); ++i) {
+            if (parts[i].trimmed() == PosixPath::point) {
+                parts[i] = PosixPath::point;
+            } else if (parts[i].trimmed() == PosixPath::pointpoint) {
+                parts[i] = PosixPath::pointpoint;
+            }
+        }
     }
 public:
     QString path;
     QFileInfo info;
     QStringList parts;
 };
+
+
+QChar PosixPath::point = QChar::fromLatin1('.');
+QString PosixPath::pointpoint = QString::fromUtf8("..");
+QChar PosixPath::seperator = QChar::fromLatin1('/');
 
 
 PosixPath::PosixPath(const QString &path)
@@ -538,14 +552,14 @@ PosixPath PosixPath::operator / (const QString &path) const
     if (isNull()) {
         return PosixPath();
     }
-    if (path.startsWith(QLatin1Char('/'))) {
+    if (path.startsWith(seperator)) {
         return PosixPath(path);
     } else {
         QString t = d->path;
-        if (t.endsWith(QLatin1Char('/'))) {
+        if (t.endsWith(seperator)) {
             t += path;
         } else {
-            t += QLatin1Char('/') + path;
+            t += seperator + path;
         }
         return PosixPath(t);
     }
@@ -590,7 +604,7 @@ bool PosixPath::isAbsolute() const
     if (isNull()) {
         return false;
     }
-    return d->path.startsWith(QLatin1Char('/'));
+    return d->path.startsWith(seperator);
 }
 
 
@@ -618,11 +632,11 @@ bool PosixPath::isRelative() const
         return false;
     }
 
-    if (!d->path.startsWith(QLatin1Char('/'))) {
+    if (!d->path.startsWith(seperator)) {
         return true;
     }
     for (const QString &part: d->parts) {
-        if (part == QString::fromUtf8(".") || part == QString::fromUtf8("..")) {
+        if (part == point || part == pointpoint) {
             return true;
         }
     }
@@ -635,7 +649,7 @@ bool PosixPath::isRoot() const
     if (isNull()) {
         return false;
     }
-    return d->path.startsWith(QLatin1Char('/')) && d->parts.isEmpty();
+    return d->path.startsWith(seperator) && d->parts.isEmpty();
 }
 
 
@@ -693,9 +707,9 @@ QString PosixPath::parentDir() const
     if (!parts.isEmpty()) {
         parts.takeLast();
     }
-    QString parent = parts.join(QLatin1Char('/'));
-    if (d->path.startsWith(QLatin1Char('/'))) {
-        parent = QLatin1Char('/') + parent;
+    QString parent = parts.join(seperator);
+    if (d->path.startsWith(seperator)) {
+        parent = seperator + parent;
     }
     return parent;
 }
@@ -715,7 +729,10 @@ QString PosixPath::name() const
     if (isNull()) {
         return QString();
     }
-    return d->info.fileName();
+    if (d->parts.isEmpty()) {
+        return QString();
+    }
+    return d->parts.last();
 }
 
 
@@ -724,7 +741,17 @@ QString PosixPath::baseName() const
     if (isNull()) {
         return QString();
     }
-    return d->info.baseName();
+    const QString &n = name();
+    const QVector<QStringRef> &l = n.splitRef(point);
+    if (l.isEmpty()) {
+        return QString();
+    } else {
+        if (n.startsWith(point)) {
+            return point + l.first();
+        } else {
+            return l.first().toString();
+        }
+    }
 }
 
 
@@ -733,7 +760,12 @@ QString PosixPath::suffix() const
     if (isNull()) {
         return QString();
     }
-    return d->info.suffix();
+    const QVector<QStringRef> &l = name().splitRef(point);
+    if (l.size() <= 1) {
+        return QString();
+    } else {
+        return l.last().toString();
+    }
 }
 
 
@@ -742,7 +774,20 @@ QString PosixPath::completeBaseName() const
     if (isNull()) {
         return QString();
     }
-    return d->info.completeBaseName();
+    const QString &n = name();
+    QStringList l = n.split(point);
+    if (l.isEmpty()) {
+        return QString();
+    } else if (l.size() == 1) {
+        if (n.startsWith(point)) {
+            return point + l.first();
+        } else {
+            return l.first();
+        }
+    } else {
+        l.removeLast();
+        return l.join(point);
+    }
 }
 
 
@@ -751,7 +796,13 @@ QString PosixPath::completeSuffix() const
     if (isNull()) {
         return QString();
     }
-    return d->info.completeSuffix();
+    QStringList l = name().split(point);
+    if (l.size() <= 1) {
+        return QString();
+    } else {
+        l.removeFirst();
+        return l.join(point);
+    }
 }
 
 
@@ -786,13 +837,13 @@ QString PosixPath::relativePath(const PosixPath &other) const
 
 bool PosixPath::isChildOf(const PosixPath &other) const
 {
-    return !other.relativePath(*this).startsWith(QString::fromLatin1(".."));
+    return !other.relativePath(*this).startsWith(pointpoint);
 }
 
 
 bool PosixPath::hasChildOf(const PosixPath &other) const
 {
-    return !relativePath(other).startsWith(QString::fromLatin1(".."));
+    return !relativePath(other).startsWith(pointpoint);
 }
 
 
@@ -855,6 +906,36 @@ QList<PosixPath> PosixPath::children() const
 }
 
 
+bool PosixPath::mkdir(bool createParents)
+{
+    if (isDir()) {
+        return true;
+    }
+    if (exists()) {
+        return false;
+    }
+    QDir d(parentDir());
+    if (createParents) {
+        return d.mkpath(name());
+    } else {
+        return d.mkdir(name());
+    }
+}
+
+
+bool PosixPath::touch()
+{
+    Q_ASSERT(false); // "not implemented."
+    return false;
+}
+
+
+QSharedPointer<RawFile> PosixPath::open(const QString &mode)
+{
+    return RawFile::open(d->path, mode);
+}
+
+
 PosixPath PosixPath::cwd()
 {
     return PosixPath(QDir::currentPath());
@@ -865,23 +946,23 @@ static QString makeSafePath(const QString &subPath)
 {
     // remove '.' && '.."
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
-    const QStringList &list = subPath.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    const QVector<QStringRef> &list = subPath.splitRef(QLatin1Char('/'), Qt::SkipEmptyParts);
 #else
-    const QStringList &list = subPath.split(QLatin1Char('/'), QString::SkipEmptyParts);
+    const QVector<QStringRef> &list = subPath.splitRef(QLatin1Char('/'), QString::SkipEmptyParts);
 #endif
     QStringList l;
-    for (const QString &part: list) {
-        if (part == QLatin1String(".")) { // if part contains space, it is not dot dir.
+    for (const QStringRef &part: list) {
+        if (part == PosixPath::point) { // if part contains space, it is not dot dir.
             continue;
-        } else if (part == QLatin1String("..")) {
+        } else if (part == PosixPath::pointpoint) {
             if (!l.isEmpty()) {
                 l.removeLast();
             }
         } else {
-            l.append(part);
+            l.append(part.toString());
         }
     }
-    return l.join(QLatin1Char('/')); // without the leading slash.
+    return l.join(PosixPath::seperator); // without the leading slash.
 }
 
 
@@ -895,10 +976,10 @@ QDebug &operator << (QDebug &out, const PosixPath &path)
 QPair<QString, QString> safeJoinPath(const QString &parentDir, const QString &subPath)
 {
     const QString &safeSubPath = makeSafePath(subPath);
-    if (parentDir.endsWith(QLatin1Char('/'))) {
+    if (parentDir.endsWith(PosixPath::seperator)) {
         return qMakePair(parentDir + safeSubPath, safeSubPath);
     } else {
-        return qMakePair(parentDir + QLatin1Char('/') + safeSubPath, safeSubPath);
+        return qMakePair(parentDir + PosixPath::seperator + safeSubPath, safeSubPath);
     }
 }
 
@@ -915,7 +996,7 @@ PosixPath PosixPath::operator | (const QString &path) const
     if (isNull()) {
         return PosixPath();
     }
-    const QString &newPath = d->path + QLatin1Char('/') + makeSafePath(path);
+    const QString &newPath = d->path + PosixPath::seperator + makeSafePath(path);
     return PosixPath(newPath);
 }
 
