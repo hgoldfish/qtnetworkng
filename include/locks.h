@@ -119,6 +119,30 @@ private:
 };
 
 
+template<typename EventType>
+bool waitAnyEvent(const QList<QSharedPointer<EventType>> &events)
+{
+    EventType event;
+    for (int i = 0; i < events.size(); ++i) {
+        event.linkTo(events[i]);
+    }
+    return event.wait();
+}
+
+
+template<typename EventType>
+bool waitAllEvents(const QList<QSharedPointer<EventType>> &events)
+{
+    for (int i = 0; i < events.size(); ++i) {
+        if (!events[i]->wait()) {
+            // Q_UNRECHABLE()
+            return false;
+        }
+    }
+    return true;
+}
+
+
 template<typename Value>
 class ValueEvent
 {
