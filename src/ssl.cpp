@@ -1839,10 +1839,10 @@ SslSocket *SslSocket::createServer(const HostAddress &host, quint16 port,
 
 namespace {
 
-class SocketLikeImpl: public SocketLike
+class SslSocketLikeImpl: public SocketLike
 {
 public:
-    SocketLikeImpl(QSharedPointer<SslSocket> s);
+    SslSocketLikeImpl(QSharedPointer<SslSocket> s);
 public:
     virtual Socket::SocketError error() const override;
     virtual QString errorString() const override;
@@ -1884,203 +1884,203 @@ public:
 };
 
 
-SocketLikeImpl::SocketLikeImpl(QSharedPointer<SslSocket> s)
+SslSocketLikeImpl::SslSocketLikeImpl(QSharedPointer<SslSocket> s)
     :s(s) {}
 
 
-Socket::SocketError SocketLikeImpl::error() const
+Socket::SocketError SslSocketLikeImpl::error() const
 {
     return s->error();
 }
 
 
-QString SocketLikeImpl::errorString() const
+QString SslSocketLikeImpl::errorString() const
 {
     return s->errorString();
 }
 
 
-bool SocketLikeImpl::isValid() const
+bool SslSocketLikeImpl::isValid() const
 {
     return s->isValid();
 }
 
 
-HostAddress SocketLikeImpl::localAddress() const
+HostAddress SslSocketLikeImpl::localAddress() const
 {
     return s->localAddress();
 }
 
 
-quint16 SocketLikeImpl::localPort() const
+quint16 SslSocketLikeImpl::localPort() const
 {
     return s->localPort();
 }
 
 
-HostAddress SocketLikeImpl::peerAddress() const
+HostAddress SslSocketLikeImpl::peerAddress() const
 {
     return s->peerAddress();
 }
 
 
-QString SocketLikeImpl::peerName() const
+QString SslSocketLikeImpl::peerName() const
 {
     return s->peerName();
 }
 
 
-quint16 SocketLikeImpl::peerPort() const
+quint16 SslSocketLikeImpl::peerPort() const
 {
     return s->peerPort();
 }
 
 
-qintptr	SocketLikeImpl::fileno() const
+qintptr	SslSocketLikeImpl::fileno() const
 {
     return s->fileno();
 }
 
 
-Socket::SocketType SocketLikeImpl::type() const
+Socket::SocketType SslSocketLikeImpl::type() const
 {
     return s->type();
 }
 
 
-Socket::SocketState SocketLikeImpl::state() const
+Socket::SocketState SslSocketLikeImpl::state() const
 {
     return s->state();
 }
 
 
-HostAddress::NetworkLayerProtocol SocketLikeImpl::protocol() const
+HostAddress::NetworkLayerProtocol SslSocketLikeImpl::protocol() const
 {
     return s->protocol();
 }
 
 
-QString SocketLikeImpl::localAddressURI() const
+QString SslSocketLikeImpl::localAddressURI() const
 {
     return s->localAddressURI();
 }
 
 
-QString SocketLikeImpl::peerAddressURI() const
+QString SslSocketLikeImpl::peerAddressURI() const
 {
     return s->peerAddressURI();
 }
 
 
-Socket *SocketLikeImpl::acceptRaw()
+Socket *SslSocketLikeImpl::acceptRaw()
 {
     return s->acceptRaw();
 }
 
 
-QSharedPointer<SocketLike> SocketLikeImpl::accept()
+QSharedPointer<SocketLike> SslSocketLikeImpl::accept()
 {
     return asSocketLike(s->accept());
 }
 
 
-bool SocketLikeImpl::bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
+bool SslSocketLikeImpl::bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
 {
     return s->bind(address, port, mode);
 }
 
 
-bool SocketLikeImpl::bind(quint16 port, Socket::BindMode mode)
+bool SslSocketLikeImpl::bind(quint16 port, Socket::BindMode mode)
 {
     return s->bind(port, mode);
 }
 
 
-bool SocketLikeImpl::connect(const HostAddress &addr, quint16 port)
+bool SslSocketLikeImpl::connect(const HostAddress &addr, quint16 port)
 {
     return s->connect(addr, port);
 }
 
 
-bool SocketLikeImpl::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
+bool SslSocketLikeImpl::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
 {
     return s->connect(hostName, port, dnsCache);
 }
 
 
-void SocketLikeImpl::close()
+void SslSocketLikeImpl::close()
 {
     s->close();
 }
 
 
-void SocketLikeImpl::abort()
+void SslSocketLikeImpl::abort()
 {
     s->abort();
 }
 
 
-bool SocketLikeImpl::listen(int backlog)
+bool SslSocketLikeImpl::listen(int backlog)
 {
     return s->listen(backlog);
 }
 
 
-bool SocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &value)
+bool SslSocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &value)
 {
     return s->setOption(option, value);
 }
 
 
-QVariant SocketLikeImpl::option(Socket::SocketOption option) const
+QVariant SslSocketLikeImpl::option(Socket::SocketOption option) const
 {
     return s->option(option);
 }
 
 
-qint32 SocketLikeImpl::recv(char *data, qint32 size)
+qint32 SslSocketLikeImpl::recv(char *data, qint32 size)
 {
     return s->recv(data, size);
 }
 
 
-qint32 SocketLikeImpl::recvall(char *data, qint32 size)
+qint32 SslSocketLikeImpl::recvall(char *data, qint32 size)
 {
     return s->recvall(data, size);
 }
 
 
-qint32 SocketLikeImpl::send(const char *data, qint32 size)
+qint32 SslSocketLikeImpl::send(const char *data, qint32 size)
 {
     return s->send(data, size);
 }
 
 
-qint32 SocketLikeImpl::sendall(const char *data, qint32 size)
+qint32 SslSocketLikeImpl::sendall(const char *data, qint32 size)
 {
     return s->sendall(data, size);
 }
 
 
-QByteArray SocketLikeImpl::recv(qint32 size)
+QByteArray SslSocketLikeImpl::recv(qint32 size)
 {
     return s->recv(size);
 }
 
 
-QByteArray SocketLikeImpl::recvall(qint32 size)
+QByteArray SslSocketLikeImpl::recvall(qint32 size)
 {
     return s->recvall(size);
 }
 
 
-qint32 SocketLikeImpl::send(const QByteArray &data)
+qint32 SslSocketLikeImpl::send(const QByteArray &data)
 {
     return s->send(data);
 }
 
 
-qint32 SocketLikeImpl::sendall(const QByteArray &data)
+qint32 SslSocketLikeImpl::sendall(const QByteArray &data)
 {
     return s->sendall(data);
 }
@@ -2091,13 +2091,13 @@ qint32 SocketLikeImpl::sendall(const QByteArray &data)
 
 QSharedPointer<SocketLike> asSocketLike(QSharedPointer<SslSocket> s)
 {
-    return QSharedPointer<SocketLikeImpl>::create(s).dynamicCast<SocketLike>();
+    return QSharedPointer<SslSocketLikeImpl>::create(s).dynamicCast<SocketLike>();
 }
 
 
 QSharedPointer<SslSocket> convertSocketLikeToSslSocket(QSharedPointer<SocketLike> socket)
 {
-    QSharedPointer<SocketLikeImpl> impl = socket.dynamicCast<SocketLikeImpl>();
+    QSharedPointer<SslSocketLikeImpl> impl = socket.dynamicCast<SslSocketLikeImpl>();
     if (impl.isNull()) {
         return QSharedPointer<SslSocket>();
     } else {

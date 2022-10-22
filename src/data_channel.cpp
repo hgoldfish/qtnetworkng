@@ -1251,10 +1251,10 @@ QString DataChannel::name() const
 
 namespace {
 
-class SocketLikeImpl: public SocketLike
+class DataChannelSocketLikeImpl: public SocketLike
 {
 public:
-    SocketLikeImpl(QSharedPointer<DataChannel> channel);
+    DataChannelSocketLikeImpl(QSharedPointer<DataChannel> channel);
 public:
     virtual Socket::SocketError error() const override;
     virtual QString errorString() const override;
@@ -1299,18 +1299,18 @@ public:
 };
 
 
-SocketLikeImpl::SocketLikeImpl(QSharedPointer<DataChannel> channel)
+DataChannelSocketLikeImpl::DataChannelSocketLikeImpl(QSharedPointer<DataChannel> channel)
     :channel(channel)
 {}
 
 
-QSharedPointer<SocketLike> SocketLikeImpl::getBackend() const
+QSharedPointer<SocketLike> DataChannelSocketLikeImpl::getBackend() const
 {
     return DataChannelPrivate::getPrivateHelper(channel)->getBackend();
 }
 
 
-Socket::SocketError SocketLikeImpl::error() const
+Socket::SocketError DataChannelSocketLikeImpl::error() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1321,7 +1321,7 @@ Socket::SocketError SocketLikeImpl::error() const
 }
 
 
-QString SocketLikeImpl::errorString() const
+QString DataChannelSocketLikeImpl::errorString() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1332,13 +1332,13 @@ QString SocketLikeImpl::errorString() const
 }
 
 
-bool SocketLikeImpl::isValid() const
+bool DataChannelSocketLikeImpl::isValid() const
 {
     return !channel->isBroken();
 }
 
 
-HostAddress SocketLikeImpl::localAddress() const
+HostAddress DataChannelSocketLikeImpl::localAddress() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1349,7 +1349,7 @@ HostAddress SocketLikeImpl::localAddress() const
 }
 
 
-quint16 SocketLikeImpl::localPort() const
+quint16 DataChannelSocketLikeImpl::localPort() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1360,7 +1360,7 @@ quint16 SocketLikeImpl::localPort() const
 }
 
 
-HostAddress SocketLikeImpl::peerAddress() const
+HostAddress DataChannelSocketLikeImpl::peerAddress() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1371,7 +1371,7 @@ HostAddress SocketLikeImpl::peerAddress() const
 }
 
 
-QString SocketLikeImpl::peerName() const
+QString DataChannelSocketLikeImpl::peerName() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1382,7 +1382,7 @@ QString SocketLikeImpl::peerName() const
 }
 
 
-quint16 SocketLikeImpl::peerPort() const
+quint16 DataChannelSocketLikeImpl::peerPort() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1393,7 +1393,7 @@ quint16 SocketLikeImpl::peerPort() const
 }
 
 
-qintptr	SocketLikeImpl::fileno() const
+qintptr	DataChannelSocketLikeImpl::fileno() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1404,7 +1404,7 @@ qintptr	SocketLikeImpl::fileno() const
 }
 
 
-Socket::SocketType SocketLikeImpl::type() const
+Socket::SocketType DataChannelSocketLikeImpl::type() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1415,7 +1415,7 @@ Socket::SocketType SocketLikeImpl::type() const
 }
 
 
-Socket::SocketState SocketLikeImpl::state() const
+Socket::SocketState DataChannelSocketLikeImpl::state() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1426,7 +1426,7 @@ Socket::SocketState SocketLikeImpl::state() const
 }
 
 
-HostAddress::NetworkLayerProtocol SocketLikeImpl::protocol() const
+HostAddress::NetworkLayerProtocol DataChannelSocketLikeImpl::protocol() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1437,7 +1437,7 @@ HostAddress::NetworkLayerProtocol SocketLikeImpl::protocol() const
 }
 
 
-QString SocketLikeImpl::localAddressURI() const
+QString DataChannelSocketLikeImpl::localAddressURI() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1448,7 +1448,7 @@ QString SocketLikeImpl::localAddressURI() const
 }
 
 
-QString SocketLikeImpl::peerAddressURI() const
+QString DataChannelSocketLikeImpl::peerAddressURI() const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1459,55 +1459,55 @@ QString SocketLikeImpl::peerAddressURI() const
 }
 
 
-Socket *SocketLikeImpl::acceptRaw()
+Socket *DataChannelSocketLikeImpl::acceptRaw()
 {
     return nullptr;
 }
 
 
-QSharedPointer<SocketLike> SocketLikeImpl::accept()
+QSharedPointer<SocketLike> DataChannelSocketLikeImpl::accept()
 {
     return QSharedPointer<SocketLike>();
 }
 
 
-bool SocketLikeImpl::bind(const HostAddress &, quint16, Socket::BindMode)
+bool DataChannelSocketLikeImpl::bind(const HostAddress &, quint16, Socket::BindMode)
 {
     return false;
 }
 
 
-bool SocketLikeImpl::bind(quint16, Socket::BindMode)
+bool DataChannelSocketLikeImpl::bind(quint16, Socket::BindMode)
 {
     return false;
 }
 
 
-bool SocketLikeImpl::connect(const HostAddress &, quint16)
+bool DataChannelSocketLikeImpl::connect(const HostAddress &, quint16)
 {
     return false;
 }
 
 
-bool SocketLikeImpl::connect(const QString &, quint16, QSharedPointer<SocketDnsCache>)
+bool DataChannelSocketLikeImpl::connect(const QString &, quint16, QSharedPointer<SocketDnsCache>)
 {
     return false;
 }
 
 
-void SocketLikeImpl::abort()
+void DataChannelSocketLikeImpl::abort()
 {
     channel->abort();
 }
 
 
-bool SocketLikeImpl::listen(int)
+bool DataChannelSocketLikeImpl::listen(int)
 {
     return false;
 }
 
 
-bool SocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &value)
+bool DataChannelSocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &value)
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1518,7 +1518,7 @@ bool SocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &valu
 }
 
 
-QVariant SocketLikeImpl::option(Socket::SocketOption option) const
+QVariant DataChannelSocketLikeImpl::option(Socket::SocketOption option) const
 {
     QSharedPointer<SocketLike> backend = getBackend();
     if (backend.isNull()) {
@@ -1529,7 +1529,7 @@ QVariant SocketLikeImpl::option(Socket::SocketOption option) const
 }
 
 
-qint32 SocketLikeImpl::recv(char *data, qint32 size)
+qint32 DataChannelSocketLikeImpl::recv(char *data, qint32 size)
 {
     if (size <= 0) {
         return -1;
@@ -1547,7 +1547,7 @@ qint32 SocketLikeImpl::recv(char *data, qint32 size)
 }
 
 
-qint32 SocketLikeImpl::recvall(char *data, qint32 size)
+qint32 DataChannelSocketLikeImpl::recvall(char *data, qint32 size)
 {
     if (size <= 0) {
         return -1;
@@ -1568,7 +1568,7 @@ qint32 SocketLikeImpl::recvall(char *data, qint32 size)
 }
 
 
-qint32 SocketLikeImpl::send(const char *data, qint32 size)
+qint32 DataChannelSocketLikeImpl::send(const char *data, qint32 size)
 {
     qint32 len = qMin<qint32>(size, static_cast<qint32>(channel->payloadSizeHint()));
     bool ok = channel->sendPacket(QByteArray(data, len));
@@ -1576,7 +1576,7 @@ qint32 SocketLikeImpl::send(const char *data, qint32 size)
 }
 
 
-qint32 SocketLikeImpl::sendall(const char *data, qint32 size)
+qint32 DataChannelSocketLikeImpl::sendall(const char *data, qint32 size)
 {
     qint32 count = 0;
     qint32 maxPayloadSize = static_cast<qint32>(channel->payloadSizeHint());
@@ -1592,7 +1592,7 @@ qint32 SocketLikeImpl::sendall(const char *data, qint32 size)
 }
 
 
-QByteArray SocketLikeImpl::recv(qint32 size)
+QByteArray DataChannelSocketLikeImpl::recv(qint32 size)
 {
     QByteArray t(size, Qt::Uninitialized);
     qint32 len = recv(t.data(), size);
@@ -1605,7 +1605,7 @@ QByteArray SocketLikeImpl::recv(qint32 size)
 }
 
 
-QByteArray SocketLikeImpl::recvall(qint32 size)
+QByteArray DataChannelSocketLikeImpl::recvall(qint32 size)
 {
     QByteArray t(size, Qt::Uninitialized);
     qint32 len = recvall(t.data(), size);
@@ -1618,19 +1618,19 @@ QByteArray SocketLikeImpl::recvall(qint32 size)
 }
 
 
-qint32 SocketLikeImpl::send(const QByteArray &data)
+qint32 DataChannelSocketLikeImpl::send(const QByteArray &data)
 {
     return send(data.data(), data.size());
 }
 
 
-qint32 SocketLikeImpl::sendall(const QByteArray &data)
+qint32 DataChannelSocketLikeImpl::sendall(const QByteArray &data)
 {
     return sendall(data.data(), data.size());
 }
 
 
-void SocketLikeImpl::close()
+void DataChannelSocketLikeImpl::close()
 {
     channel->abort();
 }
@@ -1658,7 +1658,7 @@ void exchange(QSharedPointer<DataChannel> incoming, QSharedPointer<DataChannel> 
 
 QSharedPointer<SocketLike> asSocketLike(QSharedPointer<DataChannel> channel)
 {
-    return QSharedPointer<SocketLikeImpl>::create(channel).dynamicCast<SocketLike>();
+    return QSharedPointer<DataChannelSocketLikeImpl>::create(channel).dynamicCast<SocketLike>();
 }
 
 

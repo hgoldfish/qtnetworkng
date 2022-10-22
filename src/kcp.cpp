@@ -1807,10 +1807,10 @@ KcpSocket *KcpSocket::createServer(const HostAddress &host, quint16 port, int ba
 namespace {
 
 
-class SocketLikeImpl: public SocketLike
+class KcpSocketLikeImpl: public SocketLike
 {
 public:
-    SocketLikeImpl(QSharedPointer<KcpSocket> s);
+    KcpSocketLikeImpl(QSharedPointer<KcpSocket> s);
 public:
     virtual Socket::SocketError error() const override;
     virtual QString errorString() const override;
@@ -1852,203 +1852,203 @@ public:
 };
 
 
-SocketLikeImpl::SocketLikeImpl(QSharedPointer<KcpSocket> s)
+KcpSocketLikeImpl::KcpSocketLikeImpl(QSharedPointer<KcpSocket> s)
     :s(s) {}
 
 
-Socket::SocketError SocketLikeImpl::error() const
+Socket::SocketError KcpSocketLikeImpl::error() const
 {
     return s->error();
 }
 
 
-QString SocketLikeImpl::errorString() const
+QString KcpSocketLikeImpl::errorString() const
 {
     return s->errorString();
 }
 
 
-bool SocketLikeImpl::isValid() const
+bool KcpSocketLikeImpl::isValid() const
 {
     return s->isValid();
 }
 
 
-HostAddress SocketLikeImpl::localAddress() const
+HostAddress KcpSocketLikeImpl::localAddress() const
 {
     return s->localAddress();
 }
 
 
-quint16 SocketLikeImpl::localPort() const
+quint16 KcpSocketLikeImpl::localPort() const
 {
     return s->localPort();
 }
 
 
-HostAddress SocketLikeImpl::peerAddress() const
+HostAddress KcpSocketLikeImpl::peerAddress() const
 {
     return s->peerAddress();
 }
 
 
-QString SocketLikeImpl::peerName() const
+QString KcpSocketLikeImpl::peerName() const
 {
     return s->peerName();
 }
 
 
-quint16 SocketLikeImpl::peerPort() const
+quint16 KcpSocketLikeImpl::peerPort() const
 {
     return s->peerPort();
 }
 
 
-qintptr	SocketLikeImpl::fileno() const
+qintptr	KcpSocketLikeImpl::fileno() const
 {
     return -1;
 }
 
 
-Socket::SocketType SocketLikeImpl::type() const
+Socket::SocketType KcpSocketLikeImpl::type() const
 {
     return s->type();
 }
 
 
-Socket::SocketState SocketLikeImpl::state() const
+Socket::SocketState KcpSocketLikeImpl::state() const
 {
     return s->state();
 }
 
 
-HostAddress::NetworkLayerProtocol SocketLikeImpl::protocol() const
+HostAddress::NetworkLayerProtocol KcpSocketLikeImpl::protocol() const
 {
     return s->protocol();
 }
 
 
-QString SocketLikeImpl::localAddressURI() const
+QString KcpSocketLikeImpl::localAddressURI() const
 {
     return s->localAddressURI();
 }
 
 
-QString SocketLikeImpl::peerAddressURI() const
+QString KcpSocketLikeImpl::peerAddressURI() const
 {
     return s->peerAddressURI();
 }
 
 
-Socket *SocketLikeImpl::acceptRaw()
+Socket *KcpSocketLikeImpl::acceptRaw()
 {
     return nullptr;
 }
 
 
-QSharedPointer<SocketLike> SocketLikeImpl::accept()
+QSharedPointer<SocketLike> KcpSocketLikeImpl::accept()
 {
     return asSocketLike(s->accept());
 }
 
 
-bool SocketLikeImpl::bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
+bool KcpSocketLikeImpl::bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
 {
     return s->bind(address, port, mode);
 }
 
 
-bool SocketLikeImpl::bind(quint16 port, Socket::BindMode mode)
+bool KcpSocketLikeImpl::bind(quint16 port, Socket::BindMode mode)
 {
     return s->bind(port, mode);
 }
 
 
-bool SocketLikeImpl::connect(const HostAddress &addr, quint16 port)
+bool KcpSocketLikeImpl::connect(const HostAddress &addr, quint16 port)
 {
     return s->connect(addr, port);
 }
 
 
-bool SocketLikeImpl::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
+bool KcpSocketLikeImpl::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
 {
     return s->connect(hostName, port, dnsCache);
 }
 
 
-void SocketLikeImpl::close()
+void KcpSocketLikeImpl::close()
 {
     s->close();
 }
 
 
-void SocketLikeImpl::abort()
+void KcpSocketLikeImpl::abort()
 {
     s->abort();
 }
 
 
-bool SocketLikeImpl::listen(int backlog)
+bool KcpSocketLikeImpl::listen(int backlog)
 {
     return s->listen(backlog);
 }
 
 
-bool SocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &value)
+bool KcpSocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &value)
 {
     return s->setOption(option, value);
 }
 
 
-QVariant SocketLikeImpl::option(Socket::SocketOption option) const
+QVariant KcpSocketLikeImpl::option(Socket::SocketOption option) const
 {
     return s->option(option);
 }
 
 
-qint32 SocketLikeImpl::recv(char *data, qint32 size)
+qint32 KcpSocketLikeImpl::recv(char *data, qint32 size)
 {
     return s->recv(data, size);
 }
 
 
-qint32 SocketLikeImpl::recvall(char *data, qint32 size)
+qint32 KcpSocketLikeImpl::recvall(char *data, qint32 size)
 {
     return s->recvall(data, size);
 }
 
 
-qint32 SocketLikeImpl::send(const char *data, qint32 size)
+qint32 KcpSocketLikeImpl::send(const char *data, qint32 size)
 {
     return s->send(data, size);
 }
 
 
-qint32 SocketLikeImpl::sendall(const char *data, qint32 size)
+qint32 KcpSocketLikeImpl::sendall(const char *data, qint32 size)
 {
     return s->sendall(data, size);
 }
 
 
-QByteArray SocketLikeImpl::recv(qint32 size)
+QByteArray KcpSocketLikeImpl::recv(qint32 size)
 {
     return s->recv(size);
 }
 
 
-QByteArray SocketLikeImpl::recvall(qint32 size)
+QByteArray KcpSocketLikeImpl::recvall(qint32 size)
 {
     return s->recvall(size);
 }
 
 
-qint32 SocketLikeImpl::send(const QByteArray &data)
+qint32 KcpSocketLikeImpl::send(const QByteArray &data)
 {
     return s->send(data);
 }
 
 
-qint32 SocketLikeImpl::sendall(const QByteArray &data)
+qint32 KcpSocketLikeImpl::sendall(const QByteArray &data)
 {
     return s->sendall(data);
 }
@@ -2058,13 +2058,13 @@ qint32 SocketLikeImpl::sendall(const QByteArray &data)
 
 QSharedPointer<SocketLike> asSocketLike(QSharedPointer<KcpSocket> s)
 {
-    return QSharedPointer<SocketLikeImpl>::create(s).dynamicCast<SocketLike>();
+    return QSharedPointer<KcpSocketLikeImpl>::create(s).dynamicCast<SocketLike>();
 }
 
 
 QSharedPointer<KcpSocket> convertSocketLikeToKcpSocket(QSharedPointer<SocketLike> socket)
 {
-    QSharedPointer<SocketLikeImpl> impl = socket.dynamicCast<SocketLikeImpl>();
+    QSharedPointer<KcpSocketLikeImpl> impl = socket.dynamicCast<KcpSocketLikeImpl>();
     if (impl.isNull()) {
         return QSharedPointer<KcpSocket>();
     } else {
