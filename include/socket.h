@@ -276,31 +276,30 @@ template<typename SocketType>
 SocketType *createServer(const HostAddress &host, quint16 port, int backlog,
                          std::function<SocketType*(HostAddress::NetworkLayerProtocol)> func)
 {
-    SocketType *socket = nullptr;
+    QScopedPointer<SocketType> socket;
     if (host == HostAddress::AnyIPv4 || host == HostAddress::Any) {
-        socket = func(HostAddress::IPv4Protocol);
+        socket.reset(func(HostAddress::IPv4Protocol));
     } else if (host == HostAddress::AnyIPv6) {
-        socket = func(HostAddress::IPv6Protocol);
+        socket.reset(func(HostAddress::IPv6Protocol));
     } else {
         if (host.isIPv4()) {
-            socket = func(HostAddress::IPv4Protocol);
+            socket.reset(func(HostAddress::IPv4Protocol));
         } else {
-            socket = func(HostAddress::IPv6Protocol);
+            socket.reset(func(HostAddress::IPv6Protocol));
         }
     }
     if (backlog > 0) {
         socket->setOption(Socket::AddressReusable, true);
         if (!socket->bind(host, port)) {
-            delete socket;
             return nullptr;
         }
         if (!socket->listen(backlog)) {
-            delete socket;
             return nullptr;
         }
     }
-    return socket;
+    return socket.take();
 }
+
 
 template<typename SocketType>
 SocketType *MakeSocketType(HostAddress::NetworkLayerProtocol protocol)
