@@ -247,6 +247,18 @@ private:
 };
 
 
+static inline bool waitThread(QSharedPointer<QThread> thread)
+{
+    if (thread.isNull()) {
+        return false;
+    }
+    QSharedPointer<Event> event(new Event());
+    QObject::connect(thread.data(), &QThread::finished, [event] { event->set(); });
+    QObject::connect(thread.data(), &QThread::destroyed, [event] { event->set(); });
+    return event->wait();
+}
+
+
 inline QSharedPointer<Deferred<QSharedPointer<Coroutine>>> waitForAny()
 {
     return QSharedPointer<Deferred<QSharedPointer<Coroutine>>>::create();
