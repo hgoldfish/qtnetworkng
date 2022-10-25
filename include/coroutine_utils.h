@@ -247,16 +247,7 @@ private:
 };
 
 
-static inline bool waitThread(QSharedPointer<QThread> thread)
-{
-    if (thread.isNull()) {
-        return false;
-    }
-    QSharedPointer<Event> event(new Event());
-    QObject::connect(thread.data(), &QThread::finished, [event] { event->set(); });
-    QObject::connect(thread.data(), &QThread::destroyed, [event] { event->set(); });
-    return event->wait();
-}
+bool waitThread(QSharedPointer<QThread> thread);
 
 
 inline QSharedPointer<Deferred<QSharedPointer<Coroutine>>> waitForAny()
@@ -465,7 +456,7 @@ private:
     template<typename T, typename Func, typename... ARGS>
         T apply_dispatch(Func func, ARGS... args, NormalType);
     template<typename T, typename Func, typename... ARGS>
-        void apply_dispatch(Func func, ARGS... args, VoidType);
+        T apply_dispatch(Func func, ARGS... args, VoidType);
 private:
     // for map()
     template<typename T, typename S>
@@ -499,7 +490,7 @@ void ThreadPool::each(std::function<void(S)> func, const QList<S> &l)
 template<typename T, typename Func, typename... ARGS>
 T ThreadPool::apply(Func func, ARGS... args)
 {
-    return apply_dispatch(func, args..., typename ApplyDispatchTag<T>::Tag {});
+    return apply_dispatch<T, Func, ARGS...>(func, args..., typename ApplyDispatchTag<T>::Tag {});
 }
 
 
@@ -516,7 +507,7 @@ T ThreadPool::apply_dispatch(Func func, ARGS... args, NormalType)
 
 
 template<typename T, typename Func, typename... ARGS>
-void ThreadPool::apply_dispatch(Func func, ARGS... args, VoidType)
+T ThreadPool::apply_dispatch(Func func, ARGS... args, VoidType)
 {
     std::function<void()> wrapped = [func, args...] {
         func(args...);

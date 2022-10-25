@@ -76,6 +76,17 @@ void CoroutineThread::run() { currentLoop()->getOrCreate()->runUntil(dd_ptr); }
 void CoroutineThread::apply(const std::function<void()> &f) { dd_ptr->tasks.put(f); }
 
 
+bool waitThread(QSharedPointer<QThread> thread)
+{
+    if (thread.isNull()) {
+        return false;
+    }
+    QSharedPointer<Event> event(new Event());
+    QObject::connect(thread.data(), &QThread::finished, [event] { event->set(); });
+    QObject::connect(thread.data(), &QThread::destroyed, [event] { event->set(); });
+    return event->wait();
+}
+
 
 CoroutineGroup::CoroutineGroup()
     :QObject()
