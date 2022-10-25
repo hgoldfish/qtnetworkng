@@ -468,6 +468,12 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
 #ifdef DEBUG_PROTOCOL
         qtng_debug << "make channel request:" << channelNumber;
 #endif
+        if (subChannels.contains(channelNumber)) {
+#ifdef DEBUG_PROTOCOL
+            qtng_debug << "the peer is making an exists channel channel:" << channelNumber;
+#endif
+            return false;
+        }
         QSharedPointer<VirtualChannel> channel = makeChannelInternal(DataChannelPole::NegativePole, channelNumber);
         sendPacketRaw(CommandChannelNumber, packChannelMadeRequest(channelNumber), false);
         pendingChannels.put(channel);

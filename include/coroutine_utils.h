@@ -450,16 +450,22 @@ public:
     template<typename S>
     void each(std::function<void(S)> func, const QList<S> &l);
 
-    template<typename T, typename S>
-    T apply(std::function<T(S)> func, S s);
-
-    template<typename S>
-    void apply(std::function<void(S)> func, S s);
+    template<typename T, typename Func, typename... ARGS>
+    T apply(Func func, ARGS... s);
 
     template<typename T>
     T call(std::function<T()> func);
 
     void call(std::function<void()> func);
+private:
+    struct NormalType {};
+    struct VoidType {};
+    template<typename T>  struct ApplyDispatchTag { using Tag = NormalType; };
+    template<>  struct ApplyDispatchTag<void> { using Tag = VoidType; };
+    template<typename T, typename Func, typename... ARGS>
+        T apply_dispatch(Func func, ARGS... args, NormalType);
+    template<typename T, typename Func, typename... ARGS>
+        void apply_dispatch(Func func, ARGS... args, VoidType);
 private:
     // for map()
     template<typename T, typename S>
@@ -468,7 +474,7 @@ private:
     // for each()
     template<typename S>
     std::function<void(S)> makeResult(std::function<void(S)> func);
-
+private:
     QList<QSharedPointer<class ThreadPoolWorkThread>> threads;
     QSharedPointer<Semaphore> semaphore;
 };
@@ -490,23 +496,30 @@ void ThreadPool::each(std::function<void(S)> func, const QList<S> &l)
 }
 
 
-template<typename T, typename S>
-T ThreadPool::apply(std::function<T(S)> func, S s)
+template<typename T, typename Func, typename... ARGS>
+T ThreadPool::apply(Func func, ARGS... args)
+{
+    return apply_dispatch(func, args..., typename ApplyDispatchTag<T>::Tag {});
+}
+
+
+template<typename T, typename Func, typename... ARGS>
+T ThreadPool::apply_dispatch(Func func, ARGS... args, NormalType)
 {
     QSharedPointer<T> result(new T());
-    std::function<void()> wrapped = [func, s, result] {
-        *result = func(s);
+    std::function<void()> wrapped = [func, args..., result] {
+        *result = func(args...);
     };
     call(wrapped);
     return *result;
 }
 
 
-template<typename S>
-void ThreadPool::apply(std::function<void(S)> func, S s)
+template<typename T, typename Func, typename... ARGS>
+void ThreadPool::apply_dispatch(Func func, ARGS... args, VoidType)
 {
-    std::function<void()> wrapped = [func, s] {
-        func(s);
+    std::function<void()> wrapped = [func, args...] {
+        func(args...);
     };
     call(wrapped);
 }

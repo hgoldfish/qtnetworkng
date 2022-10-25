@@ -378,7 +378,7 @@ void ThreadPoolWorkThread::run()
 ThreadPool::ThreadPool(int threads)
 {
     if (threads <= 0) {
-        semaphore.reset(new Semaphore(QThread::idealThreadCount()));
+        semaphore.reset(new Semaphore(QThread::idealThreadCount() * 2 + 1));
     } else {
         semaphore.reset(new Semaphore(threads));
     }
