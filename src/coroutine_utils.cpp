@@ -81,9 +81,12 @@ bool waitThread(QSharedPointer<QThread> thread)
     if (thread.isNull()) {
         return false;
     }
-    QSharedPointer<Event> event(new Event());
+    if (thread->isFinished()) {
+        return true;
+    }
+    QSharedPointer<ThreadEvent> event(new ThreadEvent());
     QObject::connect(thread.data(), &QThread::finished, [event] { event->set(); });
-    QObject::connect(thread.data(), &QThread::destroyed, [event] { event->set(); });
+    QObject::connect(thread.data(), &QThread::destroyed, [event] {  event->set(); });
     return event->wait();
 }
 

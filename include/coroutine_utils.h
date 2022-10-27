@@ -428,6 +428,14 @@ QSharedPointer<Coroutine> CoroutineGroup::spawn(const std::function<void ()> &fu
 //    return coroutine;
 //}
 
+namespace detail
+{
+// see https://stackoverflow.com/questions/2097811/c-syntax-for-explicit-specialization-of-a-template-function-in-a-template-clas
+struct NormalType {};
+struct VoidType {};
+template<typename T>  struct ApplyDispatchTag { using Tag = NormalType; };
+template<>  struct ApplyDispatchTag<void> { using Tag = VoidType; };
+}
 
 class ThreadPool: public QObject
 {
@@ -449,14 +457,10 @@ public:
 
     void call(std::function<void()> func);
 private:
-    struct NormalType {};
-    struct VoidType {};
-    template<typename T>  struct ApplyDispatchTag { using Tag = NormalType; };
-    template<>  struct ApplyDispatchTag<void> { using Tag = VoidType; };
     template<typename T, typename Func, typename... ARGS>
-        T apply_dispatch(Func func, ARGS... args, NormalType);
+        T apply_dispatch(Func func, ARGS... args, detail::NormalType);
     template<typename T, typename Func, typename... ARGS>
-        T apply_dispatch(Func func, ARGS... args, VoidType);
+        T apply_dispatch(Func func, ARGS... args, detail::VoidType);
 private:
     // for map()
     template<typename T, typename S>
@@ -474,7 +478,7 @@ private:
 template<typename T, typename S>
 QList<T> ThreadPool::map(std::function<T(S)> func, const QList<S> &l)
 {
-    std::function<T(S)> f = [this, func] (const S &s) -> T { return this->apply<T, S>(func, s); } ;
+    std::function<T(S)> f = [this, func] (const S &s) -> T { return this->apply<T>(func, s); } ;
     return CoroutineGroup::map(f, l);
 }
 
@@ -482,20 +486,20 @@ QList<T> ThreadPool::map(std::function<T(S)> func, const QList<S> &l)
 template<typename S>
 void ThreadPool::each(std::function<void(S)> func, const QList<S> &l)
 {
-    std::function<void(S)> f = [this, func] (const S &s) -> void { this->apply<S>(func, s); } ;
+    std::function<void(S)> f = [this, func] (const S &s) -> void { this->apply<void>(func, s); } ;
     CoroutineGroup::each(f, l);
 }
 
-
+// FIXME if ARGS is `const QString &`, apply may cause crash!
 template<typename T, typename Func, typename... ARGS>
 T ThreadPool::apply(Func func, ARGS... args)
 {
-    return apply_dispatch<T, Func, ARGS...>(func, args..., typename ApplyDispatchTag<T>::Tag {});
+    return apply_dispatch<T, Func, ARGS...>(func, args..., typename detail::ApplyDispatchTag<T>::Tag {});
 }
 
 
 template<typename T, typename Func, typename... ARGS>
-T ThreadPool::apply_dispatch(Func func, ARGS... args, NormalType)
+T ThreadPool::apply_dispatch(Func func, ARGS... args, detail::NormalType)
 {
     QSharedPointer<T> result(new T());
     std::function<void()> wrapped = [func, args..., result] {
@@ -507,7 +511,7 @@ T ThreadPool::apply_dispatch(Func func, ARGS... args, NormalType)
 
 
 template<typename T, typename Func, typename... ARGS>
-T ThreadPool::apply_dispatch(Func func, ARGS... args, VoidType)
+T ThreadPool::apply_dispatch(Func func, ARGS... args, detail::VoidType)
 {
     std::function<void()> wrapped = [func, args...] {
         func(args...);
