@@ -115,7 +115,7 @@ public:
     void unlink(ThreadEvent &other);
 private:
     ThreadEventPrivate *d;
-    Q_DISABLE_COPY(ThreadEvent);
+    Q_DISABLE_COPY(ThreadEvent)
 };
 
 
