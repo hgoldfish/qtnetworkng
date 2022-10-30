@@ -130,6 +130,7 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(NetworkInterface::InterfaceFlags)
 QTNETWORKNG_NAMESPACE_END
 
 #ifndef QT_NO_DEBUG_STREAM
+QDebug operator<<(QDebug debug, const QTNETWORKNG_NAMESPACE::NetworkAddressEntry &entry);
 QDebug operator<<(QDebug debug, const QTNETWORKNG_NAMESPACE::NetworkInterface &networkInterface);
 #endif
 

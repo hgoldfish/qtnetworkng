@@ -319,7 +319,7 @@ static QList<NetworkInterfacePrivate *> interfaceListingVista()
         Q_ASSERT(ptr->Length >= offsetof(IP_ADAPTER_ADDRESSES, Luid));
         Q_ASSERT(ptr->Length >= offsetof(IP_ADAPTER_ADDRESSES, Ipv6IfIndex));
 
-        NetworkInterfacePrivate *iface = new NetworkInterfacePrivate;
+        NetworkInterfacePrivate *iface = new NetworkInterfacePrivate();
         interfaces << iface;
 
         iface->index = 0;

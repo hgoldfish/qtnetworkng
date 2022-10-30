@@ -360,7 +360,7 @@ SslConfiguration::SslConfiguration()
 
 
 SslConfiguration::SslConfiguration(const SslConfiguration &other)
-    :d(other.d)
+    : d(other.d)
 {
 }
 
@@ -368,7 +368,7 @@ SslConfiguration::SslConfiguration(const SslConfiguration &other)
 #ifdef Q_COMPILER_RVALUE_REFS
 
 SslConfiguration::SslConfiguration(SslConfiguration &&other)
-    :d(nullptr)
+    : d(nullptr)
 {
     qSwap(d, other.d);
 }

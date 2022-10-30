@@ -474,7 +474,7 @@ static inline QDebug flagsDebug(QDebug debug, QTNETWORKNG_NAMESPACE::NetworkInte
 }
 
 
-static inline QDebug operator<<(QDebug debug, const QTNETWORKNG_NAMESPACE::NetworkAddressEntry &entry)
+QDebug operator<<(QDebug debug, const QTNETWORKNG_NAMESPACE::NetworkAddressEntry &entry)
 {
     debug << "(address = " << entry.ip();
     if (!entry.netmask().isNull())
