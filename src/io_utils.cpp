@@ -1001,4 +1001,9 @@ PosixPath PosixPath::operator | (const QString &path) const
 }
 
 
+uint qHash(const PosixPath& path, uint seed)
+{
+    return qHash(path.path(), seed);
+}
+
 QTNETWORKNG_NAMESPACE_END

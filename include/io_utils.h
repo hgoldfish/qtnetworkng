@@ -143,6 +143,7 @@ private:
 
 
 QDebug &operator << (QDebug &, const PosixPath &);
+uint qHash(const PosixPath& path, uint seed = 0);
 
 // join the subPath with parentDir as its virtual root. return the final path and the normalized path
 QPair<QString, QString> safeJoinPath(const QString &parentDir, const QString &subPath);
