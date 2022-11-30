@@ -499,10 +499,17 @@ bool Coroutine::join()
 {
     Q_D(Coroutine);
     if (state() == BaseCoroutine::Initialized || state() == BaseCoroutine::Started) {
+        bool ok;
         if (!dynamic_cast<Coroutine*>(BaseCoroutine::current())) {
-            return EventLoopCoroutine::get()->runUntil(this);
+            ok = EventLoopCoroutine::get()->runUntil(this);
+        } else {
+            ok =  d->finishedEvent.wait();
         }
-        return d->finishedEvent.wait();
+        if (ok) {
+            Q_ASSERT(isFinished());
+            setState(Joined);
+        }
+        return ok;
     } else {
         return true;
     }
