@@ -63,7 +63,8 @@ NamespaceIndentation: None
 # Allow indentation for preprocessing directives (if/ifdef/endif). https://reviews.llvm.org/rL312125
 IndentPPDirectives: AfterHash
 # We only indent with 2 spaces for preprocessor directives
-PPIndentWidth: 2
+# 旧版本不支持
+# PPIndentWidth: 2
 
 # Horizontally align arguments after an open bracket.
 # The coding style does not specify the following, but this is what gives
@@ -90,7 +91,8 @@ ForEachMacros:   [ foreach, Q_FOREACH, BOOST_FOREACH, forever, Q_FOREVER, QBENCH
 FixNamespaceComments: true
 
 # Definition of how short a short namespace is, default 1
-ShortNamespaceLines: 1
+# 旧版本不支持
+# ShortNamespaceLines: 1
 
 # When escaping newlines in a macro attach the '\' as far left as possible, e.g.
 ##define a     \
