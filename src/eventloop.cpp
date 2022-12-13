@@ -13,27 +13,25 @@ QTNETWORKNG_NAMESPACE_BEGIN
 Q_GLOBAL_STATIC(CurrentLoopStorage, currentLoopStorage)
 Q_GLOBAL_STATIC(QAtomicInteger<int>, preferLibevFlag);
 
-
 CurrentLoopStorage *currentLoop()
 {
     return currentLoopStorage();
 }
 
-
-class CoroutineSpawnHelper: public Coroutine
+class CoroutineSpawnHelper : public Coroutine
 {
 public:
     CoroutineSpawnHelper(std::function<void()> f)
-        :f(new std::function<void()>(f)){}
+        : f(new std::function<void()>(f))
+    {
+    }
     virtual ~CoroutineSpawnHelper() override;
     virtual void run() override;
 private:
     QScopedPointer<std::function<void()>> f;
 };
 
-
-CoroutineSpawnHelper::~CoroutineSpawnHelper() {}
-
+CoroutineSpawnHelper::~CoroutineSpawnHelper() { }
 
 void CoroutineSpawnHelper::run()
 {
@@ -41,38 +39,28 @@ void CoroutineSpawnHelper::run()
     f.reset();
 }
 
-
 Coroutine *Coroutine::spawn(std::function<void()> f)
 {
-    Coroutine *c =  new CoroutineSpawnHelper(f);
+    Coroutine *c = new CoroutineSpawnHelper(f);
     c->start();
     return c;
 }
-
 
 void Coroutine::preferLibev()
 {
     preferLibevFlag->storeRelease(true);
 }
 
+Functor::~Functor() { }
 
-Functor::~Functor()
-{}
-
-
-void DoNothingFunctor::operator ()()
-{
-
-}
-
+void DoNothingFunctor::operator()() { }
 
 YieldCurrentFunctor::YieldCurrentFunctor()
 {
     coroutine = BaseCoroutine::current();
 }
 
-
-void YieldCurrentFunctor::operator ()()
+void YieldCurrentFunctor::operator()()
 {
     if (coroutine.isNull()) {
         qtng_debug << "coroutine is deleted while YieldCurrentFunctor called.";
@@ -80,36 +68,33 @@ void YieldCurrentFunctor::operator ()()
     }
     try {
         coroutine->yield();
-    } catch(CoroutineException &e) {
+    } catch (CoroutineException &e) {
         qtng_debug << "do not send exception to event loop, just delete event loop:" << e.what();
     }
 }
 
-
 EventLoopCoroutinePrivate::EventLoopCoroutinePrivate(EventLoopCoroutine *q)
-    :q_ptr(q){}
-
-
-EventLoopCoroutinePrivate::~EventLoopCoroutinePrivate(){}
-
-
-EventLoopCoroutine::EventLoopCoroutine(EventLoopCoroutinePrivate *d, size_t stackSize)
-    : BaseCoroutine(BaseCoroutine::current(), stackSize), dd_ptr(d)
+    : q_ptr(q)
 {
 }
 
+EventLoopCoroutinePrivate::~EventLoopCoroutinePrivate() { }
+
+EventLoopCoroutine::EventLoopCoroutine(EventLoopCoroutinePrivate *d, size_t stackSize)
+    : BaseCoroutine(BaseCoroutine::current(), stackSize)
+    , dd_ptr(d)
+{
+}
 
 EventLoopCoroutine::~EventLoopCoroutine()
 {
     delete dd_ptr;
 }
 
-
 EventLoopCoroutine *EventLoopCoroutine::get()
 {
     return currentLoopStorage->getOrCreate().data();
 }
-
 
 void EventLoopCoroutine::run()
 {
@@ -117,13 +102,11 @@ void EventLoopCoroutine::run()
     d->run();
 }
 
-
 int EventLoopCoroutine::createWatcher(EventType event, qintptr fd, Functor *callback)
 {
     Q_D(EventLoopCoroutine);
     return d->createWatcher(event, fd, callback);
 }
-
 
 void EventLoopCoroutine::startWatcher(int watcherId)
 {
@@ -131,13 +114,11 @@ void EventLoopCoroutine::startWatcher(int watcherId)
     return d->startWatcher(watcherId);
 }
 
-
 void EventLoopCoroutine::stopWatcher(int watcherId)
 {
     Q_D(EventLoopCoroutine);
     return d->stopWatcher(watcherId);
 }
-
 
 void EventLoopCoroutine::removeWatcher(int watcherId)
 {
@@ -145,13 +126,11 @@ void EventLoopCoroutine::removeWatcher(int watcherId)
     return d->removeWatcher(watcherId);
 }
 
-
 void EventLoopCoroutine::triggerIoWatchers(qintptr fd)
 {
     Q_D(EventLoopCoroutine);
     return d->triggerIoWatchers(fd);
 }
-
 
 int EventLoopCoroutine::callLater(quint32 msecs, Functor *callback)
 {
@@ -159,13 +138,11 @@ int EventLoopCoroutine::callLater(quint32 msecs, Functor *callback)
     return d->callLater(msecs, callback);
 }
 
-
 void EventLoopCoroutine::callLaterThreadSafe(quint32 msecs, Functor *callback)
 {
     Q_D(EventLoopCoroutine);
     d->callLaterThreadSafe(msecs, callback);
 }
-
 
 int EventLoopCoroutine::callRepeat(quint32 msecs, Functor *callback)
 {
@@ -173,13 +150,11 @@ int EventLoopCoroutine::callRepeat(quint32 msecs, Functor *callback)
     return d->callRepeat(msecs, callback);
 }
 
-
 void EventLoopCoroutine::cancelCall(int callbackId)
 {
     Q_D(EventLoopCoroutine);
     return d->cancelCall(callbackId);
 }
-
 
 int EventLoopCoroutine::exitCode()
 {
@@ -187,20 +162,17 @@ int EventLoopCoroutine::exitCode()
     return d->exitCode();
 }
 
-
 bool EventLoopCoroutine::runUntil(BaseCoroutine *coroutine)
 {
     Q_D(EventLoopCoroutine);
     return d->runUntil(coroutine);
 }
 
-
 void EventLoopCoroutine::yield()
 {
     Q_D(EventLoopCoroutine);
     return d->yield();
 }
-
 
 QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::getOrCreate()
 {
@@ -253,7 +225,6 @@ QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::getOrCreate()
     return eventLoop;
 }
 
-
 QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::get()
 {
     if (storage.hasLocalData()) {
@@ -263,12 +234,10 @@ QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::get()
     }
 }
 
-
 void CurrentLoopStorage::set(QSharedPointer<EventLoopCoroutine> eventLoop)
 {
     storage.setLocalData(eventLoop);
 }
-
 
 void CurrentLoopStorage::clean()
 {
@@ -277,12 +246,12 @@ void CurrentLoopStorage::clean()
     }
 }
 
-
 ScopedIoWatcher::ScopedIoWatcher(EventLoopCoroutine::EventType event, qintptr fd)
-    : event(event), fd(fd), watcherId(0)
+    : event(event)
+    , fd(fd)
+    , watcherId(0)
 {
 }
-
 
 void ScopedIoWatcher::start()
 {
@@ -294,7 +263,6 @@ void ScopedIoWatcher::start()
     eventLoop->yield();
 }
 
-
 ScopedIoWatcher::~ScopedIoWatcher()
 {
     if (watcherId > 0) {
@@ -303,8 +271,7 @@ ScopedIoWatcher::~ScopedIoWatcher()
     }
 }
 
-
-class CoroutinePrivate: public QObject
+class CoroutinePrivate : public QObject
 {
 public:
     CoroutinePrivate(Coroutine *q, QObject *obj, const char *slot);
@@ -321,25 +288,23 @@ private:
     friend struct KillCoroutineFunctor;
 };
 
-
 CoroutinePrivate::CoroutinePrivate(Coroutine *q, QObject *obj, const char *slot)
-    :q_ptr(q), obj(obj), slot(slot), callbackId(0)
+    : q_ptr(q)
+    , obj(obj)
+    , slot(slot)
+    , callbackId(0)
 {
-    q->finished.addCallback([this] (BaseCoroutine *) {
-        finishedEvent.set();
-    });
+    q->finished.addCallback([this](BaseCoroutine *) { finishedEvent.set(); });
 }
 
+CoroutinePrivate::~CoroutinePrivate() { }
 
-CoroutinePrivate::~CoroutinePrivate()
-{
-}
-
-
-struct StartCoroutineFunctor: public Functor
+struct StartCoroutineFunctor : public Functor
 {
     StartCoroutineFunctor(CoroutinePrivate *cp)
-        :cp(cp) {}
+        : cp(cp)
+    {
+    }
     virtual ~StartCoroutineFunctor() override;
     QPointer<CoroutinePrivate> cp;
     virtual void operator()() override
@@ -349,28 +314,28 @@ struct StartCoroutineFunctor: public Functor
             return;
         }
         cp->callbackId = 0;
-        if(cp->q_func()->state() != BaseCoroutine::Initialized) {
-//            qtng_debug << "coroutine has been started or stopped.";
+        if (cp->q_func()->state() != BaseCoroutine::Initialized) {
+            //            qtng_debug << "coroutine has been started or stopped.";
             return;
         }
         cp->q_func()->yield();
     }
 };
 
+StartCoroutineFunctor::~StartCoroutineFunctor() { }
 
-StartCoroutineFunctor::~StartCoroutineFunctor() {}
-
-
-struct KillCoroutineFunctor: public Functor
+struct KillCoroutineFunctor : public Functor
 {
     KillCoroutineFunctor(CoroutinePrivate *cp, CoroutineException *e)
-        :cp(cp), e(e) {}
+        : cp(cp)
+        , e(e)
+    {
+    }
     virtual ~KillCoroutineFunctor() override;
     QPointer<CoroutinePrivate> cp;
     CoroutineException *e;
     virtual void operator()() override;
 };
-
 
 KillCoroutineFunctor::~KillCoroutineFunctor()
 {
@@ -378,7 +343,6 @@ KillCoroutineFunctor::~KillCoroutineFunctor()
         delete e;
     }
 }
-
 
 void KillCoroutineFunctor::operator()()
 {
@@ -393,13 +357,11 @@ void KillCoroutineFunctor::operator()()
     e = nullptr;
 }
 
-
 Coroutine::Coroutine(size_t stackSize)
     : BaseCoroutine(nullptr, stackSize)
     , d_ptr(new CoroutinePrivate(this, nullptr, nullptr))
 {
 }
-
 
 Coroutine::Coroutine(QObject *obj, const char *slot, size_t stackSize)
     : BaseCoroutine(nullptr, stackSize)
@@ -407,12 +369,10 @@ Coroutine::Coroutine(QObject *obj, const char *slot, size_t stackSize)
 {
 }
 
-
 Coroutine::~Coroutine()
 {
     delete d_ptr;
 }
-
 
 Coroutine *Coroutine::start(quint32 msecs)
 {
@@ -423,7 +383,6 @@ Coroutine *Coroutine::start(quint32 msecs)
     d->callbackId = EventLoopCoroutine::get()->callLater(msecs, new StartCoroutineFunctor(d));
     return this;
 }
-
 
 void Coroutine::kill(CoroutineException *e, quint32 msecs)
 {
@@ -457,7 +416,6 @@ void Coroutine::kill(CoroutineException *e, quint32 msecs)
     }
 }
 
-
 void Coroutine::cancelStart()
 {
     Q_D(Coroutine);
@@ -474,7 +432,6 @@ void Coroutine::cancelStart()
     d->callbackId = 0;
 }
 
-
 void Coroutine::run()
 {
     Q_D(Coroutine);
@@ -483,7 +440,6 @@ void Coroutine::run()
         QMetaObject::invokeMethod(d->obj, d->slot);
     }
 }
-
 
 void Coroutine::cleanup()
 {
@@ -494,16 +450,15 @@ void Coroutine::cleanup()
     }
 }
 
-
 bool Coroutine::join()
 {
     Q_D(Coroutine);
     if (state() == BaseCoroutine::Initialized || state() == BaseCoroutine::Started) {
         bool ok;
-        if (!dynamic_cast<Coroutine*>(BaseCoroutine::current())) {
+        if (!dynamic_cast<Coroutine *>(BaseCoroutine::current())) {
             ok = EventLoopCoroutine::get()->runUntil(this);
         } else {
-            ok =  d->finishedEvent.wait();
+            ok = d->finishedEvent.wait();
         }
         if (ok) {
             Q_ASSERT(isFinished());
@@ -515,21 +470,21 @@ bool Coroutine::join()
     }
 }
 
-
 Coroutine *Coroutine::current()
 {
     BaseCoroutine *c = BaseCoroutine::current();
-    return dynamic_cast<Coroutine*>(c);
+    return dynamic_cast<Coroutine *>(c);
 }
-
 
 struct QScopedCallLater
 {
-    QScopedCallLater(int callbackId):callbackId(callbackId){}
-    ~QScopedCallLater(){EventLoopCoroutine::get()->cancelCall(callbackId);}
+    QScopedCallLater(int callbackId)
+        : callbackId(callbackId)
+    {
+    }
+    ~QScopedCallLater() { EventLoopCoroutine::get()->cancelCall(callbackId); }
     int callbackId;
 };
-
 
 void Coroutine::msleep(quint32 msecs)
 {
@@ -539,20 +494,20 @@ void Coroutine::msleep(quint32 msecs)
     EventLoopCoroutine::get()->yield();
 }
 
-
-struct TimeoutFunctor: public Functor
+struct TimeoutFunctor : public Functor
 {
     TimeoutFunctor(Timeout *out, BaseCoroutine *coroutine)
-        :out(out), coroutine(coroutine) {}
+        : out(out)
+        , coroutine(coroutine)
+    {
+    }
     virtual ~TimeoutFunctor() override;
     QPointer<Timeout> out;
     QPointer<BaseCoroutine> coroutine;
     virtual void operator()() override;
 };
 
-
-TimeoutFunctor::~TimeoutFunctor() {}
-
+TimeoutFunctor::~TimeoutFunctor() { }
 
 void TimeoutFunctor::operator()()
 {
@@ -563,47 +518,40 @@ void TimeoutFunctor::operator()()
     coroutine->raise(new TimeoutException());
 }
 
-
-TimeoutException::TimeoutException()
-{
-}
-
+TimeoutException::TimeoutException() { }
 
 QString TimeoutException::what() const
 {
     return QString::fromLatin1("coroutine had set timeout.");
 }
 
-
 void TimeoutException::raise()
 {
     throw *this;
 }
-
 
 CoroutineException *TimeoutException::clone() const
 {
     return new TimeoutException();
 }
 
-
 Timeout::Timeout(float secs)
-    : msecs(static_cast<quint32>((secs > 0.0f ? secs: 0.0f) * 1000)), timeoutId(0)
+    : msecs(static_cast<quint32>((secs > 0.0f ? secs : 0.0f) * 1000))
+    , timeoutId(0)
 {
     if (msecs) {
         restart();
     }
 }
-
 
 Timeout::Timeout(quint32 msecs, int)
-    : msecs(msecs), timeoutId(0)
+    : msecs(msecs)
+    , timeoutId(0)
 {
     if (msecs) {
         restart();
     }
 }
-
 
 Timeout::~Timeout()
 {
@@ -611,7 +559,6 @@ Timeout::~Timeout()
         EventLoopCoroutine::get()->cancelCall(timeoutId);
     }
 }
-
 
 void Timeout::restart()
 {
@@ -621,11 +568,9 @@ void Timeout::restart()
     timeoutId = EventLoopCoroutine::get()->callLater(msecs, new TimeoutFunctor(this, BaseCoroutine::current()));
 }
 
-
 QTNETWORKNG_NAMESPACE_END
 
-
-QDebug operator <<(QDebug out, const QTNETWORKNG_NAMESPACE::EventLoopCoroutine& el)
+QDebug operator<<(QDebug out, const QTNETWORKNG_NAMESPACE::EventLoopCoroutine &el)
 {
     return out << QString::fromLatin1("EventLoopCoroutine(id=%1)").arg(el.id());
 }

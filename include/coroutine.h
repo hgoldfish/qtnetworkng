@@ -6,13 +6,12 @@
 #include "config.h"
 #include "deferred.h"
 
-
 #ifndef DEFAULT_COROUTINE_STACK_SIZE
-    #ifdef Q_OS_ANDROID
-        #define DEFAULT_COROUTINE_STACK_SIZE 1024 * 64
-    #else
-        #define DEFAULT_COROUTINE_STACK_SIZE 1024 * 256
-    #endif
+#  ifdef Q_OS_ANDROID
+#    define DEFAULT_COROUTINE_STACK_SIZE 1024 * 64
+#  else
+#    define DEFAULT_COROUTINE_STACK_SIZE 1024 * 256
+#  endif
 #endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -28,8 +27,7 @@ public:
     virtual CoroutineException *clone() const;
 };
 
-
-class CoroutineExitException: public CoroutineException
+class CoroutineExitException : public CoroutineException
 {
 public:
     explicit CoroutineExitException();
@@ -38,8 +36,7 @@ public:
     virtual CoroutineException *clone() const override;
 };
 
-
-class CoroutineInterruptedException: public CoroutineException
+class CoroutineInterruptedException : public CoroutineException
 {
 public:
     explicit CoroutineInterruptedException();
@@ -48,14 +45,12 @@ public:
     virtual CoroutineException *clone() const override;
 };
 
-
 class BaseCoroutinePrivate;
-class BaseCoroutine: public QObject
+class BaseCoroutine : public QObject
 {
     Q_DISABLE_COPY(BaseCoroutine)
 public:
-    enum State
-    {
+    enum State {
         Initialized,
         Started,
         Stopped,
@@ -79,20 +74,20 @@ public:
 
     static BaseCoroutine *current();
 public:
-    Deferred<BaseCoroutine*> started;
-    Deferred<BaseCoroutine*> finished;
+    Deferred<BaseCoroutine *> started;
+    Deferred<BaseCoroutine *> finished;
 protected:
     void setState(BaseCoroutine::State state);
     virtual void cleanup();
 private:
     BaseCoroutinePrivate * const dd_ptr;
-    friend BaseCoroutine* createMainCoroutine();
+    friend BaseCoroutine *createMainCoroutine();
     Q_DECLARE_PRIVATE_D(dd_ptr, BaseCoroutine)
 };
 
 QTNETWORKNG_NAMESPACE_END
 
 class QDebug;
-QDebug &operator<<(QDebug &out, const QTNETWORKNG_NAMESPACE::BaseCoroutine& coroutine);
+QDebug &operator<<(QDebug &out, const QTNETWORKNG_NAMESPACE::BaseCoroutine &coroutine);
 
-#endif // QTNG_COROUTINE_H
+#endif  // QTNG_COROUTINE_H

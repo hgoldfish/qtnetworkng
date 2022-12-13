@@ -1,11 +1,11 @@
 #include <QtCore/qdir.h>
 #include <QtCore/qdatetime.h>
 #ifdef Q_OS_UNIX
-#include <unistd.h>
-#include <fcntl.h>
-    #ifdef Q_OS_ANDROID
-        #include <errno.h>
-    #endif
+#  include <unistd.h>
+#  include <fcntl.h>
+#  ifdef Q_OS_ANDROID
+#    include <errno.h>
+#  endif
 #endif
 #include "../include/io_utils.h"
 #include "../include/coroutine_utils.h"
@@ -15,35 +15,34 @@ QTNG_LOGGER("qtng.io_utils");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
-FileLike::~FileLike() {}
-
+FileLike::~FileLike() { }
 
 QByteArray FileLike::readall(bool *ok)
 {
     QByteArray data;
     qint64 s = size();
     if (s >= static_cast<qint64>(INT32_MAX)) {
-        if (ok) *ok = false;
+        if (ok)
+            *ok = false;
         return data;
     } else if (s == 0) {
         return data;
     } else if (s < 0) {
         // size() is not supported.
-    } else { // 0 < s < INT32_MAX
+    } else {  // 0 < s < INT32_MAX
         data.reserve(static_cast<qint32>(s));
     }
     char buf[1024 * 8];
     while (true) {
         qint32 readBytes = read(buf, 1024 * 8);
         if (readBytes <= 0) {
-            if (ok) *ok = (s < 0 || data.size() == s);
+            if (ok)
+                *ok = (s < 0 || data.size() == s);
             return data;
         }
         data.append(buf, readBytes);
     }
 }
-
 
 QByteArray FileLike::read(qint32 size)
 {
@@ -59,12 +58,10 @@ QByteArray FileLike::read(qint32 size)
     }
 }
 
-
 qint32 FileLike::write(const QByteArray &data)
 {
     return this->write(data.constData(), data.size());
 }
-
 
 qint32 RawFile::read(char *data, qint32 size)
 {
@@ -82,9 +79,9 @@ qint32 RawFile::read(char *data, qint32 size)
         if (r < 0) {
             int e = errno;
             switch (e) {
-#if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
+#  if EWOULDBLOCK - 0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
-#endif
+#  endif
             case EAGAIN:
                 break;
             case EBADF:
@@ -104,7 +101,6 @@ qint32 RawFile::read(char *data, qint32 size)
 #endif
 }
 
-
 qint32 RawFile::write(const char *data, qint32 size)
 {
 #ifdef Q_OS_UNIX
@@ -121,9 +117,9 @@ qint32 RawFile::write(const char *data, qint32 size)
         if (r <= 0) {
             int e = errno;
             switch (e) {
-#if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
+#  if EWOULDBLOCK - 0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
-#endif
+#  endif
             case EAGAIN:
                 break;
             case EBADF:
@@ -143,18 +139,15 @@ qint32 RawFile::write(const char *data, qint32 size)
 #endif
 }
 
-
 void RawFile::close()
 {
     f->close();
 }
 
-
 qint64 RawFile::size()
 {
     return f->size();
 }
-
 
 bool RawFile::seek(qint64 pos)
 {
@@ -163,22 +156,20 @@ bool RawFile::seek(qint64 pos)
     if (fd <= 0) {
         return false;
     }
-#if defined(_LARGEFILE64_SOURCE)
+#  if defined(_LARGEFILE64_SOURCE)
     return ::lseek64(fd, pos, SEEK_SET) >= 0;
-#else
+#  else
     return ::lseek(fd, pos, SEEK_SET) >= 0;
-#endif
+#  endif
 #else
     return f->seek(pos);
 #endif
 }
 
-
 QString RawFile::fileName() const
 {
     return f->fileName();
 }
-
 
 static inline bool isTheMode(const QString &mode, const QString &essential)
 {
@@ -187,7 +178,6 @@ static inline bool isTheMode(const QString &mode, const QString &essential)
     t.remove(QLatin1Char('b'));
     return t == essential;
 }
-
 
 QSharedPointer<RawFile> RawFile::open(const QString &filepath, const QString &mode)
 {
@@ -198,8 +188,7 @@ QSharedPointer<RawFile> RawFile::open(const QString &filepath, const QString &mo
         if (mode.contains(QLatin1Char('+'))) {
             flags |= QIODevice::WriteOnly;
         }
-    } else if (isTheMode(mode, QString::fromUtf8("w"))
-               || isTheMode(mode, QString::fromUtf8("rw"))
+    } else if (isTheMode(mode, QString::fromUtf8("w")) || isTheMode(mode, QString::fromUtf8("rw"))
                || isTheMode(mode, QString::fromUtf8("wr"))) {
         flags |= QIODevice::WriteOnly;
         flags |= QIODevice::Truncate;
@@ -229,27 +218,26 @@ QSharedPointer<RawFile> RawFile::open(const QString &filepath, const QString &mo
         if ((flags & QIODevice::Append) && !openFile->seek(f->size())) {
             return QSharedPointer<RawFile>();
         }
-        #ifdef Q_OS_UNIX
-            int fd = f->handle();
-            if (fd <= 0) {
-                return QSharedPointer<RawFile>();
-            }
-            #if !defined(Q_OS_VXWORKS)
-                int flags = ::fcntl(fd, F_GETFL, 0);
-                if (flags == -1 || ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-                    return QSharedPointer<RawFile>();
-                }
-            #else // Q_OS_VXWORKS
-                int onoff = 1;
-                if (::ioctl(fd, FIONBIO, (int)&onoff) < 0) {
-                    return QSharedPointer<RawFile>();
-                }
-            #endif // Q_OS_VXWORKS
-        #endif
+#ifdef Q_OS_UNIX
+        int fd = f->handle();
+        if (fd <= 0) {
+            return QSharedPointer<RawFile>();
+        }
+#  if !defined(Q_OS_VXWORKS)
+        int flags = ::fcntl(fd, F_GETFL, 0);
+        if (flags == -1 || ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+            return QSharedPointer<RawFile>();
+        }
+#  else  // Q_OS_VXWORKS
+        int onoff = 1;
+        if (::ioctl(fd, FIONBIO, (int) &onoff) < 0) {
+            return QSharedPointer<RawFile>();
+        }
+#  endif  // Q_OS_VXWORKS
+#endif
         return openFile;
     }
 }
-
 
 QSharedPointer<RawFile> RawFile::open(const QString &filepath, QIODevice::OpenMode mode)
 {
@@ -265,56 +253,51 @@ QSharedPointer<RawFile> RawFile::open(const QString &filepath, QIODevice::OpenMo
     }
 }
 
-
 QSharedPointer<FileLike> FileLike::rawFile(QSharedPointer<QFile> f)
 {
     return QSharedPointer<RawFile>::create(f).dynamicCast<FileLike>();
 }
-
 
 QSharedPointer<FileLike> FileLike::open(const QString &filepath, const QString &mode)
 {
     return RawFile::open(filepath, mode).staticCast<FileLike>();
 }
 
-
 class BytesIOPrivate
 {
 public:
     BytesIOPrivate(qint32 pos)
-        : pos(pos) {}
+        : pos(pos)
+    {
+    }
     QByteArray *buf;
     qint32 pos;
     bool ownbuf;
 };
 
-
 BytesIO::BytesIO(const QByteArray &buf, qint32 pos)
-    :d_ptr(new BytesIOPrivate(pos))
+    : d_ptr(new BytesIOPrivate(pos))
 {
     Q_D(BytesIO);
     d->buf = new QByteArray(buf);
     d->ownbuf = true;
 }
 
-
 BytesIO::BytesIO(QByteArray *buf, qint32 pos)
-    :d_ptr(new BytesIOPrivate(pos))
+    : d_ptr(new BytesIOPrivate(pos))
 {
     Q_D(BytesIO);
     d->buf = buf;
     d->ownbuf = false;
 }
 
-
 BytesIO::BytesIO()
-    :d_ptr(new BytesIOPrivate(0))
+    : d_ptr(new BytesIOPrivate(0))
 {
     Q_D(BytesIO);
     d->buf = new QByteArray();
     d->ownbuf = true;
 }
-
 
 BytesIO::~BytesIO()
 {
@@ -325,7 +308,6 @@ BytesIO::~BytesIO()
     delete d_ptr;
 }
 
-
 qint32 BytesIO::read(char *data, qint32 size)
 {
     Q_D(BytesIO);
@@ -335,7 +317,6 @@ qint32 BytesIO::read(char *data, qint32 size)
     d->pos += readBytes;
     return readBytes;
 }
-
 
 qint32 BytesIO::write(const char *data, qint32 size)
 {
@@ -348,12 +329,7 @@ qint32 BytesIO::write(const char *data, qint32 size)
     return size;
 }
 
-
-void BytesIO::close()
-{
-
-}
-
+void BytesIO::close() { }
 
 qint64 BytesIO::size()
 {
@@ -361,11 +337,11 @@ qint64 BytesIO::size()
     return d->buf->size();
 }
 
-
 QByteArray BytesIO::readall(bool *ok)
 {
     Q_D(BytesIO);
-    if (ok) *ok = true;
+    if (ok)
+        *ok = true;
     if (Q_LIKELY(d->pos == 0)) {
         d->pos = d->buf->size();
         return *d->buf;
@@ -376,27 +352,24 @@ QByteArray BytesIO::readall(bool *ok)
     }
 }
 
-
 QByteArray BytesIO::data()
 {
     Q_D(BytesIO);
     return *d->buf;
 }
 
-
 QSharedPointer<FileLike> FileLike::bytes(const QByteArray &data)
 {
     return QSharedPointer<BytesIO>::create(data);
 }
-
 
 QSharedPointer<FileLike> FileLike::bytes(QByteArray *data)
 {
     return QSharedPointer<BytesIO>::create(data);
 }
 
-
-bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy, int suitableBlockSize)
+bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy,
+              int suitableBlockSize)
 {
     if (inputFile.isNull() || outputFile.isNull()) {
         return false;
@@ -423,7 +396,7 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
             qint32 nextBlockSize = qMin<qint64>(suitableBlockSize, remain);
             qint32 oldSize = buf.size();
             buf.resize(oldSize + nextBlockSize);
-            qint32 readBytes = inputFile->read(buf.data() + oldSize , nextBlockSize);
+            qint32 readBytes = inputFile->read(buf.data() + oldSize, nextBlockSize);
             if (readBytes < 0) {
                 return false;
             } else if (readBytes > 0) {
@@ -446,8 +419,7 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
     }
 }
 
-
-class PosixPathPrivate: public QSharedData
+class PosixPathPrivate : public QSharedData
 {
 public:
     PosixPathPrivate(const QString &path)
@@ -482,27 +454,24 @@ public:
     QStringList parts;
 };
 
-
 QChar PosixPath::point = QChar::fromLatin1('.');
 QString PosixPath::pointpoint = QString::fromUtf8("..");
 QChar PosixPath::seperator = QChar::fromLatin1('/');
-
 
 PosixPath::PosixPath(const QString &path)
     : d(new PosixPathPrivate(path))
 {
 }
 
-
 PosixPath::PosixPath()
     : d(nullptr)
-{}
-
+{
+}
 
 PosixPath::PosixPath(const PosixPath &other)
     : d(other.d)
-{}
-
+{
+}
 
 #ifdef Q_COMPILER_RVALUE_REFS
 
@@ -512,11 +481,9 @@ PosixPath::PosixPath(PosixPath &&other)
     qSwap(d, other.d);
 }
 
+PosixPath::~PosixPath() { }
 
-PosixPath::~PosixPath() {}
-
-
-PosixPath &PosixPath::operator = (PosixPath &&other) Q_DECL_NOTHROW
+PosixPath &PosixPath::operator=(PosixPath &&other) Q_DECL_NOTHROW
 {
     qSwap(d, other.d);
     return *this;
@@ -524,13 +491,11 @@ PosixPath &PosixPath::operator = (PosixPath &&other) Q_DECL_NOTHROW
 
 #endif
 
-
-PosixPath &PosixPath::operator = (const PosixPath &other)
+PosixPath &PosixPath::operator=(const PosixPath &other)
 {
     d = other.d;
     return *this;
 }
-
 
 bool PosixPath::operator==(const PosixPath &other) const
 {
@@ -546,8 +511,7 @@ bool PosixPath::operator==(const PosixPath &other) const
     }
 }
 
-
-PosixPath PosixPath::operator / (const QString &path) const
+PosixPath PosixPath::operator/(const QString &path) const
 {
     if (isNull()) {
         return PosixPath();
@@ -565,12 +529,10 @@ PosixPath PosixPath::operator / (const QString &path) const
     }
 }
 
-
 bool PosixPath::isNull() const
 {
     return !d || d->path.isEmpty();
 }
-
 
 bool PosixPath::isFile() const
 {
@@ -580,7 +542,6 @@ bool PosixPath::isFile() const
     return d->info.isFile();
 }
 
-
 bool PosixPath::isDir() const
 {
     if (isNull()) {
@@ -588,7 +549,6 @@ bool PosixPath::isDir() const
     }
     return d->info.isDir();
 }
-
 
 bool PosixPath::isSymLink() const
 {
@@ -598,7 +558,6 @@ bool PosixPath::isSymLink() const
     return d->info.isSymLink();
 }
 
-
 bool PosixPath::isAbsolute() const
 {
     if (isNull()) {
@@ -606,7 +565,6 @@ bool PosixPath::isAbsolute() const
     }
     return d->path.startsWith(seperator);
 }
-
 
 bool PosixPath::isExecutable() const
 {
@@ -616,7 +574,6 @@ bool PosixPath::isExecutable() const
     return d->info.isExecutable();
 }
 
-
 bool PosixPath::isReadable() const
 {
     if (isNull()) {
@@ -624,7 +581,6 @@ bool PosixPath::isReadable() const
     }
     return d->info.isReadable();
 }
-
 
 bool PosixPath::isRelative() const
 {
@@ -635,14 +591,13 @@ bool PosixPath::isRelative() const
     if (!d->path.startsWith(seperator)) {
         return true;
     }
-    for (const QString &part: d->parts) {
+    for (const QString &part : d->parts) {
         if (part == point || part == pointpoint) {
             return true;
         }
     }
     return false;
 }
-
 
 bool PosixPath::isRoot() const
 {
@@ -652,7 +607,6 @@ bool PosixPath::isRoot() const
     return d->path.startsWith(seperator) && d->parts.isEmpty();
 }
 
-
 bool PosixPath::isWritable() const
 {
     if (isNull()) {
@@ -660,7 +614,6 @@ bool PosixPath::isWritable() const
     }
     return d->info.isWritable();
 }
-
 
 bool PosixPath::exists() const
 {
@@ -670,7 +623,6 @@ bool PosixPath::exists() const
     return d->info.exists();
 }
 
-
 qint64 PosixPath::size() const
 {
     if (isNull()) {
@@ -678,7 +630,6 @@ qint64 PosixPath::size() const
     }
     return d->info.size();
 }
-
 
 QString PosixPath::path() const
 {
@@ -688,7 +639,6 @@ QString PosixPath::path() const
     return d->path;
 }
 
-
 QFileInfo PosixPath::fileInfo() const
 {
     if (isNull()) {
@@ -696,7 +646,6 @@ QFileInfo PosixPath::fileInfo() const
     }
     return d->info;
 }
-
 
 QString PosixPath::parentDir() const
 {
@@ -714,7 +663,6 @@ QString PosixPath::parentDir() const
     return parent;
 }
 
-
 PosixPath PosixPath::parentPath() const
 {
     if (isNull()) {
@@ -722,7 +670,6 @@ PosixPath PosixPath::parentPath() const
     }
     return PosixPath(parentDir());
 }
-
 
 QString PosixPath::name() const
 {
@@ -734,7 +681,6 @@ QString PosixPath::name() const
     }
     return d->parts.last();
 }
-
 
 QString PosixPath::baseName() const
 {
@@ -754,7 +700,6 @@ QString PosixPath::baseName() const
     }
 }
 
-
 QString PosixPath::suffix() const
 {
     if (isNull()) {
@@ -767,7 +712,6 @@ QString PosixPath::suffix() const
         return l.last().toString();
     }
 }
-
 
 QString PosixPath::completeBaseName() const
 {
@@ -790,7 +734,6 @@ QString PosixPath::completeBaseName() const
     }
 }
 
-
 QString PosixPath::completeSuffix() const
 {
     if (isNull()) {
@@ -805,7 +748,6 @@ QString PosixPath::completeSuffix() const
     }
 }
 
-
 QString PosixPath::toAbsolute() const
 {
     if (isNull()) {
@@ -813,7 +755,6 @@ QString PosixPath::toAbsolute() const
     }
     return d->info.absoluteFilePath();
 }
-
 
 QString PosixPath::relativePath(const QString &other) const
 {
@@ -824,7 +765,6 @@ QString PosixPath::relativePath(const QString &other) const
     return dir.relativeFilePath(other);
 }
 
-
 QString PosixPath::relativePath(const PosixPath &other) const
 {
     if (isNull()) {
@@ -834,18 +774,15 @@ QString PosixPath::relativePath(const PosixPath &other) const
     return dir.relativeFilePath(other.d->path);
 }
 
-
 bool PosixPath::isChildOf(const PosixPath &other) const
 {
     return !other.relativePath(*this).startsWith(pointpoint);
 }
 
-
 bool PosixPath::hasChildOf(const PosixPath &other) const
 {
     return !relativePath(other).startsWith(pointpoint);
 }
-
 
 QDateTime PosixPath::created() const
 {
@@ -863,7 +800,6 @@ QDateTime PosixPath::created() const
 #endif
 }
 
-
 QDateTime PosixPath::lastModified() const
 {
     if (isNull()) {
@@ -872,7 +808,6 @@ QDateTime PosixPath::lastModified() const
     return d->info.lastModified();
 }
 
-
 QDateTime PosixPath::lastRead() const
 {
     if (isNull()) {
@@ -880,7 +815,6 @@ QDateTime PosixPath::lastRead() const
     }
     return d->info.lastRead();
 }
-
 
 QStringList PosixPath::listdir() const
 {
@@ -891,7 +825,6 @@ QStringList PosixPath::listdir() const
     return dir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
 }
 
-
 QList<PosixPath> PosixPath::children() const
 {
     if (isNull()) {
@@ -899,12 +832,11 @@ QList<PosixPath> PosixPath::children() const
     }
     QDir dir(d->path);
     QList<PosixPath> children;
-    for (const QString &child: dir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot)) {
+    for (const QString &child : dir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot)) {
         children.append(*this / child);
     }
     return children;
 }
-
 
 bool PosixPath::mkdir(bool createParents)
 {
@@ -922,25 +854,21 @@ bool PosixPath::mkdir(bool createParents)
     }
 }
 
-
 bool PosixPath::touch()
 {
-    Q_ASSERT(false); // "not implemented."
+    Q_ASSERT(false);  // "not implemented."
     return false;
 }
-
 
 QSharedPointer<RawFile> PosixPath::open(const QString &mode)
 {
     return RawFile::open(d->path, mode);
 }
 
-
 PosixPath PosixPath::cwd()
 {
     return PosixPath(QDir::currentPath());
 }
-
 
 static QString makeSafePath(const QString &subPath)
 {
@@ -951,8 +879,8 @@ static QString makeSafePath(const QString &subPath)
     const QVector<QStringRef> &list = subPath.splitRef(QLatin1Char('/'), QString::SkipEmptyParts);
 #endif
     QStringList l;
-    for (const QStringRef &part: list) {
-        if (part == PosixPath::point) { // if part contains space, it is not dot dir.
+    for (const QStringRef &part : list) {
+        if (part == PosixPath::point) {  // if part contains space, it is not dot dir.
             continue;
         } else if (part == PosixPath::pointpoint) {
             if (!l.isEmpty()) {
@@ -962,16 +890,14 @@ static QString makeSafePath(const QString &subPath)
             l.append(part.toString());
         }
     }
-    return l.join(PosixPath::seperator); // without the leading slash.
+    return l.join(PosixPath::seperator);  // without the leading slash.
 }
 
-
-QDebug &operator << (QDebug &out, const PosixPath &path)
+QDebug &operator<<(QDebug &out, const PosixPath &path)
 {
     out << path.path();
     return out;
 }
-
 
 QPair<QString, QString> safeJoinPath(const QString &parentDir, const QString &subPath)
 {
@@ -983,15 +909,13 @@ QPair<QString, QString> safeJoinPath(const QString &parentDir, const QString &su
     }
 }
 
-
 QPair<QFileInfo, QString> safeJoinPath(const QDir &parentDir, const QString &subPath)
 {
     const QString &safeSubPath = makeSafePath(subPath);
     return qMakePair(QFileInfo(parentDir, safeSubPath), safeSubPath);
 }
 
-
-PosixPath PosixPath::operator | (const QString &path) const
+PosixPath PosixPath::operator|(const QString &path) const
 {
     if (isNull()) {
         return PosixPath();
@@ -1000,8 +924,7 @@ PosixPath PosixPath::operator | (const QString &path) const
     return PosixPath(newPath);
 }
 
-
-uint qHash(const PosixPath& path, uint seed)
+uint qHash(const PosixPath &path, uint seed)
 {
     return qHash(path.path(), seed);
 }

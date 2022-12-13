@@ -5,7 +5,7 @@
 #include <QtCore/qmetaobject.h>
 #include <QtCore/qmetatype.h>
 #if QT_VERSION > QT_VERSION_CHECK(5, 8, 0)
-#include <QtCore/qdeadlinetimer.h>
+#  include <QtCore/qdeadlinetimer.h>
 #endif
 #include "hostaddress.h"
 
@@ -15,16 +15,16 @@ class NetworkAddressEntryPrivate;
 class NetworkAddressEntry
 {
 public:
-    enum DnsEligibilityStatus : qint8 {
-        DnsEligibilityUnknown = -1,
-        DnsIneligible = 0,
-        DnsEligible = 1
-    };
+    enum DnsEligibilityStatus : qint8 { DnsEligibilityUnknown = -1, DnsIneligible = 0, DnsEligible = 1 };
 
     NetworkAddressEntry();
     NetworkAddressEntry(const NetworkAddressEntry &other);
 #ifdef Q_COMPILER_RVALUE_REFS
-    NetworkAddressEntry &operator=(NetworkAddressEntry &&other) Q_DECL_NOTHROW { swap(other); return *this; }
+    NetworkAddressEntry &operator=(NetworkAddressEntry &&other) Q_DECL_NOTHROW
+    {
+        swap(other);
+        return *this;
+    }
 #endif
     NetworkAddressEntry &operator=(const NetworkAddressEntry &other);
     ~NetworkAddressEntry();
@@ -61,7 +61,6 @@ private:
     QScopedPointer<NetworkAddressEntryPrivate> d;
 };
 
-
 class NetworkInterfacePrivate;
 class NetworkInterface
 {
@@ -85,7 +84,7 @@ public:
         Ppp,
         Fddi,
         Wifi,
-        Ieee80211 = Wifi,   // alias
+        Ieee80211 = Wifi,  // alias
         Phonet,
         Ieee802154,
         SixLoWPAN,  // 6LoWPAN, but we can't start with a digit
@@ -98,7 +97,11 @@ public:
     NetworkInterface();
     NetworkInterface(const NetworkInterface &other);
 #ifdef Q_COMPILER_RVALUE_REFS
-    NetworkInterface &operator=(NetworkInterface &&other) Q_DECL_NOTHROW { swap(other); return *this; }
+    NetworkInterface &operator=(NetworkInterface &&other) Q_DECL_NOTHROW
+    {
+        swap(other);
+        return *this;
+    }
 #endif
     NetworkInterface &operator=(const NetworkInterface &other);
     ~NetworkInterface();
@@ -137,5 +140,4 @@ QDebug operator<<(QDebug debug, const QTNETWORKNG_NAMESPACE::NetworkInterface &n
 Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::NetworkAddressEntry)
 Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::NetworkInterface)
 
-
-#endif // QTNG_NETWORK_INTERFACE_H
+#endif  // QTNG_NETWORK_INTERFACE_H

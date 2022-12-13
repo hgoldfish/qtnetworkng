@@ -4,36 +4,36 @@
 
 QTNG_LOGGER("qtng.coroutine");
 
-
 QTNETWORKNG_NAMESPACE_BEGIN
 
-void LambdaFunctor::operator ()()
+void LambdaFunctor::operator()()
 {
     callback();
 }
 
-
-class MarkDoneFunctor: public Functor
+class MarkDoneFunctor : public Functor
 {
 public:
     MarkDoneFunctor(const QSharedPointer<Event> &done)
-        : done(done) {}
-    virtual void operator ()() override;
+        : done(done)
+    {
+    }
+    virtual void operator()() override;
     QSharedPointer<Event> done;
 };
 
-
-void MarkDoneFunctor::operator ()()
+void MarkDoneFunctor::operator()()
 {
     done->set();
 }
 
-
-DeferCallThread::DeferCallThread(std::function<void()> makeResult, QSharedPointer<Event> done, EventLoopCoroutine *eventloop)
-    :makeResult(makeResult), done(done), eventloop(eventloop)
+DeferCallThread::DeferCallThread(std::function<void()> makeResult, QSharedPointer<Event> done,
+                                 EventLoopCoroutine *eventloop)
+    : makeResult(makeResult)
+    , done(done)
+    , eventloop(eventloop)
 {
 }
-
 
 void DeferCallThread::run()
 {
@@ -44,17 +44,18 @@ void DeferCallThread::run()
     }
 }
 
-
-class CoroutineThreadPrivate: public BaseCoroutine
+class CoroutineThreadPrivate : public BaseCoroutine
 {
 public:
     CoroutineThreadPrivate(quint32 capacity)
-        : BaseCoroutine(nullptr), tasks(capacity) {}
+        : BaseCoroutine(nullptr)
+        , tasks(capacity)
+    {
+    }
     virtual void run() override;
 public:
     ThreadQueue<std::function<void()>> tasks;
 };
-
 
 void CoroutineThreadPrivate::run()
 {
@@ -68,13 +69,22 @@ void CoroutineThreadPrivate::run()
     }
 }
 
-
 CoroutineThread::CoroutineThread(quint32 capacity)
-    : dd_ptr(new CoroutineThreadPrivate(capacity)) {}
-CoroutineThread::~CoroutineThread() { delete dd_ptr; }
-void CoroutineThread::run() { currentLoop()->getOrCreate()->runUntil(dd_ptr); }
-void CoroutineThread::apply(const std::function<void()> &f) { dd_ptr->tasks.put(f); }
-
+    : dd_ptr(new CoroutineThreadPrivate(capacity))
+{
+}
+CoroutineThread::~CoroutineThread()
+{
+    delete dd_ptr;
+}
+void CoroutineThread::run()
+{
+    currentLoop()->getOrCreate()->runUntil(dd_ptr);
+}
+void CoroutineThread::apply(const std::function<void()> &f)
+{
+    dd_ptr->tasks.put(f);
+}
 
 bool waitThread(QSharedPointer<QThread> thread)
 {
@@ -86,23 +96,19 @@ bool waitThread(QSharedPointer<QThread> thread)
     }
     QSharedPointer<ThreadEvent> event(new ThreadEvent());
     QObject::connect(thread.data(), &QThread::finished, [event] { event->set(); });
-    QObject::connect(thread.data(), &QThread::destroyed, [event] {  event->set(); });
+    QObject::connect(thread.data(), &QThread::destroyed, [event] { event->set(); });
     return event->wait();
 }
 
-
 CoroutineGroup::CoroutineGroup()
-    :QObject()
+    : QObject()
 {
-
 }
-
 
 CoroutineGroup::~CoroutineGroup()
 {
     killall(true);
 }
-
 
 bool CoroutineGroup::add(QSharedPointer<Coroutine> coroutine, const QString &name)
 {
@@ -113,7 +119,7 @@ bool CoroutineGroup::add(QSharedPointer<Coroutine> coroutine, const QString &nam
         coroutine->setObjectName(name);
     }
     QPointer<CoroutineGroup> self(this);
-    coroutine->finished.addCallback([self] (BaseCoroutine *coroutine) {
+    coroutine->finished.addCallback([self](BaseCoroutine *coroutine) {
         if (self.isNull()) {
             return;
         }
@@ -122,7 +128,6 @@ bool CoroutineGroup::add(QSharedPointer<Coroutine> coroutine, const QString &nam
     coroutines.append(coroutine);
     return true;
 }
-
 
 QSharedPointer<Coroutine> CoroutineGroup::get(const QString &name)
 {
@@ -134,7 +139,6 @@ QSharedPointer<Coroutine> CoroutineGroup::get(const QString &name)
     }
     return QSharedPointer<Coroutine>();
 }
-
 
 bool CoroutineGroup::has(const QString &name)
 {
@@ -148,7 +152,6 @@ bool CoroutineGroup::has(const QString &name)
     return false;
 }
 
-
 bool CoroutineGroup::isCurrent(const QString &name)
 {
     QListIterator<QSharedPointer<Coroutine>> itor(coroutines);
@@ -160,7 +163,6 @@ bool CoroutineGroup::isCurrent(const QString &name)
     }
     return false;
 }
-
 
 bool CoroutineGroup::kill(const QString &name, bool join)
 {
@@ -185,14 +187,13 @@ bool CoroutineGroup::kill(const QString &name, bool join)
     return false;
 }
 
-
 bool CoroutineGroup::killall(bool join)
 {
     bool done = false;
     QList<QSharedPointer<Coroutine>> copy = coroutines;
     if (join) {
         BaseCoroutine *current = BaseCoroutine::current();
-        for (QSharedPointer<Coroutine> coroutine: copy) {
+        for (QSharedPointer<Coroutine> coroutine : copy) {
             if (coroutine.data() == Coroutine::current()) {
                 continue;
             }
@@ -205,7 +206,7 @@ bool CoroutineGroup::killall(bool join)
             done = true;
         }
     } else {
-        for (QSharedPointer<Coroutine> coroutine: copy) {
+        for (QSharedPointer<Coroutine> coroutine : copy) {
             if (coroutine.data() == Coroutine::current()) {
                 continue;
             }
@@ -215,7 +216,6 @@ bool CoroutineGroup::killall(bool join)
     }
     return done;
 }
-
 
 bool CoroutineGroup::join(const QString &name)
 {
@@ -231,12 +231,11 @@ bool CoroutineGroup::join(const QString &name)
     return false;
 }
 
-
 bool CoroutineGroup::joinall()
 {
     bool hasCoroutines = !coroutines.isEmpty();
     QList<QSharedPointer<Coroutine>> copy = coroutines;
-    for (QSharedPointer<Coroutine> coroutine: copy) {
+    for (QSharedPointer<Coroutine> coroutine : copy) {
         if (coroutine == Coroutine::current()) {
             continue;
         }
@@ -246,21 +245,20 @@ bool CoroutineGroup::joinall()
     return hasCoroutines;
 }
 
-
 QSharedPointer<Coroutine> CoroutineGroup::any()
 {
-    QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>> event
-            = QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>>::create();
+    QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>> event =
+            QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>>::create();
 
     QList<QPair<QWeakPointer<Coroutine>, int>> toRemove;
-    for (QSharedPointer<Coroutine> c: coroutines) {
+    for (QSharedPointer<Coroutine> c : coroutines) {
         QWeakPointer<Coroutine> cw = c.toWeakRef();
-        int callbackId = c->finished.addCallback([event, cw] (BaseCoroutine *) { event->send(cw.toStrongRef()); });
+        int callbackId = c->finished.addCallback([event, cw](BaseCoroutine *) { event->send(cw.toStrongRef()); });
         toRemove.append(qMakePair(cw, callbackId));
     }
     try {
         QSharedPointer<Coroutine> c = event->wait();
-        for (const QPair<QWeakPointer<Coroutine>, int> &item: toRemove) {
+        for (const QPair<QWeakPointer<Coroutine>, int> &item : toRemove) {
             QSharedPointer<Coroutine> c = item.first.toStrongRef();
             if (!c.isNull()) {
                 c->finished.remove(item.second);
@@ -268,7 +266,7 @@ QSharedPointer<Coroutine> CoroutineGroup::any()
         }
         return c;
     } catch (...) {
-        for (const QPair<QWeakPointer<Coroutine>, int> &item: toRemove) {
+        for (const QPair<QWeakPointer<Coroutine>, int> &item : toRemove) {
             QSharedPointer<Coroutine> c = item.first.toStrongRef();
             if (!c.isNull()) {
                 c->finished.remove(item.second);
@@ -278,21 +276,19 @@ QSharedPointer<Coroutine> CoroutineGroup::any()
     }
 }
 
-
-class DeleteCoroutineFunctor: public Functor
+class DeleteCoroutineFunctor : public Functor
 {
 public:
     virtual ~DeleteCoroutineFunctor() override;
     virtual void operator()() override;
     QSharedPointer<BaseCoroutine> coroutine;
 };
-DeleteCoroutineFunctor::~DeleteCoroutineFunctor() {}
-void DeleteCoroutineFunctor::operator()() {}
-
+DeleteCoroutineFunctor::~DeleteCoroutineFunctor() { }
+void DeleteCoroutineFunctor::operator()() { }
 
 void CoroutineGroup::deleteCoroutine(BaseCoroutine *baseCoroutine)
 {
-    Coroutine *coroutine = dynamic_cast<Coroutine*>(baseCoroutine);
+    Coroutine *coroutine = dynamic_cast<Coroutine *>(baseCoroutine);
     Q_ASSERT(coroutine != nullptr);
     for (QList<QSharedPointer<Coroutine>>::iterator itor = coroutines.begin(); itor != coroutines.end(); ++itor) {
         if (itor->data() == coroutine) {
@@ -305,19 +301,19 @@ void CoroutineGroup::deleteCoroutine(BaseCoroutine *baseCoroutine)
     }
 }
 
-
 class ThreadPoolWorkItem
 {
 public:
     ThreadPoolWorkItem()
-        :done(new Event()) {}
+        : done(new Event())
+    {
+    }
     std::function<void()> makeResult;
     QSharedPointer<Event> done;
     QPointer<EventLoopCoroutine> eventloop;
 };
 
-
-class ThreadPoolWorkThread: public QThread
+class ThreadPoolWorkThread : public QThread
 {
 public:
     ThreadPoolWorkThread();
@@ -332,12 +328,10 @@ private:
     QAtomicInteger<int> exiting;
 };
 
-
 ThreadPoolWorkThread::ThreadPoolWorkThread()
     : exiting(false)
 {
 }
-
 
 void ThreadPoolWorkThread::call(std::function<void()> func)
 {
@@ -354,7 +348,6 @@ void ThreadPoolWorkThread::call(std::function<void()> func)
     item.done->wait();
 }
 
-
 void ThreadPoolWorkThread::kill()
 {
     mutex.lock();
@@ -363,7 +356,6 @@ void ThreadPoolWorkThread::kill()
     mutex.unlock();
     wait();
 }
-
 
 void ThreadPoolWorkThread::run()
 {
@@ -388,7 +380,6 @@ void ThreadPoolWorkThread::run()
     }
 }
 
-
 ThreadPool::ThreadPool(int threads)
 {
     if (threads <= 0) {
@@ -398,14 +389,12 @@ ThreadPool::ThreadPool(int threads)
     }
 }
 
-
 ThreadPool::~ThreadPool()
 {
-    for (QSharedPointer<ThreadPoolWorkThread> thread: threads) {
+    for (QSharedPointer<ThreadPoolWorkThread> thread : threads) {
         thread->kill();
     }
 }
-
 
 void ThreadPool::call(std::function<void()> func)
 {
@@ -423,6 +412,5 @@ void ThreadPool::call(std::function<void()> func)
     thread->call(func);
     threads.append(thread);
 }
-
 
 QTNETWORKNG_NAMESPACE_END

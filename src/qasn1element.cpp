@@ -37,7 +37,6 @@
 **
 ****************************************************************************/
 
-
 #include "../include/private/qasn1element.h"
 #include <QtCore/qdatastream.h>
 #include <QtCore/qdatetime.h>
@@ -47,7 +46,6 @@
 #include <locale>
 
 QTNETWORKNG_NAMESPACE_BEGIN
-
 
 typedef QMap<QByteArray, QByteArray> OidNameMap;
 static OidNameMap createOidMap()
@@ -184,12 +182,10 @@ void QAsn1Element::write(QDataStream &stream) const
     stream.writeRawData(mValue.data(), mValue.size());
 }
 
-
 QAsn1Element QAsn1Element::fromBool(bool val)
 {
     const char negOne = std::numeric_limits<char>::is_signed ? -1 : 0xff;
-    return QAsn1Element(QAsn1Element::BooleanType,
-        QByteArray(1, val ? negOne : 0x00));
+    return QAsn1Element(QAsn1Element::BooleanType, QByteArray(1, val ? negOne : 0x00));
 }
 
 QAsn1Element QAsn1Element::fromInteger(unsigned int val)
@@ -262,20 +258,12 @@ QDateTime QAsn1Element::toDateTime() const
             if (!stringToNonNegativeInt(mValue.mid(0, 2), &year))
                 return QDateTime();
             // RFC 2459: YY represents a year in the range [1950, 2049]
-            return QDateTime(QDate(year < 50 ? 2000 + year : 1900 + year,
-                                   mValue.mid(2, 2).toInt(),
-                                   mValue.mid(4, 2).toInt()),
-                             QTime(mValue.mid(6, 2).toInt(),
-                                   mValue.mid(8, 2).toInt(),
-                                   mValue.mid(10, 2).toInt()),
-                             Qt::UTC);
+            return QDateTime(
+                    QDate(year < 50 ? 2000 + year : 1900 + year, mValue.mid(2, 2).toInt(), mValue.mid(4, 2).toInt()),
+                    QTime(mValue.mid(6, 2).toInt(), mValue.mid(8, 2).toInt(), mValue.mid(10, 2).toInt()), Qt::UTC);
         } else if (mType == GeneralizedTimeType && mValue.size() == 15) {
-            return QDateTime(QDate(mValue.mid(0, 4).toInt(),
-                                   mValue.mid(4, 2).toInt(),
-                                   mValue.mid(6, 2).toInt()),
-                             QTime(mValue.mid(8, 2).toInt(),
-                                   mValue.mid(10, 2).toInt(),
-                                   mValue.mid(12, 2).toInt()),
+            return QDateTime(QDate(mValue.mid(0, 4).toInt(), mValue.mid(4, 2).toInt(), mValue.mid(6, 2).toInt()),
+                             QTime(mValue.mid(8, 2).toInt(), mValue.mid(10, 2).toInt(), mValue.mid(12, 2).toInt()),
                              Qt::UTC);
         }
     }
@@ -343,7 +331,7 @@ QByteArray QAsn1Element::toObjectId() const
     QByteArray key;
     if (mType == ObjectIdentifierType && !mValue.isEmpty()) {
         quint8 b = mValue.at(0);
-        key += QByteArray::number(b / 40) + '.' + QByteArray::number (b % 40);
+        key += QByteArray::number(b / 40) + '.' + QByteArray::number(b % 40);
         unsigned int val = 0;
         for (int i = 1; i < mValue.size(); ++i) {
             b = mValue.at(i);
@@ -369,8 +357,7 @@ QString QAsn1Element::toString() const
     if (qstrlen(mValue) < uint(mValue.size()))
         return QString();
 
-    if (mType == PrintableStringType || mType == TeletexStringType
-        || mType == Rfc822NameType || mType == DnsNameType
+    if (mType == PrintableStringType || mType == TeletexStringType || mType == Rfc822NameType || mType == DnsNameType
         || mType == UniformResourceIdentifierType)
         return QString::fromLatin1(mValue, mValue.size());
     if (mType == Utf8StringType)

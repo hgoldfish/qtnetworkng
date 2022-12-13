@@ -11,4 +11,4 @@ QByteArray randomBytes(int i);
 
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_RANDOM_H
+#endif  // QTNG_RANDOM_H

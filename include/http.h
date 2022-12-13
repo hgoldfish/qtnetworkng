@@ -15,17 +15,17 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
 class FormData
 {
 public:
     FormData();
     QByteArray toByteArray() const;
 
-    void addFile(const QString &name, const QString &filename, const QByteArray &data, const QString &contentType = QString())
+    void addFile(const QString &name, const QString &filename, const QByteArray &data,
+                 const QString &contentType = QString())
     {
         QString newContentType;
-        if(contentType.isEmpty()) {
+        if (contentType.isEmpty()) {
 #ifndef Q_OS_ANDROID
             QMimeDatabase db;
             newContentType = db.mimeTypeForFileNameAndData(filename, data).name();
@@ -39,22 +39,27 @@ public:
         files.append(File(name, filename, data, newContentType));
     }
 
-    void addQuery(const QString &key, const QString &value)
-    {
-        queries.append(Query(key, value));
-    }
+    void addQuery(const QString &key, const QString &value) { queries.append(Query(key, value)); }
 public:
     struct Query
     {
         Query(const QString &name, const QString &value)
-            : name(name), value(value) {}
+            : name(name)
+            , value(value)
+        {
+        }
         QString name;
         QString value;
     };
     struct File
     {
         File(const QString &name, const QString &filename, const QByteArray &data, const QString &contentType)
-            : name(name), filename(filename), data(data), contentType(contentType) {}
+            : name(name)
+            , filename(filename)
+            , data(data)
+            , contentType(contentType)
+        {
+        }
         QString name;
         QString filename;
         QByteArray data;
@@ -66,28 +71,25 @@ public:
     QByteArray boundary;
 };
 
-
 class HttpRequestPrivate;
-class HttpRequest: public HttpHeaderManager
+class HttpRequest : public HttpHeaderManager
 {
 public:
-    enum CacheLoadControl {
-        AlwaysNetwork,
-        PreferNetwork,
-        PreferCache,
-        AlwaysCache
-    };
-    enum Priority {
-        HighPriority = 1,
-        NormalPriority = 3,
-        LowPriority = 5
-    };
+    enum CacheLoadControl { AlwaysNetwork, PreferNetwork, PreferCache, AlwaysCache };
+    enum Priority { HighPriority = 1, NormalPriority = 3, LowPriority = 5 };
 
     HttpRequest();
     HttpRequest(const QString &url)
-        :HttpRequest() { setUrl(url); }
+        : HttpRequest()
+    {
+        setUrl(url);
+    }
     HttpRequest(const QString &method, const QString &url)
-        :HttpRequest() { setMethod(method); setUrl(url); }
+        : HttpRequest()
+    {
+        setMethod(method);
+        setUrl(url);
+    }
     virtual ~HttpRequest();
     HttpRequest(const HttpRequest &other);
     HttpRequest(HttpRequest &&other);
@@ -97,7 +99,7 @@ public:
     void setMethod(const QString &method);
     QUrl url() const;
     void setUrl(const QUrl &url);
-    void setUrl(const QString &url) {setUrl(QUrl::fromUserInput(url)); }
+    void setUrl(const QString &url) { setUrl(QUrl::fromUserInput(url)); }
     QUrlQuery query() const;
     void setQuery(const QMap<QString, QString> &query);
     void setQuery(const QUrlQuery &query);
@@ -137,7 +139,6 @@ private:
     friend class HttpSessionPrivate;
 };
 
-
 class RequestError
 {
 public:
@@ -145,16 +146,15 @@ public:
     virtual QString what() const;
 };
 
-
 class HttpResponsePrivate;
-class HttpResponse: public HttpHeaderManager
+class HttpResponse : public HttpHeaderManager
 {
 public:
     HttpResponse();
     virtual ~HttpResponse();
-    HttpResponse(const HttpResponse& other);
+    HttpResponse(const HttpResponse &other);
     HttpResponse(HttpResponse &&other);
-    HttpResponse &operator=(const HttpResponse& other);
+    HttpResponse &operator=(const HttpResponse &other);
 public:
     QUrl url() const;
     void setUrl(const QUrl &url);
@@ -193,7 +193,6 @@ private:
     friend class HttpSessionPrivate;
 };
 
-
 class Socks5Proxy;
 class HttpProxy;
 class HttpSessionPrivate;
@@ -222,30 +221,34 @@ public:
     HttpResponse head(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
     HttpResponse head(const QString &url);
     HttpResponse head(const QString &url, const QMap<QString, QString> &query);
-    HttpResponse head(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse head(const QString &url, const QMap<QString, QString> &query,
+                      const QMap<QString, QByteArray> &headers);
     HttpResponse head(const QString &url, const QUrlQuery &query);
     HttpResponse head(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
 
-
     HttpResponse options(const QUrl &url);
     HttpResponse options(const QUrl &url, const QMap<QString, QString> &query);
-    HttpResponse options(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse options(const QUrl &url, const QMap<QString, QString> &query,
+                         const QMap<QString, QByteArray> &headers);
     HttpResponse options(const QUrl &url, const QUrlQuery &query);
     HttpResponse options(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
     HttpResponse options(const QString &url);
     HttpResponse options(const QString &url, const QMap<QString, QString> &query);
-    HttpResponse options(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse options(const QString &url, const QMap<QString, QString> &query,
+                         const QMap<QString, QByteArray> &headers);
     HttpResponse options(const QString &url, const QUrlQuery &query);
     HttpResponse options(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
 
     HttpResponse delete_(const QUrl &url);
     HttpResponse delete_(const QUrl &url, const QMap<QString, QString> &query);
-    HttpResponse delete_(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse delete_(const QUrl &url, const QMap<QString, QString> &query,
+                         const QMap<QString, QByteArray> &headers);
     HttpResponse delete_(const QUrl &url, const QUrlQuery &query);
     HttpResponse delete_(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
     HttpResponse delete_(const QString &url);
     HttpResponse delete_(const QString &url, const QMap<QString, QString> &query);
-    HttpResponse delete_(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    HttpResponse delete_(const QString &url, const QMap<QString, QString> &query,
+                         const QMap<QString, QByteArray> &headers);
     HttpResponse delete_(const QString &url, const QUrlQuery &query);
     HttpResponse delete_(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
 
@@ -303,7 +306,8 @@ public:
     HttpResponse patch(const QString &url, const QJsonDocument &body, const QMap<QString, QByteArray> &headers);
     HttpResponse patch(const QString &url, const QJsonObject &body, const QMap<QString, QByteArray> &headers);
     HttpResponse patch(const QString &url, const QJsonArray &body, const QMap<QString, QByteArray> &headers);
-    HttpResponse patch(const QString &url, const QMap<QString, QString> &body, const QMap<QString, QByteArray> &headers);
+    HttpResponse patch(const QString &url, const QMap<QString, QString> &body,
+                       const QMap<QString, QByteArray> &headers);
     HttpResponse patch(const QString &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
     HttpResponse patch(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers);
 
@@ -379,7 +383,6 @@ private:
     Q_DECLARE_PRIVATE(HttpSession)
 };
 
-
 class HttpCacheManager
 {
 public:
@@ -393,9 +396,8 @@ protected:
     virtual QByteArray load(const QString &url);
 };
 
-
 class HttpMemoryCacheManagerPrivate;
-class HttpMemoryCacheManager: public HttpCacheManager
+class HttpMemoryCacheManager : public HttpCacheManager
 {
 public:
     HttpMemoryCacheManager();
@@ -412,14 +414,17 @@ private:
     Q_DECLARE_PRIVATE(HttpMemoryCacheManager)
 };
 
-
-class HttpDiskCacheManager: public HttpCacheManager
+class HttpDiskCacheManager : public HttpCacheManager
 {
 public:
     HttpDiskCacheManager(const QDir &cacheDir)
-        :cacheDir(cacheDir) {}
+        : cacheDir(cacheDir)
+    {
+    }
     HttpDiskCacheManager(const QString &cacheDir)
-        :cacheDir(cacheDir) {}
+        : cacheDir(cacheDir)
+    {
+    }
 protected:
     virtual bool store(const QString &url, const QByteArray &data);
     virtual QByteArray load(const QString &url);
@@ -427,142 +432,126 @@ protected:
     QDir cacheDir;
 };
 
-
-
-class HTTPError: public RequestError {
+class HTTPError : public RequestError
+{
 public:
-    HTTPError(int statusCode): statusCode(statusCode) {}
+    HTTPError(int statusCode)
+        : statusCode(statusCode)
+    {
+    }
     virtual QString what() const;
 public:
     int statusCode;
 };
 
-
-class ConnectionError: public RequestError
+class ConnectionError : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class ProxyError: public ConnectionError
+class ProxyError : public ConnectionError
 {
 public:
     virtual QString what() const;
 };
 
-
-class SSLError: public ConnectionError
+class SSLError : public ConnectionError
 {
 public:
     virtual QString what() const;
 };
 
-
-class RequestTimeout: public RequestError
+class RequestTimeout : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class ConnectTimeout: public RequestTimeout
+class ConnectTimeout : public RequestTimeout
 {
 public:
     virtual QString what() const;
 };
 
-
-class ReadTimeout: public RequestTimeout
+class ReadTimeout : public RequestTimeout
 {
 public:
     virtual QString what() const;
 };
 
-
-class URLRequired: public RequestError
+class URLRequired : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class TooManyRedirects: public RequestError
+class TooManyRedirects : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class MissingSchema: public RequestError
+class MissingSchema : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class InvalidScheme: public RequestError
+class InvalidScheme : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class UnsupportedVersion: public RequestError
+class UnsupportedVersion : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-class InvalidURL: public RequestError
+class InvalidURL : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class InvalidHeader: public RequestError
+class InvalidHeader : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class ChunkedEncodingError: public RequestError
+class ChunkedEncodingError : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class ContentDecodingError: public RequestError
+class ContentDecodingError : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class StreamConsumedError: public RequestError
+class StreamConsumedError : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class RetryError: public RequestError
+class RetryError : public RequestError
 {
 public:
     virtual QString what() const;
 };
 
-
-class UnrewindableBodyError: public RequestError
+class UnrewindableBodyError : public RequestError
 {
 public:
     virtual QString what() const;
 };
-
 
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_HTTP_H
+#endif  // QTNG_HTTP_H

@@ -40,7 +40,6 @@ const EVP_MD *getOpenSSL_MD(MessageDigest::Algorithm algo)
     return md;
 }
 
-
 class MessageDigestPrivate
 {
 public:
@@ -54,9 +53,10 @@ public:
     bool hasError;
 };
 
-
 MessageDigestPrivate::MessageDigestPrivate(MessageDigest::Algorithm algo)
-    :context(nullptr), algo(algo), hasError(false)
+    : context(nullptr)
+    , algo(algo)
+    , hasError(false)
 {
     initOpenSSL();
     const EVP_MD *md = getOpenSSL_MD(algo);
@@ -80,7 +80,6 @@ MessageDigestPrivate::MessageDigestPrivate(MessageDigest::Algorithm algo)
     }
 }
 
-
 MessageDigestPrivate::~MessageDigestPrivate()
 {
     if (context) {
@@ -89,7 +88,6 @@ MessageDigestPrivate::~MessageDigestPrivate()
     cleanupOpenSSL();
 }
 
-
 void MessageDigestPrivate::addData(const char *buf, int len)
 {
     if (hasError)
@@ -97,7 +95,6 @@ void MessageDigestPrivate::addData(const char *buf, int len)
     int rvalue = EVP_DigestUpdate(context, buf, static_cast<size_t>(len));
     hasError = !rvalue;
 }
-
 
 QByteArray MessageDigestPrivate::result()
 {
@@ -109,7 +106,7 @@ QByteArray MessageDigestPrivate::result()
     }
     unsigned int len;
     finalData.resize(EVP_MAX_MD_SIZE);
-    int rvalue = EVP_DigestFinal_ex(context, reinterpret_cast<unsigned char*>(finalData.data()), &len);
+    int rvalue = EVP_DigestFinal_ex(context, reinterpret_cast<unsigned char *>(finalData.data()), &len);
     if (!rvalue) {
         hasError = true;
         finalData.clear();
@@ -120,18 +117,15 @@ QByteArray MessageDigestPrivate::result()
     return finalData;
 }
 
-
 MessageDigest::MessageDigest(MessageDigest::Algorithm algo)
-    :d_ptr(new MessageDigestPrivate(algo))
+    : d_ptr(new MessageDigestPrivate(algo))
 {
 }
-
 
 MessageDigest::~MessageDigest()
 {
     delete d_ptr;
 }
-
 
 void MessageDigest::addData(const char *data, int len)
 {
@@ -139,13 +133,11 @@ void MessageDigest::addData(const char *data, int len)
     d->addData(data, len);
 }
 
-
 QByteArray MessageDigest::result()
 {
     Q_D(MessageDigest);
     return d->result();
 }
-
 
 QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray &salt,
                        const MessageDigest::Algorithm hashAlgo, int i)
@@ -160,9 +152,9 @@ QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray 
     QByteArray key;
     key.resize(keylen);
 
-    int rvalue = PKCS5_PBKDF2_HMAC(password.data(), password.size(),
-                                   reinterpret_cast<const unsigned char*>(salt.data()), salt.size(),
-                                   i, dgst, keylen, reinterpret_cast<unsigned char *>(key.data()));
+    int rvalue =
+            PKCS5_PBKDF2_HMAC(password.data(), password.size(), reinterpret_cast<const unsigned char *>(salt.data()),
+                              salt.size(), i, dgst, keylen, reinterpret_cast<unsigned char *>(key.data()));
     if (rvalue) {
         return key;
     } else {
@@ -170,11 +162,11 @@ QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray 
     }
 }
 
-//QByteArray scrypt(const QByteArray &password, int keylen, const QByteArray &salt,
-//                  int n, int r, int p)
+// QByteArray scrypt(const QByteArray &password, int keylen, const QByteArray &salt,
+//                   int n, int r, int p)
 //{
-//    initOpenSSL();
-//    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_SCRYPT, nullptr);
+//     initOpenSSL();
+//     EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_SCRYPT, nullptr);
 
 //    if(!pctx || password.isEmpty() || salt.isEmpty()) {
 //        return QByteArray();

@@ -10,8 +10,7 @@ class CipherPrivate;
 class Cipher
 {
 public:
-    enum Algorithm
-    {
+    enum Algorithm {
         Null = 1,
         AES128 = 2,
         AES192 = 3,
@@ -24,8 +23,7 @@ public:
         Chacha20 = 10,
         ChaCha20Poly1305 = 11
     };
-    enum Mode
-    {
+    enum Mode {
         ECB = 1,
         CBC = 2,
         CFB = 3,
@@ -34,8 +32,7 @@ public:
         CTR = 6,
         OPENPGP = 7,
     };
-    enum Operation
-    {
+    enum Operation {
         Encrypt = 1,
         Decrypt = 2,
     };
@@ -57,14 +54,14 @@ public:
                      int i = 100000 /* same as django PBKDF2*/);
     bool setOpensslPassword(const QByteArray &password, const QByteArray &salt,
                             const MessageDigest::Algorithm hashAlgo = MessageDigest::Md5,
-                            int i = 1); // same as openssl command line.
+                            int i = 1);  // same as openssl command line.
     QByteArray salt() const;
-    QByteArray saltHeader() const; // `openssl enc` generate a header contains salt
+    QByteArray saltHeader() const;  // `openssl enc` generate a header contains salt
     bool setPadding(bool padding);
     bool padding() const;
-    int keySize() const;   // in bytes.
-    int ivSize() const;    // in bytes.
-    int blockSize() const; // in bytes.
+    int keySize() const;  // in bytes.
+    int ivSize() const;  // in bytes.
+    int blockSize() const;  // in bytes.
 public:
     QByteArray addData(const QByteArray &data) { return addData(data.constData(), data.size()); }
     QByteArray addData(const char *data, int len);
@@ -74,7 +71,7 @@ public:
     QByteArray update(const char *data, int len) { return addData(data, len); }
     QByteArray final() { return finalData(); }
 public:
-    static QPair<QByteArray, QByteArray> parseSalt(const QByteArray &header); // parse salt from `openssl enc` header
+    static QPair<QByteArray, QByteArray> parseSalt(const QByteArray &header);  // parse salt from `openssl enc` header
 private:
     CipherPrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Cipher)
@@ -82,4 +79,4 @@ private:
 
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_CIPHER_H
+#endif  // QTNG_CIPHER_H

@@ -4,7 +4,7 @@
 // #define DEBUG_PROTOCOL 1
 
 #ifdef DEBUG_PROTOCOL
-static Q_LOGGING_CATEGORY(logger, "qtng.socket_server")
+static Q_LOGGING_CATEGORY(logger, "qtng.socket_server");
 #endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -20,7 +20,8 @@ public:
         , serverPort(serverPort)
         , allowReuseAddress(true)
         , q_ptr(q)
-    {}
+    {
+    }
     ~BaseStreamServerPrivate() { delete operations; }
     void serveForever();
 public:
@@ -36,14 +37,12 @@ private:
     Q_DECLARE_PUBLIC(BaseStreamServer)
 };
 
-
 BaseStreamServer::BaseStreamServer(const HostAddress &serverAddress, quint16 serverPort)
     : d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
 {
     started.clear();
     stopped.set();
 }
-
 
 BaseStreamServer::BaseStreamServer(BaseStreamServerPrivate *d)
     : d_ptr(d)
@@ -52,13 +51,11 @@ BaseStreamServer::BaseStreamServer(BaseStreamServerPrivate *d)
     stopped.set();
 }
 
-
 BaseStreamServer::~BaseStreamServer()
 {
     stop();
     delete d_ptr;
 }
-
 
 bool BaseStreamServer::allowReuseAddress() const
 {
@@ -66,13 +63,11 @@ bool BaseStreamServer::allowReuseAddress() const
     return d->allowReuseAddress;
 }
 
-
 void BaseStreamServer::setAllowReuseAddress(bool b)
 {
     Q_D(BaseStreamServer);
     d->allowReuseAddress = b;
 }
-
 
 int BaseStreamServer::requestQueueSize() const
 {
@@ -80,13 +75,11 @@ int BaseStreamServer::requestQueueSize() const
     return d->requestQueueSize;
 }
 
-
 void BaseStreamServer::setRequestQueueSize(int requestQueueSize)
 {
     Q_D(BaseStreamServer);
     d->requestQueueSize = requestQueueSize;
 }
-
 
 bool BaseStreamServer::serverBind()
 {
@@ -106,7 +99,6 @@ bool BaseStreamServer::serverBind()
     return ok;
 }
 
-
 bool BaseStreamServer::serverActivate()
 {
     Q_D(BaseStreamServer);
@@ -119,13 +111,11 @@ bool BaseStreamServer::serverActivate()
     return ok;
 }
 
-
 void BaseStreamServer::serverClose()
 {
     Q_D(BaseStreamServer);
     d->serverSocket->close();
 }
-
 
 void BaseStreamServerPrivate::serveForever()
 {
@@ -143,7 +133,7 @@ void BaseStreamServerPrivate::serveForever()
                 QSharedPointer<SocketLike> sslRequest = q->prepareRequest(request);
                 if (!sslRequest.isNull()) {
                     try {
-                        q->processRequest(sslRequest); // close request.
+                        q->processRequest(sslRequest);  // close request.
                         return;
                     } catch (CoroutineExitException &) {
                     } catch (...) {
@@ -164,7 +154,6 @@ void BaseStreamServerPrivate::serveForever()
     q->stopped.set();
 }
 
-
 bool BaseStreamServer::serveForever()
 {
     Q_D(BaseStreamServer);
@@ -183,7 +172,6 @@ bool BaseStreamServer::serveForever()
     d->serveForever();
     return true;
 }
-
 
 bool BaseStreamServer::start()
 {
@@ -208,7 +196,6 @@ bool BaseStreamServer::start()
     return true;
 }
 
-
 void BaseStreamServer::stop()
 {
     Q_D(BaseStreamServer);
@@ -217,12 +204,10 @@ void BaseStreamServer::stop()
     }
 }
 
-
 bool BaseStreamServer::isSecure() const
 {
     return false;
 }
-
 
 void BaseStreamServer::setUserData(void *data)
 {
@@ -230,13 +215,11 @@ void BaseStreamServer::setUserData(void *data)
     d->userData = data;
 }
 
-
 void *BaseStreamServer::userData() const
 {
     Q_D(const BaseStreamServer);
     return d->userData;
 }
-
 
 quint16 BaseStreamServer::serverPort() const
 {
@@ -250,13 +233,11 @@ quint16 BaseStreamServer::serverPort() const
     }
 }
 
-
 HostAddress BaseStreamServer::serverAddress() const
 {
     Q_D(const BaseStreamServer);
     return d->serverAddress;
 }
-
 
 QSharedPointer<SocketLike> BaseStreamServer::serverSocket() const
 {
@@ -264,24 +245,20 @@ QSharedPointer<SocketLike> BaseStreamServer::serverSocket() const
     return d->serverSocket;
 }
 
-
 bool BaseStreamServer::serviceActions()
 {
     return true;
 }
-
 
 QSharedPointer<SocketLike> BaseStreamServer::prepareRequest(QSharedPointer<SocketLike> request)
 {
     return request;
 }
 
-
 bool BaseStreamServer::verifyRequest(QSharedPointer<SocketLike>)
 {
     return true;
 }
-
 
 QSharedPointer<SocketLike> BaseStreamServer::getRequest()
 {
@@ -289,29 +266,16 @@ QSharedPointer<SocketLike> BaseStreamServer::getRequest()
     return d->serverSocket->accept();
 }
 
-
-void BaseStreamServer::handleError(QSharedPointer<SocketLike>)
-{
-}
-
+void BaseStreamServer::handleError(QSharedPointer<SocketLike>) { }
 
 void BaseStreamServer::closeRequest(QSharedPointer<SocketLike> request)
 {
     request->close();
 }
 
+BaseRequestHandler::BaseRequestHandler() { }
 
-BaseRequestHandler::BaseRequestHandler()
-{
-
-}
-
-
-BaseRequestHandler::~BaseRequestHandler()
-{
-
-}
-
+BaseRequestHandler::~BaseRequestHandler() { }
 
 void BaseRequestHandler::run()
 {
@@ -326,18 +290,12 @@ void BaseRequestHandler::run()
     }
 }
 
-
 bool BaseRequestHandler::setup()
 {
     return true;
 }
 
-
-void BaseRequestHandler::handle()
-{
-
-}
-
+void BaseRequestHandler::handle() { }
 
 void BaseRequestHandler::finish()
 {
@@ -345,6 +303,5 @@ void BaseRequestHandler::finish()
         request->close();
     }
 }
-
 
 QTNETWORKNG_NAMESPACE_END

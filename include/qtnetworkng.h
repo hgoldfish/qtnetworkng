@@ -19,18 +19,18 @@
 #include "network_interface.h"
 
 #ifndef QTNG_NO_CRYPTO
-#include "ssl.h"
-#include "random.h"
-#include "md.h"
-#include "cipher.h"
-#include "pkey.h"
-#include "certificate.h"
+#  include "ssl.h"
+#  include "random.h"
+#  include "md.h"
+#  include "cipher.h"
+#  include "pkey.h"
+#  include "certificate.h"
 #endif
 
 #ifdef QTNG_HAVE_ZLIB
-#include "gzip.h"
+#  include "gzip.h"
 #endif
 
 #include "data_channel.h"
 
-#endif // QTNG_QTNETWORKNG_H
+#endif  // QTNG_QTNETWORKNG_H

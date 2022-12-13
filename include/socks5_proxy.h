@@ -5,12 +5,10 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
 class Socks5Exception
 {
 public:
-    enum Error
-    {
+    enum Error {
         ProxyConnectionRefusedError,
         ProxyConnectionClosedError,
         ProxyConnectionTimeoutError,
@@ -29,7 +27,9 @@ public:
     };
 public:
     Socks5Exception(Error err)
-        :err(err) {}
+        : err(err)
+    {
+    }
 public:
     Error error() const;
     QString errorString() const;
@@ -39,11 +39,10 @@ private:
 };
 
 class Socks5ProxyPrivate;
-class Socks5Proxy: public SocketProxy
+class Socks5Proxy : public SocketProxy
 {
 public:
-    enum Capability
-    {
+    enum Capability {
         TunnelingCapability = 0x0001,
         ListeningCapability = 0x0002,
         UdpTunnelingCapability = 0x0003,
@@ -52,10 +51,14 @@ public:
     Q_DECLARE_FLAGS(Capabilities, Capability)
 public:
     Socks5Proxy();
-    Socks5Proxy(const QString &hostName, quint16 port,
-                 const QString &user = QString(), const QString &password = QString());
+    Socks5Proxy(const QString &hostName, quint16 port, const QString &user = QString(),
+                const QString &password = QString());
     Socks5Proxy(const Socks5Proxy &other);
-    Socks5Proxy(Socks5Proxy &&other) :d_ptr(nullptr) { qSwap(d_ptr, other.d_ptr); }
+    Socks5Proxy(Socks5Proxy &&other)
+        : d_ptr(nullptr)
+    {
+        qSwap(d_ptr, other.d_ptr);
+    }
     ~Socks5Proxy();
 public:
     virtual QSharedPointer<SocketLike> connect(const QString &remoteHost, quint16 port) override;
@@ -80,7 +83,7 @@ public:
     Socks5Proxy &operator=(Socks5Proxy &&other);
     bool operator==(const Socks5Proxy &other) const;
 private:
-    Socks5ProxyPrivate * d_ptr;
+    Socks5ProxyPrivate *d_ptr;
     Q_DECLARE_PRIVATE(Socks5Proxy)
 };
 
@@ -88,4 +91,4 @@ QTNETWORKNG_NAMESPACE_END
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QTNETWORKNG_NAMESPACE::Socks5Proxy::Capabilities)
 
-#endif // QTNG_SOCKS5PROXY_H
+#endif  // QTNG_SOCKS5PROXY_H

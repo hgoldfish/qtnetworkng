@@ -37,7 +37,6 @@
 **
 ****************************************************************************/
 
-
 #ifndef QTNG_ASN1ELEMENT_P_H
 #define QTNG_ASN1ELEMENT_P_H
 
@@ -68,8 +67,8 @@ public:
     enum ElementType {
         // universal
         BooleanType = 0x01,
-        IntegerType  = 0x02,
-        BitStringType  = 0x03,
+        IntegerType = 0x02,
+        BitStringType = 0x03,
         OctetStringType = 0x04,
         NullType = 0x05,
         ObjectIdentifierType = 0x06,
@@ -116,20 +115,23 @@ public:
 
     friend inline bool operator==(const QAsn1Element &, const QAsn1Element &);
     friend inline bool operator!=(const QAsn1Element &, const QAsn1Element &);
-
 private:
     quint8 mType;
     QByteArray mValue;
 };
 
 inline bool operator==(const QAsn1Element &e1, const QAsn1Element &e2)
-{ return e1.mType == e2.mType && e1.mValue == e2.mValue; }
+{
+    return e1.mType == e2.mType && e1.mValue == e2.mValue;
+}
 
 inline bool operator!=(const QAsn1Element &e1, const QAsn1Element &e2)
-{ return e1.mType != e2.mType || e1.mValue != e2.mValue; }
+{
+    return e1.mType != e2.mType || e1.mValue != e2.mValue;
+}
 
 QTNETWORKNG_NAMESPACE_END
 
 Q_DECLARE_TYPEINFO(QTNETWORKNG_NAMESPACE::QAsn1Element, Q_MOVABLE_TYPE);
 
-#endif //QTNG_ASN1ELEMENT_P_H
+#endif  // QTNG_ASN1ELEMENT_P_H

@@ -18,15 +18,13 @@ enum SystemChannelNubmer {
     DataChannelNumber = 1,
 };
 
-
 class VirtualChannel;
 class DataChannelPrivate;
-class DataChannel: public QObject
+class DataChannel : public QObject
 {
     Q_DISABLE_COPY(DataChannel)
 public:
-    enum ChannelError
-    {
+    enum ChannelError {
         RemotePeerClosedError = 1,
         KeepaliveTimeoutError = 2,
         ReceivingError = 3,
@@ -48,11 +46,12 @@ public:
     ChannelError error() const;
     QString errorString() const;
     QString toString() const;
-    quint32 maxPacketSize() const;                      // packet with size > maxPacketSize is an error.
-    quint32 maxPayloadSize() const;                     // maxPacketSize - headerSize(4 or 8)
-    quint32 payloadSizeHint() const;                    // should be <= maxPayloadSize
-    void setCapacity(quint32 packets);                  // channel blocked if there are n packets not read.
-    quint32 capacity() const;                           // so, a data channel may consume `maxPacketSize * capacity` bytes of receiving buffer memory.
+    quint32 maxPacketSize() const;  // packet with size > maxPacketSize is an error.
+    quint32 maxPayloadSize() const;  // maxPacketSize - headerSize(4 or 8)
+    quint32 payloadSizeHint() const;  // should be <= maxPayloadSize
+    void setCapacity(quint32 packets);  // channel blocked if there are n packets not read.
+    quint32
+    capacity() const;  // so, a data channel may consume `maxPacketSize * capacity` bytes of receiving buffer memory.
     quint32 receivingQueueSize() const;
     DataChannelPole pole() const;
     void setName(const QString &name);
@@ -71,9 +70,8 @@ protected:
     Q_DECLARE_PRIVATE(DataChannel)
 };
 
-
 class SocketChannelPrivate;
-class SocketChannel: public DataChannel
+class SocketChannel : public DataChannel
 {
     Q_DISABLE_COPY(SocketChannel)
 public:
@@ -84,8 +82,8 @@ public:
     SocketChannel(QSharedPointer<KcpSocket> socket, DataChannelPole pole);
     SocketChannel(QSharedPointer<SocketLike> socket, DataChannelPole pole);
 public:
-    void setMaxPacketSize(quint32 size);                // set to 0 for the default 64k
-    void setPayloadSizeHint(quint32 payloadSizeHint);   // usually set to tcp/udp mtu, set to 0 for the default 1400
+    void setMaxPacketSize(quint32 size);  // set to 0 for the default 64k
+    void setPayloadSizeHint(quint32 payloadSizeHint);  // usually set to tcp/udp mtu, set to 0 for the default 1400
     void setKeepaliveTimeout(float timeout);
     float keepaliveTimeout() const;
     void setKeepaliveInterval(float keepaliveInterval);
@@ -96,40 +94,34 @@ private:
     Q_DECLARE_PRIVATE(SocketChannel)
 };
 
-
 class VirtualChannelPrivate;
-class VirtualChannel: public DataChannel
+class VirtualChannel : public DataChannel
 {
     Q_DISABLE_COPY(VirtualChannel)
 public:
     quint32 channelNumber() const;
 protected:
-    VirtualChannel(DataChannel* parentChannel, DataChannelPole pole, quint32 channelNumber);
+    VirtualChannel(DataChannel *parentChannel, DataChannelPole pole, quint32 channelNumber);
 private:
     Q_DECLARE_PRIVATE(VirtualChannel)
     friend class DataChannelPrivate;
     friend class SocketChannelPrivate;
 };
 
-
 void exchange(QSharedPointer<DataChannel> incoming, QSharedPointer<DataChannel> outgoing);
 
-
 QSharedPointer<SocketLike> asSocketLike(QSharedPointer<DataChannel> channel);
-
 
 inline QSharedPointer<SocketLike> asSocketLike(QSharedPointer<VirtualChannel> channel)
 {
     return asSocketLike(channel.dynamicCast<DataChannel>());
 }
 
-
 inline QSharedPointer<SocketLike> asSocketLike(QSharedPointer<SocketChannel> channel)
 {
     return asSocketLike(channel.dynamicCast<DataChannel>());
 }
 
-
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_DATA_CHANNEL_H
+#endif  // QTNG_DATA_CHANNEL_H

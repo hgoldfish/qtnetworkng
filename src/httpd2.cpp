@@ -1,17 +1,11 @@
 #include "../include/httpd.h"
 #include "../include/http.h"
 
-
 QTNETWORKNG_NAMESPACE_BEGIN
 
+void BaseHttpProxyRequestHandler::logRequest(qtng::HttpStatus, int) { }
 
-void BaseHttpProxyRequestHandler::logRequest(qtng::HttpStatus, int)
-{}
-
-
-void BaseHttpProxyRequestHandler::logError(qtng::HttpStatus, const QString &, const QString &)
-{}
-
+void BaseHttpProxyRequestHandler::logError(qtng::HttpStatus, const QString &, const QString &) { }
 
 void BaseHttpProxyRequestHandler::doMethod()
 {
@@ -21,7 +15,6 @@ void BaseHttpProxyRequestHandler::doMethod()
         doProxy();
     }
 }
-
 
 void BaseHttpProxyRequestHandler::doCONNECT()
 {
@@ -56,13 +49,11 @@ void BaseHttpProxyRequestHandler::doCONNECT()
         return;
     }
 
-
     logProxy(host, port, forwardAddress, true);
     closeConnection = Yes;
     exchangeAsync(request, forward);
     request.clear();
 }
-
 
 void BaseHttpProxyRequestHandler::doProxy()
 {
@@ -79,7 +70,7 @@ void BaseHttpProxyRequestHandler::doProxy()
     } else {
         t = url.port();
     }
-    if (t <= 0 || t > 65535){
+    if (t <= 0 || t > 65535) {
         logProxy(host, 0, HostAddress(), false);
         sendError(HttpStatus::BadRequest, QString::fromLatin1("Invalid port."));
         return;
@@ -107,7 +98,7 @@ void BaseHttpProxyRequestHandler::doProxy()
     }
     newRequest.setBody(bodyFile);
 
-    for (const HttpHeader &header: allHeaders()) {
+    for (const HttpHeader &header : allHeaders()) {
         const QString &hn = header.name.toLower();
         if (hn.startsWith(QLatin1String("proxy-")) || hn == QLatin1String("connection")) {
             continue;
@@ -125,7 +116,7 @@ void BaseHttpProxyRequestHandler::doProxy()
     logProxy(host, port, forwardAddress, true);
     sendCommandLine(static_cast<HttpStatus>(response->statusCode()), response->statusText());
 
-    for (const HttpHeader &header: response->allHeaders()) {
+    for (const HttpHeader &header : response->allHeaders()) {
         const QString &hn = header.name.toLower();
         if (hn.startsWith(QLatin1String("proxy-")) || hn == QLatin1String("connection")) {
             continue;
@@ -144,8 +135,8 @@ void BaseHttpProxyRequestHandler::doProxy()
     }
 }
 
-
-void BaseHttpProxyRequestHandler::logProxy(const QString &remoteHostName, quint16 remotePort, const HostAddress &forwardAddress, bool success)
+void BaseHttpProxyRequestHandler::logProxy(const QString &remoteHostName, quint16 remotePort,
+                                           const HostAddress &forwardAddress, bool success)
 {
     QString successStr;
     if (success) {
@@ -154,16 +145,16 @@ void BaseHttpProxyRequestHandler::logProxy(const QString &remoteHostName, quint1
         successStr = QString::fromLatin1("FAIL");
     }
     const QString &msg = QString::fromLatin1("[%1 %2] -- %3:%4 -> %5")
-            .arg(successStr)
-            .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
-            .arg(remoteHostName)
-            .arg(remotePort)
-            .arg(forwardAddress.toString());
+                                 .arg(successStr)
+                                 .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
+                                 .arg(remoteHostName)
+                                 .arg(remotePort)
+                                 .arg(forwardAddress.toString());
     qDebug("%s", qUtf8Printable(msg));
 }
 
-
-QSharedPointer<SocketLike> BaseHttpProxyRequestHandler::makeConnection(const QString &remoteHostName, quint16 remotePort, HostAddress *forwardAddress)
+QSharedPointer<SocketLike> BaseHttpProxyRequestHandler::makeConnection(const QString &remoteHostName,
+                                                                       quint16 remotePort, HostAddress *forwardAddress)
 {
     QSharedPointer<Socket> s(new Socket());
     if (s->connect(remoteHostName, remotePort)) {
@@ -175,6 +166,5 @@ QSharedPointer<SocketLike> BaseHttpProxyRequestHandler::makeConnection(const QSt
         return QSharedPointer<SocketLike>();
     }
 }
-
 
 QTNETWORKNG_NAMESPACE_END

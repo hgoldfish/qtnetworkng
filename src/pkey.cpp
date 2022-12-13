@@ -11,7 +11,6 @@ QTNG_LOGGER("qtng.pkey");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
 class PublicKeyPrivate
 {
 public:
@@ -25,8 +24,8 @@ public:
     bool verify(const QByteArray &data, const QByteArray &hash, MessageDigest::Algorithm hashAlgo) const;
     QByteArray encrypt(const QByteArray &data) const;
     QByteArray decrypt(const QByteArray &data) const;
-    bool checkValidRsaKey(const QByteArray &data, PublicKey::RsaPadding padding, bool requirePrivate,
-                          RSA *&rsa, int &rsaSize) const;
+    bool checkValidRsaKey(const QByteArray &data, PublicKey::RsaPadding padding, bool requirePrivate, RSA *&rsa,
+                          int &rsaSize) const;
     QByteArray rsaPublicEncrypt(const QByteArray &data, PublicKey::RsaPadding padding) const;
     QByteArray rsaPublicDecrypt(const QByteArray &data, PublicKey::RsaPadding padding) const;
     QByteArray rsaPrivateEncrypt(const QByteArray &data, PublicKey::RsaPadding padding) const;
@@ -39,14 +38,12 @@ public:
     bool hasPrivate;
 };
 
-
 PublicKeyPrivate::PublicKeyPrivate()
     : context(nullptr)
     , hasPrivate(false)
 {
     initOpenSSL();
 }
-
 
 PublicKeyPrivate::PublicKeyPrivate(PublicKeyPrivate *other)
     : context(nullptr)
@@ -60,7 +57,6 @@ PublicKeyPrivate::PublicKeyPrivate(PublicKeyPrivate *other)
     }
 }
 
-
 PublicKeyPrivate::~PublicKeyPrivate()
 {
     if (context) {
@@ -69,12 +65,11 @@ PublicKeyPrivate::~PublicKeyPrivate()
     cleanupOpenSSL();
 }
 
-
 PublicKey::Algorithm PublicKeyPrivate::algorithm() const
 {
     if (!pkey.isNull()) {
         int type = EVP_PKEY_base_id(pkey.data());
-        switch(type) {
+        switch (type) {
         case EVP_PKEY_RSA:
             return PublicKey::Rsa;
         case EVP_PKEY_DSA:
@@ -89,7 +84,6 @@ PublicKey::Algorithm PublicKeyPrivate::algorithm() const
     }
 }
 
-
 int PublicKeyPrivate::bits() const
 {
     if (!pkey.isNull()) {
@@ -99,17 +93,15 @@ int PublicKeyPrivate::bits() const
     }
 }
 
-
 bool openssl_setPkey(PublicKey *key, EVP_PKEY *pkey, bool hasPrivate)
 {
     return PublicKeyPrivate::setPkey(key, pkey, hasPrivate);
 }
 
-
 bool PublicKeyPrivate::setPkey(PublicKey *key, EVP_PKEY *pkey, bool hasPrivate)
 {
     EVP_PKEY_CTX *context = nullptr;
-    context = EVP_PKEY_CTX_new(pkey, nullptr); // should i free pkey?
+    context = EVP_PKEY_CTX_new(pkey, nullptr);  // should i free pkey?
     if (!context) {
         EVP_PKEY_free(pkey);
         return false;
@@ -184,7 +176,6 @@ PrivateKey PublicKeyPrivate::generate(PublicKey::Algorithm algo, int bits)
     return key;
 }
 
-
 QByteArray PublicKeyPrivate::sign(const QByteArray &data, MessageDigest::Algorithm hashAlgo) const
 {
     if (pkey.isNull() || !hasPrivate) {
@@ -220,7 +211,7 @@ QByteArray PublicKeyPrivate::sign(const QByteArray &data, MessageDigest::Algorit
 
     QByteArray result;
     result.resize(static_cast<int>(siglen));
-    rvalue = EVP_DigestSignFinal(mctx, reinterpret_cast<unsigned char*>(result.data()), &siglen);
+    rvalue = EVP_DigestSignFinal(mctx, reinterpret_cast<unsigned char *>(result.data()), &siglen);
     EVP_MD_CTX_free(mctx);
     if (!rvalue) {
         return QByteArray();
@@ -228,7 +219,6 @@ QByteArray PublicKeyPrivate::sign(const QByteArray &data, MessageDigest::Algorit
         return result;
     }
 }
-
 
 bool PublicKeyPrivate::verify(const QByteArray &data, const QByteArray &hash, MessageDigest::Algorithm hashAlgo) const
 {
@@ -257,7 +247,8 @@ bool PublicKeyPrivate::verify(const QByteArray &data, const QByteArray &hash, Me
         EVP_MD_CTX_free(mctx);
         return false;
     }
-    rvalue = EVP_DigestVerifyFinal(mctx, reinterpret_cast<const unsigned char *>(hash.data()), static_cast<size_t>(hash.size()));
+    rvalue = EVP_DigestVerifyFinal(mctx, reinterpret_cast<const unsigned char *>(hash.data()),
+                                   static_cast<size_t>(hash.size()));
     EVP_MD_CTX_free(mctx);
     if (!rvalue) {
         return false;
@@ -265,7 +256,6 @@ bool PublicKeyPrivate::verify(const QByteArray &data, const QByteArray &hash, Me
         return true;
     }
 }
-
 
 QByteArray PublicKeyPrivate::encrypt(const QByteArray &data) const
 {
@@ -276,14 +266,14 @@ QByteArray PublicKeyPrivate::encrypt(const QByteArray &data) const
     int rvalue = EVP_PKEY_encrypt_init(context);
     if (rvalue) {
         size_t outlen = 0;
-        rvalue = EVP_PKEY_encrypt(context, nullptr, &outlen,
-                                           reinterpret_cast<const unsigned char *>(data.data()),
-                                           static_cast<unsigned int>(data.size()));
+        rvalue = EVP_PKEY_encrypt(context, nullptr, &outlen, reinterpret_cast<const unsigned char *>(data.data()),
+                                  static_cast<unsigned int>(data.size()));
         if (rvalue && outlen) {
             QByteArray result;
             result.resize(static_cast<int>(outlen));
             rvalue = EVP_PKEY_encrypt(context, reinterpret_cast<unsigned char *>(result.data()), &outlen,
-                                                 reinterpret_cast<const unsigned char *>(data.data()), static_cast<unsigned int>(data.size()));
+                                      reinterpret_cast<const unsigned char *>(data.data()),
+                                      static_cast<unsigned int>(data.size()));
             if (rvalue) {
                 result.resize(static_cast<int>(outlen));
                 return result;
@@ -294,7 +284,6 @@ QByteArray PublicKeyPrivate::encrypt(const QByteArray &data) const
     return QByteArray();
 }
 
-
 QByteArray PublicKeyPrivate::decrypt(const QByteArray &data) const
 {
     if (pkey.isNull() || !context || data.isEmpty() || !hasPrivate) {
@@ -304,12 +293,14 @@ QByteArray PublicKeyPrivate::decrypt(const QByteArray &data) const
     rvalue = EVP_PKEY_decrypt_init(context);
     if (rvalue) {
         size_t outlen;
-        rvalue = EVP_PKEY_decrypt(context, nullptr, &outlen, reinterpret_cast<const unsigned char *>(data.data()), static_cast<unsigned int>(data.size()));
+        rvalue = EVP_PKEY_decrypt(context, nullptr, &outlen, reinterpret_cast<const unsigned char *>(data.data()),
+                                  static_cast<unsigned int>(data.size()));
         if (rvalue && outlen) {
             QByteArray result;
             result.resize(static_cast<int>(outlen));
-            rvalue = EVP_PKEY_decrypt(context, reinterpret_cast<unsigned char *>(result.data()),
-                                                 &outlen, reinterpret_cast<const unsigned char *>(data.data()), static_cast<unsigned int>(data.size()));
+            rvalue = EVP_PKEY_decrypt(context, reinterpret_cast<unsigned char *>(result.data()), &outlen,
+                                      reinterpret_cast<const unsigned char *>(data.data()),
+                                      static_cast<unsigned int>(data.size()));
             if (rvalue) {
                 result.resize(static_cast<int>(outlen));
                 return result;
@@ -319,7 +310,6 @@ QByteArray PublicKeyPrivate::decrypt(const QByteArray &data) const
     qtng_debug << "can not decrypt data.";
     return QByteArray();
 }
-
 
 bool PublicKeyPrivate::checkValidRsaKey(const QByteArray &data, PublicKey::RsaPadding padding, bool requirePrivate,
                                         RSA *&rsa, int &rsaSize) const
@@ -358,7 +348,6 @@ bool PublicKeyPrivate::checkValidRsaKey(const QByteArray &data, PublicKey::RsaPa
     return true;
 }
 
-
 QByteArray PublicKeyPrivate::rsaPublicEncrypt(const QByteArray &data, PublicKey::RsaPadding padding) const
 {
     RSA *rsa;
@@ -371,7 +360,7 @@ QByteArray PublicKeyPrivate::rsaPublicEncrypt(const QByteArray &data, PublicKey:
     QByteArray result;
     result.resize(qMax(rsaSize, data.size()));
     rvalue = RSA_public_encrypt(data.size(), reinterpret_cast<const unsigned char *>(data.data()),
-                                           reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
+                                reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
     if (rvalue > 0) {
         result.resize(rvalue);
         return result;
@@ -380,7 +369,6 @@ QByteArray PublicKeyPrivate::rsaPublicEncrypt(const QByteArray &data, PublicKey:
         return QByteArray();
     }
 }
-
 
 QByteArray PublicKeyPrivate::rsaPublicDecrypt(const QByteArray &data, PublicKey::RsaPadding padding) const
 {
@@ -394,7 +382,7 @@ QByteArray PublicKeyPrivate::rsaPublicDecrypt(const QByteArray &data, PublicKey:
     QByteArray result;
     result.resize(qMax(rsaSize, data.size()));
     rvalue = RSA_public_decrypt(data.size(), reinterpret_cast<const unsigned char *>(data.constData()),
-                                           reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
+                                reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
     if (rvalue > 0) {
         result.resize(rvalue);
         return result;
@@ -403,7 +391,6 @@ QByteArray PublicKeyPrivate::rsaPublicDecrypt(const QByteArray &data, PublicKey:
         return QByteArray();
     }
 }
-
 
 QByteArray PublicKeyPrivate::rsaPrivateEncrypt(const QByteArray &data, PrivateKey::RsaPadding padding) const
 {
@@ -417,7 +404,7 @@ QByteArray PublicKeyPrivate::rsaPrivateEncrypt(const QByteArray &data, PrivateKe
     QByteArray result;
     result.resize(qMax(rsaSize, data.size()));
     rvalue = RSA_private_encrypt(data.size(), reinterpret_cast<const unsigned char *>(data.data()),
-                                            reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
+                                 reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
     if (rvalue > 0) {
         result.resize(rvalue);
         return result;
@@ -426,7 +413,6 @@ QByteArray PublicKeyPrivate::rsaPrivateEncrypt(const QByteArray &data, PrivateKe
         return QByteArray();
     }
 }
-
 
 QByteArray PublicKeyPrivate::rsaPrivateDecrypt(const QByteArray &data, PrivateKey::RsaPadding padding) const
 {
@@ -440,7 +426,7 @@ QByteArray PublicKeyPrivate::rsaPrivateDecrypt(const QByteArray &data, PrivateKe
     QByteArray result;
     result.resize(qMax(rsaSize, data.size()));
     rvalue = RSA_private_decrypt(data.size(), reinterpret_cast<const unsigned char *>(data.data()),
-                                            reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
+                                 reinterpret_cast<unsigned char *>(result.data()), rsa, static_cast<int>(padding));
     if (rvalue > 0) {
         result.resize(rvalue);
         return result;
@@ -450,17 +436,22 @@ QByteArray PublicKeyPrivate::rsaPrivateDecrypt(const QByteArray &data, PrivateKe
     }
 }
 
-
-struct SimplePasswordCallback: public PasswordCallback
+struct SimplePasswordCallback : public PasswordCallback
 {
 public:
-    SimplePasswordCallback(const QByteArray &password) : password(password) {}
+    SimplePasswordCallback(const QByteArray &password)
+        : password(password)
+    {
+    }
     virtual ~SimplePasswordCallback() override;
-    virtual QByteArray get(bool writing) override { Q_UNUSED(writing); return password; }
+    virtual QByteArray get(bool writing) override
+    {
+        Q_UNUSED(writing);
+        return password;
+    }
     QByteArray password;
 };
-SimplePasswordCallback::~SimplePasswordCallback() {}
-
+SimplePasswordCallback::~SimplePasswordCallback() { }
 
 static int pem_password_cb(char *buf, int size, int rwflag, void *userdata)
 {
@@ -468,7 +459,7 @@ static int pem_password_cb(char *buf, int size, int rwflag, void *userdata)
         return 0;
     }
 
-    PasswordCallback *callback = static_cast<PasswordCallback*>(userdata);
+    PasswordCallback *callback = static_cast<PasswordCallback *>(userdata);
     const QByteArray &password = callback->get(rwflag == 1);
     int move = qMin<int>(size - 1, password.size());
     if (move <= 0) {
@@ -483,14 +474,23 @@ static int pem_password_cb(char *buf, int size, int rwflag, void *userdata)
     return move;
 }
 
-
 class PrivateKeyWriterPrivate
 {
 public:
     PrivateKeyWriterPrivate(const PublicKey &key)
-        :key(key), algo(Cipher::Null), mode(Cipher::CBC), publicOnly(true) {}
+        : key(key)
+        , algo(Cipher::Null)
+        , mode(Cipher::CBC)
+        , publicOnly(true)
+    {
+    }
     PrivateKeyWriterPrivate(const PrivateKey &key)
-        :key(key), algo(Cipher::Null), mode(Cipher::CBC), publicOnly(false) {}
+        : key(key)
+        , algo(Cipher::Null)
+        , mode(Cipher::CBC)
+        , publicOnly(false)
+    {
+    }
     QByteArray asPem();
     QByteArray asDer();
     QByteArray save(Ssl::EncodingFormat format);
@@ -503,7 +503,6 @@ public:
     bool publicOnly;
 };
 
-
 QByteArray PrivateKeyWriterPrivate::asPem()
 {
     if (!key.isValid()) {
@@ -515,7 +514,7 @@ QByteArray PrivateKeyWriterPrivate::asPem()
         return QByteArray();
     }
     const EVP_CIPHER *cipher = nullptr;
-    if (algo != Cipher::Null && (!password.isEmpty() || !callback.isNull()))  {
+    if (algo != Cipher::Null && (!password.isEmpty() || !callback.isNull())) {
         cipher = getOpenSSL_CIPHER(algo, mode);
         if (!cipher) {
             BIO_free(bio);
@@ -526,15 +525,14 @@ QByteArray PrivateKeyWriterPrivate::asPem()
     if (key.d_ptr->hasPrivate && !publicOnly) {
         // we don't use PEM_write_bio_RSAPrivateKey() & PEM_write_bio_DSAPrivateKey
         if (!callback.isNull()) {
-            //q_PEM_write_bio_PrivateKey
-            rvalue = PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(), cipher,
-                                                              nullptr, 0, pem_password_cb, callback.data());
+            // q_PEM_write_bio_PrivateKey
+            rvalue = PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(), cipher, nullptr, 0, pem_password_cb,
+                                                   callback.data());
         } else if (!password.isEmpty()) {
-            rvalue = PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(), cipher,
-                                                              password.data(), password.size(), nullptr, nullptr);
+            rvalue = PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(), cipher, password.data(),
+                                                   password.size(), nullptr, nullptr);
         } else {
-            rvalue = PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(),
-                                                              nullptr, nullptr, 0, nullptr, nullptr);
+            rvalue = PEM_write_bio_PKCS8PrivateKey(bio, key.d_ptr->pkey.data(), nullptr, nullptr, 0, nullptr, nullptr);
         }
     } else {
         rvalue = PEM_write_bio_PUBKEY(bio, key.d_ptr->pkey.data());
@@ -552,13 +550,11 @@ QByteArray PrivateKeyWriterPrivate::asPem()
     return QByteArray();
 }
 
-
 QByteArray PrivateKeyWriterPrivate::asDer()
 {
-    //FIXME
+    // FIXME
     return QByteArray();
 }
-
 
 QByteArray PrivateKeyWriterPrivate::save(Ssl::EncodingFormat format)
 {
@@ -570,7 +566,6 @@ QByteArray PrivateKeyWriterPrivate::save(Ssl::EncodingFormat format)
         return QByteArray();
     }
 }
-
 
 class PrivateKeyReaderPrivate
 {
@@ -584,7 +579,6 @@ public:
     QByteArray password;
     Ssl::EncodingFormat format;
 };
-
 
 PrivateKey PrivateKeyReaderPrivate::read(const QByteArray &data)
 {
@@ -608,7 +602,7 @@ PrivateKey PrivateKeyReaderPrivate::read(const QByteArray &data)
         return key;
     }
     EVP_PKEY_CTX *context = nullptr;
-    context = EVP_PKEY_CTX_new(pkey, nullptr); // should i free pkey?
+    context = EVP_PKEY_CTX_new(pkey, nullptr);  // should i free pkey?
     if (!context) {
         EVP_PKEY_free(pkey);
     } else {
@@ -620,7 +614,6 @@ PrivateKey PrivateKeyReaderPrivate::read(const QByteArray &data)
     return key;
 }
 
-
 PrivateKey PrivateKeyReaderPrivate::read(const QString &filePath)
 {
     QFile f(filePath);
@@ -631,7 +624,6 @@ PrivateKey PrivateKeyReaderPrivate::read(const QString &filePath)
     f.close();
     return read(data);
 }
-
 
 PublicKey PrivateKeyReaderPrivate::readPublic(const QByteArray &data)
 {
@@ -656,7 +648,7 @@ PublicKey PrivateKeyReaderPrivate::readPublic(const QByteArray &data)
     }
 
     EVP_PKEY_CTX *context = nullptr;
-    context = EVP_PKEY_CTX_new(pkey, nullptr); // should i free pkey?
+    context = EVP_PKEY_CTX_new(pkey, nullptr);  // should i free pkey?
     if (!context) {
         EVP_PKEY_free(pkey);
     } else {
@@ -666,7 +658,6 @@ PublicKey PrivateKeyReaderPrivate::readPublic(const QByteArray &data)
     }
     return key;
 }
-
 
 PublicKey PrivateKeyReaderPrivate::readPublic(const QString &filePath)
 {
@@ -684,12 +675,10 @@ PublicKey::PublicKey()
 {
 }
 
-
 PublicKey::PublicKey(const PublicKey &other)
     : d_ptr(new PublicKeyPrivate(other.d_ptr))
 {
 }
-
 
 PublicKey &PublicKey::operator=(const PublicKey &other)
 {
@@ -698,8 +687,7 @@ PublicKey &PublicKey::operator=(const PublicKey &other)
     return *this;
 }
 
-
-bool comparePublicKey(const PublicKeyPrivate * d1, const PublicKeyPrivate *d2)
+bool comparePublicKey(const PublicKeyPrivate *d1, const PublicKeyPrivate *d2)
 {
     if (d1->pkey == d2->pkey) {
         return true;
@@ -710,13 +698,11 @@ bool comparePublicKey(const PublicKeyPrivate * d1, const PublicKeyPrivate *d2)
     return EVP_PKEY_cmp(d1->pkey.data(), d2->pkey.data());
 }
 
-
-bool PublicKey::operator ==(const PublicKey &other) const
+bool PublicKey::operator==(const PublicKey &other) const
 {
     Q_D(const PublicKey);
     return comparePublicKey(d, other.d_ptr);
 }
-
 
 PublicKey::~PublicKey()
 {
@@ -725,13 +711,11 @@ PublicKey::~PublicKey()
     }
 }
 
-
 PublicKey PublicKey::load(const QByteArray &data, Ssl::EncodingFormat format)
 {
     PrivateKeyReader reader;
     return reader.setFormat(format).readPublic(data);
 }
-
 
 QByteArray PublicKey::save(Ssl::EncodingFormat format) const
 {
@@ -746,13 +730,11 @@ QByteArray PublicKey::save(Ssl::EncodingFormat format) const
     }
 }
 
-
 bool PublicKey::isNull() const
 {
     Q_D(const PublicKey);
     return d->context == nullptr;
 }
-
 
 bool PublicKey::isValid() const
 {
@@ -760,13 +742,11 @@ bool PublicKey::isValid() const
     return d->context != nullptr;
 }
 
-
 Qt::HANDLE PublicKey::handle() const
 {
     Q_D(const PublicKey);
     return static_cast<Qt::HANDLE>(d->pkey.data());
 }
-
 
 PublicKey::Algorithm PublicKey::algorithm() const
 {
@@ -774,13 +754,11 @@ PublicKey::Algorithm PublicKey::algorithm() const
     return d->algorithm();
 }
 
-
 int PublicKey::bits() const
 {
     Q_D(const PublicKey);
     return d->bits();
 }
-
 
 bool PublicKey::verify(const QByteArray &data, const QByteArray &hash, MessageDigest::Algorithm hashAlgo)
 {
@@ -788,13 +766,11 @@ bool PublicKey::verify(const QByteArray &data, const QByteArray &hash, MessageDi
     return d->verify(data, hash, hashAlgo);
 }
 
-
 QByteArray PublicKey::encrypt(const QByteArray &data)
 {
     Q_D(PublicKey);
     return d->encrypt(data);
 }
-
 
 QByteArray PublicKey::digest(MessageDigest::Algorithm algorithm) const
 {
@@ -806,13 +782,11 @@ QByteArray PublicKey::digest(MessageDigest::Algorithm algorithm) const
     }
 }
 
-
 QByteArray PublicKey::rsaPublicEncrypt(const QByteArray &data, PrivateKey::RsaPadding padding) const
 {
     Q_D(const PublicKey);
     return d->rsaPublicEncrypt(data, padding);
 }
-
 
 QByteArray PublicKey::rsaPublicDecrypt(const QByteArray &data, PrivateKey::RsaPadding padding) const
 {
@@ -820,13 +794,11 @@ QByteArray PublicKey::rsaPublicDecrypt(const QByteArray &data, PrivateKey::RsaPa
     return d->rsaPublicDecrypt(data, padding);
 }
 
-
-bool PrivateKey::operator ==(const PrivateKey &other) const
+bool PrivateKey::operator==(const PrivateKey &other) const
 {
     Q_D(const PublicKey);
     return comparePublicKey(d, other.d_ptr);
 }
-
 
 PrivateKey PrivateKey::load(const QByteArray &data, Ssl::EncodingFormat format, const QByteArray &password)
 {
@@ -837,12 +809,10 @@ PrivateKey PrivateKey::load(const QByteArray &data, Ssl::EncodingFormat format, 
     return reader.setFormat(format).read(data);
 }
 
-
 PrivateKey PrivateKey::generate(PrivateKey::Algorithm algo, int bits)
 {
     return PublicKeyPrivate::generate(algo, bits);
 }
-
 
 QByteArray PrivateKey::save(Ssl::EncodingFormat format, const QByteArray &password) const
 {
@@ -860,12 +830,10 @@ QByteArray PrivateKey::save(Ssl::EncodingFormat format, const QByteArray &passwo
     }
 }
 
-
 PublicKey PrivateKey::publicKey() const
 {
     return *this;
 }
-
 
 QByteArray PrivateKey::sign(const QByteArray &data, MessageDigest::Algorithm hashAlgo)
 {
@@ -873,13 +841,11 @@ QByteArray PrivateKey::sign(const QByteArray &data, MessageDigest::Algorithm has
     return d->sign(data, hashAlgo);
 }
 
-
 QByteArray PrivateKey::decrypt(const QByteArray &data)
 {
     Q_D(PublicKey);
     return d->decrypt(data);
 }
-
 
 QByteArray PrivateKey::rsaPrivateEncrypt(const QByteArray &data, PrivateKey::RsaPadding padding) const
 {
@@ -887,13 +853,11 @@ QByteArray PrivateKey::rsaPrivateEncrypt(const QByteArray &data, PrivateKey::Rsa
     return d->rsaPrivateEncrypt(data, padding);
 }
 
-
 QByteArray PrivateKey::rsaPrivateDecrypt(const QByteArray &data, PrivateKey::RsaPadding padding) const
 {
     Q_D(const PublicKey);
     return d->rsaPrivateDecrypt(data, padding);
 }
-
 
 PrivateKeyWriter::PrivateKeyWriter(const PrivateKey &key)
     : d_ptr(new PrivateKeyWriterPrivate(key))
@@ -905,12 +869,10 @@ PrivateKeyWriter::PrivateKeyWriter(const PublicKey &key)
 {
 }
 
-
 PrivateKeyWriter::~PrivateKeyWriter()
 {
     delete d_ptr;
 }
-
 
 PrivateKeyWriter &PrivateKeyWriter::setCipher(Cipher::Algorithm algo, Cipher::Mode mode)
 {
@@ -919,7 +881,6 @@ PrivateKeyWriter &PrivateKeyWriter::setCipher(Cipher::Algorithm algo, Cipher::Mo
     d->mode = mode;
     return *this;
 }
-
 
 PrivateKeyWriter &PrivateKeyWriter::setPassword(const QByteArray &password)
 {
@@ -932,7 +893,6 @@ PrivateKeyWriter &PrivateKeyWriter::setPassword(const QByteArray &password)
     return *this;
 }
 
-
 PrivateKeyWriter &PrivateKeyWriter::setPassword(QSharedPointer<PasswordCallback> callback)
 {
     Q_D(PrivateKeyWriter);
@@ -944,7 +904,6 @@ PrivateKeyWriter &PrivateKeyWriter::setPassword(QSharedPointer<PasswordCallback>
     return *this;
 }
 
-
 PrivateKeyWriter &PrivateKeyWriter::setPublicOnly(bool publicOnly)
 {
     Q_D(PrivateKeyWriter);
@@ -952,19 +911,16 @@ PrivateKeyWriter &PrivateKeyWriter::setPublicOnly(bool publicOnly)
     return *this;
 }
 
-
 QByteArray PrivateKeyWriter::asPem()
 {
     Q_D(PrivateKeyWriter);
     return d->asPem();
 }
 
-
 QByteArray PrivateKeyWriter::asDer()
 {
     return QByteArray();
 }
-
 
 bool PrivateKeyWriter::save(const QString &filePath)
 {
@@ -979,18 +935,15 @@ bool PrivateKeyWriter::save(const QString &filePath)
     return false;
 }
 
-
 PrivateKeyReader::PrivateKeyReader()
     : d_ptr(new PrivateKeyReaderPrivate())
 {
 }
 
-
 PrivateKeyReader::~PrivateKeyReader()
 {
     delete d_ptr;
 }
-
 
 PrivateKeyReader &PrivateKeyReader::setPassword(const QByteArray &password)
 {
@@ -1000,7 +953,6 @@ PrivateKeyReader &PrivateKeyReader::setPassword(const QByteArray &password)
     return *this;
 }
 
-
 PrivateKeyReader &PrivateKeyReader::setPassword(QSharedPointer<PasswordCallback> callback)
 {
     Q_D(PrivateKeyReader);
@@ -1009,7 +961,6 @@ PrivateKeyReader &PrivateKeyReader::setPassword(QSharedPointer<PasswordCallback>
     return *this;
 }
 
-
 PrivateKeyReader &PrivateKeyReader::setFormat(Ssl::EncodingFormat format)
 {
     Q_D(PrivateKeyReader);
@@ -1017,13 +968,11 @@ PrivateKeyReader &PrivateKeyReader::setFormat(Ssl::EncodingFormat format)
     return *this;
 }
 
-
 PrivateKey PrivateKeyReader::read(const QByteArray &data)
 {
     Q_D(PrivateKeyReader);
     return d->read(data);
 }
-
 
 PublicKey PrivateKeyReader::readPublic(const QByteArray &data)
 {
@@ -1031,19 +980,16 @@ PublicKey PrivateKeyReader::readPublic(const QByteArray &data)
     return d->readPublic(data);
 }
 
-
 PrivateKey PrivateKeyReader::read(const QString &filePath)
 {
     Q_D(PrivateKeyReader);
     return d->read(filePath);
 }
 
-
 PublicKey PrivateKeyReader::readPublic(const QString &filePath)
 {
     Q_D(PrivateKeyReader);
     return d->readPublic(filePath);
 }
-
 
 QTNETWORKNG_NAMESPACE_END

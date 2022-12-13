@@ -5,7 +5,6 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
 class Functor
 {
 public:
@@ -13,15 +12,13 @@ public:
     virtual void operator()() = 0;
 };
 
-
-class DoNothingFunctor: public Functor
+class DoNothingFunctor : public Functor
 {
 public:
     virtual void operator()();
 };
 
-
-class YieldCurrentFunctor: public Functor
+class YieldCurrentFunctor : public Functor
 {
 public:
     explicit YieldCurrentFunctor();
@@ -29,30 +26,28 @@ public:
     QPointer<BaseCoroutine> coroutine;
 };
 
-
 template<typename T>
-class DeleteLaterFunctor: public Functor
+class DeleteLaterFunctor : public Functor
 {
 public:
-    explicit DeleteLaterFunctor(T* p)
-        :p(p) {}
-    virtual void operator()()
+    explicit DeleteLaterFunctor(T *p)
+        : p(p)
     {
-        delete p;
     }
+    virtual void operator()() { delete p; }
     T * const p;
 };
 
-
-class LambdaFunctor: public Functor
+class LambdaFunctor : public Functor
 {
 public:
     LambdaFunctor(const std::function<void()> &callback)
-        :callback(callback) {}
-    virtual void operator ()() override;
+        : callback(callback)
+    {
+    }
+    virtual void operator()() override;
     std::function<void()> callback;
 };
-
 
 /*
 #if QT_VERSION < 0x050000
@@ -61,12 +56,11 @@ typedef qptrdiff qintptr;
 */
 
 class EventLoopCoroutinePrivate;
-class EventLoopCoroutine: public BaseCoroutine
+class EventLoopCoroutine : public BaseCoroutine
 {
     Q_DISABLE_COPY(EventLoopCoroutine)
 public:
-    enum EventType
-    {
+    enum EventType {
         Read = 1,
         Write = 2,
         ReadWrite = 3,
@@ -90,13 +84,13 @@ public:
 public:
     static EventLoopCoroutine *get();
 protected:
-    // eventloop coroutine should use a bigger stack size instead of DEFAULT_COROUTINE_STACK_SIZE, which may be defined smaller.
+    // eventloop coroutine should use a bigger stack size instead of DEFAULT_COROUTINE_STACK_SIZE, which may be defined
+    // smaller.
     EventLoopCoroutine(EventLoopCoroutinePrivate *d, size_t stackSize = 1024 * 1024 * 8);
 private:
     EventLoopCoroutinePrivate * const dd_ptr;
     Q_DECLARE_PRIVATE_D(dd_ptr, EventLoopCoroutine)
 };
-
 
 class ScopedIoWatcher
 {
@@ -110,11 +104,10 @@ private:
     int watcherId;
 };
 
-
 class EventLoopCoroutinePrivate
 {
 public:
-    explicit EventLoopCoroutinePrivate(EventLoopCoroutine* q);
+    explicit EventLoopCoroutinePrivate(EventLoopCoroutine *q);
     virtual ~EventLoopCoroutinePrivate();
 public:
     virtual void run() = 0;
@@ -123,22 +116,18 @@ public:
     virtual void stopWatcher(int watcherId) = 0;
     virtual void removeWatcher(int watcherId) = 0;
     virtual void triggerIoWatchers(qintptr fd) = 0;
-    virtual int callLater(quint32 msecs, Functor * callback) = 0;
+    virtual int callLater(quint32 msecs, Functor *callback) = 0;
     virtual void callLaterThreadSafe(quint32 msecs, Functor *callback) = 0;
-    virtual int callRepeat(quint32 msecs, Functor * callback) = 0;
+    virtual int callRepeat(quint32 msecs, Functor *callback) = 0;
     virtual void cancelCall(int callbackId) = 0;
     virtual int exitCode() = 0;
     virtual bool runUntil(BaseCoroutine *coroutine) = 0;
     virtual void yield() = 0;
 protected:
     EventLoopCoroutine * const q_ptr;
-    static EventLoopCoroutinePrivate *getPrivateHelper(EventLoopCoroutine *coroutine)
-    {
-        return coroutine->d_func();
-    }
+    static EventLoopCoroutinePrivate *getPrivateHelper(EventLoopCoroutine *coroutine) { return coroutine->d_func(); }
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
 };
-
 
 class CurrentLoopStorage
 {
@@ -154,22 +143,21 @@ private:
 CurrentLoopStorage *currentLoop();
 
 #ifdef QTNETWOKRNG_USE_EV
-class EvEventLoopCoroutine: public EventLoopCoroutine
+class EvEventLoopCoroutine : public EventLoopCoroutine
 {
 public:
     EvEventLoopCoroutine();
 };
 #elif QTNETWORKNG_USE_WIN
-class WinEventLoopCoroutine: public EventLoopCoroutine
+class WinEventLoopCoroutine : public EventLoopCoroutine
 {
 public:
     WinEventLoopCoroutine();
 };
 #endif
-
 
 #ifdef QTNETWOKRNG_USE_WIN
-class WinEventLoopCoroutine: public EventLoopCoroutine
+class WinEventLoopCoroutine : public EventLoopCoroutine
 {
 public:
     WinEventLoopCoroutine();
@@ -177,8 +165,7 @@ public:
 
 #endif
 
-
-class QtEventLoopCoroutine: public EventLoopCoroutine
+class QtEventLoopCoroutine : public EventLoopCoroutine
 {
 public:
     QtEventLoopCoroutine();
@@ -187,6 +174,6 @@ public:
 QTNETWORKNG_NAMESPACE_END
 
 class QDebug;
-QDebug operator <<(QDebug out, const QTNETWORKNG_NAMESPACE::EventLoopCoroutine& el);
+QDebug operator<<(QDebug out, const QTNETWORKNG_NAMESPACE::EventLoopCoroutine &el);
 
 #endif

@@ -7,12 +7,11 @@ QTNG_LOGGER("qtng.cipher");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
 const EVP_MD *getOpenSSL_MD(MessageDigest::Algorithm algo);
 
 const EVP_CIPHER *getOpenSSL_CIPHER(Cipher::Algorithm algo, Cipher::Mode mode)
 {
-    const EVP_CIPHER * cipher = nullptr;
+    const EVP_CIPHER *cipher = nullptr;
     switch (algo) {
     case Cipher::Null:
         cipher = EVP_enc_null();
@@ -178,15 +177,14 @@ const EVP_CIPHER *getOpenSSL_CIPHER(Cipher::Algorithm algo, Cipher::Mode mode)
     case Cipher::Chacha20:
         cipher = EVP_chacha20();
         break;
-//    case Cipher::ChaCha20Poly1305:
-//        cipher = EVP_chacha20_poly1305();
-//        break;
+        //    case Cipher::ChaCha20Poly1305:
+        //        cipher = EVP_chacha20_poly1305();
+        //        break;
     default:
         break;
     }
     return cipher;
 }
-
 
 class CipherPrivate
 {
@@ -195,13 +193,14 @@ public:
     ~CipherPrivate();
     QByteArray addData(const char *data, int len);
     QByteArray finalData();
-    QPair<QByteArray, QByteArray> bytesToKey(const QByteArray &password,MessageDigest::Algorithm hashAlgo,
+    QPair<QByteArray, QByteArray> bytesToKey(const QByteArray &password, MessageDigest::Algorithm hashAlgo,
                                              const QByteArray &salt, int i);
     QPair<QByteArray, QByteArray> PBKDF2_HMAC(const QByteArray &password, const QByteArray &salt,
                                               MessageDigest::Algorithm hashAlgo, int i);
-    bool setPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo, int i);
-    bool setOpensslPassword(const QByteArray &password, const QByteArray &salt,
-                            const MessageDigest::Algorithm hashAlgo, int i);
+    bool setPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo,
+                     int i);
+    bool setOpensslPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo,
+                            int i);
     bool init();
     bool setPadding(bool padding);
 
@@ -218,9 +217,15 @@ public:
     bool padding;
 };
 
-
 CipherPrivate::CipherPrivate(Cipher::Algorithm algo, Cipher::Mode mode, Cipher::Operation operation)
-    :context(nullptr), cipher(nullptr), algo(algo), mode(mode), operation(operation), hasError(false), inited(false), padding(true)
+    : context(nullptr)
+    , cipher(nullptr)
+    , algo(algo)
+    , mode(mode)
+    , operation(operation)
+    , hasError(false)
+    , inited(false)
+    , padding(true)
 {
     initOpenSSL();
     cipher = getOpenSSL_CIPHER(algo, mode);
@@ -238,7 +243,6 @@ CipherPrivate::CipherPrivate(Cipher::Algorithm algo, Cipher::Mode mode, Cipher::
     setPadding(true);
 }
 
-
 CipherPrivate::~CipherPrivate()
 {
     if (context) {
@@ -247,16 +251,13 @@ CipherPrivate::~CipherPrivate()
     cleanupOpenSSL();
 }
 
-
 bool CipherPrivate::init()
 {
     if (inited || !context || !cipher || key.isEmpty() || iv.isEmpty() || hasError) {
         return false;
     }
-    int rvalue = EVP_CipherInit_ex(context, cipher, nullptr,
-                                   reinterpret_cast<unsigned char*>(key.data()),
-                                   reinterpret_cast<unsigned char*>(iv.data()),
-                                   operation == Cipher::Decrypt ? 0 : 1);
+    int rvalue = EVP_CipherInit_ex(context, cipher, nullptr, reinterpret_cast<unsigned char *>(key.data()),
+                                   reinterpret_cast<unsigned char *>(iv.data()), operation == Cipher::Decrypt ? 0 : 1);
     if (rvalue) {
         inited = true;
         return true;
@@ -265,35 +266,32 @@ bool CipherPrivate::init()
     }
 }
 
-
-QPair<QByteArray, QByteArray> CipherPrivate::bytesToKey(const QByteArray &password,
-                                                        MessageDigest::Algorithm hashAlgo,
+QPair<QByteArray, QByteArray> CipherPrivate::bytesToKey(const QByteArray &password, MessageDigest::Algorithm hashAlgo,
                                                         const QByteArray &salt, int i)
 {
     const EVP_MD *dgst = getOpenSSL_MD(hashAlgo);
     unsigned char key[EVP_MAX_KEY_LENGTH], iv[EVP_MAX_IV_LENGTH];
 
-    if (hasError || !context || !cipher || !dgst
-            || (!salt.isEmpty() && salt.size() != 8) || password.isEmpty() || i <= 0) {
+    if (hasError || !context || !cipher || !dgst || (!salt.isEmpty() && salt.size() != 8) || password.isEmpty()
+        || i <= 0) {
         return qMakePair(QByteArray(), QByteArray());
     }
     const unsigned char *saltPtr = nullptr;
     if (!salt.isEmpty()) {
-        saltPtr = reinterpret_cast<const unsigned char*>(salt.data());
+        saltPtr = reinterpret_cast<const unsigned char *>(salt.data());
     }
-    int rvalue = EVP_BytesToKey(cipher, dgst, saltPtr,
-                                           reinterpret_cast<const unsigned char *>(password.data()),
-                                           password.size(), i, key, iv);
+    int rvalue = EVP_BytesToKey(cipher, dgst, saltPtr, reinterpret_cast<const unsigned char *>(password.data()),
+                                password.size(), i, key, iv);
     if (rvalue) {
         int keylen = EVP_CIPHER_key_length(cipher);
         int ivlen = EVP_CIPHER_iv_length(cipher);
-        if(keylen > 0 && ivlen >= 0) {
-            return qMakePair(QByteArray(reinterpret_cast<const char*>(key), keylen), QByteArray(reinterpret_cast<const char *>(iv), ivlen));
+        if (keylen > 0 && ivlen >= 0) {
+            return qMakePair(QByteArray(reinterpret_cast<const char *>(key), keylen),
+                             QByteArray(reinterpret_cast<const char *>(iv), ivlen));
         }
     }
     return qMakePair(QByteArray(), QByteArray());
 }
-
 
 QPair<QByteArray, QByteArray> CipherPrivate::PBKDF2_HMAC(const QByteArray &password, const QByteArray &salt,
                                                          MessageDigest::Algorithm hashAlgo, int i)
@@ -308,19 +306,18 @@ QPair<QByteArray, QByteArray> CipherPrivate::PBKDF2_HMAC(const QByteArray &passw
     int ivlen = EVP_CIPHER_iv_length(cipher);
     if (keylen > 0 && ivlen > 0) {
         int rvalue = PKCS5_PBKDF2_HMAC(password.data(), password.size(),
-                                                  reinterpret_cast<const unsigned char*>(salt.data()),
-                                                  salt.size(), i, dgst, keylen, key);
+                                       reinterpret_cast<const unsigned char *>(salt.data()), salt.size(), i, dgst,
+                                       keylen, key);
         if (rvalue) {
-            rvalue = PKCS5_PBKDF2_HMAC(password.data(), password.size(),
-                    key, keylen, i, dgst, ivlen, iv);
+            rvalue = PKCS5_PBKDF2_HMAC(password.data(), password.size(), key, keylen, i, dgst, ivlen, iv);
             if (rvalue) {
-                return qMakePair(QByteArray(reinterpret_cast<const char*>(key), keylen), QByteArray(reinterpret_cast<const char *>(iv), ivlen));
+                return qMakePair(QByteArray(reinterpret_cast<const char *>(key), keylen),
+                                 QByteArray(reinterpret_cast<const char *>(iv), ivlen));
             }
         }
     }
     return qMakePair(QByteArray(), QByteArray());
 }
-
 
 QByteArray CipherPrivate::addData(const char *data, int len)
 {
@@ -331,7 +328,7 @@ QByteArray CipherPrivate::addData(const char *data, int len)
     out.resize(len + EVP_MAX_BLOCK_LENGTH);
     int outl = 0;
     int rvalue = EVP_CipherUpdate(context, reinterpret_cast<unsigned char *>(out.data()), &outl,
-                                             reinterpret_cast<const unsigned char *>(data), len);
+                                  reinterpret_cast<const unsigned char *>(data), len);
     if (rvalue) {
         out.resize(outl);
         return out;
@@ -340,7 +337,6 @@ QByteArray CipherPrivate::addData(const char *data, int len)
         return QByteArray();
     }
 }
-
 
 QByteArray CipherPrivate::finalData()
 {
@@ -360,8 +356,8 @@ QByteArray CipherPrivate::finalData()
     }
 }
 
-
-bool CipherPrivate::setPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo, int i)
+bool CipherPrivate::setPassword(const QByteArray &password, const QByteArray &salt,
+                                const MessageDigest::Algorithm hashAlgo, int i)
 {
     QByteArray s;
     if (salt.isEmpty()) {
@@ -373,14 +369,14 @@ bool CipherPrivate::setPassword(const QByteArray &password, const QByteArray &sa
     const QPair<QByteArray, QByteArray> &t = PBKDF2_HMAC(password, s, hashAlgo, i);
     key = t.first;
     iv = t.second;
-    if(key.isEmpty()) {
+    if (key.isEmpty()) {
         return false;
     }
     return init();
 }
 
-
-bool CipherPrivate::setOpensslPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo, int i)
+bool CipherPrivate::setOpensslPassword(const QByteArray &password, const QByteArray &salt,
+                                       const MessageDigest::Algorithm hashAlgo, int i)
 {
     QByteArray s;
     if (salt.isEmpty()) {
@@ -397,12 +393,11 @@ bool CipherPrivate::setOpensslPassword(const QByteArray &password, const QByteAr
     const QPair<QByteArray, QByteArray> &t = bytesToKey(password, hashAlgo, s, i);
     key = t.first;
     iv = t.second;
-    if(key.isEmpty()) {
+    if (key.isEmpty()) {
         return false;
     }
     return init();
 }
-
 
 bool CipherPrivate::setPadding(bool padding)
 {
@@ -418,18 +413,15 @@ bool CipherPrivate::setPadding(bool padding)
     }
 }
 
-
 Cipher::Cipher(Cipher::Algorithm alog, Cipher::Mode mode, Cipher::Operation operation)
-    :d_ptr(new CipherPrivate(alog, mode, operation))
+    : d_ptr(new CipherPrivate(alog, mode, operation))
 {
 }
-
 
 Cipher::~Cipher()
 {
     delete d_ptr;
 }
-
 
 Cipher *Cipher::copy(Cipher::Operation operation)
 {
@@ -445,7 +437,6 @@ Cipher *Cipher::copy(Cipher::Operation operation)
     }
     return newOne;
 }
-
 
 bool Cipher::isValid() const
 {
@@ -483,20 +474,17 @@ bool Cipher::isStream() const
     return false;
 }
 
-
 QByteArray Cipher::addData(const char *data, int len)
 {
     Q_D(Cipher);
     return d->addData(data, len);
 }
 
-
 QByteArray Cipher::finalData()
 {
     Q_D(Cipher);
     return d->finalData();
 }
-
 
 bool Cipher::setInitialVector(const QByteArray &iv)
 {
@@ -505,7 +493,6 @@ bool Cipher::setInitialVector(const QByteArray &iv)
     return d->init();
 }
 
-
 bool Cipher::setKey(const QByteArray &key)
 {
     Q_D(Cipher);
@@ -513,20 +500,19 @@ bool Cipher::setKey(const QByteArray &key)
     return d->init();
 }
 
-
-bool Cipher::setPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo, int i)
+bool Cipher::setPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo,
+                         int i)
 {
     Q_D(Cipher);
     return d->setPassword(password, salt, hashAlgo, i);
 }
 
-
-bool Cipher::setOpensslPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo, int i)
+bool Cipher::setOpensslPassword(const QByteArray &password, const QByteArray &salt,
+                                const MessageDigest::Algorithm hashAlgo, int i)
 {
     Q_D(Cipher);
     return d->setOpensslPassword(password, salt, hashAlgo, i);
 }
-
 
 QByteArray Cipher::saltHeader() const
 {
@@ -539,13 +525,11 @@ QByteArray Cipher::saltHeader() const
     }
 }
 
-
 QByteArray Cipher::salt() const
 {
     Q_D(const Cipher);
     return d->salt;
 }
-
 
 QPair<QByteArray, QByteArray> Cipher::parseSalt(const QByteArray &header)
 {
@@ -564,13 +548,11 @@ bool Cipher::setPadding(bool padding)
     return d->setPadding(padding);
 }
 
-
 bool Cipher::padding() const
 {
     Q_D(const Cipher);
     return d->padding;
 }
-
 
 QByteArray Cipher::key() const
 {
@@ -578,13 +560,11 @@ QByteArray Cipher::key() const
     return d->key;
 }
 
-
 QByteArray Cipher::initialVector() const
 {
     Q_D(const Cipher);
     return d->iv;
 }
-
 
 int Cipher::keySize() const
 {
@@ -593,7 +573,6 @@ int Cipher::keySize() const
     return keylen;
 }
 
-
 int Cipher::ivSize() const
 {
     Q_D(const Cipher);
@@ -601,13 +580,11 @@ int Cipher::ivSize() const
     return ivlen;
 }
 
-
 int Cipher::blockSize() const
 {
     Q_D(const Cipher);
     int blockSize = EVP_CIPHER_block_size(d->cipher);
     return blockSize;
 }
-
 
 QTNETWORKNG_NAMESPACE_END

@@ -16,13 +16,12 @@ class Socks5Proxy;
 class ConnectionPoolItem
 {
 public:
-    ConnectionPoolItem() {}
+    ConnectionPoolItem() { }
 public:
     QDateTime lastUsed;
     QSharedPointer<Semaphore> semaphore;
     QList<QSharedPointer<SocketLike>> connections;
 };
-
 
 class ConnectionPool
 {
@@ -52,11 +51,9 @@ public:
     float defaultConnectionTimeout;
     float defaultTimeout;
     CoroutineGroup *operations;
-
 };
 
-
-class HttpSessionPrivate: public ConnectionPool
+class HttpSessionPrivate : public ConnectionPool
 {
 public:
     HttpSessionPrivate(HttpSession *q_ptr);
@@ -74,11 +71,10 @@ public:
     bool managingCookies;
     bool keepAlive;
     friend void setProxySwitcher(HttpSession *session, QSharedPointer<BaseProxySwitcher> switcher);
-    static inline HttpSessionPrivate *getPrivateHelper(HttpSession *session) {return session->d_ptr; }
+    static inline HttpSessionPrivate *getPrivateHelper(HttpSession *session) { return session->d_ptr; }
     Q_DECLARE_PUBLIC(HttpSession)
 };
 
-
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_HTTP_P_H
+#endif  // QTNG_HTTP_P_H

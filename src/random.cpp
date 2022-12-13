@@ -1,22 +1,21 @@
 #include "../include/random.h"
 
 #ifdef QTNG_NO_CRYPTO
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
-#include <QtCore/qrandom.h>
+#  if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+#    include <QtCore/qrandom.h>
+#  else
+#    include <QtCore/qdatetime.h>
+#  endif
 #else
-#include <QtCore/qdatetime.h>
-#endif
-#else
-#include "../include/private/crypto_p.h"
-#include <openssl/rand.h>
+#  include "../include/private/crypto_p.h"
+#  include <openssl/rand.h>
 #endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
 #ifdef QTNG_NO_CRYPTO
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+#  if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
 
 QByteArray randomBytes(int numBytes)
 {
@@ -29,7 +28,7 @@ QByteArray randomBytes(int numBytes)
     return b;
 }
 
-#else
+#  else
 
 QByteArray randomBytes(int numBytes)
 {
@@ -42,7 +41,7 @@ QByteArray randomBytes(int numBytes)
     return b;
 }
 
-#endif
+#  endif
 
 #else
 
@@ -51,12 +50,11 @@ QByteArray randomBytes(int numBytes)
     initOpenSSL();
     QByteArray b;
     b.resize(numBytes);
-    RAND_bytes(reinterpret_cast<unsigned char*>(b.data()), numBytes);
+    RAND_bytes(reinterpret_cast<unsigned char *>(b.data()), numBytes);
     cleanupOpenSSL();
     return b;
 }
 
 #endif
-
 
 QTNETWORKNG_NAMESPACE_END

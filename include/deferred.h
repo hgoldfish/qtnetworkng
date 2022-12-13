@@ -9,7 +9,6 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
 template<typename ARG>
 class Deferred
 {
@@ -34,8 +33,7 @@ private:
     bool ran;
 };
 
-
-template <>
+template<>
 class Deferred<void>
 {
     typedef std::function<void()> Callback;
@@ -58,11 +56,12 @@ private:
     bool ran;
 };
 
-
 template<typename ARG>
 Deferred<ARG>::Deferred()
-    : nextId(1), ran(false) {}
-
+    : nextId(1)
+    , ran(false)
+{
+}
 
 template<typename ARG>
 int Deferred<ARG>::addCallbacks(Callback callback, Callback errback)
@@ -79,22 +78,19 @@ int Deferred<ARG>::addCallbacks(Callback callback, Callback errback)
     return id;
 }
 
-
 template<typename ARG>
 int Deferred<ARG>::addCallback(Callback callback)
 {
-    Callback errorback = [] (const ARG &) {};
+    Callback errorback = [](const ARG &) {};
     return addCallbacks(callback, errorback);
 }
-
 
 template<typename ARG>
 int Deferred<ARG>::addErrback(Callback errback)
 {
-    Callback callback = [] (const ARG &) {};
+    Callback callback = [](const ARG &) {};
     return addCallbacks(callback, errback);
 }
-
 
 template<typename ARG>
 void Deferred<ARG>::remove(int id)
@@ -107,14 +103,13 @@ void Deferred<ARG>::remove(int id)
     }
 }
 
-
 template<typename ARG>
 void Deferred<ARG>::run(const ARG &arg, bool ok)
 {
     originalResult = qMakePair(arg, ok);
     ran = true;
     bool _ok = ok;
-    for (const std::tuple<int, Callback, Callback> &item: stack) {
+    for (const std::tuple<int, Callback, Callback> &item : stack) {
         try {
             if (_ok) {
                 std::get<1>(item)(arg);
@@ -129,11 +124,10 @@ void Deferred<ARG>::run(const ARG &arg, bool ok)
 }
 
 Deferred<void>::Deferred()
-    : nextId(1), ran(false)
+    : nextId(1)
+    , ran(false)
 {
-
 }
-
 
 int Deferred<void>::addCallbacks(Callback callback, Callback errback)
 {
@@ -149,27 +143,24 @@ int Deferred<void>::addCallbacks(Callback callback, Callback errback)
     return id;
 }
 
-
 int Deferred<void>::addCallback(Callback callback)
 {
-    Callback errorback = [] () {};
+    Callback errorback = []() {};
     return addCallbacks(callback, errorback);
 }
 
-
 int Deferred<void>::addErrback(Callback errback)
 {
-    Callback callback = [] () {};
+    Callback callback = []() {};
     return addCallbacks(callback, errback);
 }
-
 
 void Deferred<void>::run(bool ok)
 {
     originalResult = ok;
     ran = true;
     bool _ok = ok;
-    for (const std::tuple<int, Callback, Callback> &item: stack) {
+    for (const std::tuple<int, Callback, Callback> &item : stack) {
         try {
             if (_ok) {
                 std::get<1>(item)();
@@ -185,4 +176,4 @@ void Deferred<void>::run(bool ok)
 
 QTNETWORKNG_NAMESPACE_END
 
-#endif // DEFERRED_H
+#endif  // DEFERRED_H

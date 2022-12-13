@@ -22,4 +22,4 @@
 #include <openssl/crypto.h>
 #include <openssl/tls1.h>
 OPENSSL_add_all_algorithms_noconf();
-#endif // QTNG_TEMP_H
+#endif  // QTNG_TEMP_H

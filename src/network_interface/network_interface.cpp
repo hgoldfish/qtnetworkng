@@ -40,7 +40,7 @@
 
 #include <QtCore/qatomic.h>
 #if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
-#include <QtCore/qdeadlinetimer.h>
+#  include <QtCore/qdeadlinetimer.h>
 #endif
 #include <QtCore/qlist.h>
 #include <QtCore/qreadwritelock.h>
@@ -49,7 +49,6 @@
 #include "../../include/private/network_interface_p.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
-
 
 static QList<NetworkInterfacePrivate *> postProcess(QList<NetworkInterfacePrivate *> list)
 {
@@ -77,15 +76,13 @@ static QList<NetworkInterfacePrivate *> postProcess(QList<NetworkInterfacePrivat
     return list;
 }
 
-
 Q_GLOBAL_STATIC(NetworkInterfaceManager, manager)
-NetworkInterfaceManager::NetworkInterfaceManager() {}
-NetworkInterfaceManager::~NetworkInterfaceManager() {}
-
+NetworkInterfaceManager::NetworkInterfaceManager() { }
+NetworkInterfaceManager::~NetworkInterfaceManager() { }
 
 QSharedDataPointer<NetworkInterfacePrivate> NetworkInterfaceManager::interfaceFromName(const QString &name)
 {
-    const QList<QSharedDataPointer<NetworkInterfacePrivate> > &interfaceList = allInterfaces();
+    const QList<QSharedDataPointer<NetworkInterfacePrivate>> &interfaceList = allInterfaces();
 
     bool ok;
     uint index = name.toUInt(&ok);
@@ -101,10 +98,9 @@ QSharedDataPointer<NetworkInterfacePrivate> NetworkInterfaceManager::interfaceFr
     return empty;
 }
 
-
 QSharedDataPointer<NetworkInterfacePrivate> NetworkInterfaceManager::interfaceFromIndex(int index)
 {
-    const QList<QSharedDataPointer<NetworkInterfacePrivate> > &interfaceList = allInterfaces();
+    const QList<QSharedDataPointer<NetworkInterfacePrivate>> &interfaceList = allInterfaces();
     for (const QSharedDataPointer<NetworkInterfacePrivate> &interface : interfaceList) {
         if (interface->index == index) {
             return interface;
@@ -114,11 +110,10 @@ QSharedDataPointer<NetworkInterfacePrivate> NetworkInterfaceManager::interfaceFr
     return empty;
 }
 
-
-QList<QSharedDataPointer<NetworkInterfacePrivate> > NetworkInterfaceManager::allInterfaces()
+QList<QSharedDataPointer<NetworkInterfacePrivate>> NetworkInterfaceManager::allInterfaces()
 {
     const QList<NetworkInterfacePrivate *> list = postProcess(scan());
-    QList<QSharedDataPointer<NetworkInterfacePrivate> > result;
+    QList<QSharedDataPointer<NetworkInterfacePrivate>> result;
     result.reserve(list.size());
 
     for (NetworkInterfacePrivate *ptr : list) {
@@ -134,13 +129,11 @@ QList<QSharedDataPointer<NetworkInterfacePrivate> > NetworkInterfaceManager::all
     return result;
 }
 
-
 static inline char toHexUpper(uchar i)
 {
     Q_ASSERT(i < 16);
     return "0123456789ABCDEF"[i];
 }
-
 
 QString NetworkInterfacePrivate::makeHwAddress(int len, uchar *data)
 {
@@ -157,18 +150,15 @@ QString NetworkInterfacePrivate::makeHwAddress(int len, uchar *data)
     return result;
 }
 
-
 NetworkAddressEntry::NetworkAddressEntry()
     : d(new NetworkAddressEntryPrivate)
 {
 }
 
-
 NetworkAddressEntry::NetworkAddressEntry(const NetworkAddressEntry &other)
     : d(new NetworkAddressEntryPrivate(*other.d.data()))
 {
 }
-
 
 NetworkAddressEntry &NetworkAddressEntry::operator=(const NetworkAddressEntry &other)
 {
@@ -176,51 +166,41 @@ NetworkAddressEntry &NetworkAddressEntry::operator=(const NetworkAddressEntry &o
     return *this;
 }
 
-
-NetworkAddressEntry::~NetworkAddressEntry()
-{
-}
-
+NetworkAddressEntry::~NetworkAddressEntry() { }
 
 bool NetworkAddressEntry::operator==(const NetworkAddressEntry &other) const
 {
-    if (d == other.d) return true;
-    if (!d || !other.d) return false;
-    return d->address == other.d->address &&
-        d->netmask == other.d->netmask &&
-        d->broadcast == other.d->broadcast;
+    if (d == other.d)
+        return true;
+    if (!d || !other.d)
+        return false;
+    return d->address == other.d->address && d->netmask == other.d->netmask && d->broadcast == other.d->broadcast;
 }
-
 
 NetworkAddressEntry::DnsEligibilityStatus NetworkAddressEntry::dnsEligibility() const
 {
     return d->dnsEligibility;
 }
 
-
 void NetworkAddressEntry::setDnsEligibility(DnsEligibilityStatus status)
 {
     d->dnsEligibility = status;
 }
-
 
 HostAddress NetworkAddressEntry::ip() const
 {
     return d->address;
 }
 
-
 void NetworkAddressEntry::setIp(const HostAddress &newIp)
 {
     d->address = newIp;
 }
 
-
 HostAddress NetworkAddressEntry::netmask() const
 {
     return d->netmask.address(d->address.protocol());
 }
-
 
 void NetworkAddressEntry::setNetmask(const HostAddress &newNetmask)
 {
@@ -231,30 +211,25 @@ void NetworkAddressEntry::setNetmask(const HostAddress &newNetmask)
     d->netmask.setAddress(newNetmask);
 }
 
-
 int NetworkAddressEntry::prefixLength() const
 {
     return d->netmask.prefixLength();
 }
-
 
 void NetworkAddressEntry::setPrefixLength(int length)
 {
     d->netmask.setPrefixLength(d->address.protocol(), length);
 }
 
-
 HostAddress NetworkAddressEntry::broadcast() const
 {
     return d->broadcast;
 }
 
-
 void NetworkAddressEntry::setBroadcast(const HostAddress &newBroadcast)
 {
     d->broadcast = newBroadcast;
 }
-
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
 
@@ -263,18 +238,15 @@ bool NetworkAddressEntry::isLifetimeKnown() const
     return d->lifetimeKnown;
 }
 
-
 QDeadlineTimer NetworkAddressEntry::preferredLifetime() const
 {
     return d->preferredLifetime;
 }
 
-
 QDeadlineTimer NetworkAddressEntry::validityLifetime() const
 {
     return d->validityLifetime;
 }
-
 
 void NetworkAddressEntry::setAddressLifetime(QDeadlineTimer preferred, QDeadlineTimer validity)
 {
@@ -283,7 +255,6 @@ void NetworkAddressEntry::setAddressLifetime(QDeadlineTimer preferred, QDeadline
     d->lifetimeKnown = true;
 }
 
-
 void NetworkAddressEntry::clearAddressLifetime()
 {
     d->preferredLifetime = QDeadlineTimer::Forever;
@@ -291,31 +262,24 @@ void NetworkAddressEntry::clearAddressLifetime()
     d->lifetimeKnown = false;
 }
 
-
 bool NetworkAddressEntry::isPermanent() const
 {
     return d->validityLifetime.isForever();
 }
 
-#endif // QT_VERSION_CHECK
-
+#endif  // QT_VERSION_CHECK
 
 NetworkInterface::NetworkInterface()
     : d(nullptr)
 {
 }
 
-
-NetworkInterface::~NetworkInterface()
-{
-}
-
+NetworkInterface::~NetworkInterface() { }
 
 NetworkInterface::NetworkInterface(const NetworkInterface &other)
     : d(other.d)
 {
 }
-
 
 NetworkInterface &NetworkInterface::operator=(const NetworkInterface &other)
 {
@@ -323,60 +287,50 @@ NetworkInterface &NetworkInterface::operator=(const NetworkInterface &other)
     return *this;
 }
 
-
 bool NetworkInterface::isValid() const
 {
     return !name().isEmpty();
 }
-
 
 int NetworkInterface::index() const
 {
     return d ? d->index : 0;
 }
 
-
 int NetworkInterface::maximumTransmissionUnit() const
 {
     return d ? d->mtu : 0;
 }
-
 
 QString NetworkInterface::name() const
 {
     return d ? d->name : QString();
 }
 
-
 QString NetworkInterface::humanReadableName() const
 {
     return d ? !d->friendlyName.isEmpty() ? d->friendlyName : name() : QString();
 }
-
 
 NetworkInterface::InterfaceFlags NetworkInterface::flags() const
 {
     return d ? d->flags : InterfaceFlags();
 }
 
-
 NetworkInterface::InterfaceType NetworkInterface::type() const
 {
     return d ? d->type : Unknown;
 }
-
 
 QString NetworkInterface::hardwareAddress() const
 {
     return d ? d->hardwareAddress : QString();
 }
 
-
 QList<NetworkAddressEntry> NetworkInterface::addressEntries() const
 {
     return d ? d->addressEntries : QList<NetworkAddressEntry>();
 }
-
 
 int NetworkInterface::interfaceIndexFromName(const QString &name)
 {
@@ -390,14 +344,12 @@ int NetworkInterface::interfaceIndexFromName(const QString &name)
     return int(id);
 }
 
-
 NetworkInterface NetworkInterface::interfaceFromName(const QString &name)
 {
     NetworkInterface result;
     result.d = manager()->interfaceFromName(name);
     return result;
 }
-
 
 NetworkInterface NetworkInterface::interfaceFromIndex(int index)
 {
@@ -406,7 +358,6 @@ NetworkInterface NetworkInterface::interfaceFromIndex(int index)
     return result;
 }
 
-
 QString NetworkInterface::interfaceNameFromIndex(int index)
 {
     if (!index)
@@ -414,10 +365,9 @@ QString NetworkInterface::interfaceNameFromIndex(int index)
     return NetworkInterfaceManager::interfaceNameFromIndex(index);
 }
 
-
 QList<NetworkInterface> NetworkInterface::allInterfaces()
 {
-    const QList<QSharedDataPointer<NetworkInterfacePrivate> > privs = manager()->allInterfaces();
+    const QList<QSharedDataPointer<NetworkInterfacePrivate>> privs = manager()->allInterfaces();
     QList<NetworkInterface> result;
     result.reserve(privs.size());
     for (const QSharedDataPointer<NetworkInterfacePrivate> &p : privs) {
@@ -429,10 +379,9 @@ QList<NetworkInterface> NetworkInterface::allInterfaces()
     return result;
 }
 
-
 QList<HostAddress> NetworkInterface::allAddresses()
 {
-    const QList<QSharedDataPointer<NetworkInterfacePrivate> > privs = manager()->allInterfaces();
+    const QList<QSharedDataPointer<NetworkInterfacePrivate>> privs = manager()->allInterfaces();
     QList<HostAddress> result;
     for (const QSharedDataPointer<NetworkInterfacePrivate> &p : privs) {
         // skip addresses if the interface isn't up
@@ -442,7 +391,7 @@ QList<HostAddress> NetworkInterface::allAddresses()
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
         for (const NetworkAddressEntry &entry : qAsConst(p->addressEntries)) {
 #else
-		for (const NetworkAddressEntry &entry : p->addressEntries) {
+        for (const NetworkAddressEntry &entry : p->addressEntries) {
 #endif
             result += entry.ip();
         }
@@ -451,9 +400,7 @@ QList<HostAddress> NetworkInterface::allAddresses()
     return result;
 }
 
-
 QTNETWORKNG_NAMESPACE_END
-
 
 #ifndef QT_NO_DEBUG_STREAM
 static inline QDebug flagsDebug(QDebug debug, QTNETWORKNG_NAMESPACE::NetworkInterface::InterfaceFlags flags)
@@ -473,7 +420,6 @@ static inline QDebug flagsDebug(QDebug debug, QTNETWORKNG_NAMESPACE::NetworkInte
     return debug;
 }
 
-
 QDebug operator<<(QDebug debug, const QTNETWORKNG_NAMESPACE::NetworkAddressEntry &entry)
 {
     debug << "(address = " << entry.ip();
@@ -485,19 +431,15 @@ QDebug operator<<(QDebug debug, const QTNETWORKNG_NAMESPACE::NetworkAddressEntry
     return debug;
 }
 
-
 QDebug operator<<(QDebug debug, const QTNETWORKNG_NAMESPACE::NetworkInterface &networkInterface)
 {
     QDebugStateSaver saver(debug);
     debug.resetFormat().nospace();
     debug << "NetworkInterface(name = " << networkInterface.name()
-          << ", hardware address = " << networkInterface.hardwareAddress()
-          << ", flags = ";
+          << ", hardware address = " << networkInterface.hardwareAddress() << ", flags = ";
     flagsDebug(debug, networkInterface.flags());
-    debug << ", entries = " << networkInterface.addressEntries()
-          << ")\n";
+    debug << ", entries = " << networkInterface.addressEntries() << ")\n";
     return debug;
 }
 
 #endif  // QT_NO_DEBUG_STREAM
-

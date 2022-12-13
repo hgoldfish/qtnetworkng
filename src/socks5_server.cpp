@@ -6,7 +6,6 @@
 
 QTNG_LOGGER("qtng.socks5server");
 
-
 #define S5_VERSION_5 0x05
 #define S5_CONNECT 0x01
 #define S5_BIND 0x02
@@ -32,7 +31,6 @@ QTNG_LOGGER("qtng.socks5server");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
 void Socks5RequestHandler::doConnect(const QString &hostName, const HostAddress &hostAddress, quint16 port)
 {
     HostAddress forwardAddress;
@@ -50,7 +48,6 @@ void Socks5RequestHandler::doConnect(const QString &hostName, const HostAddress 
     }
     exchange(request, forward);
 }
-
 
 bool Socks5RequestHandler::sendConnectReply(const HostAddress &hostAddress, quint16 port)
 {
@@ -74,13 +71,13 @@ bool Socks5RequestHandler::sendConnectReply(const HostAddress &hostAddress, quin
         reply[1] = S5_SUCCESS;
         reply[2] = 0x00;
         reply[3] = S5_IP_V4;
-    #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
         qToBigEndian<quint32>(ipv4, reply.data() + 4);
         qToBigEndian<quint16>(port, reply.data() + 4 + 4);
-    #else
-        qToBigEndian<quint32>(ipv4, reinterpret_cast<uchar*>(reply.data() + 4));
-        qToBigEndian<quint16>(port, reinterpret_cast<uchar*>(reply.data() + 4 + 4));
-    #endif
+#else
+        qToBigEndian<quint32>(ipv4, reinterpret_cast<uchar *>(reply.data() + 4));
+        qToBigEndian<quint16>(port, reinterpret_cast<uchar *>(reply.data() + 4 + 4));
+#endif
     } else if (hostAddress.protocol() == HostAddress::IPv6Protocol) {
         reply.resize(22);
         IPv6Address ipv6 = hostAddress.toIPv6Address();
@@ -88,22 +85,21 @@ bool Socks5RequestHandler::sendConnectReply(const HostAddress &hostAddress, quin
         reply[1] = S5_SUCCESS;
         reply[2] = 0x00;
         reply[3] = S5_IP_V6;
-        memcpy(reply.data() + 4, reinterpret_cast<char*>(ipv6.c), 16);
+        memcpy(reply.data() + 4, reinterpret_cast<char *>(ipv6.c), 16);
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
         qToBigEndian<quint16>(port, reply.data() + 4 + 16);
 #else
-        qToBigEndian<quint16>(port, reinterpret_cast<uchar*>(reply.data() + 4 + 16));
+        qToBigEndian<quint16>(port, reinterpret_cast<uchar *>(reply.data() + 4 + 16));
 #endif
     }
 
     return request->sendall(reply) == reply.size();
 }
 
-
 void Socks5RequestHandler::logProxy(const QString &hostName, const HostAddress &hostAddress, quint16 port,
                                     const HostAddress &forwardAddress, bool success)
 {
-    const QString &status = success? QLatin1String("OK"): QLatin1String("FAIL");
+    const QString &status = success ? QLatin1String("OK") : QLatin1String("FAIL");
     const QDateTime &now = QDateTime::currentDateTime();
     QString host;
     if (hostName.isEmpty()) {
@@ -112,22 +108,20 @@ void Socks5RequestHandler::logProxy(const QString &hostName, const HostAddress &
         host = hostName;
     }
     const QString &message = QString::fromLatin1("%1 -- %2 CONNECT %3 -> %4:%5 %6")
-            .arg(request->peerAddress().toString())
-            .arg(now.toString(Qt::ISODate))
-            .arg(host)
-            .arg(forwardAddress.toString())
-            .arg(port)
-            .arg(status);
+                                     .arg(request->peerAddress().toString())
+                                     .arg(now.toString(Qt::ISODate))
+                                     .arg(host)
+                                     .arg(forwardAddress.toString())
+                                     .arg(port)
+                                     .arg(status);
     printf("%s\n", qPrintable(message));
 }
-
 
 void Socks5RequestHandler::exchange(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward)
 {
     Exchanger exchanger(request, forward);
     exchanger.exchange();
 }
-
 
 void Socks5RequestHandler::doFailed(const QString &hostName, const HostAddress &hostAddress, quint16 port)
 {
@@ -138,7 +132,6 @@ void Socks5RequestHandler::doFailed(const QString &hostName, const HostAddress &
     request->sendall(reply);
     logProxy(hostName, hostAddress, port, HostAddress(), false);
 }
-
 
 QSharedPointer<SocketLike> Socks5RequestHandler::makeConnection(const QString &hostName, const HostAddress &hostAddress,
                                                                 quint16 port, HostAddress *forwardAddress)
@@ -159,7 +152,6 @@ QSharedPointer<SocketLike> Socks5RequestHandler::makeConnection(const QString &h
     }
 }
 
-
 bool Socks5RequestHandler::sendFailedReply()
 {
     QByteArray reply(3, Qt::Uninitialized);
@@ -169,7 +161,6 @@ bool Socks5RequestHandler::sendFailedReply()
     return request->sendall(reply) == 3;
 }
 
-
 void Socks5RequestHandler::handle()
 {
     if (!handshake()) {
@@ -177,7 +168,7 @@ void Socks5RequestHandler::handle()
     }
     // parse command.
     const QByteArray &commandHeader = request->recvall(2);
-    if (commandHeader.size() < 2 || commandHeader.at(0) != S5_VERSION_5){
+    if (commandHeader.size() < 2 || commandHeader.at(0) != S5_VERSION_5) {
         logProxy(QString(), HostAddress(), 0, HostAddress(), false);
         return;
     }
@@ -206,7 +197,6 @@ void Socks5RequestHandler::handle()
         break;
     }
 }
-
 
 bool Socks5RequestHandler::handshake()
 {
@@ -245,7 +235,6 @@ bool Socks5RequestHandler::handshake()
     return ok;
 }
 
-
 bool Socks5RequestHandler::parseAddress(QString *hostName, HostAddress *addr, quint16 *port)
 {
     const QByteArray &addressType = request->recvall(2);
@@ -255,28 +244,28 @@ bool Socks5RequestHandler::parseAddress(QString *hostName, HostAddress *addr, qu
 
     if (addressType.at(1) == S5_IP_V4) {
         const QByteArray &ipv4 = request->recvall(4);
-        if(ipv4.size() < 4) {
+        if (ipv4.size() < 4) {
             return false;
         }
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
         addr->setAddress(qFromBigEndian<quint32>(ipv4.constData()));
 #else
-        addr->setAddress(qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(ipv4.constData())));
+        addr->setAddress(qFromBigEndian<quint32>(reinterpret_cast<const uchar *>(ipv4.constData())));
 #endif
-    } else if(addressType.at(1) == S5_IP_V6){
+    } else if (addressType.at(1) == S5_IP_V6) {
         QByteArray ipv6 = request->recvall(16);
-        if(ipv6.size() < 16) {
+        if (ipv6.size() < 16) {
             return false;
         }
-        addr->setAddress(reinterpret_cast<quint8*>(ipv6.data()));
-    } else if(addressType.at(1) == S5_DOMAINNAME) {
+        addr->setAddress(reinterpret_cast<quint8 *>(ipv6.data()));
+    } else if (addressType.at(1) == S5_DOMAINNAME) {
         const QByteArray &len = request->recvall(1);
-        if(len.isEmpty()) {
+        if (len.isEmpty()) {
             return false;
         }
 
         const QByteArray &buf = request->recvall(quint8(len.at(0)));
-        if(buf.size() < len.at(0)) {
+        if (buf.size() < len.at(0)) {
             return false;
         }
         *hostName = QUrl::fromAce(buf);
@@ -285,16 +274,15 @@ bool Socks5RequestHandler::parseAddress(QString *hostName, HostAddress *addr, qu
     }
 
     const QByteArray &portBytes = request->recvall(2);
-    if(portBytes.size() < 2) {
+    if (portBytes.size() < 2) {
         return false;
     }
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
     *port = qFromBigEndian<quint16>(portBytes.constData());
 #else
-    *port = qFromBigEndian<quint16>(reinterpret_cast<const uchar*>(portBytes.constData()));
+    *port = qFromBigEndian<quint16>(reinterpret_cast<const uchar *>(portBytes.constData()));
 #endif
     return true;
 }
-
 
 QTNETWORKNG_NAMESPACE_END

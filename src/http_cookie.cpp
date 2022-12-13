@@ -46,8 +46,7 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
-class HttpCookiePrivate: public QSharedData
+class HttpCookiePrivate : public QSharedData
 {
 public:
     HttpCookiePrivate();
@@ -64,28 +63,23 @@ public:
     bool httpOnly;
 };
 
-
 class HttpCookieJarPrivate
 {
 public:
     QList<HttpCookie> allCookies;
 };
 
-
 HttpCookiePrivate::HttpCookiePrivate()
     : sameSite(HttpCookie::SameSite::Default)
     , secure(false)
     , httpOnly(false)
 {
-
 }
-
 
 static inline bool isLWS(char c)
 {
     return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
-
 
 static int nextNonWhitespace(const QByteArray &text, int from)
 {
@@ -97,7 +91,7 @@ static int nextNonWhitespace(const QByteArray &text, int from)
         if (isLWS(text.at(from))) {
             ++from;
         } else {
-            return from;        // non-whitespace
+            return from;  // non-whitespace
         }
     }
 
@@ -105,27 +99,25 @@ static int nextNonWhitespace(const QByteArray &text, int from)
     return text.length();
 }
 
-
 HttpCookie::HttpCookie(const QByteArray &name, const QByteArray &value)
     : d(new HttpCookiePrivate())
 {
     qRegisterMetaType<HttpCookie>();
-    qRegisterMetaType<QList<HttpCookie> >();
+    qRegisterMetaType<QList<HttpCookie>>();
 
     d->name = name;
     d->value = value;
 }
 
-
 HttpCookie::HttpCookie(const HttpCookie &other)
-    : d(other.d) {}
-
+    : d(other.d)
+{
+}
 
 HttpCookie::~HttpCookie()
 {
     d = nullptr;
 }
-
 
 HttpCookie &HttpCookie::operator=(const HttpCookie &other)
 {
@@ -133,130 +125,106 @@ HttpCookie &HttpCookie::operator=(const HttpCookie &other)
     return *this;
 }
 
-
 bool HttpCookie::operator==(const HttpCookie &other) const
 {
     if (d == other.d) {
         return true;
     }
-    return d->name == other.d->name &&
-        d->value == other.d->value &&
-        d->expirationDate.toUTC() == other.d->expirationDate.toUTC() &&
-        d->domain == other.d->domain &&
-        d->path == other.d->path &&
-        d->secure == other.d->secure &&
-        d->comment == other.d->comment &&
-        d->sameSite == other.d->sameSite;
+    return d->name == other.d->name && d->value == other.d->value
+            && d->expirationDate.toUTC() == other.d->expirationDate.toUTC() && d->domain == other.d->domain
+            && d->path == other.d->path && d->secure == other.d->secure && d->comment == other.d->comment
+            && d->sameSite == other.d->sameSite;
 }
-
 
 bool HttpCookie::hasSameIdentifier(const HttpCookie &other) const
 {
     return d->name == other.d->name && d->domain == other.d->domain && d->path == other.d->path;
 }
 
-
 bool HttpCookie::isSecure() const
 {
     return d->secure;
 }
-
 
 void HttpCookie::setSecure(bool enable)
 {
     d->secure = enable;
 }
 
-
 HttpCookie::SameSite HttpCookie::sameSitePolicy() const
 {
     return d->sameSite;
 }
-
 
 void HttpCookie::setSameSitePolicy(HttpCookie::SameSite sameSite)
 {
     d->sameSite = sameSite;
 }
 
-
 bool HttpCookie::isHttpOnly() const
 {
     return d->httpOnly;
 }
-
 
 void HttpCookie::setHttpOnly(bool enable)
 {
     d->httpOnly = enable;
 }
 
-
 bool HttpCookie::isSessionCookie() const
 {
     return !d->expirationDate.isValid();
 }
-
 
 QDateTime HttpCookie::expirationDate() const
 {
     return d->expirationDate;
 }
 
-
 void HttpCookie::setExpirationDate(const QDateTime &date)
 {
     d->expirationDate = date;
 }
-
 
 QString HttpCookie::domain() const
 {
     return d->domain;
 }
 
-
 void HttpCookie::setDomain(const QString &domain)
 {
     d->domain = domain;
 }
-
 
 QString HttpCookie::path() const
 {
     return d->path;
 }
 
-
 void HttpCookie::setPath(const QString &path)
 {
     d->path = path;
 }
-
 
 QByteArray HttpCookie::name() const
 {
     return d->name;
 }
 
-
 void HttpCookie::setName(const QByteArray &cookieName)
 {
     d->name = cookieName;
 }
-
 
 QByteArray HttpCookie::value() const
 {
     return d->value;
 }
 
-
 void HttpCookie::setValue(const QByteArray &value)
 {
     d->value = value;
 }
-
 
 static QPair<QByteArray, QByteArray> nextField(const QByteArray &text, int &position, bool isNameValue)
 {
@@ -269,13 +237,14 @@ static QPair<QByteArray, QByteArray> nextField(const QByteArray &text, int &posi
 
     int semiColonPosition = text.indexOf(';', position);
     if (semiColonPosition < 0)
-        semiColonPosition = length; //no ';' means take everything to end of string
+        semiColonPosition = length;  // no ';' means take everything to end of string
 
     int equalsPosition = text.indexOf('=', position);
     if (equalsPosition < 0 || equalsPosition > semiColonPosition) {
         if (isNameValue)
-            return qMakePair(QByteArray(), QByteArray()); //'=' is required for name-value-pair (RFC6265 section 5.2, rule 2)
-        equalsPosition = semiColonPosition; //no '=' means there is an attribute-name but no attribute-value
+            return qMakePair(QByteArray(),
+                             QByteArray());  //'=' is required for name-value-pair (RFC6265 section 5.2, rule 2)
+        equalsPosition = semiColonPosition;  // no '=' means there is an attribute-name but no attribute-value
     }
 
     QByteArray first = text.mid(position, equalsPosition - position).trimmed();
@@ -287,7 +256,6 @@ static QPair<QByteArray, QByteArray> nextField(const QByteArray &text, int &posi
     position = semiColonPosition;
     return qMakePair(first, second);
 }
-
 
 namespace {
 QByteArray sameSiteToRawString(HttpCookie::SameSite samesite)
@@ -305,7 +273,6 @@ QByteArray sameSiteToRawString(HttpCookie::SameSite samesite)
     return QByteArray();
 }
 
-
 HttpCookie::SameSite sameSiteFromRawString(QByteArray str)
 {
     str = str.toLower();
@@ -317,14 +284,13 @@ HttpCookie::SameSite sameSiteFromRawString(QByteArray str)
         return HttpCookie::SameSite::Strict;
     return HttpCookie::SameSite::Default;
 }
-} // namespace
-
+}  // namespace
 
 QByteArray HttpCookie::toRawForm(RawForm form) const
 {
     QByteArray result;
     if (d->name.isEmpty())
-        return result;          // not a valid cookie
+        return result;  // not a valid cookie
 
     result = d->name;
     result += '=';
@@ -342,8 +308,9 @@ QByteArray HttpCookie::toRawForm(RawForm form) const
         }
         if (!isSessionCookie()) {
             result += "; expires=";
-            result += QLocale::c().toString(d->expirationDate.toUTC(),
-                                            QLatin1String("ddd, dd-MMM-yyyy hh:mm:ss 'GMT")).toLatin1();
+            result += QLocale::c()
+                              .toString(d->expirationDate.toUTC(), QLatin1String("ddd, dd-MMM-yyyy hh:mm:ss 'GMT"))
+                              .toLatin1();
         }
         if (!d->domain.isEmpty()) {
             result += "; domain=";
@@ -369,53 +336,58 @@ QByteArray HttpCookie::toRawForm(RawForm form) const
     return result;
 }
 
-static const char zones[] =
-    "pst\0" // -8
-    "pdt\0"
-    "mst\0" // -7
-    "mdt\0"
-    "cst\0" // -6
-    "cdt\0"
-    "est\0" // -5
-    "edt\0"
-    "ast\0" // -4
-    "nst\0" // -3
-    "gmt\0" // 0
-    "utc\0"
-    "bst\0"
-    "met\0" // 1
-    "eet\0" // 2
-    "jst\0" // 9
-    "\0";
-static const int zoneOffsets[] = {-8, -8, -7, -7, -6, -6, -5, -5, -4, -3, 0, 0, 0, 1, 2, 9 };
+static const char zones[] = "pst\0"  // -8
+                            "pdt\0"
+                            "mst\0"  // -7
+                            "mdt\0"
+                            "cst\0"  // -6
+                            "cdt\0"
+                            "est\0"  // -5
+                            "edt\0"
+                            "ast\0"  // -4
+                            "nst\0"  // -3
+                            "gmt\0"  // 0
+                            "utc\0"
+                            "bst\0"
+                            "met\0"  // 1
+                            "eet\0"  // 2
+                            "jst\0"  // 9
+                            "\0";
+static const int zoneOffsets[] = { -8, -8, -7, -7, -6, -6, -5, -5, -4, -3, 0, 0, 0, 1, 2, 9 };
 
-static const char months[] =
-    "jan\0"
-    "feb\0"
-    "mar\0"
-    "apr\0"
-    "may\0"
-    "jun\0"
-    "jul\0"
-    "aug\0"
-    "sep\0"
-    "oct\0"
-    "nov\0"
-    "dec\0"
-    "\0";
+static const char months[] = "jan\0"
+                             "feb\0"
+                             "mar\0"
+                             "apr\0"
+                             "may\0"
+                             "jun\0"
+                             "jul\0"
+                             "aug\0"
+                             "sep\0"
+                             "oct\0"
+                             "nov\0"
+                             "dec\0"
+                             "\0";
 
 static inline bool isNumber(char s)
-{ return s >= '0' && s <= '9'; }
+{
+    return s >= '0' && s <= '9';
+}
 
 static inline bool isTerminator(char c)
-{ return c == '\n' || c == '\r'; }
+{
+    return c == '\n' || c == '\r';
+}
 
 static inline bool isValueSeparator(char c)
-{ return isTerminator(c) || c == ';'; }
+{
+    return isTerminator(c) || c == ';';
+}
 
 static inline bool isWhitespace(char c)
-{ return c == ' '  || c == '\t'; }
-
+{
+    return c == ' ' || c == '\t';
+}
 
 static bool checkStaticArray(int &val, const QByteArray &dateString, int at, const char *array, int size)
 {
@@ -426,9 +398,7 @@ static bool checkStaticArray(int &val, const QByteArray &dateString, int at, con
         int i = 0;
         while (i <= size) {
             const char *str = array + i;
-            if (str[0] == dateString[at]
-                && str[1] == dateString[at + 1]
-                && str[2] == dateString[at + 2]) {
+            if (str[0] == dateString[at] && str[1] == dateString[at + 1] && str[2] == dateString[at + 2]) {
                 val = j;
                 return true;
             }
@@ -441,9 +411,9 @@ static bool checkStaticArray(int &val, const QByteArray &dateString, int at, con
 
 //#define PARSEDATESTRINGDEBUG
 
-#define ADAY   1
+#define ADAY 1
 #define AMONTH 2
-#define AYEAR  4
+#define AYEAR 4
 
 /*
     Parse all the date formats that Firefox can.
@@ -468,7 +438,7 @@ static QDateTime parseDateString(const QByteArray &dateString)
 {
     QTime time;
     // placeholders for values when we are not sure it is a year, month or day
-    int unknown[3] = {-1, -1, -1};
+    int unknown[3] = { -1, -1, -1 };
     int month = -1;
     int day = -1;
     int year = -1;
@@ -485,8 +455,7 @@ static QDateTime parseDateString(const QByteArray &dateString)
         bool isNum = isNumber(dateString[at]);
 
         // Month
-        if (!isNum
-            && checkStaticArray(month, dateString, at, months, sizeof(months)- 1)) {
+        if (!isNum && checkStaticArray(month, dateString, at, months, sizeof(months) - 1)) {
             ++month;
 #ifdef PARSEDATESTRINGDEBUG
             qtng_debug << "Month:" << month;
@@ -495,9 +464,7 @@ static QDateTime parseDateString(const QByteArray &dateString)
             continue;
         }
         // Zone
-        if (!isNum
-            && zoneOffset == -1
-            && checkStaticArray(zoneOffset, dateString, at, zones, sizeof(zones)- 1)) {
+        if (!isNum && zoneOffset == -1 && checkStaticArray(zoneOffset, dateString, at, zones, sizeof(zones) - 1)) {
             int sign = (at >= 0 && dateString[at - 1] == '-') ? -1 : 1;
             zoneOffset = sign * zoneOffsets[zoneOffset] * 60 * 60;
 #ifdef PARSEDATESTRINGDEBUG
@@ -507,20 +474,15 @@ static QDateTime parseDateString(const QByteArray &dateString)
             continue;
         }
         // Zone offset
-        if (!isNum
-            && (zoneOffset == -1 || zoneOffset == 0) // Can only go after gmt
+        if (!isNum && (zoneOffset == -1 || zoneOffset == 0)  // Can only go after gmt
             && (dateString[at] == '+' || dateString[at] == '-')
-            && (at == 0
-                || isWhitespace(dateString[at - 1])
-                || dateString[at - 1] == ','
-                || (at >= 3
-                    && (dateString[at - 3] == 'g')
-                    && (dateString[at - 2] == 'm')
+            && (at == 0 || isWhitespace(dateString[at - 1]) || dateString[at - 1] == ','
+                || (at >= 3 && (dateString[at - 3] == 'g') && (dateString[at - 2] == 'm')
                     && (dateString[at - 1] == 't')))) {
 
             int end = 1;
-            while (end < 5 && dateString.length() > at+end
-                   && dateString[at + end] >= '0' && dateString[at + end] <= '9')
+            while (end < 5 && dateString.length() > at + end && dateString[at + end] >= '0'
+                   && dateString[at + end] <= '9')
                 ++end;
             int minutes = 0;
             int hours = 0;
@@ -552,8 +514,7 @@ static QDateTime parseDateString(const QByteArray &dateString)
         }
 
         // Time
-        if (isNum && time.isNull()
-            && dateString.length() >= at + 3
+        if (isNum && time.isNull() && dateString.length() >= at + 3
             && (dateString[at + 2] == ':' || dateString[at + 1] == ':')) {
             // While the date can be found all over the string the format
             // for the time is set and a nice regexp can be used.
@@ -579,12 +540,8 @@ static QDateTime parseDateString(const QByteArray &dateString)
         }
 
         // 4 digit Year
-        if (isNum
-            && year == -1
-            && dateString.length() > at + 3) {
-            if (isNumber(dateString[at + 1])
-                && isNumber(dateString[at + 2])
-                && isNumber(dateString[at + 3])) {
+        if (isNum && year == -1 && dateString.length() > at + 3) {
+            if (isNumber(dateString[at + 1]) && isNumber(dateString[at + 2]) && isNumber(dateString[at + 3])) {
                 year = atoi(dateString.mid(at, 4).constData());
                 at += 4;
 #ifdef PARSEDATESTRINGDEBUG
@@ -598,16 +555,18 @@ static QDateTime parseDateString(const QByteArray &dateString)
         // Could be month, day or year
         if (isNum) {
             int length = 1;
-            if (dateString.length() > at + 1
-                && isNumber(dateString[at + 1]))
+            if (dateString.length() > at + 1 && isNumber(dateString[at + 1]))
                 ++length;
             int x = atoi(dateString.mid(at, length).constData());
             if (year == -1 && (x > 31 || x == 0)) {
                 year = x;
             } else {
-                if (unknown[0] == -1) unknown[0] = x;
-                else if (unknown[1] == -1) unknown[1] = x;
-                else if (unknown[2] == -1) unknown[2] = x;
+                if (unknown[0] == -1)
+                    unknown[0] = x;
+                else if (unknown[1] == -1)
+                    unknown[1] = x;
+                else if (unknown[2] == -1)
+                    unknown[2] = x;
             }
             at += length;
 #ifdef PARSEDATESTRINGDEBUG
@@ -666,26 +625,32 @@ static QDateTime parseDateString(const QByteArray &dateString)
                 int d = unknown[j];
                 if (k == 0)
                     qSwap(m, d);
-                if (m == -1) m = month;
+                if (m == -1)
+                    m = month;
                 bool found = true;
-                switch(m) {
-                    case 2:
-                        // When we get 29 and the year ends up having only 28
-                        // See date.isValid below
-                        // Example: 29 23 Feb
-                        if (d <= 29)
-                            found = false;
-                        break;
-                    case 4: case 6: case 9: case 11:
-                        if (d <= 30)
-                            found = false;
-                        break;
-                    default:
-                        if (d > 0 && d <= 31)
-                            found = false;
+                switch (m) {
+                case 2:
+                    // When we get 29 and the year ends up having only 28
+                    // See date.isValid below
+                    // Example: 29 23 Feb
+                    if (d <= 29)
+                        found = false;
+                    break;
+                case 4:
+                case 6:
+                case 9:
+                case 11:
+                    if (d <= 30)
+                        found = false;
+                    break;
+                default:
+                    if (d > 0 && d <= 31)
+                        found = false;
                 }
-                if (k == 0) findMatchingMonth = found;
-                else if (k == 1) findMatchingDay = found;
+                if (k == 0)
+                    findMatchingMonth = found;
+                else if (k == 1)
+                    findMatchingDay = found;
             }
         }
         if (findMatchingMonth)
@@ -718,12 +683,15 @@ static QDateTime parseDateString(const QByteArray &dateString)
 
     // Now fallback to a standardized order to fill in the rest with
     for (int i = 0; i < unknownCount; ++i) {
-        if (couldBe[i] & AMONTH && month == -1) month = unknown[i];
-        else if (couldBe[i] & ADAY && day == -1) day = unknown[i];
-        else if (couldBe[i] & AYEAR && year == -1) year = unknown[i];
+        if (couldBe[i] & AMONTH && month == -1)
+            month = unknown[i];
+        else if (couldBe[i] & ADAY && day == -1)
+            day = unknown[i];
+        else if (couldBe[i] & AYEAR && year == -1)
+            year = unknown[i];
     }
 #ifdef PARSEDATESTRINGDEBUG
-        qtng_debug << "Final set" << year << month << day;
+    qtng_debug << "Final set" << year << month << day;
 #endif
 
     if (year == -1 || month == -1 || day == -1) {
@@ -760,7 +728,6 @@ static QDateTime parseDateString(const QByteArray &dateString)
     return dateTime;
 }
 
-
 QList<HttpCookie> HttpCookie::parseCookies(const QByteArray &cookieString)
 {
     // cookieString can be a number of set-cookie header strings joined together
@@ -772,7 +739,6 @@ QList<HttpCookie> HttpCookie::parseCookies(const QByteArray &cookieString)
     }
     return cookies;
 }
-
 
 QList<HttpCookie> HttpCookiePrivate::parseSetCookieHeaderLine(const QByteArray &cookieString)
 {
@@ -794,7 +760,7 @@ QList<HttpCookie> HttpCookiePrivate::parseSetCookieHeaderLine(const QByteArray &
         HttpCookie cookie;
 
         // The first part is always the "NAME=VALUE" part
-        QPair<QByteArray,QByteArray> field = nextField(cookieString, position, true);
+        QPair<QByteArray, QByteArray> field = nextField(cookieString, position, true);
         if (field.first.isEmpty())
             // parsing error
             break;
@@ -807,7 +773,7 @@ QList<HttpCookie> HttpCookiePrivate::parseSetCookieHeaderLine(const QByteArray &
             case ';':
                 // new field in the cookie
                 field = nextField(cookieString, position, false);
-                field.first = field.first.toLower(); // everything but the NAME=VALUE is case-insensitive
+                field.first = field.first.toLower();  // everything but the NAME=VALUE is case-insensitive
 
                 if (field.first == "expires") {
                     position -= field.second.length();
@@ -821,10 +787,10 @@ QList<HttpCookie> HttpCookiePrivate::parseSetCookieHeaderLine(const QByteArray &
                     QDateTime dt = parseDateString(dateString.toLower());
                     if (dt.isValid())
                         cookie.setExpirationDate(dt);
-                    //if unparsed, ignore the attribute but not the whole cookie (RFC6265 section 5.2.1)
+                    // if unparsed, ignore the attribute but not the whole cookie (RFC6265 section 5.2.1)
                 } else if (field.first == "domain") {
                     QByteArray rawDomain = field.second;
-                    //empty domain should be ignored (RFC6265 section 5.2.3)
+                    // empty domain should be ignored (RFC6265 section 5.2.3)
                     if (!rawDomain.isEmpty()) {
                         QString maybeLeadingDot;
                         if (rawDomain.startsWith('.')) {
@@ -832,14 +798,14 @@ QList<HttpCookie> HttpCookiePrivate::parseSetCookieHeaderLine(const QByteArray &
                             rawDomain = rawDomain.mid(1);
                         }
 
-                        //IDN domains are required by RFC6265, accepting utf8 as well doesn't break any test cases.
+                        // IDN domains are required by RFC6265, accepting utf8 as well doesn't break any test cases.
                         QString normalizedDomain = QUrl::fromAce(QUrl::toAce(QString::fromUtf8(rawDomain)));
                         if (!normalizedDomain.isEmpty()) {
                             cookie.setDomain(maybeLeadingDot + normalizedDomain);
                         } else {
-                            //Normalization fails for malformed domains, e.g. "..example.org", reject the cookie now
-                            //rather than accepting it but never sending it due to domain match failure, as the
-                            //strict reading of RFC6265 would indicate.
+                            // Normalization fails for malformed domains, e.g. "..example.org", reject the cookie now
+                            // rather than accepting it but never sending it due to domain match failure, as the
+                            // strict reading of RFC6265 would indicate.
                             return result;
                         }
                     }
@@ -848,13 +814,13 @@ QList<HttpCookie> HttpCookiePrivate::parseSetCookieHeaderLine(const QByteArray &
                     int secs = field.second.toInt(&ok);
                     if (ok) {
                         if (secs <= 0) {
-                            //earliest representable time (RFC6265 section 5.2.2)
+                            // earliest representable time (RFC6265 section 5.2.2)
                             cookie.setExpirationDate(QDateTime::fromMSecsSinceEpoch(0));
                         } else {
                             cookie.setExpirationDate(now.addSecs(secs));
                         }
                     }
-                    //if unparsed, ignore the attribute but not the whole cookie (RFC6265 section 5.2.2)
+                    // if unparsed, ignore the attribute but not the whole cookie (RFC6265 section 5.2.2)
                 } else if (field.first == "path") {
                     if (field.second.startsWith('/')) {
                         // ### we should treat cookie paths as an octet sequence internally
@@ -886,13 +852,12 @@ QList<HttpCookie> HttpCookiePrivate::parseSetCookieHeaderLine(const QByteArray &
     return result;
 }
 
-
 void HttpCookie::normalize(const QUrl &url)
 {
     // don't do path checking. See QTBUG-5815
     if (d->path.isEmpty()) {
         QString pathAndFileName = url.path();
-        QString defaultPath = pathAndFileName.left(pathAndFileName.lastIndexOf(QLatin1Char('/'))+1);
+        QString defaultPath = pathAndFileName.left(pathAndFileName.lastIndexOf(QLatin1Char('/')) + 1);
         if (defaultPath.isEmpty())
             defaultPath = QLatin1Char('/');
         d->path = defaultPath;
@@ -902,9 +867,8 @@ void HttpCookie::normalize(const QUrl &url)
         d->domain = url.host();
     } else {
         HostAddress hostAddress(d->domain);
-        if (hostAddress.protocol() != HostAddress::IPv4Protocol
-                && hostAddress.protocol() != HostAddress::IPv6Protocol
-                && !d->domain.startsWith(QLatin1Char('.'))) {
+        if (hostAddress.protocol() != HostAddress::IPv4Protocol && hostAddress.protocol() != HostAddress::IPv6Protocol
+            && !d->domain.startsWith(QLatin1Char('.'))) {
             // Ensure the domain starts with a dot if its field was not empty
             // in the HTTP header. There are some servers that forget the
             // leading dot and this is actually forbidden according to RFC 2109,
@@ -914,24 +878,20 @@ void HttpCookie::normalize(const QUrl &url)
     }
 }
 
-
 HttpCookieJar::HttpCookieJar()
     : d_ptr(new HttpCookieJarPrivate())
 {
 }
-
 
 HttpCookieJar::~HttpCookieJar()
 {
     delete d_ptr;
 }
 
-
 QList<HttpCookie> HttpCookieJar::allCookies() const
 {
     return d_func()->allCookies;
 }
-
 
 void HttpCookieJar::setAllCookies(const QList<HttpCookie> &cookieList)
 {
@@ -939,26 +899,24 @@ void HttpCookieJar::setAllCookies(const QList<HttpCookie> &cookieList)
     d->allCookies = cookieList;
 }
 
-
 static inline bool isParentPath(const QString &path, const QString &reference)
 {
     if ((path.isEmpty() && reference == QLatin1String("/")) || path.startsWith(reference)) {
-        //The cookie-path and the request-path are identical.
+        // The cookie-path and the request-path are identical.
         if (path.length() == reference.length())
             return true;
-        //The cookie-path is a prefix of the request-path, and the last
-        //character of the cookie-path is %x2F ("/").
+        // The cookie-path is a prefix of the request-path, and the last
+        // character of the cookie-path is %x2F ("/").
         if (reference.endsWith(u'/'))
             return true;
-        //The cookie-path is a prefix of the request-path, and the first
-        //character of the request-path that is not included in the cookie-
-        //path is a %x2F ("/") character.
+        // The cookie-path is a prefix of the request-path, and the first
+        // character of the request-path that is not included in the cookie-
+        // path is a %x2F ("/") character.
         if (path.at(reference.length()) == u'/')
             return true;
     }
     return false;
 }
-
 
 static inline bool isParentDomain(const QString &domain, const QString &reference)
 {
@@ -968,9 +926,7 @@ static inline bool isParentDomain(const QString &domain, const QString &referenc
     return domain.endsWith(reference) || domain == reference.mid(1);
 }
 
-
-bool HttpCookieJar::setCookiesFromUrl(const QList<HttpCookie> &cookieList,
-                                          const QUrl &url)
+bool HttpCookieJar::setCookiesFromUrl(const QList<HttpCookie> &cookieList, const QUrl &url)
 {
     bool added = false;
     for (HttpCookie cookie : cookieList) {
@@ -981,20 +937,18 @@ bool HttpCookieJar::setCookiesFromUrl(const QList<HttpCookie> &cookieList,
     return added;
 }
 
-
 static bool qIsEffectiveTLD(const QString &domain)
 {
     // provide minimal checking by not accepting cookies on real TLDs
     return !domain.contains(QLatin1Char('.'));
 }
 
-
 QList<HttpCookie> HttpCookieJar::cookiesForUrl(const QUrl &url) const
 {
-//     \b Warning! This is only a dumb implementation!
-//     It does NOT follow all of the recommendations from
-//     http://wp.netscape.com/newsref/std/cookie_spec.html
-//     It does not implement a very good cross-domain verification yet.
+    //     \b Warning! This is only a dumb implementation!
+    //     It does NOT follow all of the recommendations from
+    //     http://wp.netscape.com/newsref/std/cookie_spec.html
+    //     It does not implement a very good cross-domain verification yet.
 
     Q_D(const HttpCookieJar);
     const QDateTime now = QDateTime::currentDateTimeUtc();
@@ -1002,9 +956,8 @@ QList<HttpCookie> HttpCookieJar::cookiesForUrl(const QUrl &url) const
     bool isEncrypted = url.scheme() == QLatin1String("https");
 
     // scan our cookies for something that matches
-    QList<HttpCookie>::ConstIterator it = d->allCookies.constBegin(),
-                                        end = d->allCookies.constEnd();
-    for ( ; it != end; ++it) {
+    QList<HttpCookie>::ConstIterator it = d->allCookies.constBegin(), end = d->allCookies.constEnd();
+    for (; it != end; ++it) {
         if (!isParentDomain(url.host(), it->domain()))
             continue;
         if (!isParentPath(url.path(), it->path()))
@@ -1015,7 +968,7 @@ QList<HttpCookie> HttpCookieJar::cookiesForUrl(const QUrl &url) const
             continue;
 
         QString domain = it->domain();
-        if (domain.startsWith(QLatin1Char('.'))) /// Qt6?: remove when compliant with RFC6265
+        if (domain.startsWith(QLatin1Char('.')))  /// Qt6?: remove when compliant with RFC6265
             domain = domain.mid(1);
         if (!domain.contains(QLatin1Char('.')) && url.host() != domain)
             continue;
@@ -1040,13 +993,11 @@ QList<HttpCookie> HttpCookieJar::cookiesForUrl(const QUrl &url) const
     return result;
 }
 
-
 bool HttpCookieJar::insertCookie(const HttpCookie &cookie)
 {
     Q_D(HttpCookieJar);
     const QDateTime now = QDateTime::currentDateTimeUtc();
-    bool isDeletion = !cookie.isSessionCookie() &&
-                      cookie.expirationDate() < now;
+    bool isDeletion = !cookie.isSessionCookie() && cookie.expirationDate() < now;
 
     deleteCookie(cookie);
 
@@ -1057,14 +1008,12 @@ bool HttpCookieJar::insertCookie(const HttpCookie &cookie)
     return false;
 }
 
-
 bool HttpCookieJar::updateCookie(const HttpCookie &cookie)
 {
     if (deleteCookie(cookie))
         return insertCookie(cookie);
     return false;
 }
-
 
 bool HttpCookieJar::deleteCookie(const HttpCookie &cookie)
 {
@@ -1079,13 +1028,12 @@ bool HttpCookieJar::deleteCookie(const HttpCookie &cookie)
     return false;
 }
 
-
 bool HttpCookieJar::validateCookie(const HttpCookie &cookie, const QUrl &url) const
 {
     QString domain = cookie.domain();
     const QString host = url.host();
     if (!isParentDomain(domain, host) && !isParentDomain(host, domain))
-        return false; // not accepted
+        return false;  // not accepted
 
     if (domain.startsWith(QLatin1Char('.')))
         domain = domain.mid(1);
@@ -1103,9 +1051,7 @@ bool HttpCookieJar::validateCookie(const HttpCookie &cookie, const QUrl &url) co
     return !qIsEffectiveTLD(domain);
 }
 
-
 QTNETWORKNG_NAMESPACE_END
-
 
 QT_BEGIN_NAMESPACE
 #ifndef QT_NO_DEBUG_STREAM

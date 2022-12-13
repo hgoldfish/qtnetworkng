@@ -11,8 +11,7 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-enum HttpVersion
-{
+enum HttpVersion {
     Unknown = 0,
     Http1_0 = 1,
     Http1_1 = 2,
@@ -20,9 +19,7 @@ enum HttpVersion
     http3_0 = 4,
 };
 
-
-enum HttpStatus
-{
+enum HttpStatus {
     Continue = 100,
     SwitchProtocol = 101,
     Processing = 102,
@@ -87,9 +84,7 @@ enum HttpStatus
     NetworkAuthenticationRequired = 511,
 };
 
-
 bool toMessage(HttpStatus status, QString *shortMessage, QString *longMessage);
-
 
 enum KnownHeader {
     ContentTypeHeader,
@@ -118,27 +113,29 @@ enum KnownHeader {
     HostHeader,
 };
 
-
 QString normalizeHeaderName(const QString &headerName);
 QDateTime fromHttpDate(const QByteArray &value);
 QByteArray toHttpDate(const QDateTime &dt);
 QString toString(KnownHeader knownHeader);
 
-
-struct HttpHeader {
-    HttpHeader(const QString &name, const QByteArray &value) :name(name), value(value) {}
-    HttpHeader() {}
+struct HttpHeader
+{
+    HttpHeader(const QString &name, const QByteArray &value)
+        : name(name)
+        , value(value)
+    {
+    }
+    HttpHeader() { }
     bool isValid() const { return !name.isEmpty(); }
     QString name;
     QByteArray value;
 };
 
-
-QDataStream &operator >>(QDataStream &ds, HttpHeader &header);
-QDataStream &operator <<(QDataStream &ds, const HttpHeader &header);
+QDataStream &operator>>(QDataStream &ds, HttpHeader &header);
+QDataStream &operator<<(QDataStream &ds, const HttpHeader &header);
 
 template<typename Base>
-class WithHttpHeaders: public Base
+class WithHttpHeaders : public Base
 {
 public:
     void setContentType(const QString &contentType);
@@ -176,16 +173,18 @@ public:
 protected:
     QList<HttpHeader> headers;
 };
-class EmptyClass {};
-class HttpHeaderManager: public WithHttpHeaders<EmptyClass> {};
-
+class EmptyClass
+{
+};
+class HttpHeaderManager : public WithHttpHeaders<EmptyClass>
+{
+};
 
 template<typename Base>
 void WithHttpHeaders<Base>::setContentLength(qint64 contentLength)
 {
     setHeader(QString::fromLatin1("Content-Length"), QString::number(contentLength).toLatin1());
 }
-
 
 template<typename Base>
 qint64 WithHttpHeaders<Base>::getContentLength() const
@@ -204,13 +203,11 @@ qint64 WithHttpHeaders<Base>::getContentLength() const
     }
 }
 
-
 template<typename Base>
 void WithHttpHeaders<Base>::setContentType(const QString &contentType)
 {
     setHeader(QString::fromLatin1("Content-Type"), contentType.toUtf8());
 }
-
 
 template<typename Base>
 QString WithHttpHeaders<Base>::getContentType() const
@@ -218,12 +215,11 @@ QString WithHttpHeaders<Base>::getContentType() const
     return QString::fromUtf8(header(QString::fromLatin1("Content-Type"), "text/plain"));
 }
 
-
 template<typename Base>
 QUrl WithHttpHeaders<Base>::getLocation() const
 {
     const QByteArray &value = header(QString::fromLatin1("Location"));
-    if(value.isEmpty()) {
+    if (value.isEmpty()) {
         return QUrl();
     }
     QUrl result = QUrl::fromEncoded(value, QUrl::StrictMode);
@@ -234,24 +230,21 @@ QUrl WithHttpHeaders<Base>::getLocation() const
     }
 }
 
-
 template<typename Base>
 void WithHttpHeaders<Base>::setLocation(const QUrl &url)
 {
     setHeader(QString::fromLatin1("Location"), url.toEncoded(QUrl::FullyEncoded));
 }
 
-
 template<typename Base>
 QDateTime WithHttpHeaders<Base>::getLastModified() const
 {
     const QByteArray &value = header(QString::fromLatin1("Last-Modified"));
-    if(value.isEmpty()) {
+    if (value.isEmpty()) {
         return QDateTime();
     }
     return fromHttpDate(value);
 }
-
 
 template<typename Base>
 void WithHttpHeaders<Base>::setLastModified(const QDateTime &lastModified)
@@ -259,51 +252,46 @@ void WithHttpHeaders<Base>::setLastModified(const QDateTime &lastModified)
     setHeader(QString::fromLatin1("Last-Modified"), toHttpDate(lastModified));
 }
 
-
 template<typename Base>
 void WithHttpHeaders<Base>::setModifiedSince(const QDateTime &modifiedSince)
 {
     setHeader(QString::fromLatin1("Modified-Since"), toHttpDate(modifiedSince));
 }
 
-
 template<typename Base>
 QDateTime WithHttpHeaders<Base>::getModifedSince() const
 {
     const QByteArray &value = header(QString::fromLatin1("Modified-Since"));
-    if(value.isEmpty()) {
+    if (value.isEmpty()) {
         return QDateTime();
     }
     return fromHttpDate(value);
 }
-
 
 template<typename Base>
 bool WithHttpHeaders<Base>::hasHeader(const QString &headerName) const
 {
     for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
-        if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
+        if (header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
             return true;
         }
     }
     return false;
 }
-
 
 template<typename Base>
 bool WithHttpHeaders<Base>::removeHeader(const QString &headerName)
 {
     for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
-        if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
+        if (header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
             headers.removeAt(i);
             return true;
         }
     }
     return false;
 }
-
 
 template<typename Base>
 void WithHttpHeaders<Base>::setHeader(const QString &name, const QByteArray &value)
@@ -312,13 +300,11 @@ void WithHttpHeaders<Base>::setHeader(const QString &name, const QByteArray &val
     addHeader(name, value);
 }
 
-
 template<typename Base>
 void WithHttpHeaders<Base>::addHeader(const QString &name, const QByteArray &value)
 {
     headers.append(HttpHeader(normalizeHeaderName(name), value));
 }
-
 
 template<typename Base>
 void WithHttpHeaders<Base>::addHeader(const HttpHeader &header)
@@ -326,13 +312,11 @@ void WithHttpHeaders<Base>::addHeader(const HttpHeader &header)
     headers.append(header);
 }
 
-
 template<typename Base>
 void WithHttpHeaders<Base>::setHeader(KnownHeader header, const QByteArray &value)
 {
     setHeader(toString(header), value);
 }
-
 
 template<typename Base>
 void WithHttpHeaders<Base>::addHeader(KnownHeader header, const QByteArray &value)
@@ -340,20 +324,17 @@ void WithHttpHeaders<Base>::addHeader(KnownHeader header, const QByteArray &valu
     addHeader(toString(header), value);
 }
 
-
 template<typename Base>
 bool WithHttpHeaders<Base>::hasHeader(KnownHeader header) const
 {
     return hasHeader(toString(header));
 }
 
-
 template<typename Base>
 bool WithHttpHeaders<Base>::removeHeader(KnownHeader header)
 {
     return removeHeader(toString(header));
 }
-
 
 template<typename Base>
 QByteArray WithHttpHeaders<Base>::header(const QString &headerName, const QByteArray &defaultValue) const
@@ -367,20 +348,17 @@ QByteArray WithHttpHeaders<Base>::header(const QString &headerName, const QByteA
     return defaultValue;
 }
 
-
 template<typename Base>
 QByteArray WithHttpHeaders<Base>::header(KnownHeader knownHeader, const QByteArray &defaultValue) const
 {
     return header(toString(knownHeader), defaultValue);
 }
 
-
 #if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
-#define QBYTEARRAYLIST QByteArrayList
+#  define QBYTEARRAYLIST QByteArrayList
 #else
-#define QBYTEARRAYLIST QList<QByteArray>
+#  define QBYTEARRAYLIST QList<QByteArray>
 #endif
-
 
 template<typename Base>
 QBYTEARRAYLIST WithHttpHeaders<Base>::multiHeader(const QString &headerName) const
@@ -388,20 +366,18 @@ QBYTEARRAYLIST WithHttpHeaders<Base>::multiHeader(const QString &headerName) con
     QBYTEARRAYLIST l;
     for (int i = 0; i < headers.size(); ++i) {
         const HttpHeader &header = headers.at(i);
-        if(header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
+        if (header.name.compare(headerName, Qt::CaseInsensitive) == 0) {
             l.append(header.value);
         }
     }
     return l;
 }
 
-
 template<typename Base>
 QBYTEARRAYLIST WithHttpHeaders<Base>::multiHeader(KnownHeader header) const
 {
     return multiHeader(toString(header));
 }
-
 
 #undef QBYTEARRAYLIST
 
@@ -414,9 +390,7 @@ void WithHttpHeaders<Base>::setHeaders(const QMap<QString, QByteArray> headers)
     }
 }
 
-
 QList<QByteArray> splitBytes(const QByteArray &bs, char sep, int maxSplit = -1);
-
 
 class HeaderSplitter
 {
@@ -430,9 +404,16 @@ public:
     };
 public:
     HeaderSplitter(QSharedPointer<SocketLike> connection, const QByteArray &buf, int debugLevel = 0)
-        :connection(connection), buf(buf), debugLevel(debugLevel) {}
+        : connection(connection)
+        , buf(buf)
+        , debugLevel(debugLevel)
+    {
+    }
     HeaderSplitter(QSharedPointer<SocketLike> connection, int debugLevel = 0)
-        :connection(connection), debugLevel(debugLevel) {}
+        : connection(connection)
+        , debugLevel(debugLevel)
+    {
+    }
     QByteArray nextLine(Error *error);
     HttpHeader nextHeader(Error *error);
     QList<HttpHeader> headers(int maxHeaders, Error *error);
@@ -441,7 +422,6 @@ public:
     QByteArray buf;
     int debugLevel;
 };
-
 
 class ChunkedBlockReader
 {
@@ -454,7 +434,10 @@ public:
     };
 public:
     ChunkedBlockReader(QSharedPointer<SocketLike> connection, const QByteArray &buf)
-        :connection(connection), buf(buf) {}
+        : connection(connection)
+        , buf(buf)
+    {
+    }
 public:
     QByteArray nextBlock(qint64 leftBytes, Error *error);
 public:
@@ -463,15 +446,14 @@ public:
     QByteArray buf;
 };
 
-
-class PlainBodyFile: public FileLike
+class PlainBodyFile : public FileLike
 {
 public:
     PlainBodyFile(qint64 contentLength, const QByteArray &partialBody, QSharedPointer<SocketLike> stream);
     virtual qint32 read(char *data, qint32 size) override;
-    virtual qint32 write(const char *, qint32) override { return -1;}
-    virtual void close() override {}
-    virtual qint64 size() override { return contentLength;}
+    virtual qint32 write(const char *, qint32) override { return -1; }
+    virtual void close() override { }
+    virtual qint64 size() override { return contentLength; }
 public:
     const qint64 contentLength;
     const QSharedPointer<SocketLike> stream;
@@ -479,15 +461,14 @@ public:
     qint64 count;
 };
 
-
-class ChunkedBodyFile: public FileLike
+class ChunkedBodyFile : public FileLike
 {
 public:
     ChunkedBodyFile(qint64 maxBodySize, const QByteArray &partialBody, QSharedPointer<SocketLike> stream);
     virtual qint32 read(char *data, qint32 size) override;
-    virtual qint32 write(const char *, qint32) override { return -1;}
-    virtual void close() override {}
-    virtual qint64 size() override { return -1;}
+    virtual qint32 write(const char *, qint32) override { return -1; }
+    virtual void close() override { }
+    virtual qint64 size() override { return -1; }
 public:
     ChunkedBlockReader reader;
     ChunkedBlockReader::Error error;
@@ -497,7 +478,6 @@ public:
     bool eof;
 };
 
-
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_HTTP_UTILS_H
+#endif  // QTNG_HTTP_UTILS_H

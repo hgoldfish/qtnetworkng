@@ -7,20 +7,23 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 class HttpProxyPrivate;
-class HttpProxy: public WithHttpHeaders<SocketProxy>
+class HttpProxy : public WithHttpHeaders<SocketProxy>
 {
 public:
-    enum Capability
-    {
+    enum Capability {
         TunnelingCapability = 0x001,
         CachingCapability = 0x008,
     };
 public:
     HttpProxy();
-    HttpProxy(const QString &hostName, quint16 port = 0,
-                 const QString &user = QString(), const QString &password = QString());
+    HttpProxy(const QString &hostName, quint16 port = 0, const QString &user = QString(),
+              const QString &password = QString());
     HttpProxy(const HttpProxy &other);
-    HttpProxy(HttpProxy &&other) :d_ptr(nullptr) { qSwap(d_ptr, other.d_ptr); }
+    HttpProxy(HttpProxy &&other)
+        : d_ptr(nullptr)
+    {
+        qSwap(d_ptr, other.d_ptr);
+    }
     ~HttpProxy();
 public:
     virtual QSharedPointer<SocketLike> connect(const QString &remoteHost, quint16 port) override;
@@ -41,10 +44,9 @@ public:
     HttpProxy &operator=(HttpProxy &&other);
     bool operator==(const HttpProxy &other) const;
 private:
-    HttpProxyPrivate * d_ptr;
+    HttpProxyPrivate *d_ptr;
     Q_DECLARE_PRIVATE(HttpProxy)
 };
-
 
 class Socks5Proxy;
 class BaseProxySwitcher
@@ -57,8 +59,7 @@ public:
     virtual QSharedPointer<HttpProxy> selectHttpProxy(const QUrl &url) = 0;
 };
 
-
-class SimpleProxySwitcher: public BaseProxySwitcher
+class SimpleProxySwitcher : public BaseProxySwitcher
 {
 public:
     virtual QSharedPointer<SocketProxy> selectSocketProxy(const QUrl &url) override;
@@ -68,10 +69,8 @@ public:
     QList<QSharedPointer<HttpProxy>> httpProxies;
 };
 
-
 void setProxySwitcher(class HttpSession *session, QSharedPointer<BaseProxySwitcher> switcher);
-
 
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_HTTP_PROXY_H
+#endif  // QTNG_HTTP_PROXY_H

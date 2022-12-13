@@ -9,14 +9,17 @@ extern "C" {
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-struct OpenSSLLib {
-    OpenSSLLib() :version(0) {}
+struct OpenSSLLib
+{
+    OpenSSLLib()
+        : version(0)
+    {
+    }
     QAtomicInt inited;
     int version;
 };
 
 Q_GLOBAL_STATIC(struct OpenSSLLib, lib)
-
 
 void initOpenSSL()
 {
@@ -27,7 +30,6 @@ void initOpenSSL()
     SSL_library_init();
     SSL_load_error_strings();
 }
-
 
 void cleanupOpenSSL()
 {
@@ -42,5 +44,3 @@ void cleanupOpenSSL()
 }
 
 QTNETWORKNG_NAMESPACE_END
-
-

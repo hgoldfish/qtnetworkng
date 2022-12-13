@@ -11,20 +11,17 @@
 #include "locks.h"
 #include "private/eventloop_p.h"
 
-
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
 template<typename T>
-T callInEventLoop(std::function<T ()> func)
+T callInEventLoop(std::function<T()> func)
 {
-    Q_ASSERT(static_cast<BaseCoroutine*>(EventLoopCoroutine::get()) != BaseCoroutine::current());
+    Q_ASSERT(static_cast<BaseCoroutine *>(EventLoopCoroutine::get()) != BaseCoroutine::current());
 
     QSharedPointer<T> result(new T());
     QSharedPointer<Event> done(new Event());
 
-    std::function<void()> wrapper = [result, done, func]() mutable
-    {
+    std::function<void()> wrapper = [result, done, func]() mutable {
         *result = func();
         done->set();
     };
@@ -33,17 +30,16 @@ T callInEventLoop(std::function<T ()> func)
     try {
         done->wait();
         EventLoopCoroutine::get()->cancelCall(callbackId);
-    } catch(...) {
+    } catch (...) {
         EventLoopCoroutine::get()->cancelCall(callbackId);
         throw;
     }
     return *result;
 }
 
-
-inline void callInEventLoop(std::function<void ()> func, quint32 msecs = 0)
+inline void callInEventLoop(std::function<void()> func, quint32 msecs = 0)
 {
-    Q_ASSERT(static_cast<BaseCoroutine*>(EventLoopCoroutine::get()) != BaseCoroutine::current());
+    Q_ASSERT(static_cast<BaseCoroutine *>(EventLoopCoroutine::get()) != BaseCoroutine::current());
 
     QSharedPointer<Event> done(new Event());
 
@@ -56,41 +52,36 @@ inline void callInEventLoop(std::function<void ()> func, quint32 msecs = 0)
     try {
         done->wait();
         EventLoopCoroutine::get()->cancelCall(callbackId);
-    } catch(...) {
+    } catch (...) {
         EventLoopCoroutine::get()->cancelCall(callbackId);
         throw;
     }
 }
 
-
-inline void callInEventLoopAsync(std::function<void ()> func, quint32 msecs = 0)
+inline void callInEventLoopAsync(std::function<void()> func, quint32 msecs = 0)
 {
-//    Q_ASSERT(static_cast<QBaseCoroutine*>(EventLoopCoroutine::get()) != QBaseCoroutine::current());
+    //    Q_ASSERT(static_cast<QBaseCoroutine*>(EventLoopCoroutine::get()) != QBaseCoroutine::current());
     EventLoopCoroutine::get()->callLater(msecs, new LambdaFunctor(func));
 }
-
 
 template<typename EventLoop>
 void runLocalLoop(EventLoop *loop)
 {
-    callInEventLoop([loop]() {
-        loop->exec();
-    });
+    callInEventLoop([loop]() { loop->exec(); });
 }
 
-
-struct QAwaitHelper0: public QObject
+struct QAwaitHelper0 : public QObject
 {
     void call() { event.set(); }
     Event event;
 };
 
-
-template <typename Func1>
+template<typename Func1>
 void qAwait(const typename QtPrivate::FunctionPointer<Func1>::Object *obj, Func1 signal)
 {
     QAwaitHelper0 helper;
-    const QMetaObject::Connection connection = QObject::connect(obj, signal, &helper, &QAwaitHelper0::call, Qt::DirectConnection);
+    const QMetaObject::Connection connection =
+            QObject::connect(obj, signal, &helper, &QAwaitHelper0::call, Qt::DirectConnection);
     try {
         helper.event.wait();
         QObject::disconnect(connection);
@@ -100,24 +91,24 @@ void qAwait(const typename QtPrivate::FunctionPointer<Func1>::Object *obj, Func1
     }
 }
 
-
-template <typename ARG1, typename... ARGS>
-struct QAwaitHelper1: QObject
+template<typename ARG1, typename... ARGS>
+struct QAwaitHelper1 : QObject
 {
     QAwaitHelper1(QSharedPointer<ValueEvent<ARG1>> event)
-        : event(event) {}
+        : event(event)
+    {
+    }
     void call(ARG1 arg1, ARGS...) { event->send(arg1); }
     QSharedPointer<ValueEvent<ARG1>> event;
 };
 
-
-template <typename Obj, typename ARG1>
-ARG1 qAwait(const Obj *obj,
-            const typename QtPrivate::FunctionPointer<void (Obj::*) (ARG1 arg1)>::Function signal)
+template<typename Obj, typename ARG1>
+ARG1 qAwait(const Obj *obj, const typename QtPrivate::FunctionPointer<void (Obj::*)(ARG1 arg1)>::Function signal)
 {
     QSharedPointer<ValueEvent<ARG1>> event(new ValueEvent<ARG1>());
     QAwaitHelper1<ARG1> helper(event);
-    const QMetaObject::Connection connection = QObject::connect(obj, signal, &helper, &QAwaitHelper1<ARG1>::call, Qt::DirectConnection);
+    const QMetaObject::Connection connection =
+            QObject::connect(obj, signal, &helper, &QAwaitHelper1<ARG1>::call, Qt::DirectConnection);
     try {
         return event->wait();
         QObject::disconnect(connection);
@@ -127,24 +118,26 @@ ARG1 qAwait(const Obj *obj,
     }
 }
 
-
-template <typename... ARGS>
-struct QAwaitHelper: QObject
+template<typename... ARGS>
+struct QAwaitHelper : QObject
 {
     QAwaitHelper(QSharedPointer<ValueEvent<std::tuple<ARGS...>>> event)
-        : event(event) {}
-    void call(ARGS ... args) { event->send(std::tuple<ARGS...>(args...)); }
+        : event(event)
+    {
+    }
+    void call(ARGS... args) { event->send(std::tuple<ARGS...>(args...)); }
     QSharedPointer<ValueEvent<std::tuple<ARGS...>>> event;
 };
 
-
-template <typename Obj, typename ARG1, typename ARG2, typename... ARGS>
-std::tuple<ARG1, ARGS...> qAwait(const Obj *obj,
-            const typename QtPrivate::FunctionPointer<void (Obj::*) (ARG1, ARG2, ARGS...)>::Function signal)
+template<typename Obj, typename ARG1, typename ARG2, typename... ARGS>
+std::tuple<ARG1, ARGS...>
+qAwait(const Obj *obj, const typename QtPrivate::FunctionPointer<void (Obj::*)(ARG1, ARG2, ARGS...)>::Function signal)
 {
-    QSharedPointer<ValueEvent<std::tuple<ARG1, ARG2, ARGS...>>> event(new ValueEvent<std::tuple<ARG1, ARG2, ARGS...>>());
+    QSharedPointer<ValueEvent<std::tuple<ARG1, ARG2, ARGS...>>> event(
+            new ValueEvent<std::tuple<ARG1, ARG2, ARGS...>>());
     QAwaitHelper<ARG1, ARG2, ARGS...> helper(event);
-    const QMetaObject::Connection connection = QObject::connect(obj, signal, &helper, &QAwaitHelper<ARG1, ARG2, ARGS...>::call, Qt::DirectConnection);
+    const QMetaObject::Connection connection =
+            QObject::connect(obj, signal, &helper, &QAwaitHelper<ARG1, ARG2, ARGS...>::call, Qt::DirectConnection);
     try {
         return event->wait();
         QObject::disconnect(connection);
@@ -154,9 +147,8 @@ std::tuple<ARG1, ARGS...> qAwait(const Obj *obj,
     }
 }
 
-
 // XXX DO NOT DELETE ANYTHING IN CHILD THREADS.
-class DeferCallThread: public QThread
+class DeferCallThread : public QThread
 {
 public:
     DeferCallThread(std::function<void()> makeResult, QSharedPointer<Event> done, EventLoopCoroutine *eventloop);
@@ -167,7 +159,6 @@ private:
     QPointer<EventLoopCoroutine> eventloop;
 };
 
-
 inline QSharedPointer<Event> spawnInThread(const std::function<void()> &func)
 {
     QSharedPointer<Event> done = QSharedPointer<Event>::create();
@@ -176,64 +167,46 @@ inline QSharedPointer<Event> spawnInThread(const std::function<void()> &func)
     return done;
 }
 
-
 template<typename T>
 T callInThread(std::function<T()> func)
 {
     QSharedPointer<T> result = QSharedPointer<T>::create();
-    std::function<void()> makeResult = [result, func]() mutable
-    {
-        *result = func();
-    };
+    std::function<void()> makeResult = [result, func]() mutable { *result = func(); };
     spawnInThread(makeResult)->wait();
     return *result;
 }
 
-
 template<typename T, typename ARG1>
 T callInThread(std::function<T(ARG1)> func, ARG1 arg1)
 {
-    return callInThread<T>([func, arg1] () -> T {
-        return func(arg1);
-    });
+    return callInThread<T>([func, arg1]() -> T { return func(arg1); });
 }
-
 
 template<typename T, typename ARG1, typename ARG2>
 T callInThread(std::function<T(ARG1, ARG2)> func, ARG1 arg1, ARG2 arg2)
 {
-    return callInThread<T>([func, arg1, arg2] () -> T {
-        return func(arg1, arg2);
-    });
+    return callInThread<T>([func, arg1, arg2]() -> T { return func(arg1, arg2); });
 }
-
 
 template<typename T, typename ARG1, typename ARG2, typename ARG3>
 T callInThread(std::function<T(ARG1, ARG2, ARG3)> func, ARG1 arg1, ARG2 arg2, ARG3 arg3)
 {
-    return callInThread<T>([func, arg1, arg2, arg3] () -> T {
-        return func(arg1, arg2, arg3);
-    });
+    return callInThread<T>([func, arg1, arg2, arg3]() -> T { return func(arg1, arg2, arg3); });
 }
-
 
 template<typename T, typename ARG1, typename ARG2, typename ARG3, typename ARG4>
 T callInThread(std::function<T(ARG1, ARG2, ARG3)> func, ARG1 arg1, ARG2 arg2, ARG3 arg3, ARG4 arg4)
 {
-    return callInThread<T>([func, arg1, arg2, arg3, arg4] () -> T {
-        return func(arg1, arg2, arg3, arg4);
-    });
+    return callInThread<T>([func, arg1, arg2, arg3, arg4]() -> T { return func(arg1, arg2, arg3, arg4); });
 }
 
-
-inline void callInThread(const std::function<void ()> &func)
+inline void callInThread(const std::function<void()> &func)
 {
     spawnInThread(func)->wait();
 }
 
-
 class CoroutineThreadPrivate;
-class CoroutineThread: public QThread
+class CoroutineThread : public QThread
 {
 public:
     explicit CoroutineThread(quint32 capacity = UINT_MAX);
@@ -246,9 +219,7 @@ private:
     Q_DECLARE_PRIVATE_D(dd_ptr, CoroutineThread);
 };
 
-
 bool waitThread(QSharedPointer<QThread> thread);
-
 
 inline QSharedPointer<Deferred<QSharedPointer<Coroutine>>> waitForAny()
 {
@@ -260,11 +231,9 @@ QSharedPointer<Deferred<QSharedPointer<Coroutine>>> waitForAny(QSharedPointer<Co
 {
     QSharedPointer<Deferred<QSharedPointer<Coroutine>>> df = waitForAny(cs...);
     QWeakPointer<Coroutine> c1w = c1.toWeakRef();
-    int callbackId = c1->finished.addCallback([c1w, df] (BaseCoroutine *) {
-        df->callback(c1w.toStrongRef());
-    });
+    int callbackId = c1->finished.addCallback([c1w, df](BaseCoroutine *) { df->callback(c1w.toStrongRef()); });
 
-    df->addCallback([c1w, callbackId] (QSharedPointer<Coroutine>) {
+    df->addCallback([c1w, callbackId](QSharedPointer<Coroutine>) {
         if (!c1w.isNull()) {
             c1w.toStrongRef()->finished.remove(callbackId);
         }
@@ -272,14 +241,13 @@ QSharedPointer<Deferred<QSharedPointer<Coroutine>>> waitForAny(QSharedPointer<Co
     return df;
 }
 
-
 template<typename... CS>
 QSharedPointer<Coroutine> any(CS... cs)
 {
     QSharedPointer<Deferred<QSharedPointer<Coroutine>>> df = waitForAny(cs...);
-    QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>> event
-            = QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>>::create();
-    df->addCallback([event] (QSharedPointer<Coroutine> c) { event->send(c); });
+    QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>> event =
+            QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>>::create();
+    df->addCallback([event](QSharedPointer<Coroutine> c) { event->send(c); });
     try {
         return event->wait();
     } catch (...) {
@@ -288,16 +256,18 @@ QSharedPointer<Coroutine> any(CS... cs)
     }
 }
 
-
 class Coroutine;
-class CoroutineGroup: public QObject
+class CoroutineGroup : public QObject
 {
 public:
     CoroutineGroup();
     virtual ~CoroutineGroup();
 public:
     bool add(QSharedPointer<Coroutine> coroutine, const QString &name = QString());
-    bool add(Coroutine *coroutine, const QString &name = QString()) {return add(QSharedPointer<Coroutine>(coroutine), name);}
+    bool add(Coroutine *coroutine, const QString &name = QString())
+    {
+        return add(QSharedPointer<Coroutine>(coroutine), name);
+    }
     bool start(Coroutine *coroutine, const QString &name = QString()) { return add(coroutine->start(), name); }
     QSharedPointer<Coroutine> get(const QString &name);
     bool has(const QString &name);
@@ -310,12 +280,14 @@ public:
     bool isEmpty() const { return coroutines.isEmpty(); }
     QSharedPointer<Coroutine> any();
 
-    inline QSharedPointer<Coroutine> spawnWithName(const QString &name, const std::function<void()> &func, bool replace = false);
+    inline QSharedPointer<Coroutine> spawnWithName(const QString &name, const std::function<void()> &func,
+                                                   bool replace = false);
     inline QSharedPointer<Coroutine> spawn(const std::function<void()> &func);
-//    inline QSharedPointer<Coroutine> spawnInThread(const std::function<void()> &func);
-//    inline QSharedPointer<Coroutine> spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool replace = false);
+    //    inline QSharedPointer<Coroutine> spawnInThread(const std::function<void()> &func);
+    //    inline QSharedPointer<Coroutine> spawnInThreadWithName(const QString &name, const std::function<void()> &func,
+    //    bool replace = false);
 
-    template <typename T, typename S>
+    template<typename T, typename S>
     static QList<T> map(std::function<T(S)> func, const QList<S> &l, int chunk = INT16_MAX)
     {
         CoroutineGroup operations;
@@ -324,8 +296,8 @@ public:
         for (int i = 0; i < l.size(); ++i) {
             result->append(T());
             S s = l[i];
-            semaphore->acquire();   // ALWAYS return true
-            operations.spawn([func, s, result, i, semaphore]{
+            semaphore->acquire();  // ALWAYS return true
+            operations.spawn([func, s, result, i, semaphore] {
                 try {
                     (*result)[i] = func(s);
                     semaphore->release();
@@ -339,18 +311,19 @@ public:
         return *result;
     }
 
-    template <typename S>
-    static void each(std::function<void(S)> func, const QList<S> &l, int chunk = INT16_MAX) {
+    template<typename S>
+    static void each(std::function<void(S)> func, const QList<S> &l, int chunk = INT16_MAX)
+    {
         CoroutineGroup operations;
         QSharedPointer<Semaphore> semaphore(new Semaphore(chunk));
         for (int i = 0; i < l.size(); ++i) {
-            semaphore->acquire();   // ALWAYS return true
+            semaphore->acquire();  // ALWAYS return true
             S s = l[i];
             operations.spawn([func, s, semaphore] {
                 try {
                     func(s);
                     semaphore->release();
-                }  catch (...) {
+                } catch (...) {
                     semaphore->release();
                     throw;
                 }
@@ -363,21 +336,18 @@ public:
     T apply(std::function<T(S)> func, S s)
     {
         QSharedPointer<T> result(new T);
-        QSharedPointer<Coroutine> t = spawn([func, result, s] {
-            (*result) = func(s);
-        });
+        QSharedPointer<Coroutine> t = spawn([func, result, s] { (*result) = func(s); });
         t->join();
         return *result;
     }
-
 private:
     void deleteCoroutine(BaseCoroutine *coroutine);
 private:
     QList<QSharedPointer<Coroutine>> coroutines;
 };
 
-
-QSharedPointer<Coroutine> CoroutineGroup::spawnWithName(const QString &name, const std::function<void ()> &func, bool replace)
+QSharedPointer<Coroutine> CoroutineGroup::spawnWithName(const QString &name, const std::function<void()> &func,
+                                                        bool replace)
 {
     QSharedPointer<Coroutine> old = get(name);
     if (!old.isNull()) {
@@ -394,50 +364,60 @@ QSharedPointer<Coroutine> CoroutineGroup::spawnWithName(const QString &name, con
     return coroutine;
 }
 
-
-QSharedPointer<Coroutine> CoroutineGroup::spawn(const std::function<void ()> &func)
+QSharedPointer<Coroutine> CoroutineGroup::spawn(const std::function<void()> &func)
 {
     QSharedPointer<Coroutine> coroutine(Coroutine::spawn(func));
     add(coroutine);
     return coroutine;
 }
 
-
-//QSharedPointer<Coroutine> CoroutineGroup::spawnInThread(const std::function<void ()> &func)
+// QSharedPointer<Coroutine> CoroutineGroup::spawnInThread(const std::function<void ()> &func)
 //{
-//    QSharedPointer<Coroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));
-//    add(coroutine);
-//    return coroutine;
-//}
+//     QSharedPointer<Coroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));
+//     add(coroutine);
+//     return coroutine;
+// }
 
-
-//QSharedPointer<Coroutine> CoroutineGroup::spawnInThreadWithName(const QString &name, const std::function<void()> &func, bool replace)
+// QSharedPointer<Coroutine> CoroutineGroup::spawnInThreadWithName(const QString &name, const std::function<void()>
+// &func, bool replace)
 //{
-//    QSharedPointer<Coroutine> old = get(name);
-//    if (!old.isNull()) {
-//        if (replace) {
-//            old->kill();
-//            coroutines.removeOne(old);
-//            old->join();
-//        } else {
-//            return old;
-//        }
-//    }
-//    QSharedPointer<Coroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));
-//    add(coroutine, name);
-//    return coroutine;
-//}
+//     QSharedPointer<Coroutine> old = get(name);
+//     if (!old.isNull()) {
+//         if (replace) {
+//             old->kill();
+//             coroutines.removeOne(old);
+//             old->join();
+//         } else {
+//             return old;
+//         }
+//     }
+//     QSharedPointer<Coroutine> coroutine(QTNETWORKNG_NAMESPACE::spawnInThread(func));
+//     add(coroutine, name);
+//     return coroutine;
+// }
 
-namespace detail
+namespace detail {
+// see
+// https://stackoverflow.com/questions/2097811/c-syntax-for-explicit-specialization-of-a-template-function-in-a-template-clas
+struct NormalType
 {
-// see https://stackoverflow.com/questions/2097811/c-syntax-for-explicit-specialization-of-a-template-function-in-a-template-clas
-struct NormalType {};
-struct VoidType {};
-template<typename T>  struct ApplyDispatchTag { using Tag = NormalType; };
-template<>  struct ApplyDispatchTag<void> { using Tag = VoidType; };
-}
+};
+struct VoidType
+{
+};
+template<typename T>
+struct ApplyDispatchTag
+{
+    using Tag = NormalType;
+};
+template<>
+struct ApplyDispatchTag<void>
+{
+    using Tag = VoidType;
+};
+}  // namespace detail
 
-class ThreadPool: public QObject
+class ThreadPool : public QObject
 {
 public:
     ThreadPool(int threads = 0);
@@ -458,9 +438,9 @@ public:
     void call(std::function<void()> func);
 private:
     template<typename T, typename Func, typename... ARGS>
-        T apply_dispatch(Func func, ARGS... args, detail::NormalType);
+    T apply_dispatch(Func func, ARGS... args, detail::NormalType);
     template<typename T, typename Func, typename... ARGS>
-        T apply_dispatch(Func func, ARGS... args, detail::VoidType);
+    T apply_dispatch(Func func, ARGS... args, detail::VoidType);
 private:
     // for map()
     template<typename T, typename S>
@@ -474,19 +454,17 @@ private:
     QSharedPointer<Semaphore> semaphore;
 };
 
-
 template<typename T, typename S>
 QList<T> ThreadPool::map(std::function<T(S)> func, const QList<S> &l)
 {
-    std::function<T(S)> f = [this, func] (const S &s) -> T { return this->apply<T>(func, s); } ;
+    std::function<T(S)> f = [this, func](const S &s) -> T { return this->apply<T>(func, s); };
     return CoroutineGroup::map(f, l);
 }
-
 
 template<typename S>
 void ThreadPool::each(std::function<void(S)> func, const QList<S> &l)
 {
-    std::function<void(S)> f = [this, func] (const S &s) -> void { this->apply<void>(func, s); } ;
+    std::function<void(S)> f = [this, func](const S &s) -> void { this->apply<void>(func, s); };
     CoroutineGroup::each(f, l);
 }
 
@@ -494,44 +472,34 @@ void ThreadPool::each(std::function<void(S)> func, const QList<S> &l)
 template<typename T, typename Func, typename... ARGS>
 T ThreadPool::apply(Func func, ARGS... args)
 {
-    return apply_dispatch<T, Func, ARGS...>(func, args..., typename detail::ApplyDispatchTag<T>::Tag {});
+    return apply_dispatch<T, Func, ARGS...>(func, args..., typename detail::ApplyDispatchTag<T>::Tag{});
 }
-
 
 template<typename T, typename Func, typename... ARGS>
 T ThreadPool::apply_dispatch(Func func, ARGS... args, detail::NormalType)
 {
     QSharedPointer<T> result(new T());
-    std::function<void()> wrapped = [func, args..., result] {
-        *result = func(args...);
-    };
+    std::function<void()> wrapped = [func, args..., result] { *result = func(args...); };
     call(wrapped);
     return *result;
 }
 
-
 template<typename T, typename Func, typename... ARGS>
 T ThreadPool::apply_dispatch(Func func, ARGS... args, detail::VoidType)
 {
-    std::function<void()> wrapped = [func, args...] {
-        func(args...);
-    };
+    std::function<void()> wrapped = [func, args...] { func(args...); };
     call(wrapped);
 }
-
 
 template<typename T>
 T ThreadPool::call(std::function<T()> func)
 {
     QSharedPointer<T> result(new T());
-    std::function<void()> wrapped = [result, func] {
-        *result = func();
-    };
+    std::function<void()> wrapped = [result, func] { *result = func(); };
     call(wrapped);
     return *result;
 }
 
-
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_COROUTINE_UTILS_H
+#endif  // QTNG_COROUTINE_UTILS_H

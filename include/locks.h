@@ -8,7 +8,6 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
 class SemaphorePrivate;
 class Semaphore
 {
@@ -27,15 +26,13 @@ private:
     Q_DISABLE_COPY(Semaphore)
 };
 
-
-class Lock: public Semaphore
+class Lock : public Semaphore
 {
 public:
     Lock();
 private:
     Q_DISABLE_COPY(Lock)
 };
-
 
 class RLockPrivate;
 class RLock
@@ -55,7 +52,6 @@ private:
     friend class ConditionPrivate;
 };
 
-
 class ConditionPrivate;
 class Condition
 {
@@ -63,8 +59,8 @@ public:
     Condition();
     virtual ~Condition();
 public:
-//    bool acquire(bool blocking = true);
-//    void release();
+    //    bool acquire(bool blocking = true);
+    //    void release();
     bool wait();
     void notify(int value = 1);
     void notifyAll();
@@ -74,7 +70,6 @@ private:
     Q_DECLARE_PRIVATE(Condition)
     Q_DISABLE_COPY(Condition)
 };
-
 
 class EventPrivate;
 class Event
@@ -97,7 +92,6 @@ private:
     Q_DISABLE_COPY(Event)
 };
 
-
 class ThreadEventPrivate;
 class ThreadEvent
 {
@@ -118,7 +112,6 @@ private:
     Q_DISABLE_COPY(ThreadEvent)
 };
 
-
 template<typename EventType>
 bool waitAnyEvent(const QList<QSharedPointer<EventType>> &events)
 {
@@ -128,7 +121,6 @@ bool waitAnyEvent(const QList<QSharedPointer<EventType>> &events)
     }
     return event.wait();
 }
-
 
 template<typename EventType>
 bool waitAllEvents(const QList<QSharedPointer<EventType>> &events)
@@ -142,13 +134,12 @@ bool waitAllEvents(const QList<QSharedPointer<EventType>> &events)
     return true;
 }
 
-
 template<typename Value>
 class ValueEvent
 {
 public:
-    ValueEvent() {}
-    ~ValueEvent() {}
+    ValueEvent() { }
+    ~ValueEvent() { }
     void send(const Value &value);
     Value wait(bool blocking = true);
     void set() { event.set(); }
@@ -162,14 +153,12 @@ private:
     Q_DISABLE_COPY(ValueEvent)
 };
 
-
 template<typename Value>
 void ValueEvent<Value>::send(const Value &value)
 {
     this->value = value;
     event.set();
 }
-
 
 template<typename Value>
 Value ValueEvent<Value>::wait(bool blocking)
@@ -180,7 +169,6 @@ Value ValueEvent<Value>::wait(bool blocking)
         return value;
     }
 }
-
 
 class GatePrivate;
 class Gate
@@ -201,13 +189,13 @@ private:
     Q_DISABLE_COPY(Gate)
 };
 
-
-template <typename LockType>
+template<typename LockType>
 class ScopedLock
 {
 public:
     ScopedLock(LockType &lock)
-        : lock(lock), success(false)
+        : lock(lock)
+        , success(false)
     {
         success = lock.acquire();
     }
@@ -230,19 +218,21 @@ private:
     bool success;
 };
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 class QueueType
 {
 public:
     explicit QueueType(quint32 capacity);
-    QueueType() : QueueType(UINT_MAX) {}
+    QueueType()
+        : QueueType(UINT_MAX)
+    {
+    }
     ~QueueType();
     void setCapacity(quint32 capacity);
-    bool put(const T &e);             // insert e to the tail of queue. blocked until not full.
-    bool putForcedly(const T& e);     // insert e to the tail of queue ignoring capacity.
-    bool returns(const T &e);         // like put() but insert e to the head of queue.
-    bool returnsForcely(const T& e);  // like putForcedly() but insert e to the head of queue.
+    bool put(const T &e);  // insert e to the tail of queue. blocked until not full.
+    bool putForcedly(const T &e);  // insert e to the tail of queue ignoring capacity.
+    bool returns(const T &e);  // like put() but insert e to the head of queue.
+    bool returnsForcely(const T &e);  // like putForcedly() but insert e to the head of queue.
     T get();
     T peek();
     void clear();
@@ -263,8 +253,7 @@ public:
     Q_DISABLE_COPY(QueueType)
 };
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 class MultiQueueType
 {
 public:
@@ -277,43 +266,52 @@ private:
     ReadWriteLockType lock;
 };
 
-
-
 struct DummpyReadWriteLock
 {
-    inline void lockForRead() {}
-    inline void lockForWrite() {}
-    inline void unlock() {}
+    inline void lockForRead() { }
+    inline void lockForWrite() { }
+    inline void unlock() { }
 };
 
-
-template <typename T>
-class Queue: public QueueType<T, Event, DummpyReadWriteLock>
+template<typename T>
+class Queue : public QueueType<T, Event, DummpyReadWriteLock>
 {
 public:
-    explicit Queue(quint32 capacity) : QueueType<T, Event, DummpyReadWriteLock>(capacity) {}
-    explicit Queue() : QueueType<T, Event, DummpyReadWriteLock>() {}
+    explicit Queue(quint32 capacity)
+        : QueueType<T, Event, DummpyReadWriteLock>(capacity)
+    {
+    }
+    explicit Queue()
+        : QueueType<T, Event, DummpyReadWriteLock>()
+    {
+    }
 };
 
+template<typename T>
+class MultiQueue : public MultiQueueType<T, Event, DummpyReadWriteLock>
+{
+};
 
-template <typename T>
-class MultiQueue: public MultiQueueType<T, Event, DummpyReadWriteLock> {};
-
-
-template <typename T>
-class ThreadQueue: public QueueType<T, ThreadEvent, QReadWriteLock>
+template<typename T>
+class ThreadQueue : public QueueType<T, ThreadEvent, QReadWriteLock>
 {
 public:
-    explicit ThreadQueue(quint32 capacity) : QueueType<T, ThreadEvent, QReadWriteLock>(capacity) {}
-    explicit ThreadQueue() : QueueType<T, ThreadEvent, QReadWriteLock>() {}
+    explicit ThreadQueue(quint32 capacity)
+        : QueueType<T, ThreadEvent, QReadWriteLock>(capacity)
+    {
+    }
+    explicit ThreadQueue()
+        : QueueType<T, ThreadEvent, QReadWriteLock>()
+    {
+    }
 };
 
+template<typename T>
+class MultiThreadQueue : public MultiQueueType<T, ThreadEvent, QReadWriteLock>
+{
+};
 
-template <typename T>
-class MultiThreadQueue: public MultiQueueType<T, ThreadEvent, QReadWriteLock> {};
-
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 QueueType<T, EventType, ReadWriteLockType>::QueueType(quint32 capacity)
     : mCapacity(capacity)
 {
@@ -321,17 +319,15 @@ QueueType<T, EventType, ReadWriteLockType>::QueueType(quint32 capacity)
     notFull.set();
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 QueueType<T, EventType, ReadWriteLockType>::~QueueType()
 {
-//    if (queue.size() > 0) {
-//        qtng_debug << "queue is free with element left.";
-//    }
+    //    if (queue.size() > 0) {
+    //        qtng_debug << "queue is free with element left.";
+    //    }
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 void QueueType<T, EventType, ReadWriteLockType>::setCapacity(quint32 capacity)
 {
     lock.lockForWrite();
@@ -344,8 +340,7 @@ void QueueType<T, EventType, ReadWriteLockType>::setCapacity(quint32 capacity)
     lock.unlock();
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 void QueueType<T, EventType, ReadWriteLockType>::clear()
 {
     lock.lockForWrite();
@@ -355,8 +350,7 @@ void QueueType<T, EventType, ReadWriteLockType>::clear()
     lock.unlock();
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 bool QueueType<T, EventType, ReadWriteLockType>::remove(const T &e)
 {
     lock.lockForWrite();
@@ -380,8 +374,7 @@ bool QueueType<T, EventType, ReadWriteLockType>::remove(const T &e)
     }
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 bool QueueType<T, EventType, ReadWriteLockType>::put(const T &e)
 {
     if (!notFull.wait()) {
@@ -397,9 +390,8 @@ bool QueueType<T, EventType, ReadWriteLockType>::put(const T &e)
     return true;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
-bool QueueType<T, EventType, ReadWriteLockType>::putForcedly(const T& e)
+template<typename T, typename EventType, typename ReadWriteLockType>
+bool QueueType<T, EventType, ReadWriteLockType>::putForcedly(const T &e)
 {
     lock.lockForWrite();
     queue.enqueue(e);
@@ -411,8 +403,7 @@ bool QueueType<T, EventType, ReadWriteLockType>::putForcedly(const T& e)
     return true;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 bool QueueType<T, EventType, ReadWriteLockType>::returns(const T &e)
 {
     if (!notFull.wait()) {
@@ -428,9 +419,8 @@ bool QueueType<T, EventType, ReadWriteLockType>::returns(const T &e)
     return true;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
-bool QueueType<T, EventType, ReadWriteLockType>::returnsForcely(const T& e)
+template<typename T, typename EventType, typename ReadWriteLockType>
+bool QueueType<T, EventType, ReadWriteLockType>::returnsForcely(const T &e)
 {
     lock.lockForWrite();
     queue.prepend(e);
@@ -442,8 +432,7 @@ bool QueueType<T, EventType, ReadWriteLockType>::returnsForcely(const T& e)
     return true;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 T QueueType<T, EventType, ReadWriteLockType>::get()
 {
     if (!notEmpty.wait()) {
@@ -461,8 +450,7 @@ T QueueType<T, EventType, ReadWriteLockType>::get()
     return e;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 T QueueType<T, EventType, ReadWriteLockType>::peek()
 {
     lock.lockForRead();
@@ -474,8 +462,7 @@ T QueueType<T, EventType, ReadWriteLockType>::peek()
     return t;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 inline bool QueueType<T, EventType, ReadWriteLockType>::isEmpty()
 {
     lock.lockForRead();
@@ -484,8 +471,7 @@ inline bool QueueType<T, EventType, ReadWriteLockType>::isEmpty()
     return t;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 inline bool QueueType<T, EventType, ReadWriteLockType>::isFull()
 {
     lock.lockForRead();
@@ -494,8 +480,7 @@ inline bool QueueType<T, EventType, ReadWriteLockType>::isFull()
     return t;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 inline quint32 QueueType<T, EventType, ReadWriteLockType>::capacity() const
 {
     const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.lockForRead();
@@ -504,8 +489,7 @@ inline quint32 QueueType<T, EventType, ReadWriteLockType>::capacity() const
     return c;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 inline quint32 QueueType<T, EventType, ReadWriteLockType>::size() const
 {
     const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.lockForRead();
@@ -514,8 +498,7 @@ inline quint32 QueueType<T, EventType, ReadWriteLockType>::size() const
     return s;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 inline quint32 QueueType<T, EventType, ReadWriteLockType>::getting() const
 {
     const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.lockForRead();
@@ -524,8 +507,7 @@ inline quint32 QueueType<T, EventType, ReadWriteLockType>::getting() const
     return g;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 inline bool QueueType<T, EventType, ReadWriteLockType>::contains(const T &e)
 {
     const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.lockForRead();
@@ -534,9 +516,9 @@ inline bool QueueType<T, EventType, ReadWriteLockType>::contains(const T &e)
     return t;
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
-inline void MultiQueueType<T, EventType, ReadWriteLockType>::addQueue(QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue)
+template<typename T, typename EventType, typename ReadWriteLockType>
+inline void MultiQueueType<T, EventType, ReadWriteLockType>::addQueue(
+        QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue)
 {
     lock.lockForWrite();
     queue.notEmpty.link(notEmpty);
@@ -544,9 +526,9 @@ inline void MultiQueueType<T, EventType, ReadWriteLockType>::addQueue(QSharedPoi
     lock.unlock();
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
-inline void MultiQueueType<T, EventType, ReadWriteLockType>::removeQueue(QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue)
+template<typename T, typename EventType, typename ReadWriteLockType>
+inline void MultiQueueType<T, EventType, ReadWriteLockType>::removeQueue(
+        QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue)
 {
     lock.lockForWrite();
     queue.notEmpty.unlink(notEmpty);
@@ -554,8 +536,7 @@ inline void MultiQueueType<T, EventType, ReadWriteLockType>::removeQueue(QShared
     lock.unlock();
 }
 
-
-template <typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType>
 inline T MultiQueueType<T, EventType, ReadWriteLockType>::wait()
 {
     notEmpty.wait();
@@ -567,13 +548,13 @@ inline T MultiQueueType<T, EventType, ReadWriteLockType>::wait()
         QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue = queues.at(i);
         if (!queue->isEmpty()) {
             result = queue.get();
-//            // let's move the queue to the first
-//            if (i >= 10) {
-//                for (int j = i; j > 0; --j) {
-//                    queues[j] = queues[j - 1];
-//                }
-//                queues[0] = queue;
-//            }
+            //            // let's move the queue to the first
+            //            if (i >= 10) {
+            //                for (int j = i; j > 0; --j) {
+            //                    queues[j] = queues[j - 1];
+            //                }
+            //                queues[0] = queue;
+            //            }
             allEmpty = queue.isEmpty();
             break;
         }
@@ -595,4 +576,4 @@ inline T MultiQueueType<T, EventType, ReadWriteLockType>::wait()
 
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_LOCKS_H
+#endif  // QTNG_LOCKS_H

@@ -128,7 +128,6 @@ set(QTCRYPTONG_INCLUDE
 
 set(QTCRYPTONG_PRIVATE_INCLUDE
     include/private/crypto_p.h
-    include/private/qtng_temp.h
     include/private/qasn1element.h
 )
 

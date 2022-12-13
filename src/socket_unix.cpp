@@ -4,7 +4,7 @@
 #include <errno.h>
 #include "../include/private/socket_p.h"
 #ifdef Q_OS_MACOS
-#define __APPLE_USE_RFC_3542
+#  define __APPLE_USE_RFC_3542
 #endif
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -13,34 +13,34 @@
 #include <netinet/tcp.h>
 
 #ifndef SOCK_NONBLOCK
-# define SOCK_NONBLOCK O_NONBLOCK
+#  define SOCK_NONBLOCK O_NONBLOCK
 #endif
 
 #ifdef Q_OS_UNIX
-    #ifdef Q_OS_ANDROID
-        #include <unistd.h>
-        #if !defined(__LP64__)
-            #define QT_SOCKLEN_T int32_t
-        #else
-            #define QT_SOCKLEN_T socklen_t
-        #endif
-    #elif defined(Q_OS_OPENBSD)
-        #define QT_SOCKLEN_T __socklen_t
-    #else
-        #include <qplatformdefs.h>
-        #ifndef QT_SOCKLEN_T
-            #if defined(__GLIBC__) && (__GLIBC__ < 2)
-                #define QT_SOCKLEN_T int
-            #else
-                #define QT_SOCKLEN_T socklen_t
-            #endif
-        #endif
-    #endif
+#  ifdef Q_OS_ANDROID
+#    include <unistd.h>
+#    if !defined(__LP64__)
+#      define QT_SOCKLEN_T int32_t
+#    else
+#      define QT_SOCKLEN_T socklen_t
+#    endif
+#  elif defined(Q_OS_OPENBSD)
+#    define QT_SOCKLEN_T __socklen_t
+#  else
+#    include <qplatformdefs.h>
+#    ifndef QT_SOCKLEN_T
+#      if defined(__GLIBC__) && (__GLIBC__ < 2)
+#        define QT_SOCKLEN_T int
+#      else
+#        define QT_SOCKLEN_T socklen_t
+#      endif
+#    endif
+#  endif
 #endif
 
 // love linux
 #ifndef MSG_NOSIGNAL
-#define MSG_NOSIGNAL 0
+#  define MSG_NOSIGNAL 0
 #endif
 
 #include "debugger.h"
@@ -79,7 +79,6 @@ static void qt_ignore_sigpipe()
     }
 }
 
-
 static inline void qt_socket_getPortAndAddress(const qt_sockaddr *s, quint16 *port, HostAddress *addr)
 {
     if (s->a.sa_family == AF_INET6) {
@@ -114,17 +113,17 @@ static inline void qt_socket_getPortAndAddress(const qt_sockaddr *s, quint16 *po
 }
 
 #ifdef Q_OS_MAC
-    #ifdef SOCK_CLOEXEC
-        #define CREATE_FLAGS SOCK_CLOEXEC
-    #else
-        #define CREATE_FLAGS 0
-    #endif
+#  ifdef SOCK_CLOEXEC
+#    define CREATE_FLAGS SOCK_CLOEXEC
+#  else
+#    define CREATE_FLAGS 0
+#  endif
 #else
-    #ifdef SOCK_CLOEXEC
-        #define CREATE_FLAGS SOCK_NONBLOCK | SOCK_CLOEXEC
-    #else
-        #define CREATE_FLAGS SOCK_NONBLOCK
-    #endif
+#  ifdef SOCK_CLOEXEC
+#    define CREATE_FLAGS SOCK_NONBLOCK | SOCK_CLOEXEC
+#  else
+#    define CREATE_FLAGS SOCK_NONBLOCK
+#  endif
 #endif
 
 bool SocketPrivate::createSocket()
@@ -143,7 +142,7 @@ bool SocketPrivate::createSocket()
     fd = socket(family, flags, 0);
     if (fd < 0) {
         int ecopy = errno;
-        switch(ecopy) {
+        switch (ecopy) {
         case EPROTONOSUPPORT:
         case EAFNOSUPPORT:
         case EINVAL:
@@ -165,7 +164,7 @@ bool SocketPrivate::createSocket()
         return false;
     }
 #ifdef Q_OS_MAC
-    if(!setNonblocking()) {
+    if (!setNonblocking()) {
         close();
         return false;
     }
@@ -173,35 +172,40 @@ bool SocketPrivate::createSocket()
     return true;
 }
 
-
 inline uint scopeIdFromString(const QString scopeId)
 {
     if (scopeId.isEmpty())
         return 0;
     bool ok;
     uint id = scopeId.toUInt(&ok);
-    if(!ok)
+    if (!ok)
         id = if_nametoindex(scopeId.toLatin1());
     return id;
 }
 
-
 namespace {
 // the sa_len or sin6_len is not always available.
 namespace SetSALen {
-    template <typename T> void set(T *sa, typename QtPrivate::QEnableIf<(&T::sa_len, true), QT_SOCKLEN_T>::Type len)
-    { sa->sa_len = len; }
-    template <typename T> void set(T *sin6, typename QtPrivate::QEnableIf<(&T::sin6_len, true), QT_SOCKLEN_T>::Type len)
-    { sin6->sin6_len = len; }
-    template <typename T> void set(T *, ...) {}
+template<typename T>
+void set(T *sa, typename QtPrivate::QEnableIf<(&T::sa_len, true), QT_SOCKLEN_T>::Type len)
+{
+    sa->sa_len = len;
 }
+template<typename T>
+void set(T *sin6, typename QtPrivate::QEnableIf<(&T::sin6_len, true), QT_SOCKLEN_T>::Type len)
+{
+    sin6->sin6_len = len;
 }
-
+template<typename T>
+void set(T *, ...)
+{
+}
+}  // namespace SetSALen
+}  // namespace
 
 bool SocketPrivate::setPortAndAddress(quint16 port, const HostAddress &address, qt_sockaddr *aa, int *sockAddrSize)
 {
-    if ((address.protocol() == HostAddress::IPv6Protocol
-        || address.protocol() == HostAddress::AnyIPProtocol)
+    if ((address.protocol() == HostAddress::IPv6Protocol || address.protocol() == HostAddress::AnyIPProtocol)
         && protocol == HostAddress::IPv6Protocol) {
         memset(&aa->a6, 0, sizeof(sockaddr_in6));
         aa->a6.sin6_family = AF_INET6;
@@ -212,9 +216,8 @@ bool SocketPrivate::setPortAndAddress(quint16 port, const HostAddress &address, 
         *sockAddrSize = sizeof(sockaddr_in6);
         SetSALen::set(&aa->a, sizeof(sockaddr_in6));
         return true;
-    } else if ((address.protocol() == HostAddress::IPv4Protocol
-                || address.protocol() == HostAddress::AnyIPProtocol)
-               && protocol == HostAddress::IPv4Protocol){
+    } else if ((address.protocol() == HostAddress::IPv4Protocol || address.protocol() == HostAddress::AnyIPProtocol)
+               && protocol == HostAddress::IPv4Protocol) {
         memset(&aa->a, 0, sizeof(sockaddr_in));
         aa->a4.sin_family = AF_INET;
         aa->a4.sin_port = htons(port);
@@ -228,22 +231,20 @@ bool SocketPrivate::setPortAndAddress(quint16 port, const HostAddress &address, 
     }
 }
 
-
 bool SocketPrivate::isValid() const
 {
     if (!checkState()) {
         return false;
     }
     int error = 0;
-    socklen_t len = sizeof (error);
-    int result = getsockopt (fd, SOL_SOCKET, SO_ERROR, &error, &len);
+    socklen_t len = sizeof(error);
+    int result = getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len);
     return result == 0 && error == 0;
 }
 
-
 bool SocketPrivate::bind(const HostAddress &address, quint16 port, Socket::BindMode mode)
 {
-    if (!checkState())  {
+    if (!checkState()) {
         return false;
     }
     if (state != Socket::UnconnectedState) {
@@ -264,8 +265,9 @@ bool SocketPrivate::bind(const HostAddress &address, quint16 port, Socket::BindM
 #ifdef IPV6_V6ONLY
     if (aa.a.sa_family == AF_INET6) {
         int ipv6only = 1;
-        //default value of this socket option varies depending on unix variant (or system configuration on BSD), so always set it explicitly
-        ::setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, static_cast<void*>(&ipv6only), sizeof(ipv6only) );
+        // default value of this socket option varies depending on unix variant (or system configuration on BSD), so
+        // always set it explicitly
+        ::setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, static_cast<void *>(&ipv6only), sizeof(ipv6only));
     }
 #endif
 
@@ -279,8 +281,7 @@ bool SocketPrivate::bind(const HostAddress &address, quint16 port, Socket::BindM
         bindResult = ::bind(fd, &aa.a, sockAddrSize);
     }
     if (bindResult < 0) {
-        switch(errno)
-        {
+        switch (errno) {
         case EADDRINUSE:
             setError(Socket::AddressInUseError, AddressInuseErrorString);
             break;
@@ -291,7 +292,7 @@ bool SocketPrivate::bind(const HostAddress &address, quint16 port, Socket::BindM
             setError(Socket::UnsupportedSocketOperationError, OperationUnsupportedErrorString);
             break;
         case EADDRNOTAVAIL:
-            setError(Socket::SocketAddressNotAvailableError,AddressNotAvailableErrorString);
+            setError(Socket::SocketAddressNotAvailableError, AddressNotAvailableErrorString);
             break;
         default:
             setError(Socket::UnknownSocketError, UnknownSocketErrorString);
@@ -303,10 +304,9 @@ bool SocketPrivate::bind(const HostAddress &address, quint16 port, Socket::BindM
     return true;
 }
 
-
 bool SocketPrivate::connect(const HostAddress &address, quint16 port)
 {
-    //if (!checkState()) { // not require NoError
+    // if (!checkState()) { // not require NoError
     if (fd == 0) {
         return false;
     }
@@ -324,8 +324,9 @@ bool SocketPrivate::connect(const HostAddress &address, quint16 port)
 #ifdef IPV6_V6ONLY
     if (protocol == HostAddress::IPv6Protocol) {
         int ipv6only = 1;
-        //default value of this socket option varies depending on unix variant (or system configuration on BSD), so always set it explicitly
-        ::setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, static_cast<void*>(&ipv6only), sizeof(ipv6only) );
+        // default value of this socket option varies depending on unix variant (or system configuration on BSD), so
+        // always set it explicitly
+        ::setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, static_cast<void *>(&ipv6only), sizeof(ipv6only));
     }
 #endif
     state = Socket::ConnectingState;
@@ -406,7 +407,6 @@ bool SocketPrivate::connect(const HostAddress &address, quint16 port)
     }
 }
 
-
 void SocketPrivate::close()
 {
     if (fd > 0) {
@@ -423,7 +423,6 @@ void SocketPrivate::close()
     peerPort = 0;
 }
 
-
 void SocketPrivate::abort()
 {
     if (fd > 0) {
@@ -437,7 +436,6 @@ void SocketPrivate::abort()
     peerAddress.clear();
     peerPort = 0;
 }
-
 
 bool SocketPrivate::listen(int backlog)
 {
@@ -462,7 +460,6 @@ bool SocketPrivate::listen(int backlog)
     return true;
 }
 
-
 bool SocketPrivate::fetchConnectionParameters()
 {
     localPort = 0;
@@ -482,8 +479,7 @@ bool SocketPrivate::fetchConnectionParameters()
         qt_socket_getPortAndAddress(&sa, &localPort, &localAddress);
 
         // Determine protocol family
-        switch (sa.a.sa_family)
-        {
+        switch (sa.a.sa_family) {
         case AF_INET:
             protocol = HostAddress::IPv4Protocol;
             break;
@@ -519,7 +515,6 @@ bool SocketPrivate::fetchConnectionParameters()
     return true;
 }
 
-
 qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 {
     if (!checkState()) {
@@ -530,7 +525,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
     while (total < size) {
         if (!checkState()) {
             setError(Socket::SocketAccessError, AccessErrorString);
-            return total == 0 ? -1: total;
+            return total == 0 ? -1 : total;
         }
         ssize_t r = 0;
         do {
@@ -540,7 +535,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
         if (r < 0) {
             int e = errno;
             switch (e) {
-#if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
+#if EWOULDBLOCK - 0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
 #endif
             case EAGAIN:
@@ -549,7 +544,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 #if defined(Q_OS_VXWORKS)
             case ESHUTDOWN:
 #endif
-                if(type == Socket::TcpSocket) {
+                if (type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                     abort();
                 }
@@ -581,7 +576,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 
 // openbsd do not support MSG_MORE?
 #ifndef MSG_MORE
-#define MSG_MORE 0
+#  define MSG_MORE 0
 #endif
 
 qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
@@ -598,8 +593,9 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
         }
         ssize_t w;
         do {
-            w = ::send(fd, data + sent, static_cast<size_t>(size - sent), all  && ((size - sent) > 1024 * 4) ? (MSG_MORE |  MSG_NOSIGNAL) : MSG_NOSIGNAL);
-        } while(w < 0 && errno == EINTR);
+            w = ::send(fd, data + sent, static_cast<size_t>(size - sent),
+                       all && ((size - sent) > 1024 * 4) ? (MSG_MORE | MSG_NOSIGNAL) : MSG_NOSIGNAL);
+        } while (w < 0 && errno == EINTR);
         if (w > 0) {
             if (!all) {
                 return static_cast<qint32>(w);
@@ -613,8 +609,8 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
             return sent;
         } else {  // w < 0 || (w == 0 && type != Socket::TcpSocket)
             int e = errno;
-            switch(e) {
-#if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
+            switch (e) {
+#if EWOULDBLOCK - 0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
 #endif
             case EAGAIN:
@@ -661,7 +657,6 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
     return sent;
 }
 
-
 qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, HostAddress *addr, quint16 *port)
 {
     if (!checkState()) {
@@ -687,7 +682,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, HostAddress *addr, qu
     ssize_t recvResult = 0;
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     while (true) {
-        if (!checkState()){
+        if (!checkState()) {
             setError(Socket::SocketAccessError, AccessErrorString);
             return -1;
         }
@@ -698,13 +693,13 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, HostAddress *addr, qu
         if (recvResult < 0) {
             int e = errno;
             switch (e) {
-#if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
+#if EWOULDBLOCK - 0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
 #endif
             case EAGAIN:
                 break;
             case ECONNRESET:
-                if(type == Socket::TcpSocket) {
+                if (type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                     abort();
                     return -1;
@@ -716,7 +711,7 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, HostAddress *addr, qu
 #if defined(Q_OS_VXWORKS)
             case ESHUTDOWN:
 #endif
-                if(type == Socket::TcpSocket) {
+                if (type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                     abort();
                 }
@@ -734,15 +729,14 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, HostAddress *addr, qu
                 abort();
                 return -1;
             }
-        } else{
+        } else {
             qt_socket_getPortAndAddress(&aa, port, addr);
-            //return qint64(maxSize ? recvResult : recvResult == -1 ? -1 : 0);
+            // return qint64(maxSize ? recvResult : recvResult == -1 ? -1 : 0);
             return static_cast<qint32>(recvResult);
         }
         watcher.start();
     }
 }
-
 
 qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &addr, quint16 port)
 {
@@ -778,13 +772,12 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &a
         }
         do {
             sentBytes = ::sendmsg(fd, &msg, MSG_NOSIGNAL);
-        } while(sentBytes == -1 && error == EINTR);
+        } while (sentBytes == -1 && error == EINTR);
 
         if (sentBytes < 0) {
             int e = errno;
-            switch(e)
-            {
-#if EWOULDBLOCK-0 && EWOULDBLOCK != EAGAIN
+            switch (e) {
+#if EWOULDBLOCK - 0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
 #endif
             case EAGAIN:
@@ -798,15 +791,15 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &a
             case EPIPE:
             case ECONNRESET:
             case ENOTSOCK:
-                if(type == Socket::TcpSocket) {
+                if (type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                     abort();
                 }
                 return -1;
-            case EDESTADDRREQ: // not happen in sendto()
-            case EISCONN: // happens in udp socket
-            case ENOTCONN: // happens in tcp socket
-                setError(Socket::UnsupportedSocketOperationError,InvalidSocketErrorString);
+            case EDESTADDRREQ:  // not happen in sendto()
+            case EISCONN:  // happens in udp socket
+            case ENOTCONN:  // happens in tcp socket
+                setError(Socket::UnsupportedSocketOperationError, InvalidSocketErrorString);
                 return -1;
             case ENOBUFS:
             case ENOMEM:
@@ -818,7 +811,7 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &a
                 setError(Socket::NetworkError, InvalidSocketErrorString);
                 return -1;
             }
-        } else { // sentBytes == 0 || sentBytes > 0
+        } else {  // sentBytes == 0 || sentBytes > 0
             if (type == Socket::UdpSocket && !localPort && localAddress.isNull()) {
                 fetchConnectionParameters();
             }
@@ -828,12 +821,11 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &a
     }
 }
 
-
-static void convertToLevelAndOption(Socket::SocketOption opt,
-                                    HostAddress::NetworkLayerProtocol socketProtocol, int *level, int *n)
+static void convertToLevelAndOption(Socket::SocketOption opt, HostAddress::NetworkLayerProtocol socketProtocol,
+                                    int *level, int *n)
 {
     *n = -1;
-    *level = SOL_SOCKET; // default
+    *level = SOL_SOCKET;  // default
 
     switch (opt) {
     case Socket::BroadcastSocketOption:
@@ -902,7 +894,7 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
             *level = IPPROTO_IPV6;
             *n = IPV6_RECVHOPLIMIT;
         } else {
-#ifdef IP_RECVTTL               // IP_RECVTTL is a non-standard extension supported on some OS
+#ifdef IP_RECVTTL  // IP_RECVTTL is a non-standard extension supported on some OS
             *level = IPPROTO_IP;
             *n = IP_RECVTTL;
 #endif
@@ -928,7 +920,6 @@ static void convertToLevelAndOption(Socket::SocketOption opt,
         Q_UNREACHABLE();
     }
 }
-
 
 QVariant SocketPrivate::option(Socket::SocketOption option) const
 {
@@ -963,12 +954,11 @@ QVariant SocketPrivate::option(Socket::SocketOption option) const
     int v = -1;
     QT_SOCKLEN_T len = sizeof(v);
     convertToLevelAndOption(option, protocol, &level, &n);
-    if (n != -1 && ::getsockopt(fd, level, n, reinterpret_cast<char*>(&v), &len) != -1) {
+    if (n != -1 && ::getsockopt(fd, level, n, reinterpret_cast<char *>(&v), &len) != -1) {
         return QVariant(v);
     }
     return QVariant();
 }
-
 
 bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value)
 {
@@ -1003,9 +993,8 @@ bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value
             n = SO_REUSEPORT;
     }
 #endif
-    return ::setsockopt(fd, level, n, reinterpret_cast<char*>(&v), sizeof(v)) == 0;
+    return ::setsockopt(fd, level, n, reinterpret_cast<char *>(&v), sizeof(v)) == 0;
 }
-
 
 bool SocketPrivate::setNonblocking()
 {
@@ -1017,15 +1006,14 @@ bool SocketPrivate::setNonblocking()
     if (::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
         return false;
     }
-#else // Q_OS_VXWORKS
+#else  // Q_OS_VXWORKS
     int onoff = 1;
-    if (::ioctl(fd, FIONBIO, (int)&onoff) < 0) {
+    if (::ioctl(fd, FIONBIO, (int) &onoff) < 0) {
         return false;
     }
-#endif // Q_OS_VXWORKS
+#endif  // Q_OS_VXWORKS
     return true;
 }
-
 
 static bool multicastMembershipHelper(SocketPrivate *d, int how6, int how4, const HostAddress &groupAddress,
                                       const NetworkInterface &interface)
@@ -1097,7 +1085,6 @@ static bool multicastMembershipHelper(SocketPrivate *d, int how6, int how4, cons
     return true;
 }
 
-
 bool SocketPrivate::joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
 {
     if (!checkState()) {
@@ -1123,7 +1110,6 @@ bool SocketPrivate::joinMulticastGroup(const HostAddress &groupAddress, const Ne
     return multicastMembershipHelper(this, IPV6_JOIN_GROUP, IP_ADD_MEMBERSHIP, groupAddress, iface);
 }
 
-
 bool SocketPrivate::leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
 {
     if (!checkState()) {
@@ -1147,7 +1133,6 @@ bool SocketPrivate::leaveMulticastGroup(const HostAddress &groupAddress, const N
     }
     return multicastMembershipHelper(this, IPV6_LEAVE_GROUP, IP_DROP_MEMBERSHIP, groupAddress, iface);
 }
-
 
 NetworkInterface SocketPrivate::multicastInterface() const
 {
@@ -1192,7 +1177,6 @@ NetworkInterface SocketPrivate::multicastInterface() const
     return NetworkInterface();
 }
 
-
 bool SocketPrivate::setMulticastInterface(const NetworkInterface &iface)
 {
     if (!checkState()) {
@@ -1230,7 +1214,6 @@ bool SocketPrivate::setMulticastInterface(const NetworkInterface &iface)
     return (::setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &v, sizeof(v)) != -1);
 }
 
-
 // Tru64 redefines accept -> _accept with _XOPEN_SOURCE_EXTENDED
 static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrlen, int flags = 0)
 {
@@ -1242,11 +1225,11 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrle
     int sockflags = SOCK_CLOEXEC;
     if (flags & O_NONBLOCK)
         sockflags |= SOCK_NONBLOCK;
-# if defined(Q_OS_NETBSD)
+#  if defined(Q_OS_NETBSD)
     fd = ::paccept(s, addr, static_cast<QT_SOCKLEN_T *>(addrlen), NULL, sockflags);
-# else
+#  else
     fd = ::accept4(s, addr, static_cast<QT_SOCKLEN_T *>(addrlen), sockflags);
-# endif
+#  endif
 #else
     fd = ::accept(s, addr, addrlen);
     if (fd < 0)
@@ -1260,7 +1243,6 @@ static inline int qt_safe_accept(int s, struct sockaddr *addr, socklen_t *addrle
 #endif
     return fd;
 }
-
 
 Socket *SocketPrivate::accept()
 {
@@ -1324,6 +1306,5 @@ Socket *SocketPrivate::accept()
         watcher.start();
     }
 }
-
 
 QTNETWORKNG_NAMESPACE_END

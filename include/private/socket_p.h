@@ -58,7 +58,10 @@ public:
     QString getErrorString() const;
     void setError(Socket::SocketError error, const QString &errorString);
     void setError(Socket::SocketError error, ErrorString errorString);
-    bool checkState() const { return fd > 0 && (error == Socket::NoError || type != Socket::TcpSocket); } // not very accurate
+    bool checkState() const
+    {
+        return fd > 0 && (error == Socket::NoError || type != Socket::TcpSocket);
+    }  // not very accurate
     bool isValid() const;
 
     Socket *accept();
@@ -109,7 +112,6 @@ public:
     Q_DECLARE_PUBLIC(Socket)
 };
 
-
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_SOCKET_P_H
+#endif  // QTNG_SOCKET_P_H

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "../include/httpd.h"
 #ifdef QTNG_HAVE_ZLIB
-#include "../include/gzip.h"
+#  include "../include/gzip.h"
 #endif
 #include "debugger.h"
 
@@ -10,25 +10,23 @@ QTNG_LOGGER("qtng.httpd")
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-
-static const QString DEFAULT_ERROR_MESSAGE = QString::fromLatin1("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\"\n"
-                                     "        \"http://www.w3.org/TR/html4/strict.dtd\">\n<html>\n"
-                                     "    <head>\n"
-                                     "        <meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\">\n"
-                                     "        <title>Error response</title>\n"
-                                     "    </head>\n"
-                                     "    <body>\n"
-                                     "        <h1>Error response</h1>\n"
-                                     "        <p>Error code: %1</p>\n"
-                                     "        <p>Message: %2.</p>\n"
-                                     "        <p>Error code explanation: %1 - %3.</p>\n"
-                                     "    </body>\n"
-                                     "</html>\n");
+static const QString DEFAULT_ERROR_MESSAGE =
+        QString::fromLatin1("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\"\n"
+                            "        \"http://www.w3.org/TR/html4/strict.dtd\">\n<html>\n"
+                            "    <head>\n"
+                            "        <meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\">\n"
+                            "        <title>Error response</title>\n"
+                            "    </head>\n"
+                            "    <body>\n"
+                            "        <h1>Error response</h1>\n"
+                            "        <p>Error code: %1</p>\n"
+                            "        <p>Message: %2.</p>\n"
+                            "        <p>Error code explanation: %1 - %3.</p>\n"
+                            "    </body>\n"
+                            "</html>\n");
 static const QString DEFAULT_ERROR_CONTENT_TYPE = QString::fromLatin1("text/html;charset=utf-8");
 
-
 //#define DEBUG_HTTP_PROTOCOL 1
-
 
 BaseHttpRequestHandler::BaseHttpRequestHandler()
     : version(Http1_1)
@@ -39,7 +37,6 @@ BaseHttpRequestHandler::BaseHttpRequestHandler()
 {
 }
 
-
 void BaseHttpRequestHandler::handle()
 {
     do {
@@ -49,7 +46,6 @@ void BaseHttpRequestHandler::handle()
     // do not close the request, because it can be keep by other module.
 }
 
-
 void BaseHttpRequestHandler::handleOneRequest()
 {
     try {
@@ -58,20 +54,18 @@ void BaseHttpRequestHandler::handleOneRequest()
             return;
         }
         doMethod();
-    }  catch (TimeoutException &) {
+    } catch (TimeoutException &) {
         QLatin1String message("HTTP request handler is timeout.");
         logError(HttpStatus::Gone, message, message);
         closeConnection = Yes;
     }
 }
 
-
 QString BaseHttpRequestHandler::normalizePath(const QString &path)
 {
     QUrl url = QUrl::fromEncoded(path.toLatin1(), QUrl::StrictMode);
     return url.toString(QUrl::NormalizePathSegments);
 }
-
 
 bool BaseHttpRequestHandler::parseRequest()
 {
@@ -101,7 +95,7 @@ bool BaseHttpRequestHandler::parseRequest()
         const QString &versionStr = words.at(2);
         if (versionStr == QLatin1String("HTTP/1.0")) {
             version = Http1_0;
-        } else if(versionStr == QLatin1String("HTTP/1.1")) {
+        } else if (versionStr == QLatin1String("HTTP/1.1")) {
             version = Http1_1;
         } else {
             sendError(HttpStatus::BadRequest, QString::fromLatin1("Bad request version (%1").arg(versionStr));
@@ -142,7 +136,7 @@ bool BaseHttpRequestHandler::parseRequest()
     }
     setHeaders(headers);
 #ifdef DEBUG_HTTP_PROTOCOL
-    for (const HttpHeader &header: headers) {
+    for (const HttpHeader &header : headers) {
         qtng_debug << "header(" << header.name << ") = " << header.value;
     }
 #endif
@@ -158,13 +152,11 @@ bool BaseHttpRequestHandler::parseRequest()
     return true;
 }
 
-
 QByteArray BaseHttpRequestHandler::tryToHandleMagicCode(bool &done)
 {
     done = false;
     return QByteArray();
 }
-
 
 void BaseHttpRequestHandler::doMethod()
 {
@@ -247,7 +239,6 @@ void BaseHttpRequestHandler::doCONNECT()
     sendError(HttpStatus::NotImplemented, QString::fromLatin1("Unsupported method %1").arg(method));
 }
 
-
 bool BaseHttpRequestHandler::sendError(HttpStatus status, const QString &message)
 {
     QString shortMessage, longMessage;
@@ -263,7 +254,8 @@ bool BaseHttpRequestHandler::sendError(HttpStatus status, const QString &message
     sendHeader("Server", serverName().toUtf8());
     sendHeader("Date", dateTimeString().toUtf8());
     QByteArray body;
-    if (status >= 200 && status != HttpStatus::NoContent && status != HttpStatus::ResetContent && status != HttpStatus::NotModified) {
+    if (status >= 200 && status != HttpStatus::NoContent && status != HttpStatus::ResetContent
+        && status != HttpStatus::NotModified) {
         const QString &html = errorMessage(status, shortMessage, longMessage);
         body = html.toUtf8();
         sendHeader("Content-Length", QByteArray::number(body.size()));
@@ -277,7 +269,6 @@ bool BaseHttpRequestHandler::sendError(HttpStatus status, const QString &message
     }
     return true;
 }
-
 
 bool BaseHttpRequestHandler::sendResponse(HttpStatus status, const QString &message)
 {
@@ -296,18 +287,15 @@ bool BaseHttpRequestHandler::sendResponse(HttpStatus status, const QString &mess
     return true;
 }
 
-
 QString BaseHttpRequestHandler::errorMessage(HttpStatus status, const QString &shortMessage, const QString &longMessage)
 {
     return DEFAULT_ERROR_MESSAGE.arg(static_cast<int>(status)).arg(shortMessage).arg(longMessage);
 }
 
-
 QString BaseHttpRequestHandler::errorMessageContentType()
 {
     return DEFAULT_ERROR_CONTENT_TYPE;
 }
-
 
 void BaseHttpRequestHandler::sendCommandLine(HttpStatus status, const QString &shortMessage)
 {
@@ -317,10 +305,10 @@ void BaseHttpRequestHandler::sendCommandLine(HttpStatus status, const QString &s
     } else {
         versionStr = QString::fromLatin1("HTTP/1.1");
     }
-    const QString &firstLine = QString::fromLatin1("%1 %2 %3\r\n").arg(versionStr).arg(static_cast<int>(status)).arg(shortMessage);
+    const QString &firstLine =
+            QString::fromLatin1("%1 %2 %3\r\n").arg(versionStr).arg(static_cast<int>(status)).arg(shortMessage);
     headerCache.prepend(firstLine.toUtf8());
 }
-
 
 void BaseHttpRequestHandler::sendHeader(const QByteArray &name, const QByteArray &value)
 {
@@ -337,21 +325,22 @@ void BaseHttpRequestHandler::sendHeader(const QByteArray &name, const QByteArray
     }
 }
 
-
 #if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
-    inline static QByteArray join(const QByteArrayList &lines) { return lines.join(); }
+inline static QByteArray join(const QByteArrayList &lines)
+{
+    return lines.join();
+}
 #else
-    inline static QByteArray join(const QList<QByteArray> &lines)
-    {
-        QByteArray buf;
-        buf.reserve(1024 * 4 - 1);
-        for (const QByteArray &line: lines) {
-            buf.append(line);
-        }
-        return buf;
+inline static QByteArray join(const QList<QByteArray> &lines)
+{
+    QByteArray buf;
+    buf.reserve(1024 * 4 - 1);
+    for (const QByteArray &line : lines) {
+        buf.append(line);
     }
+    return buf;
+}
 #endif
-
 
 bool BaseHttpRequestHandler::endHeader()
 {
@@ -364,7 +353,6 @@ bool BaseHttpRequestHandler::endHeader()
     headerCache.clear();
     return request->sendall(data) == data.size();
 }
-
 
 QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding)
 {
@@ -380,7 +368,7 @@ QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding
             if (body.size() > contentLength) {
                 qtng_warning << "request body got too much bytes.";
                 bodyFile = FileLike::bytes(body);
-            } else if (body.size() < contentLength){
+            } else if (body.size() < contentLength) {
                 bodyFile = QSharedPointer<PlainBodyFile>::create(contentLength, body, request);
             } else {
                 bodyFile = FileLike::bytes(body);
@@ -404,12 +392,12 @@ QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding
         const QByteArray &contentEncodingHeader = header(QString::fromLatin1("Content-Encoding"));
         const QByteArray &transferEncodingHeader = header(QString::fromLatin1("Transfer-Encoding"));
 #ifdef QTNG_HAVE_ZLIB
-        if (contentEncodingHeader.toLower() == QByteArray("gzip") ||
-                contentEncodingHeader.toLower() == QByteArray("deflate")) {
+        if (contentEncodingHeader.toLower() == QByteArray("gzip")
+            || contentEncodingHeader.toLower() == QByteArray("deflate")) {
             removeHeader(QString::fromLatin1("Content-Encoding"));
             bodyFile = QSharedPointer<GzipDecompressFile>::create(bodyFile);
-        } else if (transferEncodingHeader.toLower() == QByteArray("gzip") ||
-                   transferEncodingHeader.toLower() == QByteArray("deflate")) {
+        } else if (transferEncodingHeader.toLower() == QByteArray("gzip")
+                   || transferEncodingHeader.toLower() == QByteArray("deflate")) {
             removeHeader(QString::fromLatin1("Transfer-Encoding"));
             bodyFile = QSharedPointer<GzipDecompressFile>::create(bodyFile);
         } else if (transferEncodingHeader.toLower() == QByteArray("qt")) {
@@ -424,14 +412,13 @@ QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding
             bodyFile = FileLike::bytes(decompBody);
         } else
 #endif
-        if (!contentEncodingHeader.isEmpty() || !transferEncodingHeader.isEmpty()){
+                if (!contentEncodingHeader.isEmpty() || !transferEncodingHeader.isEmpty()) {
             qtng_warning << "unsupported content encoding." << contentEncodingHeader << transferEncodingHeader;
             closeConnection = Yes;
         }
     }
     return bodyFile;
 }
-
 
 bool BaseHttpRequestHandler::readBody()
 {
@@ -444,37 +431,38 @@ bool BaseHttpRequestHandler::readBody()
     return ok;
 }
 
-
 QString BaseHttpRequestHandler::serverName()
 {
     return QString::fromLatin1("QtNetworkNg");
 }
-
 
 QString BaseHttpRequestHandler::dateTimeString()
 {
     return QString::fromLatin1(toHttpDate(QDateTime::currentDateTimeUtc()));
 }
 
-
 void BaseHttpRequestHandler::logRequest(HttpStatus status, int bodySize)
 {
     QString msg = QString::fromLatin1("%1 %2 %3 %4").arg(method).arg(path).arg(static_cast<int>(status)).arg(bodySize);
-    msg = QString::fromLatin1("%1 -- %2 %3").arg(request->peerAddress().toString()).arg(QDateTime::currentDateTime().toString(Qt::ISODate)).arg(msg);
+    msg = QString::fromLatin1("%1 -- %2 %3")
+                  .arg(request->peerAddress().toString())
+                  .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
+                  .arg(msg);
     printf("%s\n", qPrintable(msg));
 }
-
 
 void BaseHttpRequestHandler::logError(HttpStatus status, const QString &shortMessage, const QString &)
 {
-    QString msg = QString::fromLatin1("%1 %2 %3 %4").arg(method).arg(path).arg(static_cast<int>(status)).arg(shortMessage);
-    msg = QString::fromLatin1("%1 -- %2 %3").arg(request->peerAddress().toString()).arg(QDateTime::currentDateTime().toString(Qt::ISODate)).arg(msg);
+    QString msg =
+            QString::fromLatin1("%1 %2 %3 %4").arg(method).arg(path).arg(static_cast<int>(status)).arg(shortMessage);
+    msg = QString::fromLatin1("%1 -- %2 %3")
+                  .arg(request->peerAddress().toString())
+                  .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
+                  .arg(msg);
     printf("%s\n", qPrintable(msg));
 }
 
-
 Q_GLOBAL_STATIC(QMimeDatabase, mimeDatabase);
-
 
 QSharedPointer<FileLike> StaticHttpRequestHandler::serveStaticFiles(const QDir &dir, const QString &subPath)
 {
@@ -548,19 +536,19 @@ QSharedPointer<FileLike> StaticHttpRequestHandler::serveStaticFiles(const QDir &
     return FileLike::rawFile(f);
 }
 
-
 QSharedPointer<FileLike> StaticHttpRequestHandler::listDirectory(const QDir &dir, const QString &displayDir)
 {
     const QFileInfoList &list = dir.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
     const QString &title = QString::fromLatin1("Directory listing for ") + displayDir;
     QStringList html;
-    html.append(QString::fromLatin1("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">"));
+    html.append(QString::fromLatin1(
+            "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">"));
     html.append(QString::fromLatin1("<html>\n<head>"));
     html.append(QString::fromLatin1("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">"));
     html.append(QString::fromLatin1("<title>%1</title>\n</head>").arg(title));
     html.append(QString::fromLatin1("<body>\n<h1>%1</h1>").arg(title));
     html.append(QString::fromLatin1("<hr>\n<ul>"));
-    for (const QFileInfo &entry: list) {
+    for (const QFileInfo &entry : list) {
         QString name = entry.fileName();
         QString link = entry.fileName();
         if (entry.isDir()) {
@@ -586,12 +574,10 @@ QSharedPointer<FileLike> StaticHttpRequestHandler::listDirectory(const QDir &dir
     return FileLike::bytes(data);
 }
 
-
 bool StaticHttpRequestHandler::loadMissingFile(const QFileInfo &)
 {
     return false;
 }
-
 
 QFileInfo StaticHttpRequestHandler::getIndexFile(const QDir &dir)
 {
@@ -604,7 +590,6 @@ QFileInfo StaticHttpRequestHandler::getIndexFile(const QDir &dir)
     }
 }
 
-
 void SimpleHttpRequestHandler::doGET()
 {
     QSharedPointer<FileLike> f = serveStaticFiles(rootDir, path);
@@ -616,7 +601,6 @@ void SimpleHttpRequestHandler::doGET()
     }
 }
 
-
 void SimpleHttpRequestHandler::doHEAD()
 {
     QSharedPointer<FileLike> f = serveStaticFiles(rootDir, path);
@@ -624,6 +608,5 @@ void SimpleHttpRequestHandler::doHEAD()
         f->close();
     }
 }
-
 
 QTNETWORKNG_NAMESPACE_END

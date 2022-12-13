@@ -12,8 +12,7 @@ enum EncodingFormat {
     Der = 1,
 };
 
-enum SslProtocol
-{
+enum SslProtocol {
     UnknownProtocol = -1,
     SslV3 = 0,
     SslV2 = 1,
@@ -30,8 +29,7 @@ enum SslProtocol
     SecureProtocols,
 };
 
-enum SslOption
-{
+enum SslOption {
     SslOptionDisableEmptyFragments = 0x01,
     SslOptionDisableSessionTickets = 0x02,
     SslOptionDisableCompression = 0x04,
@@ -43,18 +41,17 @@ enum SslOption
 };
 Q_DECLARE_FLAGS(SslOptions, SslOption);
 
-enum PeerVerifyMode
-{
+enum PeerVerifyMode {
     VerifyNone = 0,
     QueryPeer = 1,
     VerifyPeer = 2,
     AutoVerifyPeer = 3,
 };
-}
+}  // namespace Ssl
 
 void initOpenSSL();
 void cleanupOpenSSL();
 
 QTNETWORKNG_NAMESPACE_END
 
-#endif //QTNG_CRYPTO_H
+#endif  // QTNG_CRYPTO_H

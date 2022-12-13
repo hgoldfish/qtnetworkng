@@ -7,11 +7,10 @@
 #include <QtCore/qpointer.h>
 #include "coroutine.h"
 
-
 QTNETWORKNG_NAMESPACE_BEGIN
 
 class CoroutinePrivate;
-class Coroutine: public BaseCoroutine
+class Coroutine : public BaseCoroutine
 {
     Q_DISABLE_COPY(Coroutine)
 public:
@@ -37,8 +36,7 @@ private:
     Q_DECLARE_PRIVATE(Coroutine)
 };
 
-
-class TimeoutException: public CoroutineException
+class TimeoutException : public CoroutineException
 {
 public:
     explicit TimeoutException();
@@ -47,11 +45,11 @@ public:
     virtual CoroutineException *clone() const override;
 };
 
-class Timeout: public QObject
+class Timeout : public QObject
 {
 public:
     Timeout(float secs);
-    Timeout(quint32 msecs, int); // the second parameter is not used.
+    Timeout(quint32 msecs, int);  // the second parameter is not used.
     ~Timeout();
 public:
     void restart();
@@ -60,10 +58,9 @@ private:
     int timeoutId;
 };
 
-
 // useful for qt application.
 int startQtLoop();
 
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_EVENTLOOP_H
+#endif  // QTNG_EVENTLOOP_H

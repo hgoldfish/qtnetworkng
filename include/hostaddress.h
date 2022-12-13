@@ -7,17 +7,17 @@
 #include "config.h"
 
 #ifdef QT_NETWORK_LIB
-#include <QtNetwork/qhostaddress.h>
+#  include <QtNetwork/qhostaddress.h>
 #endif
 
 struct sockaddr;
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-struct  IPv6Address
+struct IPv6Address
 {
-    inline quint8 &operator [](int index) { return c[index]; }
-    inline quint8 operator [](int index) const { return c[index]; }
+    inline quint8 &operator[](int index) { return c[index]; }
+    inline quint8 operator[](int index) const { return c[index]; }
     quint8 c[16];
 };
 
@@ -32,15 +32,7 @@ class HostAddressPrivate;
 class HostAddress
 {
 public:
-    enum SpecialAddress {
-        Null,
-        Broadcast,
-        LocalHost,
-        LocalHostIPv6,
-        Any,
-        AnyIPv6,
-        AnyIPv4
-    };
+    enum SpecialAddress { Null, Broadcast, LocalHost, LocalHostIPv6, Any, AnyIPv6, AnyIPv4 };
     enum NetworkLayerProtocol {
         IPv4Protocol = 1,
         IPv6Protocol = 2,
@@ -58,10 +50,9 @@ public:
         StrictConversion = 0
     };
     Q_DECLARE_FLAGS(ConversionMode, ConversionModeFlag)
-
 public:
     HostAddress();
-    HostAddress(const HostAddress& copy);
+    HostAddress(const HostAddress &copy);
     HostAddress(SpecialAddress address);
     HostAddress(const QString &address);
     HostAddress(quint32 ip4Addr);
@@ -70,7 +61,7 @@ public:
     HostAddress(const IPv6Address &ip6Addr);
     HostAddress(const sockaddr *sockaddr);
 #ifdef QT_NETWORK_LIB
-    HostAddress(const QHostAddress& address)
+    HostAddress(const QHostAddress &address)
         : HostAddress()
     {
         if (address.protocol() == QAbstractSocket::IPv4Protocol) {
@@ -89,29 +80,33 @@ public:
     {
         setAddress(ip6Addr.c);
     }
-    operator QHostAddress () const { return protocol() == IPv4Protocol ? QHostAddress(toIPv4Address()) : QHostAddress(toIPv6Address().c); }
+    operator QHostAddress() const
+    {
+        return protocol() == IPv4Protocol ? QHostAddress(toIPv4Address()) : QHostAddress(toIPv6Address().c);
+    }
 #endif
     ~HostAddress();
 
     HostAddress &operator=(HostAddress &&other) Q_DECL_NOEXCEPT
-    { swap(other); return *this; }
+    {
+        swap(other);
+        return *this;
+    }
     HostAddress &operator=(const HostAddress &other);
     HostAddress &operator=(SpecialAddress address);
 
     bool isEqual(const HostAddress &address, ConversionMode mode = TolerantConversion) const;
-    bool operator ==(const HostAddress &address) const;
-    bool operator ==(SpecialAddress address) const;
-    inline bool operator !=(const HostAddress &address) const
-    { return !operator==(address); }
-    inline bool operator !=(SpecialAddress address) const
-    { return !operator==(address); }
+    bool operator==(const HostAddress &address) const;
+    bool operator==(SpecialAddress address) const;
+    inline bool operator!=(const HostAddress &address) const { return !operator==(address); }
+    inline bool operator!=(SpecialAddress address) const { return !operator==(address); }
 
     void swap(HostAddress &other) Q_DECL_NOEXCEPT;
     void clear();
 public:
     void setAddress(const IPv4Address ipv4);
     void setAddress(const IPv6Address &ipv6);
-    void setAddress(const quint8* ipv6);
+    void setAddress(const quint8 *ipv6);
     bool setAddress(const QString &ipString);
     void setAddress(SpecialAddress address);
 
@@ -140,7 +135,6 @@ public:
     static QList<HostAddress> getHostAddressByName(const QString &hostName);
 
     friend uint qHash(const HostAddress &key, uint seed) noexcept;
-
 private:
     friend class HostAddressPrivate;
     QExplicitlySharedDataPointer<HostAddressPrivate> d;
@@ -158,5 +152,4 @@ QT_END_NAMESPACE
 // Q_DECLARE_SHARED(QTNETWORKNG_NAMESPACE::HostAddress);
 Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::HostAddress)
 
-
-#endif // QTNG_HOSTADDRESS_H
+#endif  // QTNG_HOSTADDRESS_H

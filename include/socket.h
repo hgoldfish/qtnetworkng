@@ -10,8 +10,8 @@
 #include "private/eventloop_p.h"
 #include "locks.h"
 
-#ifdef fileno // android define fileno() function as macro
-#undef fileno
+#ifdef fileno  // android define fileno() function as macro
+#  undef fileno
 #endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -75,33 +75,29 @@ public:
     };
     Q_ENUMS(SocketState)
     enum SocketOption {
-        BroadcastSocketOption = 1,              // SO_BROADCAST
-        AddressReusable = 2,                    // SO_REUSEADDR
-        ReceiveOutOfBandData = 3,               // SO_OOBINLINE
-        ReceivePacketInformation = 4,           // IP_PKTINFO
-        ReceiveHopLimit = 5,                    // IP_RECVTTL
-        LowDelayOption = 6,                     // TCP_NODELAY
-        KeepAliveOption = 7,                    // SO_KEEPALIVE
-        MulticastTtlOption = 8,                 // IP_MULTICAST_TTL
-        MulticastLoopbackOption = 9,            // IP_MULTICAST_LOOPBACK
-        TypeOfServiceOption = 10,               // IP_TOS
-        SendBufferSizeSocketOption = 11,        // SO_SNDBUF
-        ReceiveBufferSizeSocketOption = 12,     // SO_RCVBUF
-        MaxStreamsSocketOption = 13,            // for sctp
+        BroadcastSocketOption = 1,  // SO_BROADCAST
+        AddressReusable = 2,  // SO_REUSEADDR
+        ReceiveOutOfBandData = 3,  // SO_OOBINLINE
+        ReceivePacketInformation = 4,  // IP_PKTINFO
+        ReceiveHopLimit = 5,  // IP_RECVTTL
+        LowDelayOption = 6,  // TCP_NODELAY
+        KeepAliveOption = 7,  // SO_KEEPALIVE
+        MulticastTtlOption = 8,  // IP_MULTICAST_TTL
+        MulticastLoopbackOption = 9,  // IP_MULTICAST_LOOPBACK
+        TypeOfServiceOption = 10,  // IP_TOS
+        SendBufferSizeSocketOption = 11,  // SO_SNDBUF
+        ReceiveBufferSizeSocketOption = 12,  // SO_RCVBUF
+        MaxStreamsSocketOption = 13,  // for sctp
         NonBlockingSocketOption = 14,
         BindExclusively = 15,
         PathMtuSocketOption = 16
     };
     Q_ENUMS(SocketOption)
-    enum BindFlag {
-        DefaultForPlatform = 0x0,
-        ShareAddress = 0x1,
-        DontShareAddress = 0x2,
-        ReuseAddressHint = 0x4
-    };
+    enum BindFlag { DefaultForPlatform = 0x0, ShareAddress = 0x1, DontShareAddress = 0x2, ReuseAddressHint = 0x4 };
     Q_DECLARE_FLAGS(BindMode, BindFlag)
 public:
-    explicit Socket(HostAddress::NetworkLayerProtocol protocol = HostAddress::IPv4Protocol, SocketType type = TcpSocket);
+    explicit Socket(HostAddress::NetworkLayerProtocol protocol = HostAddress::IPv4Protocol,
+                    SocketType type = TcpSocket);
     explicit Socket(qintptr socketDescriptor);
     virtual ~Socket();
 public:
@@ -124,7 +120,8 @@ public:
     bool bind(const HostAddress &address, quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool bind(quint16 port = 0, BindMode mode = DefaultForPlatform);
     bool connect(const HostAddress &host, quint16 port);
-    bool connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>());
+    bool connect(const QString &hostName, quint16 port,
+                 QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>());
     void close();
     void abort();
     bool listen(int backlog);
@@ -152,10 +149,10 @@ public:
 
     static QList<HostAddress> resolve(const QString &hostName);
     static Socket *createConnection(const HostAddress &host, quint16 port, Socket::SocketError *error = nullptr,
-                                  int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
+                                    int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
     static Socket *createConnection(const QString &hostName, quint16 port, Socket::SocketError *error = nullptr,
-                                  QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>(),
-                                  int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
+                                    QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>(),
+                                    int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol);
     static Socket *createServer(const HostAddress &host, quint16 port, int backlog = 50);
 private:
     SocketPrivate * const d_ptr;
@@ -169,8 +166,7 @@ class PollPrivate;
 class Poll
 {
 public:
-    enum EventType
-    {
+    enum EventType {
         Read = EventLoopCoroutine::Read,
         ReadWrite = EventLoopCoroutine::ReadWrite,
         Write = EventLoopCoroutine::Write,
@@ -203,10 +199,9 @@ private:
     Q_DECLARE_PRIVATE(SocketDnsCache)
 };
 
-
 template<typename SocketType>
-SocketType *createConnection(const HostAddress &addr, quint16 port, Socket::SocketError *error,
-                             int allowProtocol, std::function<SocketType*(HostAddress::NetworkLayerProtocol)> func)
+SocketType *createConnection(const HostAddress &addr, quint16 port, Socket::SocketError *error, int allowProtocol,
+                             std::function<SocketType *(HostAddress::NetworkLayerProtocol)> func)
 {
     QScopedPointer<SocketType> socket;
     if (addr.isNull() || port == 0) {
@@ -234,11 +229,10 @@ SocketType *createConnection(const HostAddress &addr, quint16 port, Socket::Sock
     return nullptr;
 }
 
-
 template<typename SocketType>
 SocketType *createConnection(const QString &hostName, quint16 port, Socket::SocketError *error,
-                           QSharedPointer<SocketDnsCache> dnsCache, int allowProtocol,
-                           std::function<SocketType*(HostAddress::NetworkLayerProtocol)> func)
+                             QSharedPointer<SocketDnsCache> dnsCache, int allowProtocol,
+                             std::function<SocketType *(HostAddress::NetworkLayerProtocol)> func)
 {
     QList<HostAddress> addresses;
     HostAddress t;
@@ -271,10 +265,9 @@ SocketType *createConnection(const QString &hostName, quint16 port, Socket::Sock
     return nullptr;
 }
 
-
 template<typename SocketType>
 SocketType *createServer(const HostAddress &host, quint16 port, int backlog,
-                         std::function<SocketType*(HostAddress::NetworkLayerProtocol)> func)
+                         std::function<SocketType *(HostAddress::NetworkLayerProtocol)> func)
 {
     QScopedPointer<SocketType> socket;
     if (host == HostAddress::AnyIPv4 || host == HostAddress::Any) {
@@ -300,18 +293,15 @@ SocketType *createServer(const HostAddress &host, quint16 port, int backlog,
     return socket.take();
 }
 
-
 template<typename SocketType>
 SocketType *MakeSocketType(HostAddress::NetworkLayerProtocol protocol)
 {
     return new SocketType(protocol);
 }
 
-
 QTNETWORKNG_NAMESPACE_END
 
 Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::Socket::SocketState)
 Q_DECLARE_METATYPE(QTNETWORKNG_NAMESPACE::Socket::SocketError)
 
-
-#endif // QTNG_SOCKET_H
+#endif  // QTNG_SOCKET_H

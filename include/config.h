@@ -2,7 +2,7 @@
 #define QTNG_CONFIG_H
 
 #ifndef QTNETWORKNG_NAMESPACE
-#define QTNETWORKNG_NAMESPACE qtng
+#  define QTNETWORKNG_NAMESPACE qtng
 #endif
 
 #define QTNETWORKNG_NAMESPACE_BEGIN namespace QTNETWORKNG_NAMESPACE {
@@ -10,4 +10,4 @@
 
 #define QTNG_VERSION 0.0.1
 
-#endif //QTNG_CONFIG_H
+#endif  // QTNG_CONFIG_H

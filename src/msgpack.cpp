@@ -2,26 +2,26 @@
 #include <QtCore/qdebug.h>
 #include "../include/msgpack.h"
 
-#undef  CHECK_STREAM_PRECOND
+#undef CHECK_STREAM_PRECOND
 #ifndef QT_NO_DEBUG
-#define CHECK_STREAM_PRECOND(retVal) \
-    Q_D(MsgPackStream); \
-    if (!d->dev) { \
-        qWarning("msgpack::Stream: No device"); \
-        return retVal; \
-    } \
-    if (d->status != Ok) { \
-        qWarning("msgpack::Stream: Invalid status."); \
-        return retVal; \
+#  define CHECK_STREAM_PRECOND(retVal)              \
+    Q_D(MsgPackStream);                             \
+    if (!d->dev) {                                  \
+      qWarning("msgpack::Stream: No device");       \
+      return retVal;                                \
+    }                                               \
+    if (d->status != Ok) {                          \
+      qWarning("msgpack::Stream: Invalid status."); \
+      return retVal;                                \
     }
 #else
-#define CHECK_STREAM_PRECOND(retVal) \
-    Q_D(MsgPackStream); \
-    if (!d->dev) { \
-        return retVal; \
-    } \
-    if (d->status != Ok) { \
-        return retVal; \
+#  define CHECK_STREAM_PRECOND(retVal) \
+    Q_D(MsgPackStream);                \
+    if (!d->dev) {                     \
+      return retVal;                   \
+    }                                  \
+    if (d->status != Ok) {             \
+      return retVal;                   \
     }
 #endif
 
@@ -37,7 +37,7 @@ static inline QDateTime unpackDatetime(const QByteArray &bs)
         seconds = qFromBigEndian<quint32>(static_cast<const void *>(bs.constData()));
         nanoseconds = 0;
     } else if (bs.size() == 8) {
-        quint64 t = qFromBigEndian<quint64>(static_cast<const void*>(bs.constData()));
+        quint64 t = qFromBigEndian<quint64>(static_cast<const void *>(bs.constData()));
         seconds = t & 0x00000003ffffffffL;
         nanoseconds = t >> 34;
     } else if (bs.size() == 12) {
@@ -48,27 +48,24 @@ static inline QDateTime unpackDatetime(const QByteArray &bs)
     }
 #else
     if (bs.size() == 4) {
-        seconds = qFromBigEndian<quint32>(static_cast<const uchar*>(static_cast<const void *>(bs.constData())));
+        seconds = qFromBigEndian<quint32>(static_cast<const uchar *>(static_cast<const void *>(bs.constData())));
         nanoseconds = 0;
     } else if (bs.size() == 8) {
-        quint64 t = qFromBigEndian<quint64>(static_cast<const uchar*>(static_cast<const void*>(bs.constData())));
+        quint64 t = qFromBigEndian<quint64>(static_cast<const uchar *>(static_cast<const void *>(bs.constData())));
         seconds = t & 0x00000003ffffffffL;
         nanoseconds = t >> 34;
     } else if (bs.size() == 12) {
-        seconds = qFromBigEndian<quint32>(static_cast<const uchar*>(static_cast<const void *>(bs.constData())));
-        nanoseconds = qFromBigEndian<quint32>(static_cast<const uchar*>(static_cast<const void *>(bs.constData() + 4)));
+        seconds = qFromBigEndian<quint32>(static_cast<const uchar *>(static_cast<const void *>(bs.constData())));
+        nanoseconds =
+                qFromBigEndian<quint32>(static_cast<const uchar *>(static_cast<const void *>(bs.constData() + 4)));
     } else {
         Q_UNREACHABLE();
     }
 #endif
     return QDateTime::fromMSecsSinceEpoch(seconds * 1000 + nanoseconds / 1000);
-
 }
 
-MsgPackExtUserData::~MsgPackExtUserData()
-{
-}
-
+MsgPackExtUserData::~MsgPackExtUserData() { }
 
 class MsgPackStreamPrivate
 {
@@ -94,7 +91,7 @@ public:
     bool unpackString(QString &s);
     bool unpack(QVariant &v);
 public:
-    QMap<intptr_t, MsgPackExtUserData*> userData;
+    QMap<intptr_t, MsgPackExtUserData *> userData;
     QIODevice *dev;
     MsgPackStream::Status status;
     quint32 limit;
@@ -113,7 +110,6 @@ MsgPackStreamPrivate::MsgPackStreamPrivate()
 {
 }
 
-
 MsgPackStreamPrivate::MsgPackStreamPrivate(QIODevice *d)
     : dev(d)
     , status(MsgPackStream::Ok)
@@ -123,7 +119,6 @@ MsgPackStreamPrivate::MsgPackStreamPrivate(QIODevice *d)
     , flushWrites(false)
 {
 }
-
 
 MsgPackStreamPrivate::MsgPackStreamPrivate(QByteArray *a, QIODevice::OpenMode mode)
     : status(MsgPackStream::Ok)
@@ -141,7 +136,6 @@ MsgPackStreamPrivate::MsgPackStreamPrivate(QByteArray *a, QIODevice::OpenMode mo
     }
 }
 
-
 MsgPackStreamPrivate::MsgPackStreamPrivate(const QByteArray &a)
     : status(MsgPackStream::Ok)
     , limit(a.size())
@@ -155,18 +149,17 @@ MsgPackStreamPrivate::MsgPackStreamPrivate(const QByteArray &a)
     dev = buf;
 }
 
-
 MsgPackStreamPrivate::~MsgPackStreamPrivate()
 {
     if (owndev) {
         delete dev;
     }
-    for (QMap<intptr_t, MsgPackExtUserData*>::const_iterator itor = userData.constBegin(); itor != userData.constEnd(); ++itor) {
+    for (QMap<intptr_t, MsgPackExtUserData *>::const_iterator itor = userData.constBegin(); itor != userData.constEnd();
+         ++itor) {
         delete itor.value();
     }
     userData.clear();
 }
-
 
 bool MsgPackStreamPrivate::readBytes(char *data, qint64 len)
 {
@@ -197,24 +190,22 @@ bool MsgPackStreamPrivate::readBytes(char *data, qint64 len)
     return true;
 }
 
-
 bool MsgPackStreamPrivate::readBytes(quint8 *data, int len)
 {
-    return readBytes(static_cast<char*>(static_cast<void*>(data)), len);
+    return readBytes(static_cast<char *>(static_cast<void *>(data)), len);
 }
-
 
 bool MsgPackStreamPrivate::readArrayHeader(quint32 &len)
 {
     quint8 p[5];
-    readBytes((char *)p, 1);
+    readBytes((char *) p, 1);
     if (p[0] >= FirstByte::FIXARRAY && p[0] <= (FirstByte::FIXARRAY + 0xf)) {
         len = p[0] & 0xf;
     } else if (p[0] == FirstByte::ARRAY16) {
-        readBytes((char *)p + 1, 2);
+        readBytes((char *) p + 1, 2);
         len = _msgpack_load16(p + 1);
     } else if (p[0] == FirstByte::ARRAY32) {
-        readBytes((char *)p + 1, 4);
+        readBytes((char *) p + 1, 4);
         len = _msgpack_load32(p + 1);
     } else {
         status = MsgPackStream::ReadCorruptData;
@@ -222,19 +213,18 @@ bool MsgPackStreamPrivate::readArrayHeader(quint32 &len)
     }
     return true;
 }
-
 
 bool MsgPackStreamPrivate::readMapHeader(quint32 &len)
 {
     quint8 p[5];
-    readBytes((char *)p, 1);
+    readBytes((char *) p, 1);
     if (p[0] >= FirstByte::FIXMAP && p[0] <= (FirstByte::FIXMAP + 0xf)) {
         len = p[0] & 0xf;
     } else if (p[0] == FirstByte::MAP16) {
-        readBytes((char *)p + 1, 2);
+        readBytes((char *) p + 1, 2);
         len = _msgpack_load16(p + 1);
     } else if (p[0] == FirstByte::MAP32) {
-        readBytes((char *)p + 1, 4);
+        readBytes((char *) p + 1, 4);
         len = _msgpack_load32(p + 1);
     } else {
         status = MsgPackStream::ReadCorruptData;
@@ -242,7 +232,6 @@ bool MsgPackStreamPrivate::readMapHeader(quint32 &len)
     }
     return true;
 }
-
 
 bool MsgPackStreamPrivate::readExtHeader(quint32 &len, quint8 &msgpackType)
 {
@@ -253,11 +242,10 @@ bool MsgPackStreamPrivate::readExtHeader(quint32 &len, quint8 &msgpackType)
     if (!readBytes(p, 1)) {
         return false;
     }
-    if (FirstByte::FIXEXT1 <= p[0] &&
-            p[0] <= FirstByte::FIXEX16) {
+    if (FirstByte::FIXEXT1 <= p[0] && p[0] <= FirstByte::FIXEX16) {
         len = 1;
         len <<= p[0] - FirstByte::FIXEXT1;
-    } else if (p[0] == FirstByte::EXT8){
+    } else if (p[0] == FirstByte::EXT8) {
         if (!readBytes(p + 1, 1)) {
             return false;
         }
@@ -288,7 +276,6 @@ bool MsgPackStreamPrivate::readExtHeader(quint32 &len, quint8 &msgpackType)
     return true;
 }
 
-
 bool MsgPackStreamPrivate::unpack_longlong(qint64 &i64)
 {
     quint8 p[9];
@@ -296,9 +283,9 @@ bool MsgPackStreamPrivate::unpack_longlong(qint64 &i64)
         return false;
     }
 
-    if (p[0] <= FirstByte::POSITIVE_FIXINT) {// positive fixint 0x00 - 0x7f
+    if (p[0] <= FirstByte::POSITIVE_FIXINT) {  // positive fixint 0x00 - 0x7f
         i64 = p[0];
-    } else if (p[0] >= FirstByte::NEGATIVE_FIXINT) { // negative fixint 0xe0 - 0xff
+    } else if (p[0] >= FirstByte::NEGATIVE_FIXINT) {  // negative fixint 0xe0 - 0xff
         i64 = static_cast<qint8>(p[0]);
     } else if (p[0] == FirstByte::UINT8) {
         if (!readBytes(p + 1, 1)) {
@@ -353,7 +340,6 @@ bool MsgPackStreamPrivate::unpack_longlong(qint64 &i64)
     return true;
 }
 
-
 bool MsgPackStreamPrivate::unpack_ulonglong(quint64 &u64)
 {
     quint8 p[9];
@@ -361,9 +347,9 @@ bool MsgPackStreamPrivate::unpack_ulonglong(quint64 &u64)
         return false;
     }
 
-    if (p[0] <= FirstByte::POSITIVE_FIXINT) {// positive fixint 0x00 - 0x7f
+    if (p[0] <= FirstByte::POSITIVE_FIXINT) {  // positive fixint 0x00 - 0x7f
         u64 = p[0];
-    } else if (p[0] >= FirstByte::NEGATIVE_FIXINT) { // negative fixint 0xe0 - 0xff
+    } else if (p[0] >= FirstByte::NEGATIVE_FIXINT) {  // negative fixint 0xe0 - 0xff
         status = MsgPackStream::ReadCorruptData;
         return false;
     } else if (p[0] == FirstByte::UINT8) {
@@ -433,7 +419,6 @@ bool MsgPackStreamPrivate::unpack_ulonglong(quint64 &u64)
     return true;
 }
 
-
 bool MsgPackStreamPrivate::unpackString(QString &s)
 {
     quint8 p[5];
@@ -442,7 +427,7 @@ bool MsgPackStreamPrivate::unpackString(QString &s)
     }
 
     quint32 len = 0;
-    if (p[0] >= FirstByte::FIXSTR && p[0] <= (FirstByte::FIXSTR + 0x1f)) { // fixstr
+    if (p[0] >= FirstByte::FIXSTR && p[0] <= (FirstByte::FIXSTR + 0x1f)) {  // fixstr
         len = p[0] - FirstByte::FIXSTR;
     } else if (p[0] == FirstByte::STR8) {
         if (!readBytes(p + 1, 1)) {
@@ -483,7 +468,6 @@ bool MsgPackStreamPrivate::unpackString(QString &s)
     return true;
 }
 
-
 bool MsgPackStreamPrivate::unpack(QVariant &v)
 {
     quint8 p[9];
@@ -491,9 +475,9 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
         return false;
     }
 
-    if (p[0] <= FirstByte::POSITIVE_FIXINT) {// positive fixint 0x00 - 0x7f
+    if (p[0] <= FirstByte::POSITIVE_FIXINT) {  // positive fixint 0x00 - 0x7f
         v = p[0];
-    } else if (p[0] >= FirstByte::NEGATIVE_FIXINT) { // negative fixint 0xe0 - 0xff
+    } else if (p[0] >= FirstByte::NEGATIVE_FIXINT) {  // negative fixint 0xe0 - 0xff
         v = static_cast<qint8>(p[0]);
     } else if (FirstByte::FIXMAP <= p[0] && p[0] < FirstByte::FIXARRAY) {
         quint32 len = p[0] & 0xf;
@@ -665,7 +649,7 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
             status = MsgPackStream::ReadCorruptData;
             return false;
         }
-        if (static_cast<int>(len) < 0){
+        if (static_cast<int>(len) < 0) {
             status = MsgPackStream::ReadCorruptData;
             return false;
         }
@@ -746,7 +730,7 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
     } else if (FirstByte::FIXEXT1 <= p[0] && p[0] <= FirstByte::FIXEX16) {
         quint32 len = 1;
         len <<= p[0] - FirstByte::FIXEXT1;
-        if(!readBytes(p + 1, 1)) {
+        if (!readBytes(p + 1, 1)) {
             return false;
         }
         MsgPackExtData ext;
@@ -896,7 +880,6 @@ bool MsgPackStreamPrivate::unpack(QVariant &v)
     return true;
 }
 
-
 bool MsgPackStreamPrivate::writeBytes(const char *data, qint64 len)
 {
     if (status != MsgPackStream::Ok) {
@@ -931,50 +914,46 @@ bool MsgPackStreamPrivate::writeBytes(const char *data, qint64 len)
     return true;
 }
 
-
 bool MsgPackStreamPrivate::writeBytes(const quint8 *data, int len)
 {
-    return writeBytes(static_cast<const char*>(static_cast<const void*>(data)), len);
+    return writeBytes(static_cast<const char *>(static_cast<const void *>(data)), len);
 }
-
 
 bool MsgPackStreamPrivate::writeArrayHeader(quint32 len)
 {
     quint8 p[5];
     if (len <= 15) {
         p[0] = FirstByte::FIXARRAY | len;
-        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 1);
+        writeBytes(static_cast<const char *>(static_cast<const void *>(p)), 1);
     } else if (len <= std::numeric_limits<quint16>::max()) {
         p[0] = FirstByte::ARRAY16;
         _msgpack_store16(p + 1, static_cast<quint16>(len));
-        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 3);
+        writeBytes(static_cast<const char *>(static_cast<const void *>(p)), 3);
     } else {
         p[0] = FirstByte::ARRAY32;
         _msgpack_store32(p + 1, len);
-        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 5);
+        writeBytes(static_cast<const char *>(static_cast<const void *>(p)), 5);
     }
     return status == MsgPackStream::Ok;
 }
-
 
 bool MsgPackStreamPrivate::writeMapHeader(quint32 len)
 {
     quint8 p[5];
     if (len <= 15) {
         p[0] = FirstByte::FIXMAP | len;
-        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 1);
+        writeBytes(static_cast<const char *>(static_cast<const void *>(p)), 1);
     } else if (len <= std::numeric_limits<quint16>::max()) {
         p[0] = FirstByte::MAP16;
         _msgpack_store16(p + 1, static_cast<quint16>(len));
-        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 3);
+        writeBytes(static_cast<const char *>(static_cast<const void *>(p)), 3);
     } else {
         p[0] = FirstByte::MAP32;
         _msgpack_store32(p + 1, len);
-        writeBytes(static_cast<const char*>(static_cast<const void*>(p)), 5);
+        writeBytes(static_cast<const char *>(static_cast<const void *>(p)), 5);
     }
     return status == MsgPackStream::Ok;
 }
-
 
 bool MsgPackStreamPrivate::writeExtHeader(quint32 len, quint8 msgpackType)
 {
@@ -1025,28 +1004,30 @@ bool MsgPackStreamPrivate::writeExtHeader(quint32 len, quint8 msgpackType)
     return true;
 }
 
-
 MsgPackStream::MsgPackStream()
-    :d_ptr(new MsgPackStreamPrivate()) {}
-
+    : d_ptr(new MsgPackStreamPrivate())
+{
+}
 
 MsgPackStream::MsgPackStream(QIODevice *d)
-    :d_ptr(new MsgPackStreamPrivate(d)) {}
-
+    : d_ptr(new MsgPackStreamPrivate(d))
+{
+}
 
 MsgPackStream::MsgPackStream(QByteArray *a, QIODevice::OpenMode mode)
-    :d_ptr(new MsgPackStreamPrivate(a, mode)) {}
-
+    : d_ptr(new MsgPackStreamPrivate(a, mode))
+{
+}
 
 MsgPackStream::MsgPackStream(const QByteArray &a)
-    :d_ptr(new MsgPackStreamPrivate(a)) {}
-
+    : d_ptr(new MsgPackStreamPrivate(a))
+{
+}
 
 MsgPackStream::~MsgPackStream()
 {
     delete d_ptr;
 }
-
 
 void MsgPackStream::setDevice(QIODevice *dev)
 {
@@ -1058,13 +1039,11 @@ void MsgPackStream::setDevice(QIODevice *dev)
     d->owndev = false;
 }
 
-
 QIODevice *MsgPackStream::device() const
 {
     Q_D(const MsgPackStream);
     return d->dev;
 }
-
 
 bool MsgPackStream::atEnd() const
 {
@@ -1072,13 +1051,11 @@ bool MsgPackStream::atEnd() const
     return d->dev ? d->dev->atEnd() : true;
 }
 
-
 MsgPackStream::Status MsgPackStream::status() const
 {
     Q_D(const MsgPackStream);
     return d->status;
 }
-
 
 void MsgPackStream::resetStatus()
 {
@@ -1086,13 +1063,11 @@ void MsgPackStream::resetStatus()
     d->status = Ok;
 }
 
-
 void MsgPackStream::setStatus(Status status)
 {
     Q_D(MsgPackStream);
     d->status = status;
 }
-
 
 void MsgPackStream::setFlushWrites(bool flush)
 {
@@ -1100,13 +1075,11 @@ void MsgPackStream::setFlushWrites(bool flush)
     d->flushWrites = flush;
 }
 
-
 bool MsgPackStream::willFlushWrites()
 {
     Q_D(const MsgPackStream);
     return d->flushWrites;
 }
-
 
 void MsgPackStream::setLengthLimit(quint32 limit)
 {
@@ -1114,13 +1087,11 @@ void MsgPackStream::setLengthLimit(quint32 limit)
     d->limit = limit;
 }
 
-
 quint32 MsgPackStream::lengthLimit() const
 {
     Q_D(const MsgPackStream);
     return d->limit;
 }
-
 
 void MsgPackStream::setVersion(int version)
 {
@@ -1128,13 +1099,11 @@ void MsgPackStream::setVersion(int version)
     d->version = version;
 }
 
-
 int MsgPackStream::version() const
 {
     Q_D(const MsgPackStream);
     return d->version;
 }
-
 
 void MsgPackStream::setUserData(intptr_t key, MsgPackExtUserData *userData)
 {
@@ -1142,13 +1111,11 @@ void MsgPackStream::setUserData(intptr_t key, MsgPackExtUserData *userData)
     d->userData.insert(key, userData);
 }
 
-
 MsgPackExtUserData *MsgPackStream::getUserData(intptr_t key) const
 {
     Q_D(const MsgPackStream);
     return d->userData.value(key);
 }
-
 
 MsgPackStream &MsgPackStream::operator>>(bool &b)
 {
@@ -1169,8 +1136,7 @@ MsgPackStream &MsgPackStream::operator>>(bool &b)
     return *this;
 }
 
-
-MsgPackStream &MsgPackStream::operator >>(quint8 &u8)
+MsgPackStream &MsgPackStream::operator>>(quint8 &u8)
 {
     CHECK_STREAM_PRECOND(*this);
     quint64 u64;
@@ -1184,7 +1150,6 @@ MsgPackStream &MsgPackStream::operator >>(quint8 &u8)
     }
     return *this;
 }
-
 
 MsgPackStream &MsgPackStream::operator>>(quint16 &u16)
 {
@@ -1201,7 +1166,6 @@ MsgPackStream &MsgPackStream::operator>>(quint16 &u16)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator>>(quint32 &u32)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1217,7 +1181,6 @@ MsgPackStream &MsgPackStream::operator>>(quint32 &u32)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator>>(quint64 &u64)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1225,15 +1188,13 @@ MsgPackStream &MsgPackStream::operator>>(quint64 &u64)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator>>(qint8 &i8)
 {
     CHECK_STREAM_PRECOND(*this);
     qint64 i64;
     if (!d->unpack_longlong(i64))
         return *this;
-    if (std::numeric_limits<qint8>::min() <= i64  &&
-        i64 <= std::numeric_limits<qint8>::max()) {
+    if (std::numeric_limits<qint8>::min() <= i64 && i64 <= std::numeric_limits<qint8>::max()) {
         i8 = static_cast<qint8>(i64);
     } else {
         d->status = ReadCorruptData;
@@ -1241,15 +1202,13 @@ MsgPackStream &MsgPackStream::operator>>(qint8 &i8)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator>>(qint16 &i16)
 {
     CHECK_STREAM_PRECOND(*this);
     qint64 i64;
     if (!d->unpack_longlong(i64))
         return *this;
-    if (std::numeric_limits<qint16>::min() <= i64 &&
-        i64 <= std::numeric_limits<qint16>::max()) {
+    if (std::numeric_limits<qint16>::min() <= i64 && i64 <= std::numeric_limits<qint16>::max()) {
         i16 = static_cast<qint16>(i64);
     } else {
         d->status = ReadCorruptData;
@@ -1257,15 +1216,13 @@ MsgPackStream &MsgPackStream::operator>>(qint16 &i16)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator>>(qint32 &i32)
 {
     CHECK_STREAM_PRECOND(*this);
     qint64 i64;
     if (!d->unpack_longlong(i64))
         return *this;
-    if (i64 >= std::numeric_limits<qint32>::min() &&
-        i64 <= std::numeric_limits<qint32>::max()) {
+    if (i64 >= std::numeric_limits<qint32>::min() && i64 <= std::numeric_limits<qint32>::max()) {
         i32 = static_cast<qint32>(i64);
     } else {
         d->status = ReadCorruptData;
@@ -1273,14 +1230,12 @@ MsgPackStream &MsgPackStream::operator>>(qint32 &i32)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator>>(qint64 &i64)
 {
     CHECK_STREAM_PRECOND(*this);
     d->unpack_longlong(i64);
     return *this;
 }
-
 
 MsgPackStream &MsgPackStream::operator>>(float &f)
 {
@@ -1301,7 +1256,6 @@ MsgPackStream &MsgPackStream::operator>>(float &f)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator>>(double &f)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1318,10 +1272,9 @@ MsgPackStream &MsgPackStream::operator>>(double &f)
     }
     quint64 i64 = _msgpack_load64(p + 1);
     f = *((double *) &i64);
-//    strncpy(static_cast<char*>(static_cast<void*>(&f)), static_cast<char*>(static_cast<void*>(&i64)), 8);
+    //    strncpy(static_cast<char*>(static_cast<void*>(&f)), static_cast<char*>(static_cast<void*>(&i64)), 8);
     return *this;
 }
-
 
 MsgPackStream &MsgPackStream::operator>>(QString &str)
 {
@@ -1329,7 +1282,6 @@ MsgPackStream &MsgPackStream::operator>>(QString &str)
     d->unpackString(str);
     return *this;
 }
-
 
 MsgPackStream &MsgPackStream::operator>>(QByteArray &array)
 {
@@ -1372,7 +1324,6 @@ MsgPackStream &MsgPackStream::operator>>(QByteArray &array)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator>>(QDateTime &dt)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1394,10 +1345,9 @@ MsgPackStream &MsgPackStream::operator>>(QDateTime &dt)
         dt = QDateTime();
         return *this;
     }
-    dt = unpackDatetime(QByteArray(static_cast<char*>(static_cast<void*>(p)), len));
+    dt = unpackDatetime(QByteArray(static_cast<char *>(static_cast<void *>(p)), len));
     return *this;
 }
-
 
 MsgPackStream &MsgPackStream::operator>>(MsgPackExtData &ext)
 {
@@ -1416,7 +1366,6 @@ MsgPackStream &MsgPackStream::operator>>(MsgPackExtData &ext)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator>>(QVariant &v)
 {
     Q_D(MsgPackStream);
@@ -1424,13 +1373,11 @@ MsgPackStream &MsgPackStream::operator>>(QVariant &v)
     return *this;
 }
 
-
 bool MsgPackStream::readBytes(char *data, qint64 len)
 {
     Q_D(MsgPackStream);
     return d->readBytes(data, len);
 }
-
 
 bool MsgPackStream::readArrayHeader(quint32 &len)
 {
@@ -1438,20 +1385,17 @@ bool MsgPackStream::readArrayHeader(quint32 &len)
     return d->readArrayHeader(len);
 }
 
-
 bool MsgPackStream::readMapHeader(quint32 &len)
 {
     Q_D(MsgPackStream);
     return d->readMapHeader(len);
 }
 
-
 bool MsgPackStream::readExtHeader(quint32 &len, quint8 msgpackType)
 {
     Q_D(MsgPackStream);
     return d->readExtHeader(len, msgpackType);
 }
-
 
 MsgPackStream &MsgPackStream::operator<<(bool b)
 {
@@ -1461,7 +1405,6 @@ MsgPackStream &MsgPackStream::operator<<(bool b)
     d->writeBytes(p, 1);
     return *this;
 }
-
 
 MsgPackStream &MsgPackStream::operator<<(quint8 u8)
 {
@@ -1478,11 +1421,10 @@ MsgPackStream &MsgPackStream::operator<<(quint8 u8)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator<<(quint16 u16)
 {
     CHECK_STREAM_PRECOND(*this);
-    if (u16 <= std::numeric_limits<quint8>::max()){
+    if (u16 <= std::numeric_limits<quint8>::max()) {
         *this << static_cast<quint8>(u16);
     } else {
         quint8 p[3];
@@ -1493,11 +1435,10 @@ MsgPackStream &MsgPackStream::operator<<(quint16 u16)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator<<(quint32 u32)
 {
     CHECK_STREAM_PRECOND(*this);
-    if (u32 <= std::numeric_limits<quint16>::max()){
+    if (u32 <= std::numeric_limits<quint16>::max()) {
         *this << static_cast<quint16>(u32);
     } else {
         quint8 p[5];
@@ -1508,11 +1449,10 @@ MsgPackStream &MsgPackStream::operator<<(quint32 u32)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator<<(quint64 u64)
 {
     CHECK_STREAM_PRECOND(*this);
-    if (u64 <= std::numeric_limits<quint32>::max()){
+    if (u64 <= std::numeric_limits<quint32>::max()) {
         *this << static_cast<quint32>(u64);
     } else {
         quint8 p[9];
@@ -1523,12 +1463,11 @@ MsgPackStream &MsgPackStream::operator<<(quint64 u64)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator<<(qint8 i8)
 {
     CHECK_STREAM_PRECOND(*this);
     quint8 p[2];
-    if (-32 <= i8) { //  && i8 <= 127 is always true
+    if (-32 <= i8) {  //  && i8 <= 127 is always true
         _msgpack_store8(p, i8);
         d->writeBytes(p, 1);
     } else {
@@ -1539,14 +1478,13 @@ MsgPackStream &MsgPackStream::operator<<(qint8 i8)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator<<(qint16 i16)
 {
     CHECK_STREAM_PRECOND(*this);
 
     if (std::numeric_limits<qint8>::min() <= i16 && i16 <= std::numeric_limits<qint8>::max()) {
         *this << static_cast<qint8>(i16);
-    } else if(std::numeric_limits<qint8>::max() <= i16 && i16 <= std::numeric_limits<quint8>::max()) {
+    } else if (std::numeric_limits<qint8>::max() <= i16 && i16 <= std::numeric_limits<quint8>::max()) {
         quint8 p[2];
         p[0] = FirstByte::UINT8;
         _msgpack_store8(p + 1, static_cast<quint8>(i16));
@@ -1560,13 +1498,12 @@ MsgPackStream &MsgPackStream::operator<<(qint16 i16)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator<<(qint32 i32)
 {
     CHECK_STREAM_PRECOND(*this);
     if (std::numeric_limits<qint16>::min() <= i32 && i32 <= std::numeric_limits<qint16>::max()) {
         *this << static_cast<qint16>(i32);
-    } else if(std::numeric_limits<qint16>::max() <= i32 && i32 <= std::numeric_limits<quint16>::max()) {
+    } else if (std::numeric_limits<qint16>::max() <= i32 && i32 <= std::numeric_limits<quint16>::max()) {
         quint8 p[3];
         p[0] = FirstByte::UINT16;
         _msgpack_store16(p + 1, static_cast<quint16>(i32));
@@ -1580,13 +1517,12 @@ MsgPackStream &MsgPackStream::operator<<(qint32 i32)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator<<(qint64 i64)
 {
     CHECK_STREAM_PRECOND(*this);
     if (std::numeric_limits<qint32>::min() <= i64 && i64 <= std::numeric_limits<qint32>::max()) {
         *this << static_cast<qint32>(i64);
-    } else if(std::numeric_limits<qint32>::max() <= i64 && i64 <= std::numeric_limits<quint32>::max()) {
+    } else if (std::numeric_limits<qint32>::max() <= i64 && i64 <= std::numeric_limits<quint32>::max()) {
         quint8 p[5];
         p[0] = FirstByte::UINT32;
         _msgpack_store32(p + 1, static_cast<quint32>(i64));
@@ -1600,7 +1536,6 @@ MsgPackStream &MsgPackStream::operator<<(qint64 i64)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator<<(float f)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1608,12 +1543,11 @@ MsgPackStream &MsgPackStream::operator<<(float f)
     p[0] = FirstByte::FLOAT32;
     quint32 u32;
     u32 = *((quint32 *) &f);
-//    strncpy(static_cast<char*>(static_cast<void*>(&u32)), static_cast<char*>(static_cast<void*>(&f)), 4);
+    //    strncpy(static_cast<char*>(static_cast<void*>(&u32)), static_cast<char*>(static_cast<void*>(&f)), 4);
     _msgpack_store32(p + 1, u32);
     d->writeBytes(p, 5);
     return *this;
 }
-
 
 MsgPackStream &MsgPackStream::operator<<(double f)
 {
@@ -1626,7 +1560,6 @@ MsgPackStream &MsgPackStream::operator<<(double f)
     d->writeBytes(p, 9);
     return *this;
 }
-
 
 MsgPackStream &MsgPackStream::operator<<(const QString &str)
 {
@@ -1658,7 +1591,6 @@ MsgPackStream &MsgPackStream::operator<<(const QString &str)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator<<(const QByteArray &array)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1685,23 +1617,21 @@ MsgPackStream &MsgPackStream::operator<<(const QByteArray &array)
     return *this;
 }
 
-
 static QByteArray packDatetime(const QDateTime &dt)
 {
-    if(!dt.isValid()) {
+    if (!dt.isValid()) {
         return QByteArray();
     }
     quint64 msecs = static_cast<quint64>(dt.toMSecsSinceEpoch());
     quint64 t = ((msecs % 1000) * 1000) << 34 | (msecs / 1000);
     QByteArray bs(8, Qt::Uninitialized);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
-    qToBigEndian(t, static_cast<void*>(bs.data()));
+    qToBigEndian(t, static_cast<void *>(bs.data()));
 #else
-    qToBigEndian(t, static_cast<uchar*>(static_cast<void*>(bs.data())));
+    qToBigEndian(t, static_cast<uchar *>(static_cast<void *>(bs.data())));
 #endif
     return bs;
 }
-
 
 MsgPackStream &MsgPackStream::operator<<(const QDateTime &dt)
 {
@@ -1718,7 +1648,6 @@ MsgPackStream &MsgPackStream::operator<<(const QDateTime &dt)
     return *this;
 }
 
-
 MsgPackStream &MsgPackStream::operator<<(const MsgPackExtData &ext)
 {
     CHECK_STREAM_PRECOND(*this);
@@ -1729,7 +1658,6 @@ MsgPackStream &MsgPackStream::operator<<(const MsgPackExtData &ext)
     d->writeBytes(ext.payload.data(), ext.payload.size());
     return *this;
 }
-
 
 MsgPackStream &MsgPackStream::operator<<(const QVariant &v)
 {
@@ -1775,13 +1703,11 @@ MsgPackStream &MsgPackStream::operator<<(const QVariant &v)
     }
 }
 
-
 bool MsgPackStream::writeBytes(const char *data, qint64 len)
 {
     Q_D(MsgPackStream);
     return d->writeBytes(data, len);
 }
-
 
 bool MsgPackStream::writeArrayHeader(quint32 len)
 {
@@ -1789,19 +1715,16 @@ bool MsgPackStream::writeArrayHeader(quint32 len)
     return d->writeArrayHeader(len);
 }
 
-
 bool MsgPackStream::writeMapHeader(quint32 len)
 {
     Q_D(MsgPackStream);
     return d->writeMapHeader(len);
 }
 
-
 bool MsgPackStream::writeExtHeader(quint32 len, quint8 msgpackType)
 {
     Q_D(MsgPackStream);
     return d->writeExtHeader(len, msgpackType);
 }
-
 
 QTNETWORKNG_NAMESPACE_END

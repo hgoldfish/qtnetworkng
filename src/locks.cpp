@@ -7,9 +7,7 @@
 
 QTNG_LOGGER("qtng.locks");
 
-
 QTNETWORKNG_NAMESPACE_BEGIN
-
 
 class SemaphorePrivate
 {
@@ -21,26 +19,26 @@ public:
     void release(QSharedPointer<SemaphorePrivate> self, int value);
     void scheduleDelete(QSharedPointer<SemaphorePrivate> self);
 public:
-    QList<QPointer<BaseCoroutine> > waiters;
+    QList<QPointer<BaseCoroutine>> waiters;
     const int init_value;
     volatile int counter;
     int notified;
 
-    friend QSharedPointer<Semaphore> acquireAny(const QList<QSharedPointer<Semaphore>> &semaphores, int value, bool blocking);
+    friend QSharedPointer<Semaphore> acquireAny(const QList<QSharedPointer<Semaphore>> &semaphores, int value,
+                                                bool blocking);
 };
 
-
 SemaphorePrivate::SemaphorePrivate(int value)
-    : init_value(value), counter(value), notified(0)
+    : init_value(value)
+    , counter(value)
+    , notified(0)
 {
 }
-
 
 SemaphorePrivate::~SemaphorePrivate()
 {
     Q_ASSERT(waiters.isEmpty());
 }
-
 
 bool SemaphorePrivate::acquire(bool blocking)
 {
@@ -60,7 +58,7 @@ bool SemaphorePrivate::acquire(bool blocking)
         bool found = waiters.contains(BaseCoroutine::current());
         Q_ASSERT_X(!found, "SemaphorePrivate",
                    "have you forget to start a new coroutine?");  // usually caused by locks running in eventloop.
-    } catch(...) {
+    } catch (...) {
         // if we caught an exception, the release() must not touch me.
         // the waiter should be remove.
         bool found = waiters.removeAll(BaseCoroutine::current());
@@ -70,19 +68,19 @@ bool SemaphorePrivate::acquire(bool blocking)
     return notified != 0;
 }
 
-
-class SemaphoreNotifyWaitersFunctor: public Functor
+class SemaphoreNotifyWaitersFunctor : public Functor
 {
 public:
     SemaphoreNotifyWaitersFunctor(QSharedPointer<SemaphorePrivate> sp, bool doDelete)
-        :sp(sp), doDelete(doDelete) {}
+        : sp(sp)
+        , doDelete(doDelete)
+    {
+    }
     QSharedPointer<SemaphorePrivate> sp;
     bool doDelete;
-    virtual void operator() () override
+    virtual void operator()() override
     {
-        while ((sp->notified != 0 || doDelete) &&
-               (sp->counter > 0 || doDelete) &&
-               !sp->waiters.isEmpty()) {
+        while ((sp->notified != 0 || doDelete) && (sp->counter > 0 || doDelete) && !sp->waiters.isEmpty()) {
             QPointer<BaseCoroutine> waiter = sp->waiters.takeFirst();
             if (waiter.isNull()) {
                 qtng_debug << "waiter was deleted.";
@@ -97,7 +95,6 @@ public:
         sp->notified = 0;
     }
 };
-
 
 void SemaphorePrivate::release(QSharedPointer<SemaphorePrivate> self, int value)
 {
@@ -115,7 +112,6 @@ void SemaphorePrivate::release(QSharedPointer<SemaphorePrivate> self, int value)
     }
 }
 
-
 void SemaphorePrivate::scheduleDelete(QSharedPointer<SemaphorePrivate> self)
 {
     if (notified) {
@@ -126,19 +122,16 @@ void SemaphorePrivate::scheduleDelete(QSharedPointer<SemaphorePrivate> self)
     EventLoopCoroutine::get()->callLater(0, new SemaphoreNotifyWaitersFunctor(self, true));
 }
 
-
 Semaphore::Semaphore(int value)
     : d(new SemaphorePrivate(value))
 {
 }
-
 
 Semaphore::~Semaphore()
 {
     d->scheduleDelete(d);
     d.clear();
 }
-
 
 bool Semaphore::acquire(bool blocking)
 {
@@ -147,7 +140,6 @@ bool Semaphore::acquire(bool blocking)
     }
     return d->acquire(blocking);
 }
-
 
 bool Semaphore::acquire(int value, bool blocking)
 {
@@ -165,7 +157,6 @@ bool Semaphore::acquire(int value, bool blocking)
     return true;
 }
 
-
 void Semaphore::release(int value)
 {
     if (!d) {
@@ -173,7 +164,6 @@ void Semaphore::release(int value)
     }
     d->release(d, value);
 }
-
 
 bool Semaphore::isLocked() const
 {
@@ -183,7 +173,6 @@ bool Semaphore::isLocked() const
     return d->counter <= 0;
 }
 
-
 bool Semaphore::isUsed() const
 {
     if (!d) {
@@ -191,7 +180,6 @@ bool Semaphore::isUsed() const
     }
     return d->counter < d->init_value;
 }
-
 
 quint32 Semaphore::getting() const
 {
@@ -201,19 +189,16 @@ quint32 Semaphore::getting() const
     return d->waiters.size();
 }
 
-
 Lock::Lock()
-    :Semaphore(1)
+    : Semaphore(1)
 {
 }
-
 
 struct RLockState
 {
     quintptr holder;
     int counter;
 };
-
 
 class RLockPrivate
 {
@@ -224,7 +209,7 @@ public:
     bool acquire(bool blocking);
     void release();
     RLockState reset();
-    void set(const RLockState& state);
+    void set(const RLockState &state);
 private:
     RLock * const q_ptr;
     Lock lock;
@@ -233,16 +218,14 @@ private:
     Q_DECLARE_PUBLIC(RLock)
 };
 
-
 RLockPrivate::RLockPrivate(RLock *q)
-    :q_ptr(q), holder(0), counter(0)
-{}
-
-
-RLockPrivate::~RLockPrivate()
+    : q_ptr(q)
+    , holder(0)
+    , counter(0)
 {
 }
 
+RLockPrivate::~RLockPrivate() { }
 
 bool RLockPrivate::acquire(bool blocking)
 {
@@ -255,9 +238,8 @@ bool RLockPrivate::acquire(bool blocking)
         holder = BaseCoroutine::current()->id();
         return true;
     }
-    return false; // XXX lock is deleted.
+    return false;  // XXX lock is deleted.
 }
-
 
 void RLockPrivate::release()
 {
@@ -272,7 +254,6 @@ void RLockPrivate::release()
     }
 }
 
-
 RLockState RLockPrivate::reset()
 {
     RLockState state;
@@ -286,7 +267,6 @@ RLockState RLockPrivate::reset()
     return state;
 }
 
-
 void RLockPrivate::set(const RLockState &state)
 {
     counter = state.counter;
@@ -296,17 +276,15 @@ void RLockPrivate::set(const RLockState &state)
     }
 }
 
-
 RLock::RLock()
-    :d_ptr(new RLockPrivate(this))
-{}
-
+    : d_ptr(new RLockPrivate(this))
+{
+}
 
 RLock::~RLock()
 {
     delete d_ptr;
 }
-
 
 bool RLock::acquire(bool blocking)
 {
@@ -314,13 +292,11 @@ bool RLock::acquire(bool blocking)
     return d->acquire(blocking);
 }
 
-
 void RLock::release()
 {
     Q_D(RLock);
     d->release();
 }
-
 
 bool RLock::isLocked() const
 {
@@ -328,33 +304,28 @@ bool RLock::isLocked() const
     return d->lock.isLocked();
 }
 
-
 bool RLock::isOwned() const
 {
     Q_D(const RLock);
     return d->holder == BaseCoroutine::current()->id();
 }
 
-
 class ConditionPrivate
 {
 public:
-    QList<QSharedPointer<Lock> > waiters;
+    QList<QSharedPointer<Lock>> waiters;
 };
-
 
 Condition::Condition()
     : d_ptr(new ConditionPrivate())
 {
 }
 
-
 Condition::~Condition()
 {
     notify(d_ptr->waiters.size());
     delete d_ptr;
 }
-
 
 bool Condition::wait()
 {
@@ -379,7 +350,6 @@ bool Condition::wait()
     }
 }
 
-
 void Condition::notify(int value)
 {
     Q_D(Condition);
@@ -389,20 +359,17 @@ void Condition::notify(int value)
     }
 }
 
-
 void Condition::notifyAll()
 {
     Q_D(Condition);
     notify(d->waiters.size());
 }
 
-
 quint32 Condition::getting() const
 {
     Q_D(const Condition);
     return static_cast<quint32>(d->waiters.size());
 }
-
 
 class EventPrivate
 {
@@ -422,51 +389,47 @@ private:
     Q_DECLARE_PUBLIC(Event)
 };
 
-
 EventPrivate::EventPrivate(Event *q)
-    :q_ptr(q), flag(false)
+    : q_ptr(q)
+    , flag(false)
 {
 }
-
 
 EventPrivate::~EventPrivate()
 {
     if (!flag && condition.getting() > 0) {
         condition.notifyAll();
     }
-    for (Event *event: qAsConst(linkFrom)) {
+    for (Event *event : qAsConst(linkFrom)) {
         event->d_ptr->linkTo.removeOne(q_ptr);
     }
-    for (Event *event: qAsConst(linkTo)) {
+    for (Event *event : qAsConst(linkTo)) {
         event->d_ptr->linkFrom.removeOne(q_ptr);
     }
 }
-
 
 void EventPrivate::set()
 {
     if (!flag) {
         flag = true;
         condition.notifyAll();
-        for (Event *other: linkTo) {
+        for (Event *other : linkTo) {
             other->set();
         }
     }
 }
-
 
 void EventPrivate::clear()
 {
     flag = false;
 }
 
-
 bool EventPrivate::wait(bool blocking)
 {
     if (!blocking) {
         return flag;
     } else {
-        while(!flag) {
+        while (!flag) {
             if (!condition.wait()) {
                 qtng_debug << "event is deleted.";
                 return false;
@@ -476,18 +439,15 @@ bool EventPrivate::wait(bool blocking)
     }
 }
 
-
 Event::Event()
-    :d_ptr(new EventPrivate(this))
+    : d_ptr(new EventPrivate(this))
 {
 }
-
 
 Event::~Event()
 {
     delete d_ptr;
 }
-
 
 bool Event::wait(bool blocking)
 {
@@ -495,13 +455,11 @@ bool Event::wait(bool blocking)
     return d->wait(blocking);
 }
 
-
 void Event::set()
 {
     Q_D(Event);
     d->set();
 }
-
 
 bool Event::isSet() const
 {
@@ -509,20 +467,17 @@ bool Event::isSet() const
     return d->flag;
 }
 
-
 void Event::clear()
 {
     Q_D(Event);
     d->clear();
 }
 
-
 quint32 Event::getting() const
 {
     Q_D(const Event);
     return d->condition.getting();
 }
-
 
 void Event::link(Event &other)
 {
@@ -531,7 +486,6 @@ void Event::link(Event &other)
     other.d_func()->linkFrom.append(this);
 }
 
-
 void Event::unlink(Event &other)
 {
     Q_D(Event);
@@ -539,12 +493,11 @@ void Event::unlink(Event &other)
     other.d_ptr->linkFrom.removeOne(this);
 }
 
-
-struct Behold {
+struct Behold
+{
     QPointer<EventLoopCoroutine> eventloop;
     QSharedPointer<Condition> condition;
 };
-
 
 class ThreadEventPrivate
 {
@@ -566,22 +519,23 @@ public:
     QAtomicInteger<quint32> ref;
 };
 
-
-class NotifiyCondition: public Functor
+class NotifiyCondition : public Functor
 {
 public:
-    NotifiyCondition(QSharedPointer<Condition> condition) : condition(condition) {}
+    NotifiyCondition(QSharedPointer<Condition> condition)
+        : condition(condition)
+    {
+    }
     virtual void operator()() { condition->notifyAll(); }
     QSharedPointer<Condition> condition;
 };
-
 
 ThreadEventPrivate::ThreadEventPrivate()
     : flag(false)
     , count(0)
     , ref(1)
-{}
-
+{
+}
 
 void ThreadEventPrivate::notify()
 {
@@ -612,7 +566,6 @@ void ThreadEventPrivate::notify()
     decref();
 }
 
-
 bool ThreadEventPrivate::wait(bool blocking)
 {
     bool f = flag.loadAcquire();
@@ -634,7 +587,7 @@ bool ThreadEventPrivate::wait(bool blocking)
     } else {
         QSharedPointer<Condition> condition;
         // should we use QMap<EventLoopCoroutine *, Hold> to accelerate?
-        for (const Behold &hold: qAsConst(holds)) {
+        for (const Behold &hold : qAsConst(holds)) {
             if (hold.eventloop.data() == current) {
                 condition = hold.condition;
                 break;
@@ -661,13 +614,12 @@ bool ThreadEventPrivate::wait(bool blocking)
     return f;
 }
 
-
 quint32 ThreadEventPrivate::getting()
 {
     incref();
     mutex.lock();
     quint32 count = this->count.loadAcquire();
-    for (const Behold &hold: qAsConst(holds)) {
+    for (const Behold &hold : qAsConst(holds)) {
         if (!hold.condition.isNull()) {
             count += hold.condition->getting();
         }
@@ -677,12 +629,10 @@ quint32 ThreadEventPrivate::getting()
     return count;
 }
 
-
 void ThreadEventPrivate::incref()
 {
     ref.ref();
 }
-
 
 bool ThreadEventPrivate::decref()
 {
@@ -693,11 +643,10 @@ bool ThreadEventPrivate::decref()
     return true;
 }
 
-
 ThreadEvent::ThreadEvent()
     : d(new ThreadEventPrivate())
-{}
-
+{
+}
 
 ThreadEvent::~ThreadEvent()
 {
@@ -707,7 +656,6 @@ ThreadEvent::~ThreadEvent()
     d = nullptr;
 }
 
-
 bool ThreadEvent::wait(bool blocking)
 {
     if (d) {
@@ -716,7 +664,6 @@ bool ThreadEvent::wait(bool blocking)
         return false;
     }
 }
-
 
 void ThreadEvent::set()
 {
@@ -730,7 +677,6 @@ void ThreadEvent::set()
     d->notify();
 }
 
-
 void ThreadEvent::clear()
 {
     if (!d) {
@@ -740,7 +686,6 @@ void ThreadEvent::clear()
     // d->flag.testAndSetAcquire(true, false);
 }
 
-
 bool ThreadEvent::isSet() const
 {
     if (!d) {
@@ -749,7 +694,6 @@ bool ThreadEvent::isSet() const
     return d->flag.loadAcquire();
 }
 
-
 quint32 ThreadEvent::getting() const
 {
     if (!d) {
@@ -757,7 +701,6 @@ quint32 ThreadEvent::getting() const
     }
     return d->getting();
 }
-
 
 void ThreadEvent::link(ThreadEvent &other)
 {
@@ -772,7 +715,6 @@ void ThreadEvent::link(ThreadEvent &other)
     other.d->mutex.unlock();
 }
 
-
 void ThreadEvent::unlink(ThreadEvent &other)
 {
     if (!d) {
@@ -786,25 +728,21 @@ void ThreadEvent::unlink(ThreadEvent &other)
     other.d->mutex.unlock();
 }
 
-
 class GatePrivate
 {
 public:
     Lock lock;
 };
 
-
 Gate::Gate()
-    :d_ptr(new GatePrivate())
+    : d_ptr(new GatePrivate())
 {
 }
-
 
 Gate::~Gate()
 {
     delete d_ptr;
 }
-
 
 bool Gate::goThrough(bool blocking)
 {
@@ -822,7 +760,6 @@ bool Gate::goThrough(bool blocking)
     }
 }
 
-
 void Gate::open()
 {
     Q_D(Gate);
@@ -831,20 +768,17 @@ void Gate::open()
     }
 }
 
-
 bool Gate::isOpen() const
 {
     Q_D(const Gate);
     return !d->lock.isLocked();
 }
 
-
 bool Gate::isClosed() const
 {
     Q_D(const Gate);
     return d->lock.isLocked();
 }
-
 
 void Gate::close()
 {

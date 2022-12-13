@@ -26,9 +26,7 @@ protected:
     Q_DECLARE_PUBLIC(BaseCoroutine)
 };
 
-
-BaseCoroutine* createMainCoroutine();
-
+BaseCoroutine *createMainCoroutine();
 
 class CurrentCoroutineStorage
 {
@@ -48,5 +46,4 @@ CurrentCoroutineStorage &currentCoroutine();
 
 QTNETWORKNG_NAMESPACE_END
 
-#endif // QTNG_COROUTINE_P_H
-
+#endif  // QTNG_COROUTINE_P_H

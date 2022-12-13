@@ -11,9 +11,7 @@
 
 QTNG_LOGGER("qtng.ssl");
 
-
 QTNETWORKNG_NAMESPACE_BEGIN
-
 
 class SslCipherPrivate
 {
@@ -41,11 +39,15 @@ public:
     bool isNull;
 };
 
-
 // for qt before 5.4
-inline QString toString(const QStringRef &sr) { return sr.toString(); }
-inline QString toString(const QString &s) { return s; }
-
+inline QString toString(const QStringRef &sr)
+{
+    return sr.toString();
+}
+inline QString toString(const QString &s)
+{
+    return s;
+}
 
 SslCipher SslCipherPrivate::from_SSL_CIPHER(const SSL_CIPHER *cipher)
 {
@@ -54,7 +56,7 @@ SslCipher SslCipherPrivate::from_SSL_CIPHER(const SSL_CIPHER *cipher)
         return ciph;
     }
 
-    char buf [256];
+    char buf[256];
     char *description = SSL_CIPHER_description(cipher, buf, sizeof(buf));
     if (!description) {
         return ciph;
@@ -108,7 +110,6 @@ SslCipher::SslCipher()
 {
 }
 
-
 SslCipher::SslCipher(const QString &name)
     : d(new SslCipherPrivate)
 {
@@ -120,7 +121,6 @@ SslCipher::SslCipher(const QString &name)
         }
     }
 }
-
 
 SslCipher::SslCipher(const QString &name, Ssl::SslProtocol protocol)
     : d(new SslCipherPrivate)
@@ -134,18 +134,13 @@ SslCipher::SslCipher(const QString &name, Ssl::SslProtocol protocol)
     }
 }
 
-
 SslCipher::SslCipher(const SslCipher &other)
     : d(new SslCipherPrivate)
 {
     *d.data() = *other.d.data();
 }
 
-
-SslCipher::~SslCipher()
-{
-}
-
+SslCipher::~SslCipher() { }
 
 SslCipher &SslCipher::operator=(const SslCipher &other)
 {
@@ -153,84 +148,71 @@ SslCipher &SslCipher::operator=(const SslCipher &other)
     return *this;
 }
 
-
 bool SslCipher::operator==(const SslCipher &other) const
 {
     return d->name == other.d->name && d->protocol == other.d->protocol;
 }
-
 
 bool SslCipher::isNull() const
 {
     return d->isNull;
 }
 
-
 QString SslCipher::name() const
 {
     return d->name;
 }
 
-
-int SslCipher::supportedBits()const
+int SslCipher::supportedBits() const
 {
     return d->supportedBits;
 }
-
 
 int SslCipher::usedBits() const
 {
     return d->bits;
 }
 
-
 QString SslCipher::keyExchangeMethod() const
 {
     return d->keyExchangeMethod;
 }
-
 
 QString SslCipher::authenticationMethod() const
 {
     return d->authenticationMethod;
 }
 
-
 QString SslCipher::encryptionMethod() const
 {
     return d->encryptionMethod;
 }
-
 
 QString SslCipher::protocolString() const
 {
     return d->protocolString;
 }
 
-
 Ssl::SslProtocol SslCipher::protocol() const
 {
     return d->protocol;
 }
 
-
 QDebug operator<<(QDebug debug, const SslCipher &cipher)
 {
-    QDebugStateSaver saver(debug); Q_UNUSED(saver);
+    QDebugStateSaver saver(debug);
+    Q_UNUSED(saver);
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
     debug.resetFormat().nospace().noquote();
 #else
     debug.nospace();
 #endif
-    debug << "SslCipher(name=" << cipher.name()
-          << ", bits=" << cipher.usedBits()
-          << ", proto=" << cipher.protocolString()
-          << ')';
+    debug << "SslCipher(name=" << cipher.name() << ", bits=" << cipher.usedBits()
+          << ", proto=" << cipher.protocolString() << ')';
     return debug;
 }
 
-
-class SslConfigurationPrivate: public QSharedData
+class SslConfigurationPrivate : public QSharedData
 {
 public:
     SslConfigurationPrivate();
@@ -252,36 +234,22 @@ public:
     bool supportCompression;
 };
 
-
 bool SslConfigurationPrivate::operator==(const SslConfigurationPrivate &other) const
 {
-    return caCertificates == other.caCertificates &&
-            localCertificate == other.localCertificate &&
-            privateKey == other.privateKey &&
-            allowedNextProtocols == other.allowedNextProtocols &&
-            peerVerifyMode == other.peerVerifyMode &&
-            ciphers == other.ciphers &&
-            chooseTlsExtNameCallback == other.chooseTlsExtNameCallback &&
-            peerVerifyDepth == other.peerVerifyDepth &&
-            onlySecureProtocol == other.onlySecureProtocol &&
-            supportCompression == other.supportCompression;
+    return caCertificates == other.caCertificates && localCertificate == other.localCertificate
+            && privateKey == other.privateKey && allowedNextProtocols == other.allowedNextProtocols
+            && peerVerifyMode == other.peerVerifyMode && ciphers == other.ciphers
+            && chooseTlsExtNameCallback == other.chooseTlsExtNameCallback && peerVerifyDepth == other.peerVerifyDepth
+            && onlySecureProtocol == other.onlySecureProtocol && supportCompression == other.supportCompression;
 }
-
 
 bool SslConfigurationPrivate::isNull() const
 {
-    return caCertificates.isEmpty() &&
-            localCertificate.isNull() &&
-            !privateKey.isValid() &&
-            allowedNextProtocols.isEmpty() &&
-            peerVerifyMode == Ssl::AutoVerifyPeer &&
-            ciphers.isEmpty() &&
-            chooseTlsExtNameCallback.isNull() &&
-            peerVerifyDepth == 4 &&
-            onlySecureProtocol == true &&
-            supportCompression == true;
+    return caCertificates.isEmpty() && localCertificate.isNull() && !privateKey.isValid()
+            && allowedNextProtocols.isEmpty() && peerVerifyMode == Ssl::AutoVerifyPeer && ciphers.isEmpty()
+            && chooseTlsExtNameCallback.isNull() && peerVerifyDepth == 4 && onlySecureProtocol == true
+            && supportCompression == true;
 }
-
 
 SslConfigurationPrivate::SslConfigurationPrivate()
     : peerVerifyMode(Ssl::AutoVerifyPeer)
@@ -292,12 +260,10 @@ SslConfigurationPrivate::SslConfigurationPrivate()
     setSendTlsExtHostName(true);
 }
 
-
-class AlwaysTheSameChooseTlsExtNameCallback: public ChooseTlsExtNameCallback
+class AlwaysTheSameChooseTlsExtNameCallback : public ChooseTlsExtNameCallback
 {
     virtual QString choose(const QString &hostName) override { return hostName; }
 };
-
 
 void SslConfigurationPrivate::setSendTlsExtHostName(bool sendTlsExtHostName)
 {
@@ -308,7 +274,6 @@ void SslConfigurationPrivate::setSendTlsExtHostName(bool sendTlsExtHostName)
         chooseTlsExtNameCallback.clear();
     }
 }
-
 
 QSharedPointer<SSL_CTX> SslConfigurationPrivate::makeContext(const SslConfiguration &config, bool asServer)
 {
@@ -345,25 +310,22 @@ QSharedPointer<SSL_CTX> SslConfigurationPrivate::makeContext(const SslConfigurat
     const Certificate &localCertificate = config.localCertificate();
     if (localCertificate.isValid()) {
         int r = SSL_CTX_use_certificate(ctx.data(), static_cast<X509 *>(localCertificate.handle()));
-        if(!r) {
+        if (!r) {
             qtng_debug << "can not set ssl certificate.";
         }
     }
     return ctx;
 }
 
-
 SslConfiguration::SslConfiguration()
-    :d(new SslConfigurationPrivate())
+    : d(new SslConfigurationPrivate())
 {
 }
-
 
 SslConfiguration::SslConfiguration(const SslConfiguration &other)
     : d(other.d)
 {
 }
-
 
 #ifdef Q_COMPILER_RVALUE_REFS
 
@@ -375,11 +337,7 @@ SslConfiguration::SslConfiguration(SslConfiguration &&other)
 
 #endif
 
-
-SslConfiguration::~SslConfiguration()
-{
-}
-
+SslConfiguration::~SslConfiguration() { }
 
 SslConfiguration &SslConfiguration::operator=(const SslConfiguration &other)
 {
@@ -390,123 +348,103 @@ SslConfiguration &SslConfiguration::operator=(const SslConfiguration &other)
     return *this;
 }
 
-
 bool SslConfiguration::operator==(const SslConfiguration &other) const
 {
     if (d == other.d) {
         return true;
     }
-    return d->operator ==(*other.d);
+    return d->operator==(*other.d);
 }
-
 
 bool SslConfiguration::isNull() const
 {
     return d->isNull();
 }
 
-
 QList<QByteArray> SslConfiguration::allowedNextProtocols() const
 {
     return d->allowedNextProtocols;
 }
-
 
 QList<Certificate> SslConfiguration::caCertificates() const
 {
     return d->caCertificates;
 }
 
-
 QList<SslCipher> SslConfiguration::ciphers() const
 {
     return d->ciphers;
 }
-
 
 Certificate SslConfiguration::localCertificate() const
 {
     return d->localCertificate;
 }
 
-
 Ssl::PeerVerifyMode SslConfiguration::peerVerifyMode() const
 {
     return d->peerVerifyMode;
 }
-
 
 int SslConfiguration::peerVerifyDepth() const
 {
     return d->peerVerifyDepth;
 }
 
-
 PrivateKey SslConfiguration::privateKey() const
 {
     return d->privateKey;
 }
-
 
 bool SslConfiguration::onlySecureProtocol() const
 {
     return d->onlySecureProtocol;
 }
 
-
 bool SslConfiguration::supportCompression() const
 {
     return d->supportCompression;
 }
-
 
 bool SslConfiguration::sendTlsExtHostName() const
 {
     return !d->chooseTlsExtNameCallback.isNull();
 }
 
-
 QSharedPointer<ChooseTlsExtNameCallback> SslConfiguration::tlsExtHostNameCallback() const
 {
     return d->chooseTlsExtNameCallback;
 }
-
 
 void SslConfiguration::addCaCertificate(const Certificate &certificate)
 {
     d->caCertificates.append(certificate);
 }
 
-
 void SslConfiguration::addCaCertificates(const QList<Certificate> &certificates)
 {
     d->caCertificates.append(certificates);
 }
-
 
 void SslConfiguration::setAllowedNextProtocols(const QList<QByteArray> &protocols)
 {
     d->allowedNextProtocols = protocols;
 }
 
-
 void SslConfiguration::setPeerVerifyDepth(int depth)
 {
     d->peerVerifyDepth = depth;
 }
-
 
 void SslConfiguration::setPeerVerifyMode(Ssl::PeerVerifyMode mode)
 {
     d->peerVerifyMode = mode;
 }
 
-
 void SslConfiguration::setLocalCertificate(const Certificate &certificate)
 {
     d->localCertificate = certificate;
 }
-
 
 bool SslConfiguration::setLocalCertificate(const QString &path, Ssl::EncodingFormat format)
 {
@@ -532,12 +470,10 @@ bool SslConfiguration::setLocalCertificate(const QString &path, Ssl::EncodingFor
     return true;
 }
 
-
 void SslConfiguration::setPrivateKey(const PrivateKey &key)
 {
     d->privateKey = key;
 }
-
 
 bool SslConfiguration::setPrivateKey(const QString &fileName, Ssl::EncodingFormat format, const QByteArray &passPhrase)
 {
@@ -563,38 +499,33 @@ bool SslConfiguration::setPrivateKey(const QString &fileName, Ssl::EncodingForma
     return true;
 }
 
-
 void SslConfiguration::setOnlySecureProtocol(bool onlySecureProtocol)
 {
     d->onlySecureProtocol = onlySecureProtocol;
 }
-
 
 void SslConfiguration::setSupportCompression(bool supportCompression)
 {
     d->supportCompression = supportCompression;
 }
 
-
 void SslConfiguration::setSendTlsExtHostName(bool sendTlsExtHostName)
 {
     d->setSendTlsExtHostName(sendTlsExtHostName);
 }
-
 
 void SslConfiguration::setTlsExtHostNameCallback(QSharedPointer<ChooseTlsExtNameCallback> callback)
 {
     d->chooseTlsExtNameCallback = callback;
 }
 
-
 QList<SslCipher> SslConfiguration::supportedCiphers()
 {
     return QList<SslCipher>();
 }
 
-
-SslConfiguration SslConfiguration::testPurpose(const QString &commonName, const QString &countryCode, const QString &organization)
+SslConfiguration SslConfiguration::testPurpose(const QString &commonName, const QString &countryCode,
+                                               const QString &organization)
 {
     PrivateKey key = PrivateKey::generate(qtng::PrivateKey::Rsa, 2048);
     QMultiMap<Certificate::SubjectInfo, QString> info;
@@ -602,14 +533,12 @@ SslConfiguration SslConfiguration::testPurpose(const QString &commonName, const 
     info.insert(Certificate::CountryName, countryCode);
     info.insert(Certificate::Organization, organization);
     const QDateTime &now = QDateTime::currentDateTime();
-    const Certificate &cert = Certificate::selfSign(key, MessageDigest::Sha256,
-                                                    293424, now, now.addYears(10), info);
+    const Certificate &cert = Certificate::selfSign(key, MessageDigest::Sha256, 293424, now, now.addYears(10), info);
     SslConfiguration config;
     config.setPrivateKey(key);
     config.setLocalCertificate(cert);
     return config;
 }
-
 
 class SslErrorPrivate
 {
@@ -618,14 +547,12 @@ public:
     SslError::Error error;
 };
 
-
 SslError::SslError()
     : d(new SslErrorPrivate)
 {
     d->error = SslError::NoError;
     d->certificate = Certificate();
 }
-
 
 SslError::SslError(Error error)
     : d(new SslErrorPrivate)
@@ -634,7 +561,6 @@ SslError::SslError(Error error)
     d->certificate = Certificate();
 }
 
-
 SslError::SslError(Error error, const Certificate &certificate)
     : d(new SslErrorPrivate)
 {
@@ -642,18 +568,13 @@ SslError::SslError(Error error, const Certificate &certificate)
     d->certificate = certificate;
 }
 
-
 SslError::SslError(const SslError &other)
     : d(new SslErrorPrivate)
 {
     *d.data() = *other.d.data();
 }
 
-
-SslError::~SslError()
-{
-}
-
+SslError::~SslError() { }
 
 SslError &SslError::operator=(const SslError &other)
 {
@@ -661,19 +582,15 @@ SslError &SslError::operator=(const SslError &other)
     return *this;
 }
 
-
 bool SslError::operator==(const SslError &other) const
 {
-    return d->error == other.d->error
-        && d->certificate == other.d->certificate;
+    return d->error == other.d->error && d->certificate == other.d->certificate;
 }
-
 
 SslError::Error SslError::error() const
 {
     return d->error;
 }
-
 
 QString SslError::errorString() const
 {
@@ -733,21 +650,21 @@ QString SslError::errorString() const
     case CertificateRejected:
         errStr = QString::fromLatin1("The root CA certificate is marked to reject the specified purpose");
         break;
-    case SubjectIssuerMismatch: // hostname mismatch
+    case SubjectIssuerMismatch:  // hostname mismatch
         errStr = QString::fromLatin1("The current candidate issuer certificate was rejected because its"
-                                " subject name did not match the issuer name of the current certificate");
+                                     " subject name did not match the issuer name of the current certificate");
         break;
     case AuthorityIssuerSerialNumberMismatch:
         errStr = QString::fromLatin1("The current candidate issuer certificate was rejected because"
-                             " its issuer name and serial number was present and did not match the"
-                             " authority key identifier of the current certificate");
+                                     " its issuer name and serial number was present and did not match the"
+                                     " authority key identifier of the current certificate");
         break;
     case NoPeerCertificate:
         errStr = QString::fromLatin1("The peer did not present any certificate");
         break;
     case HostNameMismatch:
         errStr = QString::fromLatin1("The host name did not match any of the valid hosts"
-                             " for this certificate");
+                                     " for this certificate");
         break;
     case NoSslSupport:
         errStr = QString::fromLatin1("SSL is not supported on this pltform.");
@@ -763,12 +680,10 @@ QString SslError::errorString() const
     return errStr;
 }
 
-
 Certificate SslError::certificate() const
 {
     return d->certificate;
 }
-
 
 uint qHash(const SslError &key, uint seed)
 {
@@ -778,20 +693,17 @@ uint qHash(const SslError &key, uint seed)
     return seed;
 }
 
-
 QDebug &operator<<(QDebug &debug, const SslError &error)
 {
     debug << error.errorString();
     return debug;
 }
 
-
 QDebug &operator<<(QDebug &debug, const SslError::Error &error)
 {
     debug << SslError(error).errorString();
     return debug;
 }
-
 
 /*
 static SslError _q_OpenSSL_to_SslError(int errorCode, const Certificate &cert)
@@ -844,7 +756,6 @@ static SslError _q_OpenSSL_to_SslError(int errorCode, const Certificate &cert)
 }
 */
 
-
 template<typename SocketType>
 class SslConnection
 {
@@ -879,7 +790,6 @@ public:
     bool asServer;
 };
 
-
 template<typename SocketType>
 SslConnection<SocketType>::SslConnection(const SslConfiguration &config)
     : config(config)
@@ -887,13 +797,11 @@ SslConnection<SocketType>::SslConnection(const SslConfiguration &config)
     initOpenSSL();
 }
 
-
 template<typename SocketType>
 SslConnection<SocketType>::SslConnection()
 {
     initOpenSSL();
 }
-
 
 template<typename SocketType>
 SslConnection<SocketType>::~SslConnection()
@@ -901,7 +809,6 @@ SslConnection<SocketType>::~SslConnection()
     rawSocket->abort();
     cleanupOpenSSL();
 }
-
 
 template<typename SocketType>
 bool SslConnection<SocketType>::handshake(bool asServer, const QString &hostName)
@@ -920,7 +827,7 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &hostName
         return false;
     }
     BIO *outgoing = BIO_new(BIO_s_mem());
-    if(!outgoing) {
+    if (!outgoing) {
         BIO_free(incoming);
         return false;
     }
@@ -954,7 +861,6 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &hostName
     return false;
 }
 
-
 template<typename SocketType>
 bool SslConnection<SocketType>::pumpOutgoing()
 {
@@ -975,7 +881,6 @@ bool SslConnection<SocketType>::pumpOutgoing()
     }
     return true;
 }
-
 
 template<typename SocketType>
 bool SslConnection<SocketType>::pumpIncoming()
@@ -1003,7 +908,6 @@ bool SslConnection<SocketType>::pumpIncoming()
     return true;
 }
 
-
 template<typename SocketType>
 bool SslConnection<SocketType>::_handshake()
 {
@@ -1014,17 +918,20 @@ bool SslConnection<SocketType>::_handshake()
             int err = SSL_get_error(ssl.data(), result);
             switch (err) {
             case SSL_ERROR_WANT_READ:
-                if (!pumpOutgoing()) return false;
-                if (!pumpIncoming()) return false;
+                if (!pumpOutgoing())
+                    return false;
+                if (!pumpIncoming())
+                    return false;
                 break;
             case SSL_ERROR_WANT_WRITE:
-                if (!pumpOutgoing()) return false;
+                if (!pumpOutgoing())
+                    return false;
                 break;
             case SSL_ERROR_ZERO_RETURN:
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
-//            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+                //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
             case SSL_ERROR_SYSCALL:
                 qtng_debug << "invalid ssl connection state.";
                 return false;
@@ -1040,7 +947,6 @@ bool SslConnection<SocketType>::_handshake()
         }
     }
 }
-
 
 template<typename SocketType>
 qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
@@ -1070,7 +976,7 @@ qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
-//            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+                //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL:
             default:
@@ -1087,7 +993,6 @@ qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
         }
     }
 }
-
 
 template<typename SocketType>
 qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
@@ -1120,7 +1025,7 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
-//            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+                //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL:
             default:
@@ -1131,23 +1036,25 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
             total += result;
             if (Q_UNLIKELY(total > size)) {
                 qtng_debug << "send too many data.";
-                if (!pumpOutgoing()) return -1;
+                if (!pumpOutgoing())
+                    return -1;
                 return size;
             } else if (Q_LIKELY(total == size)) {
-                if (!pumpOutgoing()) return -1;
+                if (!pumpOutgoing())
+                    return -1;
                 return total;
             } else {
                 if (all) {
                     continue;
                 } else {
-                    if (!pumpOutgoing()) return -1;
+                    if (!pumpOutgoing())
+                        return -1;
                     return total;
                 }
             }
         }
     }
 }
-
 
 template<typename SocketType>
 bool SslConnection<SocketType>::close()
@@ -1160,13 +1067,16 @@ bool SslConnection<SocketType>::close()
         int result = SSL_shutdown(ssl.data());
         if (result < 0) {
             int err = SSL_get_error(ssl.data(), result);
-            switch(err) {
+            switch (err) {
             case SSL_ERROR_WANT_READ:
-                if (!pumpOutgoing()) return false;
-                if (!pumpIncoming()) return false;
+                if (!pumpOutgoing())
+                    return false;
+                if (!pumpIncoming())
+                    return false;
                 break;
             case SSL_ERROR_WANT_WRITE:
-                if (!pumpOutgoing()) return false;
+                if (!pumpOutgoing())
+                    return false;
                 break;
             case SSL_ERROR_NONE:
             case SSL_ERROR_ZERO_RETURN:
@@ -1174,7 +1084,7 @@ bool SslConnection<SocketType>::close()
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
-//            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+                //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
                 qtng_debug << "what?";
                 return false;
             case SSL_ERROR_SYSCALL:
@@ -1187,7 +1097,7 @@ bool SslConnection<SocketType>::close()
             }
         } else if (result > 0) {
             return true;
-        } else { // result == 0
+        } else {  // result == 0
             // process the second SSL_shutdown();
             // https://www.openssl.org/docs/manmaster/man3/SSL_shutdown.html
             if (tried > 0) {
@@ -1199,13 +1109,11 @@ bool SslConnection<SocketType>::close()
     }
 }
 
-
 template<typename SocketType>
 void SslConnection<SocketType>::abort()
 {
     rawSocket->abort();
 }
-
 
 template<typename SocketType>
 Certificate SslConnection<SocketType>::localCertificate() const
@@ -1220,7 +1128,6 @@ Certificate SslConnection<SocketType>::localCertificate() const
     return cert;
 }
 
-
 template<typename SocketType>
 Certificate SslConnection<SocketType>::peerCertificate() const
 {
@@ -1234,12 +1141,11 @@ Certificate SslConnection<SocketType>::peerCertificate() const
     return cert;
 }
 
-
-QList<Certificate> STACKOFX509_to_Certificates(STACK_OF(X509) *x509)
+QList<Certificate> STACKOFX509_to_Certificates(STACK_OF(X509) * x509)
 {
     QList<Certificate> certificates;
     for (int i = 0; i < sk_X509_num(x509); ++i) {
-        if (X509 *entry = static_cast<X509*>(sk_X509_value(x509, i))) {
+        if (X509 *entry = static_cast<X509 *>(sk_X509_value(x509, i))) {
             Certificate cert;
             openssl_setCertificate(&cert, entry);
             certificates.append(cert);
@@ -1248,17 +1154,15 @@ QList<Certificate> STACKOFX509_to_Certificates(STACK_OF(X509) *x509)
     return certificates;
 }
 
-
 template<typename SocketType>
 QList<Certificate> SslConnection<SocketType>::localCertificateChain() const
 {
     QList<Certificate> certificates;
     if (ssl.isNull())
         return certificates;
-    //FIXME store in sslconfig.
+    // FIXME store in sslconfig.
     return certificates;
 }
-
 
 template<typename SocketType>
 QList<Certificate> SslConnection<SocketType>::peerCertificateChain() const
@@ -1273,7 +1177,6 @@ QList<Certificate> SslConnection<SocketType>::peerCertificateChain() const
     }
     return certificates;
 }
-
 
 template<typename SocketType>
 Ssl::PeerVerifyMode SslConnection<SocketType>::peerVerifyMode() const
@@ -1295,7 +1198,6 @@ Ssl::PeerVerifyMode SslConnection<SocketType>::peerVerifyMode() const
     }
 }
 
-
 template<typename SocketType>
 SslCipher SslConnection<SocketType>::cipher() const
 {
@@ -1306,7 +1208,6 @@ SslCipher SslConnection<SocketType>::cipher() const
     return SslCipherPrivate::from_SSL_CIPHER(sessionCipher);
 }
 
-
 template<typename SocketType>
 SslSocket::SslMode SslConnection<SocketType>::mode() const
 {
@@ -1316,7 +1217,6 @@ SslSocket::SslMode SslConnection<SocketType>::mode() const
         return SslSocket::SslClientMode;
     }
 }
-
 
 template<typename SocketType>
 Ssl::SslProtocol SslConnection<SocketType>::sslProtocol() const
@@ -1339,8 +1239,7 @@ Ssl::SslProtocol SslConnection<SocketType>::sslProtocol() const
     return Ssl::UnknownProtocol;
 }
 
-
-class SslSocketPrivate: public SslConnection<SocketLike>
+class SslSocketPrivate : public SslConnection<SocketLike>
 {
 public:
     SslSocketPrivate(const SslConfiguration &config);
@@ -1350,13 +1249,11 @@ public:
     Socket::SocketError error;
 };
 
-
 SslSocketPrivate::SslSocketPrivate(const SslConfiguration &config)
-    :SslConnection<SocketLike>(config), error(Socket::NoError)
+    : SslConnection<SocketLike>(config)
+    , error(Socket::NoError)
 {
-
 }
-
 
 bool SslSocketPrivate::isValid() const
 {
@@ -1367,48 +1264,42 @@ bool SslSocketPrivate::isValid() const
     }
 }
 
-
 SslSocket::SslSocket(HostAddress::NetworkLayerProtocol protocol, const SslConfiguration &config)
-    :d_ptr(new SslSocketPrivate(config))
+    : d_ptr(new SslSocketPrivate(config))
 {
     Q_D(SslSocket);
     d->rawSocket = asSocketLike(new Socket(protocol));
     d->asServer = false;
 }
 
-
 SslSocket::SslSocket(qintptr socketDescriptor, const SslConfiguration &config)
-    :d_ptr(new SslSocketPrivate(config))
+    : d_ptr(new SslSocketPrivate(config))
 {
     Q_D(SslSocket);
     d->rawSocket = asSocketLike(new Socket(socketDescriptor));
     d->asServer = false;
 }
 
-
 SslSocket::SslSocket(QSharedPointer<Socket> rawSocket, const SslConfiguration &config)
-    :d_ptr(new SslSocketPrivate(config))
+    : d_ptr(new SslSocketPrivate(config))
 {
     Q_D(SslSocket);
     d->rawSocket = asSocketLike(rawSocket);
     d->asServer = false;
 }
 
-
 SslSocket::SslSocket(QSharedPointer<SocketLike> rawSocket, const SslConfiguration &config)
-    :d_ptr(new SslSocketPrivate(config))
+    : d_ptr(new SslSocketPrivate(config))
 {
     Q_D(SslSocket);
     d->rawSocket = rawSocket;
     d->asServer = false;
 }
 
-
 SslSocket::~SslSocket()
 {
     delete d_ptr;
 }
-
 
 bool SslSocket::handshake(bool asServer, const QString &hostName)
 {
@@ -1419,13 +1310,11 @@ bool SslSocket::handshake(bool asServer, const QString &hostName)
     return d->handshake(asServer, hostName);
 }
 
-
 Certificate SslSocket::localCertificate() const
 {
     Q_D(const SslSocket);
     return d->localCertificate();
 }
-
 
 QList<Certificate> SslSocket::localCertificateChain() const
 {
@@ -1433,13 +1322,11 @@ QList<Certificate> SslSocket::localCertificateChain() const
     return d->localCertificateChain();
 }
 
-
 Certificate SslSocket::peerCertificate() const
 {
     Q_D(const SslSocket);
     return d->peerCertificate();
 }
-
 
 QList<Certificate> SslSocket::peerCertificateChain() const
 {
@@ -1447,13 +1334,11 @@ QList<Certificate> SslSocket::peerCertificateChain() const
     return d->peerCertificateChain();
 }
 
-
 Ssl::PeerVerifyMode SslSocket::peerVerifyMode() const
 {
     Q_D(const SslSocket);
     return d->peerVerifyMode();
 }
-
 
 QString SslSocket::peerVerifyName() const
 {
@@ -1461,13 +1346,11 @@ QString SslSocket::peerVerifyName() const
     return d->peerVerifyName;
 }
 
-
 PrivateKey SslSocket::privateKey() const
 {
     Q_D(const SslSocket);
     return d->config.privateKey();
 }
-
 
 Ssl::SslProtocol SslSocket::sslProtocol() const
 {
@@ -1475,13 +1358,11 @@ Ssl::SslProtocol SslSocket::sslProtocol() const
     return d->sslProtocol();
 }
 
-
 SslCipher SslSocket::cipher() const
 {
     Q_D(const SslSocket);
     return d->cipher();
 }
-
 
 SslSocket::SslMode SslSocket::mode() const
 {
@@ -1489,13 +1370,11 @@ SslSocket::SslMode SslSocket::mode() const
     return d->mode();
 }
 
-
 SslConfiguration SslSocket::sslConfiguration() const
 {
     Q_D(const SslSocket);
     return d->config;
 }
-
 
 QList<SslError> SslSocket::sslErrors() const
 {
@@ -1503,13 +1382,11 @@ QList<SslError> SslSocket::sslErrors() const
     return d->errors;
 }
 
-
 void SslSocket::setSslConfiguration(const SslConfiguration &configuration)
 {
     Q_D(SslSocket);
     d->config = configuration;
 }
-
 
 void SslSocket::setPeerVerifyName(const QString &peerVerifyName)
 {
@@ -1517,20 +1394,17 @@ void SslSocket::setPeerVerifyName(const QString &peerVerifyName)
     d->peerVerifyName = peerVerifyName;
 }
 
-
 void SslSocket::setTlsExtHostName(const QString &tlsExtHostName)
 {
     Q_D(SslSocket);
     d->tlsExtHostName = tlsExtHostName;
 }
 
-
 QSharedPointer<SocketLike> SslSocket::backend() const
 {
     Q_D(const SslSocket);
     return d->rawSocket;
 }
-
 
 SslSocket *SslSocket::accept()
 {
@@ -1546,13 +1420,11 @@ SslSocket *SslSocket::accept()
     }
 }
 
-
 Socket *SslSocket::acceptRaw()
 {
     Q_D(SslSocket);
     return d->rawSocket->acceptRaw();
 }
-
 
 bool SslSocket::bind(const HostAddress &address, quint16 port, Socket::BindMode mode)
 {
@@ -1560,13 +1432,11 @@ bool SslSocket::bind(const HostAddress &address, quint16 port, Socket::BindMode 
     return d->rawSocket->bind(address, port, mode);
 }
 
-
 bool SslSocket::bind(quint16 port, Socket::BindMode mode)
 {
     Q_D(SslSocket);
     return d->rawSocket->bind(port, mode);
 }
-
 
 bool SslSocket::connect(const HostAddress &addr, quint16 port)
 {
@@ -1577,7 +1447,6 @@ bool SslSocket::connect(const HostAddress &addr, quint16 port)
     return d->handshake(false, QString());
 }
 
-
 bool SslSocket::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
 {
     Q_D(SslSocket);
@@ -1587,13 +1456,11 @@ bool SslSocket::connect(const QString &hostName, quint16 port, QSharedPointer<So
     return d->handshake(false, hostName);
 }
 
-
 void SslSocket::close()
 {
     Q_D(SslSocket);
     d->close();
 }
-
 
 void SslSocket::abort()
 {
@@ -1601,13 +1468,11 @@ void SslSocket::abort()
     d->abort();
 }
 
-
 bool SslSocket::listen(int backlog)
 {
     Q_D(SslSocket);
     return d->rawSocket->listen(backlog);
 }
-
 
 bool SslSocket::setOption(Socket::SocketOption option, const QVariant &value)
 {
@@ -1615,13 +1480,11 @@ bool SslSocket::setOption(Socket::SocketOption option, const QVariant &value)
     return d->rawSocket->setOption(option, value);
 }
 
-
 QVariant SslSocket::option(Socket::SocketOption option) const
 {
     Q_D(const SslSocket);
     return d->rawSocket->option(option);
 }
-
 
 Socket::SocketError SslSocket::error() const
 {
@@ -1633,7 +1496,6 @@ Socket::SocketError SslSocket::error() const
     }
 }
 
-
 QString SslSocket::errorString() const
 {
     Q_D(const SslSocket);
@@ -1644,13 +1506,11 @@ QString SslSocket::errorString() const
     }
 }
 
-
 bool SslSocket::isValid() const
 {
     Q_D(const SslSocket);
     return d->isValid();
 }
-
 
 HostAddress SslSocket::localAddress() const
 {
@@ -1658,13 +1518,11 @@ HostAddress SslSocket::localAddress() const
     return d->rawSocket->localAddress();
 }
 
-
 quint16 SslSocket::localPort() const
 {
     Q_D(const SslSocket);
     return d->rawSocket->localPort();
 }
-
 
 HostAddress SslSocket::peerAddress() const
 {
@@ -1672,13 +1530,11 @@ HostAddress SslSocket::peerAddress() const
     return d->rawSocket->peerAddress();
 }
 
-
 QString SslSocket::peerName() const
 {
     Q_D(const SslSocket);
     return d->rawSocket->peerName();
 }
-
 
 quint16 SslSocket::peerPort() const
 {
@@ -1686,13 +1542,11 @@ quint16 SslSocket::peerPort() const
     return d->rawSocket->peerPort();
 }
 
-
-qintptr	SslSocket::fileno() const
+qintptr SslSocket::fileno() const
 {
     Q_D(const SslSocket);
     return d->rawSocket->fileno();
 }
-
 
 Socket::SocketType SslSocket::type() const
 {
@@ -1700,13 +1554,11 @@ Socket::SocketType SslSocket::type() const
     return d->rawSocket->type();
 }
 
-
 Socket::SocketState SslSocket::state() const
 {
     Q_D(const SslSocket);
     return d->rawSocket->state();
 }
-
 
 HostAddress::NetworkLayerProtocol SslSocket::protocol() const
 {
@@ -1714,13 +1566,11 @@ HostAddress::NetworkLayerProtocol SslSocket::protocol() const
     return d->rawSocket->protocol();
 }
 
-
 QString SslSocket::localAddressURI() const
 {
     Q_D(const SslSocket);
     return QLatin1String("ssl+") + d->rawSocket->localAddressURI();
 }
-
 
 QString SslSocket::peerAddressURI() const
 {
@@ -1728,13 +1578,11 @@ QString SslSocket::peerAddressURI() const
     return QLatin1String("ssl+") + d->rawSocket->peerAddressURI();
 }
 
-
 qint32 SslSocket::recv(char *data, qint32 size)
 {
     Q_D(SslSocket);
     return d->recv(data, size, false);
 }
-
 
 qint32 SslSocket::recvall(char *data, qint32 size)
 {
@@ -1742,20 +1590,17 @@ qint32 SslSocket::recvall(char *data, qint32 size)
     return d->recv(data, size, true);
 }
 
-
 qint32 SslSocket::send(const char *data, qint32 size)
 {
     Q_D(SslSocket);
     return d->send(data, size, false);
 }
 
-
 qint32 SslSocket::sendall(const char *data, qint32 size)
 {
     Q_D(SslSocket);
     return d->send(data, size, true);
 }
-
 
 QByteArray SslSocket::recv(qint32 size)
 {
@@ -1771,7 +1616,6 @@ QByteArray SslSocket::recv(qint32 size)
     return QByteArray();
 }
 
-
 QByteArray SslSocket::recvall(qint32 size)
 {
     Q_D(SslSocket);
@@ -1786,7 +1630,6 @@ QByteArray SslSocket::recvall(qint32 size)
     return QByteArray();
 }
 
-
 qint32 SslSocket::send(const QByteArray &data)
 {
     Q_D(SslSocket);
@@ -1798,48 +1641,45 @@ qint32 SslSocket::send(const QByteArray &data)
     }
 }
 
-
 qint32 SslSocket::sendall(const QByteArray &data)
 {
     Q_D(SslSocket);
     return d->send(data.data(), data.size(), true);
 }
 
-
-SslSocket *SslSocket::createConnection(const HostAddress &host, quint16 port,
-              const SslConfiguration &config, Socket::SocketError *error, int allowProtocol)
+SslSocket *SslSocket::createConnection(const HostAddress &host, quint16 port, const SslConfiguration &config,
+                                       Socket::SocketError *error, int allowProtocol)
 {
-    std::function<SslSocket*(HostAddress::NetworkLayerProtocol)> func = [config] (HostAddress::NetworkLayerProtocol protocol) -> SslSocket * {
+    std::function<SslSocket *(HostAddress::NetworkLayerProtocol)> func =
+            [config](HostAddress::NetworkLayerProtocol protocol) -> SslSocket * {
         return new SslSocket(protocol, config);
     };
     return QTNETWORKNG_NAMESPACE::createConnection<SslSocket>(host, port, error, allowProtocol, func);
 }
 
-
-SslSocket *SslSocket::createConnection(const QString &hostName, quint16 port,
-              const SslConfiguration &config, Socket::SocketError *error,
-              QSharedPointer<SocketDnsCache> dnsCache, int allowProtocol)
+SslSocket *SslSocket::createConnection(const QString &hostName, quint16 port, const SslConfiguration &config,
+                                       Socket::SocketError *error, QSharedPointer<SocketDnsCache> dnsCache,
+                                       int allowProtocol)
 {
-    std::function<SslSocket*(HostAddress::NetworkLayerProtocol)> func = [config] (HostAddress::NetworkLayerProtocol protocol) -> SslSocket * {
+    std::function<SslSocket *(HostAddress::NetworkLayerProtocol)> func =
+            [config](HostAddress::NetworkLayerProtocol protocol) -> SslSocket * {
         return new SslSocket(protocol, config);
     };
     return QTNETWORKNG_NAMESPACE::createConnection<SslSocket>(hostName, port, error, dnsCache, allowProtocol, func);
 }
 
-
-SslSocket *SslSocket::createServer(const HostAddress &host, quint16 port,
-                                                  const SslConfiguration &config, int backlog)
+SslSocket *SslSocket::createServer(const HostAddress &host, quint16 port, const SslConfiguration &config, int backlog)
 {
-    std::function<SslSocket*(HostAddress::NetworkLayerProtocol)> func = [config] (HostAddress::NetworkLayerProtocol protocol) -> SslSocket * {
+    std::function<SslSocket *(HostAddress::NetworkLayerProtocol)> func =
+            [config](HostAddress::NetworkLayerProtocol protocol) -> SslSocket * {
         return new SslSocket(protocol, config);
     };
     return QTNETWORKNG_NAMESPACE::createServer<SslSocket>(host, port, backlog, func);
 }
 
-
 namespace {
 
-class SslSocketLikeImpl: public SocketLike
+class SslSocketLikeImpl : public SocketLike
 {
 public:
     SslSocketLikeImpl(QSharedPointer<SslSocket> s);
@@ -1852,7 +1692,7 @@ public:
     virtual HostAddress peerAddress() const override;
     virtual QString peerName() const override;
     virtual quint16 peerPort() const override;
-    virtual qintptr	fileno() const override;
+    virtual qintptr fileno() const override;
     virtual Socket::SocketType type() const override;
     virtual Socket::SocketState state() const override;
     virtual HostAddress::NetworkLayerProtocol protocol() const override;
@@ -1883,217 +1723,183 @@ public:
     QSharedPointer<SslSocket> s;
 };
 
-
 SslSocketLikeImpl::SslSocketLikeImpl(QSharedPointer<SslSocket> s)
-    :s(s) {}
-
+    : s(s)
+{
+}
 
 Socket::SocketError SslSocketLikeImpl::error() const
 {
     return s->error();
 }
 
-
 QString SslSocketLikeImpl::errorString() const
 {
     return s->errorString();
 }
-
 
 bool SslSocketLikeImpl::isValid() const
 {
     return s->isValid();
 }
 
-
 HostAddress SslSocketLikeImpl::localAddress() const
 {
     return s->localAddress();
 }
-
 
 quint16 SslSocketLikeImpl::localPort() const
 {
     return s->localPort();
 }
 
-
 HostAddress SslSocketLikeImpl::peerAddress() const
 {
     return s->peerAddress();
 }
-
 
 QString SslSocketLikeImpl::peerName() const
 {
     return s->peerName();
 }
 
-
 quint16 SslSocketLikeImpl::peerPort() const
 {
     return s->peerPort();
 }
 
-
-qintptr	SslSocketLikeImpl::fileno() const
+qintptr SslSocketLikeImpl::fileno() const
 {
     return s->fileno();
 }
-
 
 Socket::SocketType SslSocketLikeImpl::type() const
 {
     return s->type();
 }
 
-
 Socket::SocketState SslSocketLikeImpl::state() const
 {
     return s->state();
 }
-
 
 HostAddress::NetworkLayerProtocol SslSocketLikeImpl::protocol() const
 {
     return s->protocol();
 }
 
-
 QString SslSocketLikeImpl::localAddressURI() const
 {
     return s->localAddressURI();
 }
-
 
 QString SslSocketLikeImpl::peerAddressURI() const
 {
     return s->peerAddressURI();
 }
 
-
 Socket *SslSocketLikeImpl::acceptRaw()
 {
     return s->acceptRaw();
 }
-
 
 QSharedPointer<SocketLike> SslSocketLikeImpl::accept()
 {
     return asSocketLike(s->accept());
 }
 
-
-bool SslSocketLikeImpl::bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
+bool SslSocketLikeImpl::bind(const HostAddress &address, quint16 port = 0,
+                             Socket::BindMode mode = Socket::DefaultForPlatform)
 {
     return s->bind(address, port, mode);
 }
-
 
 bool SslSocketLikeImpl::bind(quint16 port, Socket::BindMode mode)
 {
     return s->bind(port, mode);
 }
 
-
 bool SslSocketLikeImpl::connect(const HostAddress &addr, quint16 port)
 {
     return s->connect(addr, port);
 }
-
 
 bool SslSocketLikeImpl::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
 {
     return s->connect(hostName, port, dnsCache);
 }
 
-
 void SslSocketLikeImpl::close()
 {
     s->close();
 }
-
 
 void SslSocketLikeImpl::abort()
 {
     s->abort();
 }
 
-
 bool SslSocketLikeImpl::listen(int backlog)
 {
     return s->listen(backlog);
 }
-
 
 bool SslSocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &value)
 {
     return s->setOption(option, value);
 }
 
-
 QVariant SslSocketLikeImpl::option(Socket::SocketOption option) const
 {
     return s->option(option);
 }
-
 
 qint32 SslSocketLikeImpl::recv(char *data, qint32 size)
 {
     return s->recv(data, size);
 }
 
-
 qint32 SslSocketLikeImpl::recvall(char *data, qint32 size)
 {
     return s->recvall(data, size);
 }
-
 
 qint32 SslSocketLikeImpl::send(const char *data, qint32 size)
 {
     return s->send(data, size);
 }
 
-
 qint32 SslSocketLikeImpl::sendall(const char *data, qint32 size)
 {
     return s->sendall(data, size);
 }
-
 
 QByteArray SslSocketLikeImpl::recv(qint32 size)
 {
     return s->recv(size);
 }
 
-
 QByteArray SslSocketLikeImpl::recvall(qint32 size)
 {
     return s->recvall(size);
 }
-
 
 qint32 SslSocketLikeImpl::send(const QByteArray &data)
 {
     return s->send(data);
 }
 
-
 qint32 SslSocketLikeImpl::sendall(const QByteArray &data)
 {
     return s->sendall(data);
 }
 
-
-} //anonymous namespace
-
+}  // anonymous namespace
 
 QSharedPointer<SocketLike> asSocketLike(QSharedPointer<SslSocket> s)
 {
     return QSharedPointer<SslSocketLikeImpl>::create(s).dynamicCast<SocketLike>();
 }
-
 
 QSharedPointer<SslSocket> convertSocketLikeToSslSocket(QSharedPointer<SocketLike> socket)
 {
@@ -2105,10 +1911,9 @@ QSharedPointer<SslSocket> convertSocketLikeToSslSocket(QSharedPointer<SocketLike
     }
 }
 
-
 namespace {
 
-class EncryptedSocketLike: public SocketLike
+class EncryptedSocketLike : public SocketLike
 {
 public:
     EncryptedSocketLike(QSharedPointer<Cipher> cipher, QSharedPointer<SocketLike> s);
@@ -2121,7 +1926,7 @@ public:
     virtual HostAddress peerAddress() const override;
     virtual QString peerName() const override;
     virtual quint16 peerPort() const override;
-    virtual qintptr	fileno() const override;
+    virtual qintptr fileno() const override;
     virtual Socket::SocketType type() const override;
     virtual Socket::SocketState state() const override;
     virtual HostAddress::NetworkLayerProtocol protocol() const override;
@@ -2157,163 +1962,138 @@ public:
     QSharedPointer<SocketLike> s;
 };
 
-
 EncryptedSocketLike::EncryptedSocketLike(QSharedPointer<Cipher> cipher, QSharedPointer<SocketLike> s)
-    : incomingCipher(cipher->copy(Cipher::Decrypt)), outgoingCipher(cipher->copy(Cipher::Encrypt)), s(s)
+    : incomingCipher(cipher->copy(Cipher::Decrypt))
+    , outgoingCipher(cipher->copy(Cipher::Encrypt))
+    , s(s)
 {
-
 }
-
 
 Socket::SocketError EncryptedSocketLike::error() const
 {
     return s->error();
 }
 
-
 QString EncryptedSocketLike::errorString() const
 {
     return s->errorString();
 }
-
 
 bool EncryptedSocketLike::isValid() const
 {
     return s->isValid();
 }
 
-
 HostAddress EncryptedSocketLike::localAddress() const
 {
     return s->localAddress();
 }
-
 
 quint16 EncryptedSocketLike::localPort() const
 {
     return s->localPort();
 }
 
-
 HostAddress EncryptedSocketLike::peerAddress() const
 {
     return s->peerAddress();
 }
-
 
 QString EncryptedSocketLike::peerName() const
 {
     return s->peerName();
 }
 
-
 quint16 EncryptedSocketLike::peerPort() const
 {
     return s->peerPort();
 }
 
-
-qintptr	EncryptedSocketLike::fileno() const
+qintptr EncryptedSocketLike::fileno() const
 {
     return s->fileno();
 }
-
 
 Socket::SocketType EncryptedSocketLike::type() const
 {
     return s->type();
 }
 
-
 Socket::SocketState EncryptedSocketLike::state() const
 {
     return s->state();
 }
-
 
 HostAddress::NetworkLayerProtocol EncryptedSocketLike::protocol() const
 {
     return s->protocol();
 }
 
-
 QString EncryptedSocketLike::localAddressURI() const
 {
     return QLatin1String("encrypted+") + s->localAddressURI();
 }
-
 
 QString EncryptedSocketLike::peerAddressURI() const
 {
     return QLatin1String("encrypted+") + s->peerAddressURI();
 }
 
-
 Socket *EncryptedSocketLike::acceptRaw()
 {
     return s->acceptRaw();
 }
-
 
 QSharedPointer<SocketLike> EncryptedSocketLike::accept()
 {
     return s->accept();
 }
 
-
-bool EncryptedSocketLike::bind(const HostAddress &address, quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform)
+bool EncryptedSocketLike::bind(const HostAddress &address, quint16 port = 0,
+                               Socket::BindMode mode = Socket::DefaultForPlatform)
 {
     return s->bind(address, port, mode);
 }
-
 
 bool EncryptedSocketLike::bind(quint16 port, Socket::BindMode mode)
 {
     return s->bind(port, mode);
 }
 
-
 bool EncryptedSocketLike::connect(const HostAddress &addr, quint16 port)
 {
     return s->connect(addr, port);
 }
-
 
 bool EncryptedSocketLike::connect(const QString &hostName, quint16 port, QSharedPointer<SocketDnsCache> dnsCache)
 {
     return s->connect(hostName, port, dnsCache);
 }
 
-
 void EncryptedSocketLike::close()
 {
     s->close();
 }
-
 
 void EncryptedSocketLike::abort()
 {
     s->abort();
 }
 
-
 bool EncryptedSocketLike::listen(int backlog)
 {
     return s->listen(backlog);
 }
-
 
 bool EncryptedSocketLike::setOption(Socket::SocketOption option, const QVariant &value)
 {
     return s->setOption(option, value);
 }
 
-
 QVariant EncryptedSocketLike::option(Socket::SocketOption option) const
 {
     return s->option(option);
 }
-
 
 qint32 EncryptedSocketLike::recv(char *data, qint32 size, bool all)
 {
@@ -2333,7 +2113,8 @@ qint32 EncryptedSocketLike::recv(char *data, qint32 size, bool all)
     } else {
         decrypted = incomingCipher->addData(buf.data(), bs);
         if (decrypted.size() != bs) {
-            qtng_warning << "EncryptedSocketLike can not decrypt data: expected" << bs << "bytes, got" << decrypted.size() << "bytes";
+            qtng_warning << "EncryptedSocketLike can not decrypt data: expected" << bs << "bytes, got"
+                         << decrypted.size() << "bytes";
             return -1;
         }
     }
@@ -2343,14 +2124,13 @@ qint32 EncryptedSocketLike::recv(char *data, qint32 size, bool all)
     return decrypted.size();
 }
 
-
 qint32 EncryptedSocketLike::send(const char *data, qint32 size, bool)
 {
     if (size <= 0) {
         return -1;
     }
     const QByteArray &encrypted = outgoingCipher->addData(data, size);
-    qint32 bs = s->sendall(encrypted);   // only support sendall.
+    qint32 bs = s->sendall(encrypted);  // only support sendall.
     if (bs < encrypted.size()) {
         return -1;
     } else {
@@ -2358,30 +2138,25 @@ qint32 EncryptedSocketLike::send(const char *data, qint32 size, bool)
     }
 }
 
-
 qint32 EncryptedSocketLike::recv(char *data, qint32 size)
 {
     return recv(data, size, false);
 }
-
 
 qint32 EncryptedSocketLike::recvall(char *data, qint32 size)
 {
     return recv(data, size, true);
 }
 
-
 qint32 EncryptedSocketLike::send(const char *data, qint32 size)
 {
     return send(data, size, false);
 }
 
-
 qint32 EncryptedSocketLike::sendall(const char *data, qint32 size)
 {
     return send(data, size, true);
 }
-
 
 QByteArray EncryptedSocketLike::recv(qint32 size)
 {
@@ -2397,7 +2172,6 @@ QByteArray EncryptedSocketLike::recv(qint32 size)
     }
 }
 
-
 QByteArray EncryptedSocketLike::recvall(qint32 size)
 {
     QByteArray buf(size, Qt::Uninitialized);
@@ -2412,12 +2186,10 @@ QByteArray EncryptedSocketLike::recvall(qint32 size)
     }
 }
 
-
 qint32 EncryptedSocketLike::send(const QByteArray &data)
 {
     return send(data.constData(), data.size(), false);
 }
-
 
 qint32 EncryptedSocketLike::sendall(const QByteArray &data)
 {
@@ -2426,7 +2198,6 @@ qint32 EncryptedSocketLike::sendall(const QByteArray &data)
 
 }  // anonymous namespace
 
-
 QSharedPointer<SocketLike> encrypted(QSharedPointer<Cipher> cipher, QSharedPointer<SocketLike> socket)
 {
     if (cipher.isNull() || !cipher->isValid() || !cipher->isStream()) {
@@ -2434,6 +2205,5 @@ QSharedPointer<SocketLike> encrypted(QSharedPointer<Cipher> cipher, QSharedPoint
     }
     return QSharedPointer<SocketLike>(new EncryptedSocketLike(cipher, socket));
 }
-
 
 QTNETWORKNG_NAMESPACE_END
