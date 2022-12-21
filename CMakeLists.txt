@@ -18,6 +18,7 @@ set(CMAKE_AUTOUIC OFF)
 set(CMAKE_AUTORCC OFF)
 
 find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
+find_library(ZLIB_FOUND zilb.h)
 if (QTNG_USE_OPENSSL)
     find_package(OpenSSL REQUIRED)  # CMAKE_FIND_ROOT_PATH_BOTH
     include(CheckFunctionExists)
@@ -130,16 +131,18 @@ set(QTCRYPTONG_PRIVATE_INCLUDE
     include/private/qasn1element.h
 )
 
-set(QTNETWORKNG_SRC
-    ${QTNETWORKNG_SRC}
-    src/gzip.cpp
-)
-set(QTNETWORKNG_INCLUDE
-    ${QTNETWORKNG_INCLUDE}
-    include/gzip.h
-)
-set(ZLIB_LINK z)
-add_definitions(-DQTNG_HAVE_ZLIB)
+if (ZLIB_FOUND)
+    set(QTNETWORKNG_SRC
+        ${QTNETWORKNG_SRC}
+        src/gzip.cpp
+    )
+    set(QTNETWORKNG_INCLUDE
+        ${QTNETWORKNG_INCLUDE}
+        include/gzip.h
+    )
+    set(ZLIB_LINK z)
+    add_definitions(-DQTNG_HAVE_ZLIB)
+endif()
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(OS_DEPENDENDED_SRC
