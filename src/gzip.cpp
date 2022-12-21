@@ -1,5 +1,7 @@
 #include "../include/gzip.h"
+extern "C" {
 #include <zlib.h>
+}
 
 #define GZIP_WINDOWS_BIT (MAX_WBITS + 32)
 

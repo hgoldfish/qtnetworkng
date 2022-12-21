@@ -18,7 +18,6 @@ set(CMAKE_AUTOUIC OFF)
 set(CMAKE_AUTORCC OFF)
 
 find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
-find_library(ZLIB_FOUND zilb.h)
 if (QTNG_USE_OPENSSL)
     find_package(OpenSSL REQUIRED)  # CMAKE_FIND_ROOT_PATH_BOTH
     include(CheckFunctionExists)
@@ -56,6 +55,7 @@ set(QTNETWORKNG_SRC
     src/msgpack.cpp
     src/data_channel.cpp
     src/hostaddress.cpp
+    src/gzip.cpp
 
     src/socket_server.cpp
     src/httpd.cpp
@@ -92,6 +92,7 @@ set(QTNETWORKNG_INCLUDE
     include/kcp.h
     include/hostaddress.h
     include/network_interface.h
+    include/gzip.h
 )
 
 set(QTNETWORKNG_PRIVATE_INCLUDE
@@ -131,18 +132,18 @@ set(QTCRYPTONG_PRIVATE_INCLUDE
     include/private/qasn1element.h
 )
 
-if (ZLIB_FOUND)
-    set(QTNETWORKNG_SRC
-        ${QTNETWORKNG_SRC}
-        src/gzip.cpp
-    )
-    set(QTNETWORKNG_INCLUDE
-        ${QTNETWORKNG_INCLUDE}
-        include/gzip.h
-    )
+find_path(QT_BUNDLED_ZLIB zlib.h HINTS "${_qt5Core_install_prefix}/include/QtZlib")
+if (${QT_BUNDLED_ZLIB} STREQUAL "${_qt5Core_install_prefix}/include/QtZlib")
+    message("use qt bundled zlib.")
+    set(ZLIB_LINK "")
+    set(ZLIB_INCLUDE ${QT_BUNDLED_ZLIB})
+else()
+    message("assume that zlib is exists.")
     set(ZLIB_LINK z)
-    add_definitions(-DQTNG_HAVE_ZLIB)
+    set(ZLIB_INCLUDE "")
 endif()
+unset(QT_BUNDLED_ZLIB)
+
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(OS_DEPENDENDED_SRC
@@ -317,8 +318,10 @@ endif()
 
 add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
                                ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE}
-                               ${OS_DEPENDENDED_SRC})
-target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
+                               ${OS_DEPENDENDED_SRC} ${ZLIB_SRC})
+target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}"
+                                       PRIVATE "${ZLIB_INCLUDE}")
+target_compile_definitions(qtnetworkng PRIVATE -DQTNG_HAVE_ZLIB)
 
 # Fix Qt-static cmake BUG
 # https://bugreports.qt.io/browse/QTBUG-38913
@@ -348,7 +351,7 @@ else()
     set(OPENSSL_LIBRARIES crypto ssl)
 endif()
 
-target_link_libraries(qtnetworkng PUBLIC Qt5::Core PRIVATE ${OPENSSL_LIBRARIES} ${ZLIB_LINK} ${OS_EXTRA_LINK})
+target_link_libraries(qtnetworkng PUBLIC Qt5::Core PRIVATE ${ZLIB_LINK} ${OPENSSL_LIBRARIES} ${OS_EXTRA_LINK})
 
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
