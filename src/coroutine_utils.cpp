@@ -1,3 +1,4 @@
+#include <QtCore/qprocess.h>
 #include "../include/coroutine_utils.h"
 #include "../include/eventloop.h"
 #include "debugger.h"
@@ -86,18 +87,48 @@ void CoroutineThread::apply(const std::function<void()> &f)
     dd_ptr->tasks.put(f);
 }
 
-bool waitThread(QSharedPointer<QThread> thread)
+bool waitThread(QThread *thread)
 {
-    if (thread.isNull()) {
+    if (!thread) {
         return false;
     }
     if (thread->isFinished()) {
         return true;
     }
     QSharedPointer<ThreadEvent> event(new ThreadEvent());
-    QObject::connect(thread.data(), &QThread::finished, [event] { event->set(); });
-    QObject::connect(thread.data(), &QThread::destroyed, [event] { event->set(); });
-    return event->wait();
+    QMetaObject::Connection connection1 = QObject::connect(thread, &QThread::finished, [event] { event->set(); });
+    QMetaObject::Connection connection2 = QObject::connect(thread, &QThread::destroyed, [event] { event->set(); });
+    try {
+        bool result = event->wait();
+        QObject::disconnect(connection1);
+        QObject::disconnect(connection2);
+        return result;
+    } catch (...) {
+        QObject::disconnect(connection1);
+        QObject::disconnect(connection2);
+        throw;
+    }
+}
+
+bool waitProcess(QProcess *process)
+{
+    if (!process) {
+        return false;
+    }
+    if (process->state() == QProcess::NotRunning) {
+        return true;
+    }
+    QSharedPointer<Event> event(new Event());
+    QMetaObject::Connection connection = QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                     [event](int, QProcess::ExitStatus) { event->set(); });
+    try {
+        bool result = event->wait();
+        QObject::disconnect(connection);
+        return result;
+    } catch (...) {
+        QObject::disconnect(connection);
+        throw;
+    }
 }
 
 CoroutineGroup::CoroutineGroup()

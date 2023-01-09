@@ -117,7 +117,10 @@ bool waitAnyEvent(const QList<QSharedPointer<EventType>> &events)
 {
     EventType event;
     for (int i = 0; i < events.size(); ++i) {
-        event.linkTo(events[i]);
+        if (events[i]->isSet()) {
+            return true;
+        }
+        event.link(*events[i]);
     }
     return event.wait();
 }

@@ -219,7 +219,8 @@ private:
     Q_DECLARE_PRIVATE_D(dd_ptr, CoroutineThread);
 };
 
-bool waitThread(QSharedPointer<QThread> thread);
+bool waitThread(QThread *thread);
+bool waitProcess(class QProcess *process);
 
 inline QSharedPointer<Deferred<QSharedPointer<Coroutine>>> waitForAny()
 {
