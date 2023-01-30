@@ -5,7 +5,7 @@
 #include "socket_utils.h"
 #include "coroutine_utils.h"
 #ifndef QTNG_NO_CRYPTO
-#  include "ssl.h"
+#include "ssl.h"
 #endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -32,6 +32,7 @@ public:
     bool serveForever();  // serve blocking
     bool start();  // serve in background
     void stop();  // stop serving
+    bool wait();  // wait for server stopped
     virtual bool isSecure() const;  // is this ssl?
 public:
     void setUserData(void *data);  // the owner of data is not changed.
@@ -277,14 +278,14 @@ protected:
     virtual void handle();
     virtual void finish();
     template<typename UserDataType>
-    UserDataType *userData();
+    UserDataType *userData() const;
 public:
     QSharedPointer<SocketLike> request;
     BaseStreamServer *server;
 };
 
 template<typename UserDataType>
-UserDataType *BaseRequestHandler::userData()
+UserDataType *BaseRequestHandler::userData() const
 {
     return static_cast<UserDataType *>(server->userData());
 }

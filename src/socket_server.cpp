@@ -204,6 +204,19 @@ void BaseStreamServer::stop()
     }
 }
 
+bool BaseStreamServer::wait()
+{
+    Q_D(BaseStreamServer);
+    QSharedPointer<Coroutine> coroutine = d->operations->get(QString::fromLatin1("serve"));
+    if (coroutine.isNull()) {
+        return true;
+    }
+    if (coroutine->isFinished() || stopped.isSet()) {
+        return true;
+    }
+    return coroutine->join();
+}
+
 bool BaseStreamServer::isSecure() const
 {
     return false;
