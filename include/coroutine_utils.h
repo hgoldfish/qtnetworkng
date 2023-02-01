@@ -232,7 +232,10 @@ QSharedPointer<Deferred<QSharedPointer<Coroutine>>> waitForAny(QSharedPointer<Co
 {
     QSharedPointer<Deferred<QSharedPointer<Coroutine>>> df = waitForAny(cs...);
     QWeakPointer<Coroutine> c1w = c1.toWeakRef();
-    int callbackId = c1->finished.addCallback([c1w, df](BaseCoroutine *) { df->callback(c1w.toStrongRef()); });
+    int callbackId = c1->finished.addCallback([c1w, df](BaseCoroutine *) {
+        Q_ASSERT(!c1w.isNull());
+        df->callback(c1w.toStrongRef());
+    });
 
     df->addCallback([c1w, callbackId](QSharedPointer<Coroutine>) {
         if (!c1w.isNull()) {

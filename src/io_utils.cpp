@@ -1,11 +1,11 @@
 #include <QtCore/qdir.h>
 #include <QtCore/qdatetime.h>
 #ifdef Q_OS_UNIX
-#  include <unistd.h>
-#  include <fcntl.h>
-#  ifdef Q_OS_ANDROID
-#    include <errno.h>
-#  endif
+#include <unistd.h>
+#include <fcntl.h>
+#ifdef Q_OS_ANDROID
+#include <errno.h>
+#endif
 #endif
 #include "../include/io_utils.h"
 #include "../include/coroutine_utils.h"
@@ -79,9 +79,9 @@ qint32 RawFile::read(char *data, qint32 size)
         if (r < 0) {
             int e = errno;
             switch (e) {
-#  if EWOULDBLOCK - 0 && EWOULDBLOCK != EAGAIN
+#if EWOULDBLOCK - 0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
-#  endif
+#endif
             case EAGAIN:
                 break;
             case EBADF:
@@ -117,9 +117,9 @@ qint32 RawFile::write(const char *data, qint32 size)
         if (r <= 0) {
             int e = errno;
             switch (e) {
-#  if EWOULDBLOCK - 0 && EWOULDBLOCK != EAGAIN
+#if EWOULDBLOCK - 0 && EWOULDBLOCK != EAGAIN
             case EWOULDBLOCK:
-#  endif
+#endif
             case EAGAIN:
                 break;
             case EBADF:
@@ -156,11 +156,11 @@ bool RawFile::seek(qint64 pos)
     if (fd <= 0) {
         return false;
     }
-#  if defined(_LARGEFILE64_SOURCE)
+#if defined(_LARGEFILE64_SOURCE)
     return ::lseek64(fd, pos, SEEK_SET) >= 0;
-#  else
+#else
     return ::lseek(fd, pos, SEEK_SET) >= 0;
-#  endif
+#endif
 #else
     return f->seek(pos);
 #endif
@@ -223,17 +223,17 @@ QSharedPointer<RawFile> RawFile::open(const QString &filepath, const QString &mo
         if (fd <= 0) {
             return QSharedPointer<RawFile>();
         }
-#  if !defined(Q_OS_VXWORKS)
+#if !defined(Q_OS_VXWORKS)
         int flags = ::fcntl(fd, F_GETFL, 0);
         if (flags == -1 || ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
             return QSharedPointer<RawFile>();
         }
-#  else  // Q_OS_VXWORKS
+#else  // Q_OS_VXWORKS
         int onoff = 1;
         if (::ioctl(fd, FIONBIO, (int) &onoff) < 0) {
             return QSharedPointer<RawFile>();
         }
-#  endif  // Q_OS_VXWORKS
+#endif  // Q_OS_VXWORKS
 #endif
         return openFile;
     }
@@ -860,9 +860,20 @@ bool PosixPath::touch()
     return false;
 }
 
-QSharedPointer<RawFile> PosixPath::open(const QString &mode)
+QSharedPointer<RawFile> PosixPath::open(const QString &mode) const
 {
     return RawFile::open(d->path, mode);
+}
+
+QByteArray PosixPath::readall(bool *ok) const
+{
+    QSharedPointer<RawFile> f = RawFile::open(d->path);
+    if (f.isNull()) {
+        if (ok) {
+            *ok = false;
+        }
+    }
+    return f->readall(ok);
 }
 
 PosixPath PosixPath::cwd()

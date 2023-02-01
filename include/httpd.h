@@ -45,6 +45,7 @@ protected:  // http protocol, parsing request and making response.
     virtual QSharedPointer<FileLike> bodyAsFile(bool processEncoding = true);
 protected:  // util methods.
     void sendCommandLine(HttpStatus status, const QString &shortMessage);
+    void sendHeader(KnownHeader name, const QByteArray &value) { sendHeader(toString(name).toLatin1(), value); }
     void sendHeader(const QByteArray &name, const QByteArray &value);
     bool endHeader();
     bool readBody();

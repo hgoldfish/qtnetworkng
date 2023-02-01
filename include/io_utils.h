@@ -129,7 +129,8 @@ public:
 
     bool mkdir(bool createParents = false);
     bool touch();
-    QSharedPointer<RawFile> open(const QString &mode = QString());
+    QSharedPointer<RawFile> open(const QString &mode = QString()) const;
+    QByteArray readall(bool *ok) const;
 
     static PosixPath cwd();
     static QChar point;

@@ -19,6 +19,7 @@ public:
         , requestQueueSize(100)
         , serverPort(serverPort)
         , allowReuseAddress(true)
+        , bound(false)
         , q_ptr(q)
     {
     }
@@ -32,23 +33,26 @@ public:
     int requestQueueSize;
     quint16 serverPort;
     bool allowReuseAddress;
+    bool bound;
 private:
     BaseStreamServer * const q_ptr;
     Q_DECLARE_PUBLIC(BaseStreamServer)
 };
 
 BaseStreamServer::BaseStreamServer(const HostAddress &serverAddress, quint16 serverPort)
-    : d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
+    : started(new Event())
+    , stopped(new Event())
+    , d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
 {
-    started.clear();
-    stopped.set();
+    started->clear();
+    stopped->set();
 }
 
 BaseStreamServer::BaseStreamServer(BaseStreamServerPrivate *d)
     : d_ptr(d)
 {
-    started.clear();
-    stopped.set();
+    started->clear();
+    stopped->set();
 }
 
 BaseStreamServer::~BaseStreamServer()
@@ -84,24 +88,38 @@ void BaseStreamServer::setRequestQueueSize(int requestQueueSize)
 bool BaseStreamServer::serverBind()
 {
     Q_D(BaseStreamServer);
+    if (d->bound) {
+        Socket::SocketState state = d->serverSocket->state();
+        return state == Socket::BoundState || state == Socket::ListeningState;
+    }
+
     Socket::BindMode mode;
     if (d->allowReuseAddress) {
         mode = Socket::ReuseAddressHint;
     } else {
         mode = Socket::DefaultForPlatform;
     }
-    bool ok = d->serverSocket->bind(d->serverAddress, d->serverPort, mode);
+    d->bound = d->serverSocket->bind(d->serverAddress, d->serverPort, mode);
 #ifdef DEBUG_PROTOCOL
     if (!ok) {
         qCInfo(logger) << "server can not bind to" << d->serverAddress.toString() << ":" << d->serverPort;
     }
 #endif
-    return ok;
+    return d->bound;
 }
 
 bool BaseStreamServer::serverActivate()
 {
     Q_D(BaseStreamServer);
+    if (!d->bound) {
+        return false;
+    }
+    if (d->serverSocket->state() == Socket::ListeningState) {
+        return true;
+    }
+    if (d->serverSocket->state() != Socket::BoundState) {
+        return false;
+    }
     bool ok = d->serverSocket->listen(d->requestQueueSize);
 #ifdef DEBUG_PROTOCOL
     if (!ok) {
@@ -120,8 +138,8 @@ void BaseStreamServer::serverClose()
 void BaseStreamServerPrivate::serveForever()
 {
     Q_Q(BaseStreamServer);
-    q->started.set();
-    q->stopped.clear();
+    q->started->set();
+    q->stopped->clear();
     while (true) {
         QSharedPointer<SocketLike> request = q->getRequest();
         if (request.isNull()) {
@@ -150,8 +168,8 @@ void BaseStreamServerPrivate::serveForever()
         }
     }
     q->serverClose();
-    q->started.clear();
-    q->stopped.set();
+    q->started->clear();
+    q->stopped->set();
 }
 
 bool BaseStreamServer::serveForever()
@@ -177,7 +195,7 @@ bool BaseStreamServer::start()
 {
     Q_D(BaseStreamServer);
 
-    if (started.isSet() || d->operations->has(QString::fromLatin1("serve"))) {
+    if (started->isSet() || d->operations->has(QString::fromLatin1("serve"))) {
         return true;
     }
     d->serverSocket = serverCreate();
@@ -211,7 +229,7 @@ bool BaseStreamServer::wait()
     if (coroutine.isNull()) {
         return true;
     }
-    if (coroutine->isFinished() || stopped.isSet()) {
+    if (coroutine->isFinished() || stopped->isSet()) {
         return true;
     }
     return coroutine->join();

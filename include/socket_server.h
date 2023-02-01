@@ -42,8 +42,8 @@ public:
     HostAddress serverAddress() const;
     QSharedPointer<SocketLike> serverSocket() const;
 public:
-    Event started;
-    Event stopped;
+    QSharedPointer<Event> started;
+    QSharedPointer<Event> stopped;
 protected:
     virtual bool serverBind();  // bind()
     virtual bool serverActivate();  // listen()
