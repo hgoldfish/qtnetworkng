@@ -270,8 +270,8 @@ bool CoroutineGroup::joinall()
         if (coroutine == Coroutine::current()) {
             continue;
         }
-        coroutines.removeOne(coroutine);
         coroutine->join();
+        coroutines.removeOne(coroutine);
     }
     return hasCoroutines;
 }

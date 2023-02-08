@@ -95,7 +95,6 @@ public:
     virtual void cancelCall(int callbackId) override;
     virtual int exitCode() override;
     virtual bool runUntil(BaseCoroutine *coroutine) override;
-    virtual void yield() override;
     void doCallLater();
 public:
     struct ev_loop *loop;
@@ -105,7 +104,6 @@ public:
     QQueue<QPair<quint32, Functor *>> callLaterQueue;
     ev_async asyncContext;
     ev_prepare prepareContext;
-    QPointer<BaseCoroutine> loopCoroutine;
     int nextWatcherId;
     QAtomicInteger<bool> exitingFlag;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
@@ -336,13 +334,9 @@ bool EvEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
     } else {
         QPointer<BaseCoroutine> old = loopCoroutine;
         loopCoroutine = current;
-        QPointer<BaseCoroutine> t = loopCoroutine;
         struct ev_loop *loop = this->loop;
-        Deferred<BaseCoroutine *>::Callback exitOneDepth = [t, loop](BaseCoroutine *) {
+        Deferred<BaseCoroutine *>::Callback exitOneDepth = [loop](BaseCoroutine *) {
             ev_break(loop, EVBREAK_ONE);
-            if (!t.isNull()) {
-                t->yield();
-            }
         };
         int callbackId = coroutine->finished.addCallback(exitOneDepth);
         ev_run(loop, 0);
@@ -350,16 +344,6 @@ bool EvEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
         coroutine->finished.remove(callbackId);
     }
     return true;
-}
-
-void EvEventLoopCoroutinePrivate::yield()
-{
-    Q_Q(EventLoopCoroutine);
-    if (!loopCoroutine.isNull()) {
-        loopCoroutine->yield();
-    } else {
-        q->BaseCoroutine::yield();
-    }
 }
 
 EvEventLoopCoroutine::EvEventLoopCoroutine()

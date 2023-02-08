@@ -93,7 +93,6 @@ public:
     virtual void cancelCall(int callbackId) override;
     virtual int exitCode() override;
     virtual bool runUntil(BaseCoroutine *coroutine) override;
-    virtual void yield() override;
 public:
     void timerEvent(QTimerEvent *event);
     void handleIoEvent(int socket, QSocketNotifier *n);
@@ -102,7 +101,6 @@ private:
     QMap<int, int> timers;
     int nextWatcherId;
     int qtExitCode;
-    QPointer<BaseCoroutine> loopCoroutine;
     EventLoopCoroutinePrivateQtHelper *helper;
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
 
@@ -356,12 +354,8 @@ bool QtEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
         QPointer<BaseCoroutine> old = loopCoroutine;
         loopCoroutine = current;
         QSharedPointer<QEventLoop> sub(new QEventLoop());
-        QPointer<BaseCoroutine> t = loopCoroutine;
-        Deferred<BaseCoroutine *>::Callback shutdown = [t, sub](BaseCoroutine *) {
+        Deferred<BaseCoroutine *>::Callback shutdown = [sub](BaseCoroutine *) {
             sub->exit();
-            if (!t.isNull()) {
-                t->yield();
-            }
         };
         int callbackId = coroutine->finished.addCallback(shutdown);
         sub->exec();
@@ -369,16 +363,6 @@ bool QtEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
         loopCoroutine = old;
     }
     return true;
-}
-
-void QtEventLoopCoroutinePrivate::yield()
-{
-    Q_Q(EventLoopCoroutine);
-    if (!loopCoroutine.isNull()) {
-        loopCoroutine->yield();
-    } else {
-        q->BaseCoroutine::yield();
-    }
 }
 
 QtEventLoopCoroutine::QtEventLoopCoroutine()
