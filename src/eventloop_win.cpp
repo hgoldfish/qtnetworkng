@@ -100,7 +100,6 @@ public:
     virtual void cancelCall(int callbackId) override;
     virtual int exitCode() override;
     virtual bool runUntil(BaseCoroutine *coroutine) override;
-    virtual void yield() override;
     void doCallLater();
 public:
     void updateIoMask(qintptr fd);
@@ -118,7 +117,6 @@ private:
     QList<TimerWatcher *> activeTimers;
     QMutex mqMutex;
     QQueue<TimerWatcher *> callLaterQueue;
-    QPointer<BaseCoroutine> loopCoroutine;
     QSharedPointer<QAtomicInt> interrupted;
     quint64 currentTimeStamp;
     int nextWatcherId;
@@ -418,17 +416,6 @@ bool WinEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
         coroutine->finished.remove(callbackId);
     }
     return true;
-}
-
-
-void WinEventLoopCoroutinePrivate::yield()
-{
-    Q_Q(EventLoopCoroutine);
-    if (!loopCoroutine.isNull()) {
-        loopCoroutine->yield();
-    } else {
-       q->BaseCoroutine::yield();
-    }
 }
 
 

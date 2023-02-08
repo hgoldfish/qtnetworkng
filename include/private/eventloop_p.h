@@ -122,9 +122,9 @@ public:
     virtual void cancelCall(int callbackId) = 0;
     virtual int exitCode() = 0;
     virtual bool runUntil(BaseCoroutine *coroutine) = 0;
-    virtual void yield() = 0;
 protected:
     EventLoopCoroutine * const q_ptr;
+    QPointer<BaseCoroutine> loopCoroutine;
     static EventLoopCoroutinePrivate *getPrivateHelper(EventLoopCoroutine *coroutine) { return coroutine->d_func(); }
     Q_DECLARE_PUBLIC(EventLoopCoroutine)
 };

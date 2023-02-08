@@ -171,7 +171,11 @@ bool EventLoopCoroutine::runUntil(BaseCoroutine *coroutine)
 void EventLoopCoroutine::yield()
 {
     Q_D(EventLoopCoroutine);
-    return d->yield();
+    if (d->loopCoroutine) {
+        d->loopCoroutine->yield();
+    } else {
+        BaseCoroutine::yield();
+    }
 }
 
 QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::getOrCreate()
