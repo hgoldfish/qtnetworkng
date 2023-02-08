@@ -336,13 +336,9 @@ bool EvEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
     } else {
         QPointer<BaseCoroutine> old = loopCoroutine;
         loopCoroutine = current;
-        QPointer<BaseCoroutine> t = loopCoroutine;
         struct ev_loop *loop = this->loop;
-        Deferred<BaseCoroutine *>::Callback exitOneDepth = [t, loop](BaseCoroutine *) {
+        Deferred<BaseCoroutine *>::Callback exitOneDepth = [loop](BaseCoroutine *) {
             ev_break(loop, EVBREAK_ONE);
-            if (!t.isNull()) {
-                t->yield();
-            }
         };
         int callbackId = coroutine->finished.addCallback(exitOneDepth);
         ev_run(loop, 0);

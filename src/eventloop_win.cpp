@@ -399,8 +399,9 @@ bool WinEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
                 current->yield();
             }
         };
-        coroutine->finished.addCallback(here);
+        int callbackId = coroutine->finished.addCallback(here);
         loopCoroutine->yield();
+        coroutine->finished.remove(callbackId);
     } else {
         QPointer<BaseCoroutine> old = loopCoroutine;
         loopCoroutine = current;
@@ -410,13 +411,11 @@ bool WinEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
 #else
             this->interrupted->store(true);
 #endif
-            if (!loopCoroutine.isNull()) {
-                loopCoroutine->yield();
-            }
         };
-        coroutine->finished.addCallback(exitOneDepth);
+        int callbackId = coroutine->finished.addCallback(exitOneDepth);
         run();
         loopCoroutine = old;
+        coroutine->finished.remove(callbackId);
     }
     return true;
 }
