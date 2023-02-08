@@ -11,7 +11,7 @@
 #include <stddef.h>
 #include <windows.h>
 #include "../include/private/eventloop_p.h"
-
+#include <queue>
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -47,6 +47,7 @@ struct TimerWatcher: public WinWatcher
     Functor *callback;
     quint32 repeat;
     quint32 inUse;
+    quint32 canceled;
 };
 
 
@@ -71,7 +72,7 @@ IoWatcher::~IoWatcher()
 
 
 TimerWatcher::TimerWatcher(quint32 interval, bool repeat, Functor *callback)
-    : at(0), interval(interval), callback(callback), repeat(repeat), inUse(false)
+    : at(0), interval(interval), callback(callback), repeat(repeat), inUse(false), canceled(false)
 {
 }
 
@@ -114,7 +115,16 @@ public:
 private:
     QMap<int, WinWatcher*> watchers;
     QMap<qintptr, QSet<IoWatcher *> > activeSockets;
-    QList<TimerWatcher *> activeTimers;
+
+    template <typename T>
+    struct PriorityDataLess
+    {
+      bool operator()(const T& a, const T& b) { return a->at < b->at; }
+    };
+
+    std::priority_queue<TimerWatcher*,
+        std::vector<TimerWatcher*>, PriorityDataLess<TimerWatcher*>> activeTimers;
+
     QMutex mqMutex;
     QQueue<TimerWatcher *> callLaterQueue;
     QSharedPointer<QAtomicInt> interrupted;
@@ -163,7 +173,9 @@ WinEventLoopCoroutinePrivate::~WinEventLoopCoroutinePrivate()
             WSAAsyncSelect(static_cast<SOCKET>(fd), internalHwnd, 0, 0);
         }
         activeSockets.clear();
-        activeTimers.clear();
+        while (!activeTimers.empty()) {
+            activeTimers.pop();
+        }
 
         QMapIterator<int, WinWatcher*> watchersItor(watchers);
         while (watchersItor.hasNext()) {
@@ -189,8 +201,8 @@ void WinEventLoopCoroutinePrivate::run()
         bool haveMessage = PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE);
         if (!haveMessage) {
             quint64 waittime = INFINITE;
-            if (!activeTimers.isEmpty()) {
-                waittime = activeTimers.first()->at - currentTimeStamp;
+            if (!activeTimers.empty()) {
+                waittime = activeTimers.top()->at - currentTimeStamp;
             }
             DWORD waitRet = MsgWaitForMultipleObjectsEx(nCount, pHandles, static_cast<quint32>(waittime), QS_ALLINPUT, MWMO_ALERTABLE | MWMO_INPUTAVAILABLE);
             Q_UNUSED(waitRet);
@@ -309,6 +321,7 @@ void WinEventLoopCoroutinePrivate::triggerIoWatchers(qintptr fd)
 
 int WinEventLoopCoroutinePrivate::addTimer(TimerWatcher *watcher)
 {
+    Q_ASSERT(!watcher->inUse); // Call addTimer self on watcher->callback ?
     int timerId = watcher->id;
     if (!timerId) {
         timerId = nextWatcherId++;
@@ -316,21 +329,11 @@ int WinEventLoopCoroutinePrivate::addTimer(TimerWatcher *watcher)
         watchers.insert(timerId, watcher);
     }
     watcher->at = currentTimeStamp + watcher->interval;
-    if (activeTimers.isEmpty()) {
-        activeTimers.append(watcher);
+    bool post = activeTimers.empty();
+    activeTimers.push(watcher);
+
+    if (post) {
         PostMessageW(internalHwnd, WM_QTNG_WAKEUP, 0, 0);
-    } else {
-        bool inserted = false;
-        for (int i = 0; i < activeTimers.size() ; ++i) {
-            if (activeTimers.at(i)->at > watcher->at) {
-                activeTimers.insert(i, watcher);
-                inserted = true;
-                break;
-            }
-        }
-        if (!inserted) {
-            activeTimers.append(watcher);
-        }
     }
     return timerId;
 }
@@ -373,11 +376,9 @@ void WinEventLoopCoroutinePrivate::cancelCall(int callbackId)
 {
     TimerWatcher *watcher = dynamic_cast<TimerWatcher*>(watchers.take(callbackId));
     if (watcher) {
-        activeTimers.removeAll(watcher);
+        watcher->canceled = true;
         if (watcher->inUse) {
             watcher->id = 0;
-        } else {
-            delete watcher;
         }
     }
 }
@@ -548,6 +549,11 @@ void WinEventLoopCoroutinePrivate::createInternalWindow()
 
 void WinEventLoopCoroutinePrivate::sendTimerEvent(TimerWatcher *watcher)
 {
+    if (watcher->canceled && watcher->id == 0) {
+        delete watcher;
+        return;
+    }
+
     if (!watcher->repeat) {
         watchers.remove(watcher->id);
         watcher->id = 0;
@@ -629,15 +635,15 @@ void WinEventLoopCoroutinePrivate::updateIoMask(qintptr fd)
 
 void WinEventLoopCoroutinePrivate::processTimers()
 {
-    while (!activeTimers.isEmpty() && !interrupted->loadAcquire()) {
+    while (!activeTimers.empty() && !interrupted->loadAcquire()) {
 //        for (int i = 1; i < activeTimers.size(); ++i) {
 //            if (activeTimers.at(i -1)->at > activeTimers.at(i)->at) {
 //                qDebug() << "invalid timer queue!";
 //            }
 //        }
-        TimerWatcher *watcher = activeTimers.first();
+        TimerWatcher *watcher = activeTimers.top();
         if (watcher->at <= currentTimeStamp) {
-            activeTimers.takeFirst();
+            activeTimers.pop();
             sendTimerEvent(watcher);
         } else {
             break;
