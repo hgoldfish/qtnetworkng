@@ -116,14 +116,12 @@ private:
     QMap<int, WinWatcher*> watchers;
     QMap<qintptr, QSet<IoWatcher *> > activeSockets;
 
-    template <typename T>
     struct PriorityDataLess
     {
-      bool operator()(const T& a, const T& b) { return a->at < b->at; }
+        bool operator()(const TimerWatcher *a, const TimerWatcher *b) { return a->at > b->at; }
     };
 
-    std::priority_queue<TimerWatcher*,
-        std::vector<TimerWatcher*>, PriorityDataLess<TimerWatcher*>> activeTimers;
+    std::priority_queue<TimerWatcher *, std::vector<TimerWatcher *>, PriorityDataLess> activeTimers;
 
     QMutex mqMutex;
     QQueue<TimerWatcher *> callLaterQueue;
