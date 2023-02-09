@@ -200,7 +200,8 @@ void WinEventLoopCoroutinePrivate::run()
         if (!haveMessage) {
             quint64 waittime = INFINITE;
             if (!activeTimers.empty()) {
-                waittime = activeTimers.top()->at - currentTimeStamp;
+                quint64 top_time = activeTimers.top()->at;
+                waittime = top_time > currentTimeStamp ? top_time - currentTimeStamp : 0;
             }
             DWORD waitRet = MsgWaitForMultipleObjectsEx(nCount, pHandles, static_cast<quint32>(waittime), QS_ALLINPUT, MWMO_ALERTABLE | MWMO_INPUTAVAILABLE);
             Q_UNUSED(waitRet);
@@ -547,7 +548,8 @@ void WinEventLoopCoroutinePrivate::createInternalWindow()
 
 void WinEventLoopCoroutinePrivate::sendTimerEvent(TimerWatcher *watcher)
 {
-    if (watcher->canceled && !watcher->inUse) {
+    if (watcher->canceled) {
+        Q_ASSERT(!watcher->inUse);
         delete watcher;
         return;
     }
