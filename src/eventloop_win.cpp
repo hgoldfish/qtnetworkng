@@ -125,7 +125,7 @@ private:
 
     QMutex mqMutex;
     QQueue<TimerWatcher *> callLaterQueue;
-    QSharedPointer<QAtomicInt> interrupted;
+    bool interrupted;
     quint64 currentTimeStamp;
     int nextWatcherId;
     int padding;
@@ -141,7 +141,7 @@ private:
 WinEventLoopCoroutinePrivate::WinEventLoopCoroutinePrivate(EventLoopCoroutine *parent)
     : EventLoopCoroutinePrivate(parent)
     , internalHwnd(nullptr)
-    , interrupted(new QAtomicInt(false))
+    , interrupted(false)
     , nextWatcherId(1)
 {
     createInternalWindow();
@@ -161,11 +161,7 @@ enum {
 
 WinEventLoopCoroutinePrivate::~WinEventLoopCoroutinePrivate()
 {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
-    interrupted->storeRelaxed(true);
-#else
-    interrupted->storeRelease(true);
-#endif
+    interrupted = true;
     if (internalHwnd) {
         for (qintptr fd: activeSockets.keys()) {
             WSAAsyncSelect(static_cast<SOCKET>(fd), internalHwnd, 0, 0);
@@ -180,6 +176,7 @@ WinEventLoopCoroutinePrivate::~WinEventLoopCoroutinePrivate()
             delete watchersItor.next().value();
         }
         DestroyWindow(internalHwnd);
+        internalHwnd = NULL;
         PostQuitMessage(0);
     }
 }
@@ -188,7 +185,10 @@ WinEventLoopCoroutinePrivate::~WinEventLoopCoroutinePrivate()
 void WinEventLoopCoroutinePrivate::run()
 {
     // if WinEventLoopCoroutinePrivate is destructed, run() should exit peacefully.
-    QSharedPointer<QAtomicInt> interrupted = this->interrupted;
+    if (internalHwnd && interrupted) {
+        interrupted = false;
+    }
+
     DWORD nCount = 0;
     HANDLE *pHandles = nullptr;
     do {
@@ -216,11 +216,11 @@ void WinEventLoopCoroutinePrivate::run()
             continue;
         } else {
             TranslateMessage(&msg);
-            interrupted->storeRelease(false);
+            interrupted = false;
             updateTimeStamp();
             DispatchMessage(&msg);
         }
-    } while (!interrupted->loadAcquire());
+    } while (!interrupted);
 }
 
 
@@ -356,8 +356,8 @@ void WinEventLoopCoroutinePrivate::doCallLater()
 
 void WinEventLoopCoroutinePrivate::callLaterThreadSafe(quint32 msecs, Functor *callback)
 {
-    QMutexLocker locker(&mqMutex);
     TimerWatcher *watcher = new TimerWatcher(msecs, false, callback);
+    QMutexLocker locker(&mqMutex);
     callLaterQueue.enqueue(watcher);
     PostMessage(internalHwnd, WM_QTNG_DO_CALL_LATER, 0, 0);
 }
@@ -404,11 +404,7 @@ bool WinEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
         QPointer<BaseCoroutine> old = loopCoroutine;
         loopCoroutine = current;
         Deferred<BaseCoroutine*>::Callback exitOneDepth = [this] (BaseCoroutine *) {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
-            this->interrupted->storeRelaxed(true);
-#else
-            this->interrupted->store(true);
-#endif
+            interrupted = true;
         };
         int callbackId = coroutine->finished.addCallback(exitOneDepth);
         run();
@@ -635,7 +631,7 @@ void WinEventLoopCoroutinePrivate::updateIoMask(qintptr fd)
 
 void WinEventLoopCoroutinePrivate::processTimers()
 {
-    while (!activeTimers.empty() && !interrupted->loadAcquire()) {
+    while (!activeTimers.empty() && !interrupted) {
 //        for (int i = 1; i < activeTimers.size(); ++i) {
 //            if (activeTimers.at(i -1)->at > activeTimers.at(i)->at) {
 //                qDebug() << "invalid timer queue!";
