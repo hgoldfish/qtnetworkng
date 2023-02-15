@@ -1,4 +1,4 @@
-#include <QtCore/qprocess.h>
+﻿#include <QtCore/qprocess.h>
 #include "../include/coroutine_utils.h"
 #include "../include/eventloop.h"
 #include "debugger.h"
@@ -99,7 +99,7 @@ bool waitThread(QThread *thread)
     QMetaObject::Connection connection1 = QObject::connect(thread, &QThread::finished, [event] { event->set(); });
     QMetaObject::Connection connection2 = QObject::connect(thread, &QThread::destroyed, [event] { event->set(); });
     try {
-        bool result = event->wait();
+        bool result = event->tryWait();
         QObject::disconnect(connection1);
         QObject::disconnect(connection2);
         return result;
@@ -122,7 +122,7 @@ bool waitProcess(QProcess *process)
     QMetaObject::Connection connection = QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
                      [event](int, QProcess::ExitStatus) { event->set(); });
     try {
-        bool result = event->wait();
+        bool result = event->tryWait();
         QObject::disconnect(connection);
         return result;
     } catch (...) {
@@ -288,7 +288,7 @@ QSharedPointer<Coroutine> CoroutineGroup::any()
         toRemove.append(qMakePair(cw, callbackId));
     }
     try {
-        QSharedPointer<Coroutine> c = event->wait();
+        QSharedPointer<Coroutine> c = event->tryWait();
         for (const QPair<QWeakPointer<Coroutine>, int> &item : toRemove) {
             QSharedPointer<Coroutine> c = item.first.toStrongRef();
             if (!c.isNull()) {
@@ -376,7 +376,7 @@ void ThreadPoolWorkThread::call(std::function<void()> func)
     queue.enqueue(item);
     hasWork.wakeAll();
     mutex.unlock();
-    item.done->wait();
+    item.done->tryWait();
 }
 
 void ThreadPoolWorkThread::kill()

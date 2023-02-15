@@ -336,7 +336,7 @@ qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
             errorString = QString::fromLatin1("KcpSocket is not connected.");
             return -1;
         }
-        bool ok = sendingQueueNotFull.wait();
+        bool ok = sendingQueueNotFull.tryWait();
         if (!ok) {
             return -1;
         }
@@ -390,9 +390,9 @@ qint32 KcpSocketPrivate::recv(char *data, qint32 size, bool all)
             }
         }
         receivingQueueNotEmpty.clear();
-        bool ok = receivingQueueNotEmpty.wait();
+        bool ok = receivingQueueNotEmpty.tryWait();
         if (!ok) {
-            qtng_debug << "not receivingQueueNotEmpty->wait()";
+            qtng_debug << "not receivingQueueNotEmpty->tryWait()";
             return -1;
         }
     }
@@ -507,15 +507,9 @@ void KcpSocketPrivate::doUpdate()
         quint32 interval = ts - current;
         if (interval > 0) {
             forceToUpdate.close();
-            try {
-                Timeout timeout(interval, 0);
-                Q_UNUSED(timeout);
-                bool ok = forceToUpdate.wait();
-                if (!ok) {
-                    return;
-                }
-            } catch (TimeoutException &) {
-                // continue
+            bool timeout = false;
+            if (!forceToUpdate.tryWait(interval, &timeout) && !timeout) { //timeout continue
+                return;
             }
         }
     }
@@ -666,7 +660,7 @@ bool MasterKcpSocketPrivate::close(bool force)
         if (!force && error == Socket::NoError) {
             if (!sendingQueueEmpty.isSet()) {
                 updateKcp();
-                if (!sendingQueueEmpty.wait()) {
+                if (!sendingQueueEmpty.tryWait()) {
                     return false;
                 }
             }
@@ -1177,7 +1171,7 @@ bool SlaveKcpSocketPrivate::close(bool force)
         if (!force && error != Socket::NoError) {
             if (!sendingQueueEmpty.isSet()) {
                 updateKcp();
-                if (!sendingQueueEmpty.wait()) {
+                if (!sendingQueueEmpty.tryWait()) {
                     return false;
                 }
             }

@@ -398,11 +398,11 @@ void Socket::close()
     Q_D(Socket);
     d->close();
     if (d->readLock.isLocked()) {
-        d->readLock.acquire();
+        d->readLock.tryAcquire();
         d->readLock.release();
     }
     if (d->writeLock.isLocked()) {
-        d->writeLock.acquire();
+        d->writeLock.tryAcquire();
         d->writeLock.release();
     }
 }
@@ -733,12 +733,12 @@ QSharedPointer<Socket> PollPrivate::wait(float secs)
         try {
             Timeout timeout(secs);
             Q_UNUSED(timeout);
-            done->wait();
+            done->tryWait();
         } catch (TimeoutException &) {
             return QSharedPointer<Socket>();
         }
     } else {
-        done->wait();
+        done->tryWait();
     }
 
     if (!events->isEmpty()) {

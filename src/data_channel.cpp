@@ -1,4 +1,4 @@
-#include <QtCore/qmap.h>
+﻿#include <QtCore/qmap.h>
 #include <QtCore/qpointer.h>
 #include <QtCore/qsharedpointer.h>
 #include <QtCore/qendian.h>
@@ -117,7 +117,6 @@ public:
     QSharedPointer<VirtualChannel> makeChannel();
     QSharedPointer<VirtualChannel> takeChannel();
     QSharedPointer<VirtualChannel> takeChannel(quint32 channelNumber);
-    bool removeChannel(VirtualChannel *channel);
     QByteArray recvPacket();
     bool sendPacket(const QByteArray &packet);
     bool sendPacketAsync(const QByteArray &packet);
@@ -440,7 +439,7 @@ QByteArray DataChannelPrivate::recvPacket()
 
 bool DataChannelPrivate::sendPacket(const QByteArray &packet)
 {
-    if (!goThrough.wait()) {
+    if (!goThrough.tryWait()) {
         return false;
     }
     return sendPacketRaw(DataChannelNumber, packet, true);
@@ -570,7 +569,7 @@ bool SocketChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray
     if (blocking) {
         QSharedPointer<ValueEvent<bool>> done(new ValueEvent<bool>());
         sendingQueue.put(WritingPacket(channelNumber, packet, done));
-        bool success = done->wait();
+        bool success = done->tryWait();
         return success;
     } else {
         QSharedPointer<ValueEvent<bool>> done;
