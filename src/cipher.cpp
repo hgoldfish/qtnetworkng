@@ -324,8 +324,7 @@ QByteArray CipherPrivate::addData(const char *data, int len)
     if (!context || !inited || hasError) {
         return QByteArray();
     }
-    QByteArray out;
-    out.resize(len + EVP_MAX_BLOCK_LENGTH);
+    QByteArray out(len + EVP_MAX_BLOCK_LENGTH, Qt::Uninitialized);
     int outl = 0;
     int rvalue = EVP_CipherUpdate(context, reinterpret_cast<unsigned char *>(out.data()), &outl,
                                   reinterpret_cast<const unsigned char *>(data), len);
@@ -343,8 +342,7 @@ QByteArray CipherPrivate::finalData()
     if (!context || !inited || hasError) {
         return QByteArray();
     }
-    QByteArray out;
-    out.resize(1024 + EVP_MAX_BLOCK_LENGTH);
+    QByteArray out(1024 + EVP_MAX_BLOCK_LENGTH, Qt::Uninitialized);
     int outl = 0;
     int rvalue = EVP_CipherFinal_ex(context, reinterpret_cast<unsigned char *>(out.data()), &outl);
     if (rvalue) {

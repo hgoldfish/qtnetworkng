@@ -683,8 +683,7 @@ QByteArray toHex(const QByteArray &bs, char separator)
     }
 
     const int length = separator ? (bs.size() * 3 - 1) : (bs.size() * 2);
-    QByteArray hex;
-    hex.resize(length);
+    QByteArray hex(length, Qt::Uninitialized);
     char *hexData = hex.data();
     const uchar *data = reinterpret_cast<const uchar *>(bs.data());
     for (int i = 0, o = 0; i < bs.size(); ++i) {

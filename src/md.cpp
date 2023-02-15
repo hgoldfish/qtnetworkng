@@ -149,8 +149,7 @@ QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray 
         return QByteArray();
     }
 
-    QByteArray key;
-    key.resize(keylen);
+    QByteArray key(keylen, Qt::Uninitialized);
 
     int rvalue =
             PKCS5_PBKDF2_HMAC(password.data(), password.size(), reinterpret_cast<const unsigned char *>(salt.data()),
