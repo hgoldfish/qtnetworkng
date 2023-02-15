@@ -1,4 +1,4 @@
-#include <QtCore/qmap.h>
+﻿#include <QtCore/qmap.h>
 #include <QtCore/qmutex.h>
 #include <QtCore/qqueue.h>
 #include <QtCore/qpointer.h>
@@ -108,7 +108,7 @@ public:
     void sendTimerEvent(TimerWatcher *watcher);
     void sendIoEvent(qintptr fd, EventLoopCoroutine::EventType event);
     void createInternalWindow();
-    void updateTimeStamp();
+    void updateTimeStamp(bool force);
     void processTimers();
     int addTimer(TimerWatcher *watcher);
     HWND internalHwnd;
@@ -126,7 +126,10 @@ private:
     QMutex mqMutex;
     QQueue<TimerWatcher *> callLaterQueue;
     bool interrupted;
-    quint64 currentTimeStamp;
+    bool inProcessTimer;
+    quint64 perCnt;
+    quint64 timeCurrent;
+    bool currentTimeStampValid;
     int nextWatcherId;
     int padding;
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
@@ -142,13 +145,15 @@ WinEventLoopCoroutinePrivate::WinEventLoopCoroutinePrivate(EventLoopCoroutine *p
     : EventLoopCoroutinePrivate(parent)
     , internalHwnd(nullptr)
     , interrupted(false)
+    , inProcessTimer(false)
+    , currentTimeStampValid(false)
     , nextWatcherId(1)
 {
     createInternalWindow();
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
     timer.start();
 #endif
-    updateTimeStamp();
+    QueryPerformanceFrequency((LARGE_INTEGER *)&perCnt);
 }
 
 
@@ -192,19 +197,27 @@ void WinEventLoopCoroutinePrivate::run()
     DWORD nCount = 0;
     HANDLE *pHandles = nullptr;
     do {
-        updateTimeStamp();
         processTimers();
-        updateTimeStamp();
+        if (interrupted) {
+            break;
+        }
+        
         MSG msg;
         bool haveMessage = PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE);
         if (!haveMessage) {
             quint64 waittime = INFINITE;
             if (!activeTimers.empty()) {
+                updateTimeStamp(true);
                 quint64 top_time = activeTimers.top()->at;
-                waittime = top_time > currentTimeStamp ? top_time - currentTimeStamp : 0;
+                waittime = top_time > timeCurrent ?  (double)(top_time - timeCurrent) / perCnt * 1000 : 0;
+            }
+            if (waittime == 0) {
+                continue;
             }
             DWORD waitRet = MsgWaitForMultipleObjectsEx(nCount, pHandles, static_cast<quint32>(waittime), QS_ALLINPUT, MWMO_ALERTABLE | MWMO_INPUTAVAILABLE);
-            Q_UNUSED(waitRet);
+            if (waitRet == WAIT_TIMEOUT) {
+                continue;
+            }
             haveMessage = PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE);
             if (!haveMessage) {
                 continue;
@@ -212,15 +225,17 @@ void WinEventLoopCoroutinePrivate::run()
         }
         if (msg.message == WM_QUIT) {
             return;
-        } else if (msg.message == WM_QTNG_WAKEUP) {
-            continue;
-        } else {
-            TranslateMessage(&msg);
-            interrupted = false;
-            updateTimeStamp();
-            DispatchMessage(&msg);
         }
-    } while (!interrupted);
+        if (msg.message == WM_QTNG_WAKEUP) {
+            continue;
+        }
+        if (currentTimeStampValid) {
+            currentTimeStampValid = false;
+        }
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+        
+    } while (true);
 }
 
 
@@ -327,11 +342,11 @@ int WinEventLoopCoroutinePrivate::addTimer(TimerWatcher *watcher)
         watcher->id = timerId;
         watchers.insert(timerId, watcher);
     }
-    watcher->at = currentTimeStamp + watcher->interval;
-    bool post = activeTimers.empty();
+    updateTimeStamp(false);
+    watcher->at = timeCurrent + watcher->interval / 1000.0 * perCnt;
     activeTimers.push(watcher);
 
-    if (post) {
+    if (!inProcessTimer) {
         PostMessageW(internalHwnd, WM_QTNG_WAKEUP, 0, 0);
     }
     return timerId;
@@ -631,32 +646,28 @@ void WinEventLoopCoroutinePrivate::updateIoMask(qintptr fd)
 
 void WinEventLoopCoroutinePrivate::processTimers()
 {
+    updateTimeStamp(true);
+    inProcessTimer = true;
     while (!activeTimers.empty() && !interrupted) {
-//        for (int i = 1; i < activeTimers.size(); ++i) {
-//            if (activeTimers.at(i -1)->at > activeTimers.at(i)->at) {
-//                qDebug() << "invalid timer queue!";
-//            }
-//        }
         TimerWatcher *watcher = activeTimers.top();
-        if (watcher->at <= currentTimeStamp) {
+        if (watcher->at <= timeCurrent) {
             activeTimers.pop();
             sendTimerEvent(watcher);
         } else {
             break;
         }
     }
+    inProcessTimer = false;
 }
 
 
-void WinEventLoopCoroutinePrivate::updateTimeStamp()
+void WinEventLoopCoroutinePrivate::updateTimeStamp(bool force)
 {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
-    currentTimeStamp = static_cast<quint64>(timer.elapsed());
-#elif _WIN32_WINNT >= 0x0600
-    currentTimeStamp = GetTickCount64();
-#else
-    currentTimeStamp = static_cast<quint64>(GetTickCount());
-#endif
+    if (!force && currentTimeStampValid) {
+        return;
+    }
+    currentTimeStampValid = true;
+    QueryPerformanceCounter((LARGE_INTEGER *)&timeCurrent);
 }
 
 
