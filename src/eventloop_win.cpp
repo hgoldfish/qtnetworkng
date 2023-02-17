@@ -108,7 +108,7 @@ public:
     void sendTimerEvent(TimerWatcher *watcher);
     void sendIoEvent(qintptr fd, EventLoopCoroutine::EventType event);
     void createInternalWindow();
-    void updateTimeStamp();
+    void updateTimeStamp(bool force);
     void processTimers();
     int addTimer(TimerWatcher *watcher);
     HWND internalHwnd;
@@ -125,8 +125,11 @@ private:
 
     QMutex mqMutex;
     QQueue<TimerWatcher *> callLaterQueue;
-    QSharedPointer<QAtomicInt> interrupted;
-    quint64 currentTimeStamp;
+    bool interrupted;
+    bool inProcessTimer;
+    quint64 perCnt;
+    quint64 timeCurrent;
+    bool currentTimeStampValid;
     int nextWatcherId;
     int padding;
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
@@ -141,14 +144,18 @@ private:
 WinEventLoopCoroutinePrivate::WinEventLoopCoroutinePrivate(EventLoopCoroutine *parent)
     : EventLoopCoroutinePrivate(parent)
     , internalHwnd(nullptr)
-    , interrupted(new QAtomicInt(false))
+    , interrupted(false)
+    , inProcessTimer(false)
+    , currentTimeStampValid(false)
     , nextWatcherId(1)
 {
     createInternalWindow();
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
     timer.start();
 #endif
-    updateTimeStamp();
+    if (!QueryPerformanceFrequency((LARGE_INTEGER *)&perCnt)) {
+        perCnt = 0;
+    }
 }
 
 
@@ -161,11 +168,7 @@ enum {
 
 WinEventLoopCoroutinePrivate::~WinEventLoopCoroutinePrivate()
 {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
-    interrupted->storeRelaxed(true);
-#else
-    interrupted->storeRelease(true);
-#endif
+    interrupted = true;
     if (internalHwnd) {
         for (qintptr fd: activeSockets.keys()) {
             WSAAsyncSelect(static_cast<SOCKET>(fd), internalHwnd, 0, 0);
@@ -180,6 +183,7 @@ WinEventLoopCoroutinePrivate::~WinEventLoopCoroutinePrivate()
             delete watchersItor.next().value();
         }
         DestroyWindow(internalHwnd);
+        internalHwnd = NULL;
         PostQuitMessage(0);
     }
 }
@@ -188,23 +192,38 @@ WinEventLoopCoroutinePrivate::~WinEventLoopCoroutinePrivate()
 void WinEventLoopCoroutinePrivate::run()
 {
     // if WinEventLoopCoroutinePrivate is destructed, run() should exit peacefully.
-    QSharedPointer<QAtomicInt> interrupted = this->interrupted;
+    if (internalHwnd && interrupted) {
+        interrupted = false;
+    }
+
     DWORD nCount = 0;
     HANDLE *pHandles = nullptr;
     do {
-        updateTimeStamp();
         processTimers();
-        updateTimeStamp();
+        if (interrupted) {
+            break;
+        }
+        
         MSG msg;
         bool haveMessage = PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE);
         if (!haveMessage) {
             quint64 waittime = INFINITE;
             if (!activeTimers.empty()) {
+                updateTimeStamp(true);
                 quint64 top_time = activeTimers.top()->at;
-                waittime = top_time > currentTimeStamp ? top_time - currentTimeStamp : 0;
+                if (perCnt == 0) {
+                    waittime = top_time > timeCurrent ? top_time - timeCurrent : 0;
+                } else {
+                    waittime = top_time > timeCurrent ? (double)(top_time - timeCurrent) / perCnt * 1000 : 0;
+                }
+            }
+            if (waittime == 0) {
+                continue;
             }
             DWORD waitRet = MsgWaitForMultipleObjectsEx(nCount, pHandles, static_cast<quint32>(waittime), QS_ALLINPUT, MWMO_ALERTABLE | MWMO_INPUTAVAILABLE);
-            Q_UNUSED(waitRet);
+            if (waitRet == WAIT_TIMEOUT) {
+                continue;
+            }
             haveMessage = PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE);
             if (!haveMessage) {
                 continue;
@@ -212,15 +231,17 @@ void WinEventLoopCoroutinePrivate::run()
         }
         if (msg.message == WM_QUIT) {
             return;
-        } else if (msg.message == WM_QTNG_WAKEUP) {
-            continue;
-        } else {
-            TranslateMessage(&msg);
-            interrupted->storeRelease(false);
-            updateTimeStamp();
-            DispatchMessage(&msg);
         }
-    } while (!interrupted->loadAcquire());
+        if (msg.message == WM_QTNG_WAKEUP) {
+            continue;
+        }
+        if (currentTimeStampValid) {
+            currentTimeStampValid = false;
+        }
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+        
+    } while (true);
 }
 
 
@@ -327,11 +348,16 @@ int WinEventLoopCoroutinePrivate::addTimer(TimerWatcher *watcher)
         watcher->id = timerId;
         watchers.insert(timerId, watcher);
     }
-    watcher->at = currentTimeStamp + watcher->interval;
-    bool post = activeTimers.empty();
+    updateTimeStamp(false);
+    if (perCnt == 0) {
+        watcher->at = timeCurrent + watcher->interval;
+    } else {
+        watcher->at = timeCurrent + watcher->interval / 1000.0 * perCnt;
+    }
+    
     activeTimers.push(watcher);
 
-    if (post) {
+    if (!inProcessTimer) {
         PostMessageW(internalHwnd, WM_QTNG_WAKEUP, 0, 0);
     }
     return timerId;
@@ -356,8 +382,8 @@ void WinEventLoopCoroutinePrivate::doCallLater()
 
 void WinEventLoopCoroutinePrivate::callLaterThreadSafe(quint32 msecs, Functor *callback)
 {
-    QMutexLocker locker(&mqMutex);
     TimerWatcher *watcher = new TimerWatcher(msecs, false, callback);
+    QMutexLocker locker(&mqMutex);
     callLaterQueue.enqueue(watcher);
     PostMessage(internalHwnd, WM_QTNG_DO_CALL_LATER, 0, 0);
 }
@@ -404,11 +430,7 @@ bool WinEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
         QPointer<BaseCoroutine> old = loopCoroutine;
         loopCoroutine = current;
         Deferred<BaseCoroutine*>::Callback exitOneDepth = [this] (BaseCoroutine *) {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
-            this->interrupted->storeRelaxed(true);
-#else
-            this->interrupted->store(true);
-#endif
+            interrupted = true;
         };
         int callbackId = coroutine->finished.addCallback(exitOneDepth);
         run();
@@ -635,32 +657,38 @@ void WinEventLoopCoroutinePrivate::updateIoMask(qintptr fd)
 
 void WinEventLoopCoroutinePrivate::processTimers()
 {
-    while (!activeTimers.empty() && !interrupted->loadAcquire()) {
-//        for (int i = 1; i < activeTimers.size(); ++i) {
-//            if (activeTimers.at(i -1)->at > activeTimers.at(i)->at) {
-//                qDebug() << "invalid timer queue!";
-//            }
-//        }
+    updateTimeStamp(true);
+    inProcessTimer = true;
+
+    //The margin of error is 200 microsecond 
+    quint64 dstTime = perCnt == 0 ? timeCurrent : timeCurrent + 2e-4 * perCnt;
+    while (!activeTimers.empty() && !interrupted) {
         TimerWatcher *watcher = activeTimers.top();
-        if (watcher->at <= currentTimeStamp) {
-            activeTimers.pop();
-            sendTimerEvent(watcher);
-        } else {
+        if (watcher->at > dstTime) {
             break;
         }
+        activeTimers.pop();
+        sendTimerEvent(watcher);
     }
+    inProcessTimer = false;
 }
 
 
-void WinEventLoopCoroutinePrivate::updateTimeStamp()
+void WinEventLoopCoroutinePrivate::updateTimeStamp(bool force)
 {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
-    currentTimeStamp = static_cast<quint64>(timer.elapsed());
-#elif _WIN32_WINNT >= 0x0600
-    currentTimeStamp = GetTickCount64();
+    if (!force && currentTimeStampValid) {
+        return;
+    }
+    currentTimeStampValid = true;
+    if (perCnt == 0) {
+#if _WIN32_WINNT >= 0x0600
+        timeCurrent = GetTickCount64();
 #else
-    currentTimeStamp = static_cast<quint64>(GetTickCount());
+        timeCurrent = static_cast<quint64>(GetTickCount());
 #endif
+    } else {
+        QueryPerformanceCounter((LARGE_INTEGER *)&timeCurrent);
+    }
 }
 
 
