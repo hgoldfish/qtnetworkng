@@ -15,7 +15,7 @@ public:
     SemaphorePrivate(int value);
     virtual ~SemaphorePrivate();
 public:
-    bool acquire(bool blocking);
+    bool acquire(QSharedPointer<SemaphorePrivate> self, int value, quint32 msecs);
     void release(QSharedPointer<SemaphorePrivate> self, int value);
     void scheduleDelete(QSharedPointer<SemaphorePrivate> self);
 public:
@@ -26,6 +26,29 @@ public:
 
     friend QSharedPointer<Semaphore> acquireAny(const QList<QSharedPointer<Semaphore>> &semaphores, int value,
                                                 bool blocking);
+};
+
+class YieldCurrentTimeOutFunctor : public Functor
+{
+public:
+    YieldCurrentTimeOutFunctor(BaseCoroutine *coroutine)
+        : coroutine(coroutine)
+        , isTimeout(false)
+    {
+    }
+    virtual ~YieldCurrentTimeOutFunctor() { }
+    virtual void operator()()
+    {
+        if (coroutine.isNull()) {
+            qtng_debug << "coroutine is deleted while SemaphoreAcquireTimeFunctor called.";
+            return;
+        }
+        isTimeout = true;
+        coroutine->yield();
+    }
+public:
+    QPointer<BaseCoroutine> coroutine;
+    bool isTimeout;
 };
 
 SemaphorePrivate::SemaphorePrivate(int value)
@@ -40,32 +63,78 @@ SemaphorePrivate::~SemaphorePrivate()
     Q_ASSERT(waiters.isEmpty());
 }
 
-bool SemaphorePrivate::acquire(bool blocking)
+bool SemaphorePrivate::acquire(QSharedPointer<SemaphorePrivate> self, int value, quint32 msecs)
 {
-    if (counter > 0) {
-        --counter;
+    if (counter >= value) {
+        counter -= value;
         return true;
     }
-    if (!blocking)
+    if (msecs == 0) {
         return false;
-
-    waiters.append(BaseCoroutine::current());
-    try {
-        Q_ASSERT_X(EventLoopCoroutine::get() != BaseCoroutine::current(), "SemaphorePrivate",
-                   "coroutine locks should not be called from eventloop coroutine.");
-        EventLoopCoroutine::get()->yield();
-        // if there is no exception, the release() has remove the waiter.
-        bool found = waiters.contains(BaseCoroutine::current());
-        Q_ASSERT_X(!found, "SemaphorePrivate",
-                   "have you forget to start a new coroutine?");  // usually caused by locks running in eventloop.
-    } catch (...) {
-        // if we caught an exception, the release() must not touch me.
-        // the waiter should be remove.
-        bool found = waiters.removeAll(BaseCoroutine::current());
-        Q_ASSERT(found);
-        throw;
     }
-    return notified != 0;
+
+    // UINT_MAX: means wait until success
+    int callbackId = -1;
+    YieldCurrentTimeOutFunctor *func = nullptr;
+    if (msecs != (UINT_MAX)) {
+        func = new YieldCurrentTimeOutFunctor(BaseCoroutine::current());
+        callbackId = EventLoopCoroutine::get()->callLater(msecs, func);
+    }
+
+    Q_ASSERT_X(EventLoopCoroutine::get() != BaseCoroutine::current(), "SemaphorePrivate",
+               "coroutine locks should not be called from eventloop coroutine.");
+
+    int acquireNum = value;
+    int gotNum = counter;
+    int remain = acquireNum - gotNum;
+    counter = 0;
+
+    while (remain > 0) {
+        waiters.append(BaseCoroutine::current());
+
+        try {
+            EventLoopCoroutine::get()->yield();
+        } catch (...) {
+            // if we caught an exception, the release() must not touch me.
+            // the waiter should be remove.
+            bool found = waiters.removeOne(BaseCoroutine::current());
+            Q_ASSERT(found);
+            if (func) {
+                EventLoopCoroutine::get()->cancelCall(callbackId);
+            }
+            release(self, gotNum);
+
+            throw;
+        }
+
+        if (func && func->isTimeout) {
+            bool found = waiters.removeOne(BaseCoroutine::current());
+            Q_ASSERT(found);
+
+            release(self, gotNum);  // release what has been acquired
+            return false;
+        }
+
+        Q_ASSERT_X(notified != 0, "SemaphorePrivate",
+                   "if there are something reason cause yield, it means the acquire action is failed");
+
+        Q_ASSERT_X(!waiters.contains(BaseCoroutine::current()), "SemaphorePrivate",
+                   "have you forget to start a new coroutine?");  // usually caused by locks running in eventloop.
+
+        Q_ASSERT(counter > 0);
+        if (counter >= remain) {
+            counter -= remain;
+            break;
+        } else {
+            gotNum += counter;
+            remain -= counter;
+            counter = 0;
+        }
+    }
+    if (func) {
+        EventLoopCoroutine::get()->cancelCall(callbackId);
+    }
+    return true;
 }
 
 class SemaphoreNotifyWaitersFunctor : public Functor
@@ -80,18 +149,15 @@ public:
     bool doDelete;
     virtual void operator()() override
     {
-        while ((sp->notified != 0 || doDelete) && (sp->counter > 0 || doDelete) && !sp->waiters.isEmpty()) {
+        while ((doDelete || (sp->notified != 0 && sp->counter > 0)) && !sp->waiters.isEmpty()) {
             QPointer<BaseCoroutine> waiter = sp->waiters.takeFirst();
             if (waiter.isNull()) {
                 qtng_debug << "waiter was deleted.";
                 continue;
             }
-            if (!doDelete) {
-                --sp->counter;
-            }
             waiter->yield();
         }
-        // do not move this line above the loop, see the return statement in ::acquire()
+        // do not move this line above the loop, see the return statement in ::tryAcquire()
         sp->notified = 0;
     }
 };
@@ -133,28 +199,33 @@ Semaphore::~Semaphore()
     d.clear();
 }
 
-bool Semaphore::acquire(bool blocking)
+bool Semaphore::acquireMany(int value, quint32 msecs)
 {
     if (!d) {
         return false;
     }
-    return d->acquire(blocking);
-}
-
-bool Semaphore::acquire(int value, bool blocking)
-{
-    if (!d) {
-        return false;
-    }
+    QSharedPointer<SemaphorePrivate> d(this->d);
     if (value > d->init_value) {
         return false;
     }
-    for (int i = 0; i < value; ++i) {
-        if (!d->acquire(blocking)) {
-            return false;
-        }
+    return d->acquire(d, value, msecs);
+}
+
+bool Semaphore::tryAcquire(quint32 msecs /*= (UINT_MAX)*/)
+{
+    if (!d) {
+        return false;
     }
-    return true;
+    QSharedPointer<SemaphorePrivate> d(this->d);
+    if (1 > d->init_value) {
+        return false;
+    }
+    return d->acquire(d, 1, msecs);
+}
+
+Q_DECL_DEPRECATED bool QTNETWORKNG_NAMESPACE::Semaphore::acquire(bool blocking /*= true*/)
+{
+    return tryAcquire(blocking ? UINT_MAX : 0);
 }
 
 void Semaphore::release(int value)
@@ -206,7 +277,7 @@ public:
     RLockPrivate(RLock *q);
     ~RLockPrivate();
 public:
-    bool acquire(bool blocking);
+    bool acquire(quint32 msecs);
     void release();
     RLockState reset();
     void set(const RLockState &state);
@@ -227,13 +298,13 @@ RLockPrivate::RLockPrivate(RLock *q)
 
 RLockPrivate::~RLockPrivate() { }
 
-bool RLockPrivate::acquire(bool blocking)
+bool RLockPrivate::acquire(quint32 msecs)
 {
     if (holder == BaseCoroutine::current()->id()) {
         counter += 1;
         return true;
     }
-    if (lock.acquire(blocking)) {
+    if (lock.tryAcquire(msecs)) {
         counter = 1;
         holder = BaseCoroutine::current()->id();
         return true;
@@ -272,7 +343,7 @@ void RLockPrivate::set(const RLockState &state)
     counter = state.counter;
     holder = state.holder;
     if (counter > 0) {
-        lock.acquire();
+        lock.tryAcquire();
     }
 }
 
@@ -286,10 +357,15 @@ RLock::~RLock()
     delete d_ptr;
 }
 
-bool RLock::acquire(bool blocking)
+Q_DECL_DEPRECATED bool RLock::acquire(bool blocking /*= true*/)
+{
+    return tryAcquire(blocking ? UINT_MAX : 0);
+}
+
+bool RLock::tryAcquire(quint32 msecs)
 {
     Q_D(RLock);
-    return d->acquire(blocking);
+    return d->acquire(msecs);
 }
 
 void RLock::release()
@@ -327,27 +403,28 @@ Condition::~Condition()
     delete d_ptr;
 }
 
-bool Condition::wait()
+bool Condition::wait(quint32 msecs)
 {
     Q_D(Condition);
     QSharedPointer<Lock> waiter(new Lock());
-    if (!waiter->acquire())
+    if (!waiter->tryAcquire())
         return false;
     d->waiters.append(waiter);
+
+    bool ok = false;
     try {
-        if (waiter->acquire()) {
-            waiter->release();
-            d->waiters.removeOne(waiter);
-            return true;
-        } else {
-            d->waiters.removeOne(waiter);
-            return false;
-        }
+        ok = waiter->tryAcquire(msecs);
     } catch (...) {
         waiter->release();
         d->waiters.removeOne(waiter);
         throw;
     }
+
+    if (ok) {
+        waiter->release();
+    }
+    d->waiters.removeOne(waiter);
+    return ok;
 }
 
 void Condition::notify(int value)
@@ -379,7 +456,7 @@ public:
 public:
     void set();
     void clear();
-    bool wait(bool blocking);
+    bool wait(quint32 msecs);
 private:
     Event * const q_ptr;
     Condition condition;
@@ -424,19 +501,48 @@ void EventPrivate::clear()
     flag = false;
 }
 
-bool EventPrivate::wait(bool blocking)
+bool EventPrivate::wait(quint32 msecs)
 {
-    if (!blocking) {
+    if (msecs == 0) {
         return flag;
+    }
+
+    if (flag) {
+        return flag;
+    }
+    if (msecs == UINT_MAX) {
+        do {
+            try {
+                if (!condition.wait(UINT_MAX)) {
+                    return false;
+                }
+            } catch (...) {
+                throw;
+            }
+        } while (!flag);
     } else {
-        while (!flag) {
-            if (!condition.wait()) {
-                qtng_debug << "event is deleted.";
+        QElapsedTimer timer;
+        timer.start();
+
+        quint32 elapsed = 0;
+        for (;;) {
+            try {
+                if (!condition.wait(msecs - elapsed)) {
+                    return false;
+                }
+            } catch (...) {
+                throw;
+            }
+            if (flag) {
+                break;
+            }
+            elapsed = timer.elapsed();
+            if (msecs >= elapsed) {
                 return false;
             }
         }
-        return flag;
     }
+    return flag;
 }
 
 Event::Event()
@@ -449,10 +555,15 @@ Event::~Event()
     delete d_ptr;
 }
 
-bool Event::wait(bool blocking)
+Q_DECL_DEPRECATED bool Event::wait(bool blocking /*= true*/)
+{
+    return tryWait(blocking ? UINT_MAX : 0);
+}
+
+bool Event::tryWait(quint32 msecs)
 {
     Q_D(Event);
-    return d->wait(blocking);
+    return d->wait(msecs);
 }
 
 void Event::set()
@@ -504,7 +615,7 @@ class ThreadEventPrivate
 public:
     ThreadEventPrivate();
     void notify();
-    bool wait(bool blocking);
+    bool wait(quint32 msecs);
     quint32 getting();
     inline void incref();
     inline bool decref();
@@ -566,11 +677,17 @@ void ThreadEventPrivate::notify()
     decref();
 }
 
-bool ThreadEventPrivate::wait(bool blocking)
+bool ThreadEventPrivate::wait(quint32 msecs)
 {
     bool f = flag.loadAcquire();
-    if (!blocking || f) {
+    if (msecs == 0 || f) {
         return f;
+    }
+
+    QSharedPointer<QElapsedTimer> timer;
+    if (msecs != UINT_MAX) {
+        timer.reset(new QElapsedTimer());
+        timer->start();
     }
 
     incref();
@@ -578,6 +695,10 @@ bool ThreadEventPrivate::wait(bool blocking)
     EventLoopCoroutine *current = currentLoop()->get().data();
     Q_ASSERT(!f);
     if (!current) {
+        if (msecs != UINT_MAX) {
+            qtng_warning << "useless arg:msecs when call ThreadEvent::wait";
+        }
+
         ++count;
         while (!(f = flag.loadAcquire()) && ref.loadAcquire() > 1) {
             this->condition.wait(&mutex);
@@ -601,12 +722,26 @@ bool ThreadEventPrivate::wait(bool blocking)
             holds.append(hold);
         }
         mutex.unlock();
+        bool ok = false;
+
         while (!(f = flag.loadAcquire()) && ref.loadAcquire() > 1) {
             try {
-                condition->wait();
+                if (msecs == UINT_MAX) {
+                    ok = condition->wait();
+                } else {
+                    quint32 elapsed = timer->elapsed();
+                    if (msecs <= elapsed) {
+                        return false;
+                    }
+                    ok = condition->wait(msecs - elapsed);
+                }
             } catch (...) {
                 decref();
                 throw;
+            }
+            if (!ok) {
+                decref();
+                return false;
             }
         }
     }
@@ -656,10 +791,15 @@ ThreadEvent::~ThreadEvent()
     d = nullptr;
 }
 
-bool ThreadEvent::wait(bool blocking)
+Q_DECL_DEPRECATED bool ThreadEvent::wait(bool blocking)
+{
+    return tryWait(blocking ? UINT_MAX : 0);
+}
+
+bool ThreadEvent::tryWait(quint32 msecs)
 {
     if (d) {
-        return d->wait(blocking);
+        return d->wait(msecs);
     } else {
         return false;
     }
@@ -744,13 +884,18 @@ Gate::~Gate()
     delete d_ptr;
 }
 
-bool Gate::goThrough(bool blocking)
+Q_DECL_DEPRECATED bool Gate::wait(bool blocking /*= true*/)
+{
+    return tryWait(blocking ? UINT_MAX : 0);
+}
+
+bool Gate::tryWait(quint32 msecs /*= (UINT_MAX)*/)
 {
     Q_D(Gate);
     if (!d->lock.isLocked()) {
         return true;
     } else {
-        bool success = d->lock.acquire(blocking);
+        bool success = d->lock.tryAcquire(msecs);
         if (!success) {
             return false;
         } else {
@@ -784,7 +929,7 @@ void Gate::close()
 {
     Q_D(Gate);
     if (!d->lock.isLocked()) {
-        d->lock.acquire();
+        d->lock.tryAcquire();
     }
 }
 

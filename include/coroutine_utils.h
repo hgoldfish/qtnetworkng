@@ -28,7 +28,7 @@ T callInEventLoop(std::function<T()> func)
 
     int callbackId = EventLoopCoroutine::get()->callLater(0, new LambdaFunctor(wrapper));
     try {
-        done->wait();
+        done->tryWait();
         EventLoopCoroutine::get()->cancelCall(callbackId);
     } catch (...) {
         EventLoopCoroutine::get()->cancelCall(callbackId);
@@ -50,7 +50,7 @@ inline void callInEventLoop(std::function<void()> func, quint32 msecs = 0)
 
     int callbackId = EventLoopCoroutine::get()->callLater(msecs, new LambdaFunctor(wrapper));
     try {
-        done->wait();
+        done->tryWait();
         EventLoopCoroutine::get()->cancelCall(callbackId);
     } catch (...) {
         EventLoopCoroutine::get()->cancelCall(callbackId);
@@ -83,7 +83,7 @@ void qAwait(const typename QtPrivate::FunctionPointer<Func1>::Object *obj, Func1
     const QMetaObject::Connection connection =
             QObject::connect(obj, signal, &helper, &QAwaitHelper0::call, Qt::DirectConnection);
     try {
-        helper.event.wait();
+        helper.event.tryWait();
         QObject::disconnect(connection);
     } catch (...) {
         QObject::disconnect(connection);
@@ -110,7 +110,7 @@ ARG1 qAwait(const Obj *obj, const typename QtPrivate::FunctionPointer<void (Obj:
     const QMetaObject::Connection connection =
             QObject::connect(obj, signal, &helper, &QAwaitHelper1<ARG1>::call, Qt::DirectConnection);
     try {
-        return event->wait();
+        return event->tryWait();
         QObject::disconnect(connection);
     } catch (...) {
         QObject::disconnect(connection);
@@ -139,7 +139,7 @@ qAwait(const Obj *obj, const typename QtPrivate::FunctionPointer<void (Obj::*)(A
     const QMetaObject::Connection connection =
             QObject::connect(obj, signal, &helper, &QAwaitHelper<ARG1, ARG2, ARGS...>::call, Qt::DirectConnection);
     try {
-        return event->wait();
+        return event->tryWait();
         QObject::disconnect(connection);
     } catch (...) {
         QObject::disconnect(connection);
@@ -172,7 +172,7 @@ T callInThread(std::function<T()> func)
 {
     QSharedPointer<T> result = QSharedPointer<T>::create();
     std::function<void()> makeResult = [result, func]() mutable { *result = func(); };
-    spawnInThread(makeResult)->wait();
+    spawnInThread(makeResult)->tryWait();
     return *result;
 }
 
@@ -202,7 +202,7 @@ T callInThread(std::function<T(ARG1, ARG2, ARG3)> func, ARG1 arg1, ARG2 arg2, AR
 
 inline void callInThread(const std::function<void()> &func)
 {
-    spawnInThread(func)->wait();
+    spawnInThread(func)->tryWait();
 }
 
 class CoroutineThreadPrivate;
@@ -253,7 +253,7 @@ QSharedPointer<Coroutine> any(CS... cs)
             QSharedPointer<ValueEvent<QSharedPointer<Coroutine>>>::create();
     df->addCallback([event](QSharedPointer<Coroutine> c) { event->send(c); });
     try {
-        return event->wait();
+        return event->tryWait();
     } catch (...) {
         df->callback(nullptr);
         throw;
@@ -300,8 +300,8 @@ public:
         for (int i = 0; i < l.size(); ++i) {
             result->append(T());
             S s = l[i];
-            semaphore->acquire();  // ALWAYS return true
-            operations.spawn([func, s, result, i, semaphore] {
+            semaphore->tryAcquire();   // ALWAYS return true
+            operations.spawn([func, s, result, i, semaphore]{
                 try {
                     (*result)[i] = func(s);
                     semaphore->release();
@@ -321,7 +321,7 @@ public:
         CoroutineGroup operations;
         QSharedPointer<Semaphore> semaphore(new Semaphore(chunk));
         for (int i = 0; i < l.size(); ++i) {
-            semaphore->acquire();  // ALWAYS return true
+            semaphore->tryAcquire();   // ALWAYS return true
             S s = l[i];
             operations.spawn([func, s, semaphore] {
                 try {
