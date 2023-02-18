@@ -1,6 +1,7 @@
 #include <QtCore/qwaitcondition.h>
 #include <QtCore/qmutex.h>
 #include <QtCore/qpointer.h>
+#include <QtCore/qelapsedtimer.h>
 #include "../include/private/eventloop_p.h"
 #include "../include/locks.h"
 #include "debugger.h"
@@ -78,7 +79,7 @@ bool SemaphorePrivate::acquire(QSharedPointer<SemaphorePrivate> self, int value,
         }
 
         bool found = waiters.removeOne(BaseCoroutine::current());
-        if (found) { // timeout
+        if (found) {  // timeout
             release(self, gotNum);  // release what has been acquired
             return false;
         }
@@ -457,13 +458,10 @@ void EventPrivate::clear()
 
 bool EventPrivate::wait(quint32 msecs)
 {
-    if (msecs == 0) {
+    if (msecs == 0 || flag) {
         return flag;
     }
 
-    if (flag) {
-        return flag;
-    }
     if (msecs == UINT_MAX) {
         do {
             try {
@@ -479,7 +477,7 @@ bool EventPrivate::wait(quint32 msecs)
         timer.start();
 
         quint32 elapsed = 0;
-        for (;;) {
+        while (true) {
             try {
                 if (!condition.wait(msecs - elapsed)) {
                     return false;
