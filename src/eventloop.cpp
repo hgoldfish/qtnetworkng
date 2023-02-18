@@ -462,7 +462,7 @@ bool Coroutine::join()
         if (!dynamic_cast<Coroutine *>(BaseCoroutine::current())) {
             ok = EventLoopCoroutine::get()->runUntil(this);
         } else {
-            ok = d->finishedEvent.wait();
+            ok = d->finishedEvent.tryWait();
         }
         if (ok) {
             Q_ASSERT(isFinished());

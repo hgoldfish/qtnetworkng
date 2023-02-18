@@ -15,8 +15,10 @@ public:
     explicit Semaphore(int value = 1);
     virtual ~Semaphore();
 public:
-    bool acquire(bool blocking = true);
-    bool acquire(int value, bool blocking = true);
+    Q_DECL_DEPRECATED bool acquire(bool blocking = true);
+    bool acquireMany(int value, quint32 msecs = UINT_MAX);
+    // msecs == UINT_MAX: blocking until to end; msces == 0: no block
+    bool tryAcquire(quint32 msecs = UINT_MAX);
     void release(int value = 1);
     bool isLocked() const;
     bool isUsed() const;
@@ -41,7 +43,8 @@ public:
     RLock();
     virtual ~RLock();
 public:
-    bool acquire(bool blocking = true);
+    Q_DECL_DEPRECATED bool acquire(bool blocking = true);
+    bool tryAcquire(quint32 msecs = UINT_MAX);
     void release();
     bool isLocked() const;
     bool isOwned() const;
@@ -59,9 +62,7 @@ public:
     Condition();
     virtual ~Condition();
 public:
-    //    bool acquire(bool blocking = true);
-    //    void release();
-    bool wait();
+    bool wait(quint32 msecs = UINT_MAX);
     void notify(int value = 1);
     void notifyAll();
     quint32 getting() const;
@@ -78,7 +79,8 @@ public:
     Event();
     virtual ~Event();
 public:
-    bool wait(bool blocking = true);
+    Q_DECL_DEPRECATED bool wait(bool blocking = true);
+    bool tryWait(quint32 msecs = UINT_MAX);
     void set();
     void clear();
     bool isSet() const;
@@ -99,7 +101,8 @@ public:
     ThreadEvent();
     virtual ~ThreadEvent();
 public:
-    bool wait(bool blocking = true);
+    Q_DECL_DEPRECATED bool wait(bool blocking = true);
+    bool tryWait(quint32 msecs = UINT_MAX);
     void set();
     void clear();
     bool isSet() const;
@@ -122,14 +125,14 @@ bool waitAnyEvent(const QList<QSharedPointer<EventType>> &events)
         }
         event.link(*events[i]);
     }
-    return event.wait();
+    return event.tryWait();
 }
 
 template<typename EventType>
 bool waitAllEvents(const QList<QSharedPointer<EventType>> &events)
 {
     for (int i = 0; i < events.size(); ++i) {
-        if (!events[i]->wait()) {
+        if (!events[i]->tryWait()) {
             // Q_UNRECHABLE()
             return false;
         }
@@ -144,7 +147,8 @@ public:
     ValueEvent() { }
     ~ValueEvent() { }
     void send(const Value &value);
-    Value wait(bool blocking = true);
+    Q_DECL_DEPRECATED Value wait(bool blocking = true);
+    Value tryWait(quint32 msces = UINT_MAX);
     void set() { event.set(); }
     void clear() { event.clear(); }
     bool isSet() const { return event.isSet(); }
@@ -164,9 +168,15 @@ void ValueEvent<Value>::send(const Value &value)
 }
 
 template<typename Value>
-Value ValueEvent<Value>::wait(bool blocking)
+Q_DECL_DEPRECATED Value ValueEvent<Value>::wait(bool blocking /*= true*/)
 {
-    if (!event.wait(blocking)) {
+    return tryWait(blocking ? UINT_MAX : 0);
+}
+
+template<typename Value>
+Value ValueEvent<Value>::tryWait(quint32 msces /*= UINT_MAX*/)
+{
+    if (!event.tryWait(msces)) {
         return Value();
     } else {
         return value;
@@ -180,8 +190,9 @@ public:
     Gate();
     virtual ~Gate();
 public:
-    bool goThrough(bool blocking = true);
-    bool wait(bool blocking = true) { return goThrough(blocking); }
+    Q_DECL_DEPRECATED bool wait(bool blocking = true);
+    // msecs == -1: blocking until to end; msces == 0: no block
+    bool tryWait(quint32 msecs = UINT_MAX);
     void open();
     void close();
     bool isOpen() const;
@@ -200,7 +211,7 @@ public:
         : lock(lock)
         , success(false)
     {
-        success = lock.acquire();
+        success = lock.tryAcquire();
     }
     ~ScopedLock()
     {
@@ -262,7 +273,7 @@ class MultiQueueType
 public:
     inline void addQueue(QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue);
     inline void removeQueue(QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue);
-    inline T wait();
+    inline T tryWait();
 private:
     EventType notEmpty;
     QList<QSharedPointer<QueueType<T, EventType, ReadWriteLockType>>> queues;
@@ -380,7 +391,7 @@ bool QueueType<T, EventType, ReadWriteLockType>::remove(const T &e)
 template<typename T, typename EventType, typename ReadWriteLockType>
 bool QueueType<T, EventType, ReadWriteLockType>::put(const T &e)
 {
-    if (!notFull.wait()) {
+    if (!notFull.tryWait()) {
         return false;
     }
     lock.lockForWrite();
@@ -409,7 +420,7 @@ bool QueueType<T, EventType, ReadWriteLockType>::putForcedly(const T &e)
 template<typename T, typename EventType, typename ReadWriteLockType>
 bool QueueType<T, EventType, ReadWriteLockType>::returns(const T &e)
 {
-    if (!notFull.wait()) {
+    if (!notFull.tryWait()) {
         return false;
     }
     lock.lockForWrite();
@@ -438,7 +449,7 @@ bool QueueType<T, EventType, ReadWriteLockType>::returnsForcely(const T &e)
 template<typename T, typename EventType, typename ReadWriteLockType>
 T QueueType<T, EventType, ReadWriteLockType>::get()
 {
-    if (!notEmpty.wait()) {
+    if (!notEmpty.tryWait()) {
         return T();
     }
     lock.lockForWrite();
@@ -540,9 +551,9 @@ inline void MultiQueueType<T, EventType, ReadWriteLockType>::removeQueue(
 }
 
 template<typename T, typename EventType, typename ReadWriteLockType>
-inline T MultiQueueType<T, EventType, ReadWriteLockType>::wait()
+inline T MultiQueueType<T, EventType, ReadWriteLockType>::tryWait()
 {
-    notEmpty.wait();
+    notEmpty.tryWait();
     T result;
     lock.lockForWrite();
     bool allEmpty = true;
