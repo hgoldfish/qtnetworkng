@@ -255,7 +255,7 @@ QSharedPointer<Coroutine> any(CS... cs)
     try {
         return event->tryWait();
     } catch (...) {
-        df->callback(nullptr);
+        df->callback(QSharedPointer<Coroutine>());
         throw;
     }
 }
@@ -442,9 +442,9 @@ public:
     void call(std::function<void()> func);
 private:
     template<typename T, typename Func, typename... ARGS>
-    T apply_dispatch(Func func, ARGS... args, detail::NormalType);
+    T apply_dispatch(Func func, detail::NormalType, ARGS... args);
     template<typename T, typename Func, typename... ARGS>
-    T apply_dispatch(Func func, ARGS... args, detail::VoidType);
+    T apply_dispatch(Func func, detail::VoidType, ARGS... args);
 private:
     // for map()
     template<typename T, typename S>
@@ -476,20 +476,20 @@ void ThreadPool::each(std::function<void(S)> func, const QList<S> &l)
 template<typename T, typename Func, typename... ARGS>
 T ThreadPool::apply(Func func, ARGS... args)
 {
-    return apply_dispatch<T, Func, ARGS...>(func, args..., typename detail::ApplyDispatchTag<T>::Tag{});
+    return apply_dispatch<T, Func, ARGS...>(func, typename detail::ApplyDispatchTag<T>::Tag{}, std::move(args)...);
 }
 
 template<typename T, typename Func, typename... ARGS>
-T ThreadPool::apply_dispatch(Func func, ARGS... args, detail::NormalType)
+T ThreadPool::apply_dispatch(Func func, detail::NormalType, ARGS... args)
 {
     QSharedPointer<T> result(new T());
-    std::function<void()> wrapped = [func, args..., result] { *result = func(args...); };
+    std::function<void()> wrapped = [func, result, args...] { *result = func(args...); };
     call(wrapped);
     return *result;
 }
 
 template<typename T, typename Func, typename... ARGS>
-T ThreadPool::apply_dispatch(Func func, ARGS... args, detail::VoidType)
+T ThreadPool::apply_dispatch(Func func, detail::VoidType, ARGS... args)
 {
     std::function<void()> wrapped = [func, args...] { func(args...); };
     call(wrapped);
