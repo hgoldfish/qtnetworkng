@@ -15,7 +15,7 @@ public:
     explicit Semaphore(int value = 1);
     virtual ~Semaphore();
 public:
-    Q_DECL_DEPRECATED bool acquire(bool blocking = true);
+    Q_DECL_DEPRECATED inline bool acquire(bool blocking = true) { return tryAcquire(blocking ? UINT_MAX : 0); }
     bool acquireMany(int value, quint32 msecs = UINT_MAX);
     // msecs == UINT_MAX: blocking until to end; msces == 0: no block
     bool tryAcquire(quint32 msecs = UINT_MAX);
@@ -43,7 +43,7 @@ public:
     RLock();
     virtual ~RLock();
 public:
-    Q_DECL_DEPRECATED bool acquire(bool blocking = true);
+    Q_DECL_DEPRECATED inline bool acquire(bool blocking = true) { return tryAcquire(blocking ? UINT_MAX : 0); }
     bool tryAcquire(quint32 msecs = UINT_MAX);
     void release();
     bool isLocked() const;
@@ -79,7 +79,7 @@ public:
     Event();
     virtual ~Event();
 public:
-    Q_DECL_DEPRECATED bool wait(bool blocking = true);
+    Q_DECL_DEPRECATED inline bool wait(bool blocking = true) { return tryWait(blocking ? UINT_MAX : 0); }
     bool tryWait(quint32 msecs = UINT_MAX);
     void set();
     void clear();
@@ -101,7 +101,7 @@ public:
     ThreadEvent();
     virtual ~ThreadEvent();
 public:
-    Q_DECL_DEPRECATED bool wait(bool blocking = true);
+    Q_DECL_DEPRECATED inline bool wait(bool blocking = true) { return tryWait(blocking ? UINT_MAX : 0); }
     bool tryWait(quint32 msecs = UINT_MAX);
     void set();
     void clear();
@@ -183,23 +183,30 @@ Value ValueEvent<Value>::tryWait(quint32 msces /*= UINT_MAX*/)
     }
 }
 
-class GatePrivate;
 class Gate
 {
 public:
-    Gate();
-    virtual ~Gate();
+    inline Gate() { }
 public:
-    Q_DECL_DEPRECATED bool wait(bool blocking = true);
+    Q_DECL_DEPRECATED inline bool goThrough(bool blocking = true) { return tryWait(blocking ? UINT_MAX : 0); }
+    Q_DECL_DEPRECATED inline bool wait(bool blocking = true) { return tryWait(blocking ? UINT_MAX : 0); }
     // msecs == -1: blocking until to end; msces == 0: no block
     bool tryWait(quint32 msecs = UINT_MAX);
-    void open();
-    void close();
-    bool isOpen() const;
-    bool isClosed() const;
+    inline void open()
+    {
+        if (lock.isLocked())
+            lock.release();
+    }
+    inline void close()
+    {
+        if (!lock.isLocked()) {
+            lock.tryAcquire();
+        }
+    }
+    inline bool isOpen() const { return !lock.isLocked(); }
+    inline bool isClosed() const { return lock.isLocked(); }
 private:
-    GatePrivate * const d_ptr;
-    Q_DECLARE_PRIVATE(Gate)
+    Lock lock;
     Q_DISABLE_COPY(Gate)
 };
 
