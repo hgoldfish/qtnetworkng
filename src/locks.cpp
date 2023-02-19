@@ -432,10 +432,10 @@ EventPrivate::~EventPrivate()
     if (!flag && condition.getting() > 0) {
         condition.notifyAll();
     }
-    for (Event *event : qAsConst(linkFrom)) {
+    for (Event *event : linkFrom) {
         event->d_ptr->linkTo.removeOne(q_ptr);
     }
-    for (Event *event : qAsConst(linkTo)) {
+    for (Event *event : linkTo) {
         event->d_ptr->linkFrom.removeOne(q_ptr);
     }
 }
@@ -655,7 +655,7 @@ bool ThreadEventPrivate::wait(quint32 msecs)
     } else {
         QSharedPointer<Condition> condition;
         // should we use QMap<EventLoopCoroutine *, Hold> to accelerate?
-        for (const Behold &hold : qAsConst(holds)) {
+        for (const Behold &hold : holds) {
             if (hold.eventloop.data() == current) {
                 condition = hold.condition;
                 break;
@@ -701,7 +701,7 @@ quint32 ThreadEventPrivate::getting()
     incref();
     mutex.lock();
     quint32 count = this->count.loadAcquire();
-    for (const Behold &hold : qAsConst(holds)) {
+    for (const Behold &hold : holds) {
         if (!hold.condition.isNull()) {
             count += hold.condition->getting();
         }

@@ -446,14 +446,6 @@ private:
     template<typename T, typename Func, typename... ARGS>
     T apply_dispatch(Func func, detail::VoidType, ARGS... args);
 private:
-    // for map()
-    template<typename T, typename S>
-    std::function<T(S)> makeResult(std::function<T(S)> func);
-
-    // for each()
-    template<typename S>
-    std::function<void(S)> makeResult(std::function<void(S)> func);
-private:
     QList<QSharedPointer<class ThreadPoolWorkThread>> threads;
     QSharedPointer<Semaphore> semaphore;
 };
@@ -461,22 +453,27 @@ private:
 template<typename T, typename S>
 QList<T> ThreadPool::map(std::function<T(S)> func, const QList<S> &l)
 {
-    std::function<T(S)> f = [this, func](const S &s) -> T { return this->apply<T>(func, s); };
+    std::function<T(S)> f = [this, func] (S s) -> T {
+        std::function<T()> wrapped = [s, func] () -> T { return func(s); };
+        return call(wrapped);
+    };
     return CoroutineGroup::map(f, l);
 }
 
 template<typename S>
 void ThreadPool::each(std::function<void(S)> func, const QList<S> &l)
 {
-    std::function<void(S)> f = [this, func](const S &s) -> void { this->apply<void>(func, s); };
+    std::function<void(S)> f = [this, func] (S s) {
+        std::function<void()> wrapped = [s, func] { func(s); };
+        call(wrapped);
+    };
     CoroutineGroup::each(f, l);
 }
 
-// FIXME if ARGS is `const QString &`, apply may cause crash!
 template<typename T, typename Func, typename... ARGS>
 T ThreadPool::apply(Func func, ARGS... args)
 {
-    return apply_dispatch<T, Func, ARGS...>(func, typename detail::ApplyDispatchTag<T>::Tag{}, std::move(args)...);
+    return apply_dispatch<T, Func, ARGS...>(func, typename detail::ApplyDispatchTag<T>::Tag{}, args...);
 }
 
 template<typename T, typename Func, typename... ARGS>
@@ -503,6 +500,25 @@ T ThreadPool::call(std::function<T()> func)
     call(wrapped);
     return *result;
 }
+
+#if QT_VERSION < QT_VERSION_CHECK(5, 7, 0)
+
+namespace detail {
+    class SetEventHelper: public QObject
+    {
+        Q_OBJECT
+    public:
+        SetEventHelper(QSharedPointer<Event> event)
+            : event(event) {}
+    public slots:
+        void set() { event->set(); }
+    private:
+        QSharedPointer<Event> event;
+    };
+}
+
+#endif
+
 
 QTNETWORKNG_NAMESPACE_END
 

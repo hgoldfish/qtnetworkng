@@ -693,7 +693,7 @@ QString PosixPath::baseName() const
         return QString();
     } else {
         if (n.startsWith(point)) {
-            return point + l.first();
+            return point + l.first().toString();
         } else {
             return l.first().toString();
         }

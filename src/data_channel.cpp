@@ -344,7 +344,7 @@ DataChannel::ChannelError DataChannelPrivate::handleIncomingPacket(quint32 chann
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
             quint32 channelNumber = qFromBigEndian<quint32>(payload.constData());
 #else
-            quint32 channelNumber = qFromBigEndian<quint32>(reinterpret_cast<const uchar *>(packet.constData()));
+            quint32 channelNumber = qFromBigEndian<quint32>(reinterpret_cast<const uchar *>(payload.constData()));
 #endif
             const QByteArray &packet = payload.mid(headerSize);
             DataChannel::ChannelError handlePacketResult =
@@ -657,7 +657,7 @@ void SocketChannelPrivate::doReceive()
             payloadSize = qFromBigEndian<quint32>(header.data());
             channelNumber = qFromBigEndian<quint32>(header.data() + sizeof(quint32));
 #else
-            packetSize = qFromBigEndian<quint32>(reinterpret_cast<const uchar *>(header.data()));
+            payloadSize = qFromBigEndian<quint32>(reinterpret_cast<const uchar *>(header.data()));
             channelNumber = qFromBigEndian<quint32>(reinterpret_cast<const uchar *>(header.data() + sizeof(quint32)));
 #endif
             if (payloadSize > _maxPayloadSize) {

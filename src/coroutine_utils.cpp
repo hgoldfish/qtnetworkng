@@ -1,4 +1,4 @@
-﻿#include <QtCore/qprocess.h>
+#include <QtCore/qprocess.h>
 #include "../include/coroutine_utils.h"
 #include "../include/eventloop.h"
 #include "debugger.h"
@@ -110,6 +110,8 @@ bool waitThread(QThread *thread)
     }
 }
 
+
+
 bool waitProcess(QProcess *process)
 {
     if (!process) {
@@ -119,8 +121,14 @@ bool waitProcess(QProcess *process)
         return true;
     }
     QSharedPointer<Event> event(new Event());
+#if QT_VERSION < QT_VERSION_CHECK(5, 7, 0)
+    QScopedPointer<detail::SetEventHelper> helper(new detail::SetEventHelper(event));
+    QMetaObject::Connection connection = QObject::connect(process, SIGNAL(finished(int,QProcess::ExitStatus)),
+                                                          helper.data(), SLOT(set()));
+#else
     QMetaObject::Connection connection = QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
                      [event](int, QProcess::ExitStatus) { event->set(); });
+#endif
     try {
         bool result = event->tryWait();
         QObject::disconnect(connection);
@@ -440,8 +448,13 @@ void ThreadPool::call(std::function<void()> func)
     } else {
         thread = threads.takeFirst();
     }
-    thread->call(func);
-    threads.append(thread);
+    try {
+        thread->call(func);
+        threads.append(thread);
+    } catch (...) {
+        threads.append(thread);
+        throw;
+    }
 }
 
 QTNETWORKNG_NAMESPACE_END
