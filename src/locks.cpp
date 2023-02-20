@@ -55,7 +55,7 @@ bool SemaphorePrivate::acquire(QSharedPointer<SemaphorePrivate> self, int value,
 
     Q_ASSERT_X(EventLoopCoroutine::get() != BaseCoroutine::current(), "SemaphorePrivate",
                "coroutine locks should not be called from eventloop coroutine.");
-    Q_ASSERT_X(value >= init_value, "SemaphorePrivate", "the value to acquire must large than init_value.");
+    Q_ASSERT_X(value <= init_value, "SemaphorePrivate", "the value to acquire must not large than init_value.");
 
     int gotNum = counter;
     int remain = value - counter;
