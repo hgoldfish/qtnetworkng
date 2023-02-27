@@ -290,8 +290,8 @@ endif()
 
 # intergrate libev-light
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    # add_definitions(-DQTNETWORKNG_USE_WIN=1)
-    # set(QTNETWORKNG_SRC ${QTNETWORKNG_SRC} src/eventloop_win.cpp)
+    add_definitions(-DQTNETWORKNG_USE_WIN=1)
+    set(QTNETWORKNG_SRC ${QTNETWORKNG_SRC} src/eventloop_win.cpp)
 elseif(UNIX)
     add_definitions(-DQTNETWOKRNG_USE_EV)
     add_definitions(-DEV_USE_4HEAP=1 -DEV_VERIFY=0 -DQTNG_EV_ASSERT=0)
