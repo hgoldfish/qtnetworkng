@@ -1203,18 +1203,23 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     response.d->body = headerSplitter.buf;
     response.d->stream = connection;
     if (!request.streamResponse()) {
-        const QByteArray &body = response.body();
-        if (!response.d->error.isNull()) {
-            return response;
-        }
-        if (debugLevel == 1 && !body.isEmpty()) {
-            qtng_debug << "receiving body:" << body.size();
-        } else if (debugLevel > 1 && !body.isEmpty()) {
-            qtng_debug << "receiving body:" << body;
-        }
-        if (!ptrLock.isNull() && connection->isValid()
-            && response.header(KnownHeader::ConnectionHeader).toLower() == "keep-alive" && keepAlive) {
-            recycle(response.d->url, connection);
+        if (request.method().toUpper() == QString::fromUtf8("HEAD")) {
+            response.d->consumed = true;
+            response.d->body.clear();
+        } else {
+            const QByteArray &body = response.body();
+            if (!response.d->error.isNull()) {
+                return response;
+            }
+            if (debugLevel == 1 && !body.isEmpty()) {
+                qtng_debug << "receiving body:" << body.size();
+            } else if (debugLevel > 1 && !body.isEmpty()) {
+                qtng_debug << "receiving body:" << body;
+            }
+            if (!ptrLock.isNull() && connection->isValid()
+                && response.header(KnownHeader::ConnectionHeader).toLower() == "keep-alive" && keepAlive) {
+                recycle(response.d->url, connection);
+            }
         }
         response.d->stream.clear();
     }
