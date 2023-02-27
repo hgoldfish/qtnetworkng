@@ -688,14 +688,14 @@ QString PosixPath::baseName() const
         return QString();
     }
     const QString &n = name();
-    const QVector<QStringRef> &l = n.splitRef(point);
+    const QStringList &l = n.split(point);
     if (l.isEmpty()) {
         return QString();
     } else {
         if (n.startsWith(point)) {
-            return point + l.first().toString();
+            return point + l.first();
         } else {
-            return l.first().toString();
+            return l.first();
         }
     }
 }
@@ -705,11 +705,11 @@ QString PosixPath::suffix() const
     if (isNull()) {
         return QString();
     }
-    const QVector<QStringRef> &l = name().splitRef(point);
+    const QStringList &l = name().split(point);
     if (l.size() <= 1) {
         return QString();
     } else {
-        return l.last().toString();
+        return l.last();
     }
 }
 
