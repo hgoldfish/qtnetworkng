@@ -884,13 +884,20 @@ PosixPath PosixPath::cwd()
 static QString makeSafePath(const QString &subPath)
 {
     // remove '.' && '.."
+
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
-    const QVector<QStringRef> &list = subPath.splitRef(QLatin1Char('/'), Qt::SkipEmptyParts);
+    const QVector<QStringRef> &parts = subPath.splitRef(QLatin1Char('/'), Qt::SkipEmptyParts);
+#elif (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
+    const QVector<QStringRef> &parts = subPath.splitRef(QLatin1Char('/'), QString::SkipEmptyParts);
 #else
-    const QVector<QStringRef> &list = subPath.splitRef(QLatin1Char('/'), QString::SkipEmptyParts);
+    const QStringList &parts = subPath.split(QLatin1Char('/'), QString::SkipEmptyParts);
 #endif
     QStringList l;
-    for (const QStringRef &part : list) {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
+    for (const QStringRef &part : parts) {
+#else
+    for (const QString &part : parts) {
+#endif
         if (part == PosixPath::point) {  // if part contains space, it is not dot dir.
             continue;
         } else if (part == PosixPath::pointpoint) {
@@ -898,7 +905,11 @@ static QString makeSafePath(const QString &subPath)
                 l.removeLast();
             }
         } else {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
             l.append(part.toString());
+#else
+            l.append(part);
+#endif
         }
     }
     return l.join(PosixPath::seperator);  // without the leading slash.
