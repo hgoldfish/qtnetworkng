@@ -175,7 +175,9 @@ void BaseStreamServerPrivate::serveForever()
 bool BaseStreamServer::serveForever()
 {
     Q_D(BaseStreamServer);
-    d->serverSocket = serverCreate();
+    if (d->serverSocket.isNull()) {
+        d->serverSocket = serverCreate();
+    }
     if (d->serverSocket.isNull()) {
         return false;
     }
@@ -198,7 +200,9 @@ bool BaseStreamServer::start()
     if (started->isSet() || d->operations->has(QString::fromLatin1("serve"))) {
         return true;
     }
-    d->serverSocket = serverCreate();
+    if (d->serverSocket.isNull()) {
+        d->serverSocket = serverCreate();
+    }
     if (d->serverSocket.isNull()) {
         return false;
     }
@@ -270,9 +274,12 @@ HostAddress BaseStreamServer::serverAddress() const
     return d->serverAddress;
 }
 
-QSharedPointer<SocketLike> BaseStreamServer::serverSocket() const
+QSharedPointer<SocketLike> BaseStreamServer::serverSocket()
 {
     Q_D(const BaseStreamServer);
+    if (d->serverSocket.isNull()) {
+        serverCreate();
+    }
     return d->serverSocket;
 }
 

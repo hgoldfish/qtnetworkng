@@ -34,13 +34,14 @@ public:
     void stop();  // stop serving
     bool wait();  // wait for server stopped
     virtual bool isSecure() const;  // is this ssl?
+    QSharedPointer<SocketLike> createServer() { return serverSocket(); }
 public:
     void setUserData(void *data);  // the owner of data is not changed.
     void *userData() const;
 public:
     quint16 serverPort() const;
     HostAddress serverAddress() const;
-    QSharedPointer<SocketLike> serverSocket() const;
+    QSharedPointer<SocketLike> serverSocket();
 public:
     QSharedPointer<Event> started;
     QSharedPointer<Event> stopped;
