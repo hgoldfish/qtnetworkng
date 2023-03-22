@@ -1,6 +1,7 @@
 #include <QtCore/qfile.h>
 #include <QtCore/qdatetime.h>
 #include <openssl/ssl.h>
+#include <openssl/err.h>
 #include "../include/locks.h"
 #include "../include/ssl.h"
 #include "../include/socket.h"
@@ -891,6 +892,7 @@ bool SslConnection<SocketType>::pumpIncoming()
     }
     const QByteArray &buf = rawSocket->recv(1024 * 8);
     if (buf.isEmpty()) {
+        qtng_warning << "rawSocket recv empty." << rawSocket->errorString();
         return false;
     }
     int totalWritten = 0;
@@ -932,12 +934,14 @@ bool SslConnection<SocketType>::_handshake()
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
                 //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
-            case SSL_ERROR_SYSCALL:
                 qtng_debug << "invalid ssl connection state.";
                 return false;
-            case SSL_ERROR_SSL:
-                qtng_debug << "protocol error on handshake.";
+            case SSL_ERROR_SYSCALL:
+            case SSL_ERROR_SSL: {
+                unsigned long sslerror = ERR_get_error();
+                qtng_debug << "protocol error on handshake. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
                 return false;
+            }
             default:
                 qtng_debug << "handshake error.";
                 return false;
@@ -973,12 +977,16 @@ qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
             case SSL_ERROR_ZERO_RETURN:
                 qtng_debug << "error zero return.";
                 return total;
+            case SSL_ERROR_SYSCALL:
+            case SSL_ERROR_SSL: {
+                unsigned long sslerror = ERR_get_error();
+                qtng_debug << "ssl send error. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
+                return total == 0 ? -1 : total;
+            }
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
                 //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
-            case SSL_ERROR_SYSCALL:
-            case SSL_ERROR_SSL:
             default:
                 qtng_debug << "ssl recv error. error code:" << err;
                 return total == 0 ? -1 : total;
@@ -1022,12 +1030,16 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
             case SSL_ERROR_ZERO_RETURN:
                 // may the remote peer close the connection.
                 return -1;
+            case SSL_ERROR_SYSCALL:
+            case SSL_ERROR_SSL: {
+                unsigned long sslerror = ERR_get_error();
+                qtng_debug << "ssl send error. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
+                return -1;
+            }
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
                 //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
-            case SSL_ERROR_SYSCALL:
-            case SSL_ERROR_SSL:
             default:
                 qtng_debug << "ssl send error. error_code:" << err;
                 return -1;
@@ -1088,9 +1100,11 @@ bool SslConnection<SocketType>::close()
                 qtng_debug << "what?";
                 return false;
             case SSL_ERROR_SYSCALL:
-            case SSL_ERROR_SSL:
-                qtng_debug << "underlying socket is closed.";
+            case SSL_ERROR_SSL: {
+                unsigned long sslerror = ERR_get_error();
+                qtng_debug << "underlying socket is closed. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
                 return false;
+            }
             default:
                 qtng_debug << "unkown returned value of SSL_shutdown().";
                 return false;

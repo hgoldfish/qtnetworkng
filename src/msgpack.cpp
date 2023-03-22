@@ -1,4 +1,4 @@
-#include <QtCore/qbuffer.h>
+﻿#include <QtCore/qbuffer.h>
 #include <QtCore/qdebug.h>
 #include "../include/msgpack.h"
 
@@ -1329,8 +1329,7 @@ MsgPackStream &MsgPackStream::operator>>(QDateTime &dt)
     CHECK_STREAM_PRECOND(*this);
     quint32 len;
     quint8 msgpackType;
-    d->readExtHeader(len, msgpackType);
-    if (msgpackType != 0xff) {
+    if (!d->readExtHeader(len, msgpackType) || msgpackType != 0xff) {
         d->status = ReadCorruptData;
         dt = QDateTime();
         return *this;
