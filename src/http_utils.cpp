@@ -214,7 +214,7 @@ bool toMessage(HttpStatus status, QString *shortMessage, QString *longMessage)
         if (longMessage)
             *longMessage = QString::fromLatin1("Expect condition could not be satisfied");
         return true;
-    case ImaTeaport:
+    case ImaTeapot:
         *shortMessage = QString::fromLatin1("I'm A Teapot");
         if (longMessage)
             *longMessage = QString::fromLatin1("Maybe be short and stout");

@@ -62,7 +62,7 @@ enum HttpStatus {
     UnsupportedMediaType = 415,
     RequestedRangeNotSatisfiable = 416,
     ExpectationFailed = 417,
-    ImaTeaport = 418,
+    ImaTeapot = 418,
     UnprocessableEntity = 422,
     Locked = 423,
     FailedDependency = 424,
