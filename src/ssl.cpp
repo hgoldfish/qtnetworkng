@@ -1092,7 +1092,7 @@ bool SslConnection<SocketType>::close()
                 break;
             case SSL_ERROR_NONE:
             case SSL_ERROR_ZERO_RETURN:
-                return false;
+                return true;
             case SSL_ERROR_WANT_CONNECT:
             case SSL_ERROR_WANT_ACCEPT:
             case SSL_ERROR_WANT_X509_LOOKUP:
