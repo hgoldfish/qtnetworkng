@@ -866,6 +866,7 @@ template<typename SocketType>
 bool SslConnection<SocketType>::pumpOutgoing()
 {
     if (ssl.isNull()) {
+        qtng_warning << "ssl is null while pump outgoing.";
         return false;
     }
     int pendingBytes;
@@ -892,7 +893,6 @@ bool SslConnection<SocketType>::pumpIncoming()
     }
     const QByteArray &buf = rawSocket->recv(1024 * 8);
     if (buf.isEmpty()) {
-        qtng_warning << "rawSocket recv empty." << rawSocket->errorString();
         return false;
     }
     int totalWritten = 0;
@@ -938,8 +938,8 @@ bool SslConnection<SocketType>::_handshake()
                 return false;
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL: {
-                unsigned long sslerror = ERR_get_error();
-                qtng_debug << "protocol error on handshake. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
+                ERR_get_error();
+                // qtng_debug << "protocol error on handshake. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
                 return false;
             }
             default:
