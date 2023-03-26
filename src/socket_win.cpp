@@ -537,6 +537,10 @@ bool SocketPrivate::bind(const HostAddress &a, quint16 port, Socket::BindMode mo
            address.toString().toLatin1().constData(), port);
 #endif
     state = Socket::BoundState;
+
+    if (port == 0) {
+        fetchConnectionParameters();
+    }
     return true;
 }
 
