@@ -17,6 +17,8 @@ SocketPrivate::SocketPrivate(HostAddress::NetworkLayerProtocol protocol, Socket:
     , type(type)
     , error(Socket::NoError)
     , state(Socket::UnconnectedState)
+    , localPort(0)
+    , peerPort(0)
 {
 #ifdef Q_OS_WIN
     initWinSock();
