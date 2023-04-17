@@ -1139,8 +1139,10 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             sendingReuqestBodyCoroutine.reset();
         } catch (CoroutineInterruptedException &) {
             sendingReuqestBodyCoroutine->join();
-            response.setError(new ConnectionError());
-            return response;
+            if (headerSplitter.buf.isEmpty()) {
+                response.setError(new ConnectionError());
+                return response;
+            }
         }
     }
 
