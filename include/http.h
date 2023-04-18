@@ -253,6 +253,7 @@ public:
     HttpResponse delete_(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
 
     HttpResponse post(const QUrl &url, const QByteArray &body);
+    HttpResponse post(const QUrl &url, QSharedPointer<FileLike> body);
     HttpResponse post(const QUrl &url, const QJsonDocument &body);
     HttpResponse post(const QUrl &url, const QJsonObject &body);
     HttpResponse post(const QUrl &url, const QJsonArray &body);
@@ -267,6 +268,7 @@ public:
     HttpResponse post(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
     HttpResponse post(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers);
     HttpResponse post(const QString &url, const QByteArray &body);
+    HttpResponse post(const QString &url, QSharedPointer<FileLike> body);
     HttpResponse post(const QString &url, const QJsonDocument &body);
     HttpResponse post(const QString &url, const QJsonObject &body);
     HttpResponse post(const QString &url, const QJsonArray &body);
@@ -282,6 +284,7 @@ public:
     HttpResponse post(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers);
 
     HttpResponse patch(const QUrl &url, const QByteArray &body);
+    HttpResponse patch(const QUrl &url, QSharedPointer<FileLike> body);
     HttpResponse patch(const QUrl &url, const QJsonDocument &body);
     HttpResponse patch(const QUrl &url, const QJsonObject &body);
     HttpResponse patch(const QUrl &url, const QJsonArray &body);
@@ -296,6 +299,7 @@ public:
     HttpResponse patch(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
     HttpResponse patch(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers);
     HttpResponse patch(const QString &url, const QByteArray &body);
+    HttpResponse patch(const QString &url, QSharedPointer<FileLike> body);
     HttpResponse patch(const QString &url, const QJsonDocument &body);
     HttpResponse patch(const QString &url, const QJsonObject &body);
     HttpResponse patch(const QString &url, const QJsonArray &body);
@@ -312,6 +316,7 @@ public:
     HttpResponse patch(const QString &url, const FormData &body, const QMap<QString, QByteArray> &headers);
 
     HttpResponse put(const QUrl &url, const QByteArray &body);
+    HttpResponse put(const QUrl &url, QSharedPointer<FileLike> body);
     HttpResponse put(const QUrl &url, const QJsonDocument &body);
     HttpResponse put(const QUrl &url, const QJsonObject &body);
     HttpResponse put(const QUrl &url, const QJsonArray &body);
@@ -326,6 +331,7 @@ public:
     HttpResponse put(const QUrl &url, const QUrlQuery &body, const QMap<QString, QByteArray> &headers);
     HttpResponse put(const QUrl &url, const FormData &body, const QMap<QString, QByteArray> &headers);
     HttpResponse put(const QString &url, const QByteArray &body);
+    HttpResponse put(const QString &url, QSharedPointer<FileLike> body);
     HttpResponse put(const QString &url, const QJsonDocument &body);
     HttpResponse put(const QString &url, const QJsonObject &body);
     HttpResponse put(const QString &url, const QJsonArray &body);

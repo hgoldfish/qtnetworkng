@@ -621,7 +621,7 @@ QByteArray HttpResponse::body()
             setError(new ContentDecodingError());
         } else
 #endif
-                if (bodyFile.dynamicCast<ChunkedBodyFile>()) {
+        if (bodyFile.dynamicCast<ChunkedBodyFile>()) {
             RequestError *error = nullptr;
             error = toRequestError(bodyFile.dynamicCast<ChunkedBodyFile>()->error);
             if (error != nullptr) {
@@ -1139,10 +1139,8 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             sendingReuqestBodyCoroutine.reset();
         } catch (CoroutineInterruptedException &) {
             sendingReuqestBodyCoroutine->join();
-            if (headerSplitter.buf.isEmpty()) {
-                response.setError(new ConnectionError());
-                return response;
-            }
+            response.setError(new ConnectionError());
+            return response;
         }
     }
 
@@ -1741,6 +1739,15 @@ HttpResponse HttpSession::post(const QUrl &url, const QByteArray &body)
     return send(request);
 }
 
+HttpResponse HttpSession::post(const QUrl &url, QSharedPointer<FileLike> body)
+{
+    HttpRequest request;
+    request.setMethod(QString::fromLatin1("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
 HttpResponse HttpSession::post(const QUrl &url, const QJsonDocument &body)
 {
     HttpRequest request;
@@ -1867,6 +1874,15 @@ HttpResponse HttpSession::post(const QUrl &url, const FormData &body, const QMap
 }
 
 HttpResponse HttpSession::post(const QString &url, const QByteArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QString::fromLatin1("POST"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+HttpResponse HttpSession::post(const QString &url, QSharedPointer<FileLike> body)
 {
     HttpRequest request;
     request.setMethod(QString::fromLatin1("POST"));
@@ -2009,6 +2025,15 @@ HttpResponse HttpSession::patch(const QUrl &url, const QByteArray &body)
     return send(request);
 }
 
+HttpResponse HttpSession::patch(const QUrl &url, QSharedPointer<FileLike> body)
+{
+    HttpRequest request;
+    request.setMethod(QString::fromLatin1("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
 HttpResponse HttpSession::patch(const QUrl &url, const QJsonDocument &body)
 {
     HttpRequest request;
@@ -2135,6 +2160,15 @@ HttpResponse HttpSession::patch(const QUrl &url, const FormData &body, const QMa
 }
 
 HttpResponse HttpSession::patch(const QString &url, const QByteArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QString::fromLatin1("PATCH"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+HttpResponse HttpSession::patch(const QString &url, QSharedPointer<FileLike> body)
 {
     HttpRequest request;
     request.setMethod(QString::fromLatin1("PATCH"));
@@ -2277,6 +2311,15 @@ HttpResponse HttpSession::put(const QUrl &url, const QByteArray &body)
     return send(request);
 }
 
+HttpResponse HttpSession::put(const QUrl &url, QSharedPointer<FileLike> body)
+{
+    HttpRequest request;
+    request.setMethod(QString::fromLatin1("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
 HttpResponse HttpSession::put(const QUrl &url, const QJsonDocument &body)
 {
     HttpRequest request;
@@ -2403,6 +2446,15 @@ HttpResponse HttpSession::put(const QUrl &url, const FormData &body, const QMap<
 }
 
 HttpResponse HttpSession::put(const QString &url, const QByteArray &body)
+{
+    HttpRequest request;
+    request.setMethod(QString::fromLatin1("PUT"));
+    request.setUrl(url);
+    request.setBody(body);
+    return send(request);
+}
+
+HttpResponse HttpSession::put(const QString &url, QSharedPointer<FileLike> body)
 {
     HttpRequest request;
     request.setMethod(QString::fromLatin1("PUT"));
