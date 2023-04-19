@@ -604,7 +604,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
             }
         } else if (w == 0 && type == Socket::TcpSocket) {
             setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
-            abort();
+            // abort();
             return sent;
         } else {  // w < 0 || (w == 0 && type != Socket::TcpSocket)
             int e = errno;
@@ -682,7 +682,6 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 maxSize, HostAddress *addr, qu
     ScopedIoWatcher watcher(EventLoopCoroutine::Read, fd);
     while (true) {
         if (!checkState()) {
-            setError(Socket::SocketAccessError, AccessErrorString);
             return -1;
         }
         do {

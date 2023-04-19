@@ -823,7 +823,6 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
     qint32 total = 0;
     while (total < size) {
         if (!checkState()) {
-            setError(Socket::SocketAccessError, AccessErrorString);
             return total == 0 ? -1: total;
         }
         WSABUF buf;
@@ -841,7 +840,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
             case WSAECONNABORTED:
                 if(type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
-                    close();
+                    // close();
                 }
                 return total;
             case WSAEBADF:
@@ -853,7 +852,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
             }
         } else if(bytesRead == 0 && type == Socket::TcpSocket) {
             setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
-            close();
+            // close();
             return total;
         } else { // bytesRead > 0 || type == Socket::UdpSocket
             total += bytesRead;
@@ -878,7 +877,6 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
     qint32 bytesToSend = qMin<qint32>(49152, size);
     while (bytesToSend > 0) {
         if (!checkState()) {
-            setError(Socket::SocketAccessError, AccessErrorString);
             return ret == 0 ? -1: ret;
         }
 
@@ -937,7 +935,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
             case WSAECONNABORTED:
             case WSAENOTCONN:
                 setError(Socket::NetworkError, WriteErrorString);
-                close();
+                //close();
                 return ret == 0 ? -1 : ret;
             case WSAEHOSTUNREACH:
                 setError(Socket::NetworkError, HostUnreachableErrorString);
@@ -999,7 +997,6 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, HostAddress *addr, quint
 
     while (true) {
         if (!checkState()) {
-            setError(Socket::SocketAccessError, AccessErrorString);
             return -1;
         }
         ret = ::WSARecvFrom(static_cast<SOCKET>(fd), &buf, 1, &bytesRead, &flags,
