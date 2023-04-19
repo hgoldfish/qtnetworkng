@@ -60,7 +60,7 @@ public:
     void setError(Socket::SocketError error, ErrorString errorString);
     bool checkState() const
     {
-        return fd > 0 && (error == Socket::NoError || type != Socket::TcpSocket);
+        return fd > 0 && (error == Socket::NoError || type != Socket::TcpSocket || error == Socket::RemoteHostClosedError);
     }  // not very accurate
     bool isValid() const;
 

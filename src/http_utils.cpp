@@ -528,12 +528,8 @@ QByteArray HeaderSplitter::nextLine(HeaderSplitter::Error *error)
         for (; j < buf.size() && j < MaxLineLength; ++j) {
             char c = buf.at(j);
             if (c == '\n') {
-                //                if(!expectingLineBreak) {
-                //                    *error = HeaderSplitter::EncodingError;
-                //                    return QByteArray();
-                //                }
                 buf.remove(0, j + 1);
-                if (buf.size() > MaxLineLength) {
+                if (line.size() > MaxLineLength) {
                     *error = HeaderSplitter::LineTooLong;
                     return QByteArray();
                 } else {

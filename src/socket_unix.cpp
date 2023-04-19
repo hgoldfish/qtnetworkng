@@ -524,7 +524,6 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
     qint32 total = 0;
     while (total < size) {
         if (!checkState()) {
-            setError(Socket::SocketAccessError, AccessErrorString);
             return total == 0 ? -1 : total;
         }
         ssize_t r = 0;
@@ -546,7 +545,7 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 #endif
                 if (type == Socket::TcpSocket) {
                     setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
-                    abort();
+                    // abort();
                 }
                 return total;
             case EBADF:
@@ -644,7 +643,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
             case EPIPE:
             case ECONNRESET:
                 setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
-                abort();
+                // abort();
                 return -1;
             default:
                 setError(Socket::UnknownSocketError, UnknownSocketErrorString);

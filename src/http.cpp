@@ -1134,13 +1134,18 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             headerSplitter.buf = connection->recv(1024 * 8);
             if (sendingReuqestBodyCoroutine->isRunning()) {
                 sendingReuqestBodyCoroutine->kill();
-                sendingReuqestBodyCoroutine->join();
             }
+            sendingReuqestBodyCoroutine->join();
             sendingReuqestBodyCoroutine.reset();
         } catch (CoroutineInterruptedException &) {
+            if (debugLevel > 0) {
+                qtng_debug << "the server terminated connection while sending body." << headerSplitter.buf.size();
+            }
             sendingReuqestBodyCoroutine->join();
-            response.setError(new ConnectionError());
-            return response;
+            if (headerSplitter.buf.isEmpty()) {
+                response.setError(new ConnectionError());
+                return response;
+            }
         }
     }
 
@@ -1148,6 +1153,9 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     const QByteArray &firstLine = headerSplitter.nextLine(&headerSplitterError);
     error = toRequestError(headerSplitterError);
     if (error != nullptr) {
+        if (debugLevel > 0) {
+            qtng_debug << "read http response header error:" << error->what();
+        }
         response.setError(error);
         return response;
     }
