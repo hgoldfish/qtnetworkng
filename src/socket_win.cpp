@@ -813,6 +813,38 @@ bool SocketPrivate::fetchConnectionParameters()
     return true;
 }
 
+qint32 SocketPrivate::peek(char *data, qint32 size)
+{
+    if (fd == -1) {
+        return false;
+    }
+    WSABUF buf;
+    buf.buf = data;
+    buf.len = size;
+    DWORD flags = MSG_PEEK;
+    DWORD bytesRead = 0;
+    if (::WSARecv(static_cast<SOCKET>(fd), &buf, 1, &bytesRead, &flags, nullptr, nullptr) == SOCKET_ERROR) {
+        int err = WSAGetLastError();
+        if (err == WSAEINPROGRESS ||
+            err == WSAEWOULDBLOCK)
+            return 0; /* connection still in place */
+        if (err == WSAECONNRESET ||
+            err == WSAECONNABORTED ||
+            err == WSAENETDOWN ||
+            err == WSAENETRESET ||
+            err == WSAESHUTDOWN ||
+            err == WSAETIMEDOUT ||
+            err == WSAENOTCONN)
+            return -1; /* connection has been closed */
+    } else if (bytesRead == 0) { /* connection has been closed */
+        return -1;
+    } else if (bytesRead > 0) { /* connection still in place */
+        return bytesRead;
+
+    }
+    /* connection status unknown */
+    return 0;
+}
 
 qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 {

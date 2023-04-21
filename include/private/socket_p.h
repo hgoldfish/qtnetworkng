@@ -80,7 +80,7 @@ public:
     bool leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface);
     NetworkInterface multicastInterface() const;
     bool setMulticastInterface(const NetworkInterface &iface);
-
+    qint32 peek(char *data, qint32 size);
     qint32 recv(char *data, qint32 size, bool all);
     qint32 send(const char *data, qint32 size, bool all);
     qint32 recvfrom(char *data, qint32 size, HostAddress *addr, quint16 *port);

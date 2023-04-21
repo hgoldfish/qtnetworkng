@@ -57,6 +57,8 @@ public:
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
     virtual QVariant option(Socket::SocketOption option) const override;
 
+    virtual qint32 peek(char *data, qint32 size) override;
+    virtual qint32 peekRaw(char *data, qint32 size) override;
     virtual qint32 recv(char *data, qint32 size) override;
     virtual qint32 recvall(char *data, qint32 size) override;
     virtual qint32 send(const char *data, qint32 size) override;
@@ -202,6 +204,16 @@ bool SocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &valu
 QVariant SocketLikeImpl::option(Socket::SocketOption option) const
 {
     return s->option(option);
+}
+
+qint32 SocketLikeImpl::peek(char *data, qint32 size) 
+{
+    return s->peek(data, size);
+}
+
+qint32 SocketLikeImpl::peekRaw(char *data, qint32 size)
+{
+    return s->peek(data, size);
 }
 
 qint32 SocketLikeImpl::recv(char *data, qint32 size)

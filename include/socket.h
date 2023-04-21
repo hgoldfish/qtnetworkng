@@ -133,6 +133,7 @@ public:
     NetworkInterface multicastInterface() const;
     bool setMulticastInterface(const NetworkInterface &iface);
 
+    qint32 peek(char *data, qint32 size);
     qint32 recv(char *data, qint32 size);
     qint32 recvall(char *data, qint32 size);
     qint32 send(const char *data, qint32 size);

@@ -1,4 +1,4 @@
-﻿#include <QtCore/qmap.h>
+#include <QtCore/qmap.h>
 #include <QtCore/qpointer.h>
 #include <QtCore/qsharedpointer.h>
 #include <QtCore/qendian.h>
@@ -1227,6 +1227,8 @@ public:
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
     virtual QVariant option(Socket::SocketOption option) const override;
 public:
+    virtual qint32 peek(char *data, qint32 size) override;
+    virtual qint32 peekRaw(char *data, qint32 size) override;
     virtual qint32 recv(char *data, qint32 size) override;
     virtual qint32 recvall(char *data, qint32 size) override;
     virtual qint32 send(const char *data, qint32 size) override;
@@ -1446,6 +1448,28 @@ QVariant DataChannelSocketLikeImpl::option(Socket::SocketOption option) const
     } else {
         return backend->option(option);
     }
+}
+
+qint32 DataChannelSocketLikeImpl::peek(char *data, qint32 size) 
+{
+    if (size <= 0) {
+        return -1;
+    }
+    qint32 len = qMin(size, static_cast<qint32>(buf.size()));
+    memcpy(data, buf.data(), static_cast<size_t>(len));
+    return len;
+}
+
+qint32 DataChannelSocketLikeImpl::peekRaw(char *data, qint32 size)
+{
+    if (size <= 0) {
+        return -1;
+    }
+    QSharedPointer<SocketLike> backend = getBackend();
+    if (backend.isNull()) {
+        return -1;
+    }
+    return backend->peekRaw(data, size);
 }
 
 qint32 DataChannelSocketLikeImpl::recv(char *data, qint32 size)

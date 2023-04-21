@@ -463,6 +463,16 @@ bool Socket::setMulticastInterface(const NetworkInterface &iface)
     return d->setMulticastInterface(iface);
 }
 
+qint32 Socket::peek(char *data, qint32 size)
+{
+    Q_D(Socket);
+    ScopedLock<Lock> lock(d->readLock);
+    if (!lock.isSuccess()) {
+        return -1;
+    }
+    return d->peek(data, size);
+}
+
 qint32 Socket::recv(char *data, qint32 size)
 {
     Q_D(Socket);

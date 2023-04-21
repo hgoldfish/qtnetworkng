@@ -61,6 +61,8 @@ public:
     void setMode(KcpSocket::Mode mode);
     qint32 send(const char *data, qint32 size, bool all);
     qint32 recv(char *data, qint32 size, bool all);
+    qint32 peek(char *data, qint32 size);
+    virtual qint32 peekRaw(char *data, qint32 size) = 0;
     bool handleDatagram(const char *buf, quint32 len);
     void updateKcp();
     void doUpdate();
@@ -137,6 +139,7 @@ public:
     virtual NetworkInterface multicastInterface() const override;
     virtual bool setMulticastInterface(const NetworkInterface &iface) override;
 public:
+    virtual qint32 peekRaw(char *data, qint32 size) override;
     virtual qint32 rawSend(const char *data, qint32 size) override;
     virtual qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port) override;
 public:
@@ -187,6 +190,7 @@ public:
     virtual NetworkInterface multicastInterface() const override;
     virtual bool setMulticastInterface(const NetworkInterface &iface) override;
 public:
+    virtual qint32 peekRaw(char *data, qint32 size) override;
     virtual qint32 rawSend(const char *data, qint32 size) override;
     virtual qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port) override;
 public:
@@ -408,6 +412,19 @@ qint32 KcpSocketPrivate::recv(char *data, qint32 size, bool all)
             return -1;
         }
     }
+}
+
+qint32 KcpSocketPrivate::peek(char *data, qint32 size)
+{
+    if (state != Socket::ConnectedState) {
+        return -1;
+    }
+    if (!receivingBuffer.isEmpty()) {
+        qint32 len = qMin(size, receivingBuffer.size());
+        memcpy(data, receivingBuffer.data(), static_cast<size_t>(len));
+        return len;
+    }
+    return 0;
 }
 
 bool KcpSocketPrivate::handleDatagram(const char *buf, quint32 len)
@@ -1029,6 +1046,11 @@ HostAddress MasterKcpSocketPrivate::resolve(const QString &hostName, QSharedPoin
     return HostAddress();
 }
 
+qint32 MasterKcpSocketPrivate::peekRaw(char *data, qint32 size)
+{
+    return rawSocket->peek(data, size);
+}
+
 qint32 MasterKcpSocketPrivate::rawSend(const char *data, qint32 size)
 {
     lastKeepaliveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
@@ -1240,6 +1262,14 @@ bool SlaveKcpSocketPrivate::connect(const HostAddress &, quint16)
 bool SlaveKcpSocketPrivate::connect(const QString &, quint16, QSharedPointer<SocketDnsCache>)
 {
     return false;
+}
+
+qint32 SlaveKcpSocketPrivate::peekRaw(char *data, qint32 size)
+{
+    if (parent.isNull()) {
+        return -1;
+    }
+    return parent->rawSocket->peek(data, size);
 }
 
 qint32 SlaveKcpSocketPrivate::rawSend(const char *data, qint32 size)
@@ -1581,6 +1611,18 @@ bool KcpSocket::setMulticastInterface(const NetworkInterface &iface)
     return d->setMulticastInterface(iface);
 }
 
+qint32 KcpSocket::peek(char *data, qint32 size)
+{
+    Q_D(KcpSocket);
+    return d->peek(data, size);
+}
+
+qint32 KcpSocket::peekRaw(char *data, qint32 size)
+{
+    Q_D(KcpSocket);
+    return d->peekRaw(data, size);
+}
+
 qint32 KcpSocket::recv(char *data, qint32 size)
 {
     Q_D(KcpSocket);
@@ -1721,6 +1763,8 @@ public:
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
     virtual QVariant option(Socket::SocketOption option) const override;
 
+    virtual qint32 peek(char *data, qint32 size) override;
+    virtual qint32 peekRaw(char *data, qint32 size) override;
     virtual qint32 recv(char *data, qint32 size) override;
     virtual qint32 recvall(char *data, qint32 size) override;
     virtual qint32 send(const char *data, qint32 size) override;
@@ -1862,6 +1906,16 @@ bool KcpSocketLikeImpl::setOption(Socket::SocketOption option, const QVariant &v
 QVariant KcpSocketLikeImpl::option(Socket::SocketOption option) const
 {
     return s->option(option);
+}
+
+qint32 KcpSocketLikeImpl::peek(char *data, qint32 size)
+{
+    return s->peek(data, size);
+}
+
+qint32 KcpSocketLikeImpl::peekRaw(char *data, qint32 size)
+{
+    return s->peekRaw(data, size);
 }
 
 qint32 KcpSocketLikeImpl::recv(char *data, qint32 size)

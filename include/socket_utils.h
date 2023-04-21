@@ -47,6 +47,8 @@ public:
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) = 0;
     virtual QVariant option(Socket::SocketOption option) const = 0;
 
+    virtual qint32 peek(char *data, qint32 size) = 0;
+    virtual qint32 peekRaw(char *data, qint32 size) = 0;
     virtual qint32 recv(char *data, qint32 size) = 0;
     virtual qint32 recvall(char *data, qint32 size) = 0;
     virtual qint32 send(const char *data, qint32 size) = 0;
