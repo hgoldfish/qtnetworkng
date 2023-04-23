@@ -515,6 +515,35 @@ bool SocketPrivate::fetchConnectionParameters()
     return true;
 }
 
+qint32 SocketPrivate::peek(char *data, qint32 size)
+{
+    if (fd == -1) {
+        return false;
+    }
+    ssize_t r = ::recv(fd, data + total, static_cast<size_t>(size - total), MSG_PEEK)
+    if (r < 0){
+        int err = errno;
+        if (err == EINPROGRESS ||
+            err == EAGAIN ||
+            err == EWOULDBLOCK)
+            return 0; /* connection still in place */
+        if (err == ECONNRESET ||
+            err == ECONNABORTED ||
+            err == ENETDOWN ||
+            err == ENETRESET ||
+            err == ESHUTDOWN ||
+            err == ETIMEDOUT ||
+            err == ENOTCONN)
+            return -1; /* connection has been closed */
+    } else if (r == 0) { /* connection has been closed */
+        return -1;
+    } else if (r > 0) { /* connection still in place */
+        return r;
+    }
+    /* connection status unknown */
+    return 0;
+}
+
 qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
 {
     if (!checkState()) {

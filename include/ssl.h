@@ -237,6 +237,8 @@ public:
     bool setOption(Socket::SocketOption option, const QVariant &value);
     QVariant option(Socket::SocketOption option) const;
 
+    qint32 peek(char *data, qint32 size);
+    qint32 peekRaw(char *data, qint32 size);
     qint32 recv(char *data, qint32 size);
     qint32 recvall(char *data, qint32 size);
     qint32 send(const char *data, qint32 size);

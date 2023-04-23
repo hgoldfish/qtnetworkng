@@ -792,14 +792,13 @@ QSharedPointer<SocketLike> ConnectionPool::oldConnectionForUrl(const QUrl &url)
         if (!connection->isValid()) {
             continue;
         }
-        char tbuf[4];
-        try {
-            Timeout t(0.001f);
-            Q_UNUSED(t);
-            connection->recv(tbuf, 4);
-        } catch (TimeoutException &) {
-            // if the connection is ok, it always timeout.
+
+        char tbuf;
+        if (connection->peekRaw(&tbuf, 1) >= 0) {
+            //qtng_debug << "reuse connect" << connection->localPort();
             return connection;
+        //} else {
+        //    qtng_debug << "abandon connect" << connection->localPort();
         }
     }
     return QSharedPointer<SocketLike>();

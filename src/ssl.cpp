@@ -768,6 +768,8 @@ public:
     bool _handshake();
     bool close();
     void abort();
+    qint32 peek(char *data, qint32 size);
+    qint32 peekRaw(char *data, qint32 size);
     qint32 recv(char *data, qint32 size, bool all);
     qint32 send(const char *data, qint32 size, bool all);
     bool pumpOutgoing();
@@ -950,6 +952,47 @@ bool SslConnection<SocketType>::_handshake()
             return true;
         }
     }
+}
+
+template<typename SocketType>
+qint32 SslConnection<SocketType>::peek(char *data, qint32 size)
+{
+    if (ssl.isNull()) {
+        return -1;
+    }
+    int result = SSL_peek(ssl.data(), data, size);
+    if (result <= 0) {
+        int err = SSL_get_error(ssl.data(), result);
+        switch (err) {
+        case SSL_ERROR_WANT_READ:
+        case SSL_ERROR_WANT_WRITE:
+        case SSL_ERROR_ZERO_RETURN:
+            return 0;
+        case SSL_ERROR_SYSCALL:
+        case SSL_ERROR_SSL: {
+            unsigned long sslerror = ERR_get_error();
+            qtng_debug << "ssl send error. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
+            return -1;
+        }
+        case SSL_ERROR_WANT_CONNECT:
+        case SSL_ERROR_WANT_ACCEPT:
+        case SSL_ERROR_WANT_X509_LOOKUP:
+            //            case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+        default:
+            qtng_debug << "ssl recv error. error code:" << err;
+            return -1;
+        }
+    }
+    return result;
+}
+
+template<typename SocketType>
+qint32 SslConnection<SocketType>::peekRaw(char *data, qint32 size)
+{
+    if (ssl.isNull()) {
+        return -1;
+    }
+    return rawSocket->peek(data, size);
 }
 
 template<typename SocketType>
@@ -1592,6 +1635,19 @@ QString SslSocket::peerAddressURI() const
     return QLatin1String("ssl+") + d->rawSocket->peerAddressURI();
 }
 
+qint32 SslSocket::peek(char *data, qint32 size)
+{
+    Q_D(SslSocket);
+    return d->peek(data, size);
+}
+
+qint32 SslSocket::peekRaw(char *data, qint32 size)
+{
+    Q_D(SslSocket);
+    return d->peekRaw(data, size);
+}
+
+
 qint32 SslSocket::recv(char *data, qint32 size)
 {
     Q_D(SslSocket);
@@ -1725,6 +1781,8 @@ public:
     virtual bool setOption(Socket::SocketOption option, const QVariant &value) override;
     virtual QVariant option(Socket::SocketOption option) const override;
 
+    virtual qint32 peek(char *data, qint32 size) override;
+    virtual qint32 peekRaw(char *data, qint32 size) override;
     virtual qint32 recv(char *data, qint32 size) override;
     virtual qint32 recvall(char *data, qint32 size) override;
     virtual qint32 send(const char *data, qint32 size) override;
@@ -1868,6 +1926,16 @@ QVariant SslSocketLikeImpl::option(Socket::SocketOption option) const
     return s->option(option);
 }
 
+qint32 SslSocketLikeImpl::peek(char *data, qint32 size)
+{
+    return s->peek(data, size);
+}
+
+qint32 SslSocketLikeImpl::peekRaw(char *data, qint32 size)
+{
+    return s->peekRaw(data, size);
+}
+
 qint32 SslSocketLikeImpl::recv(char *data, qint32 size)
 {
     return s->recv(data, size);
@@ -1962,6 +2030,8 @@ public:
     qint32 recv(char *data, qint32 size, bool all);
     qint32 send(const char *data, qint32 size, bool all);
 
+    virtual qint32 peek(char *data, qint32 size) override;
+    virtual qint32 peekRaw(char *data, qint32 size) override;
     virtual qint32 recv(char *data, qint32 size) override;
     virtual qint32 recvall(char *data, qint32 size) override;
     virtual qint32 send(const char *data, qint32 size) override;
@@ -2150,6 +2220,16 @@ qint32 EncryptedSocketLike::send(const char *data, qint32 size, bool)
     } else {
         return size;
     }
+}
+
+qint32 EncryptedSocketLike::peek(char *data, qint32 size)
+{
+    return s->peek(data, size);
+}
+
+qint32 EncryptedSocketLike::peekRaw(char *data, qint32 size)
+{
+    return s->peekRaw(data, size);
 }
 
 qint32 EncryptedSocketLike::recv(char *data, qint32 size)
