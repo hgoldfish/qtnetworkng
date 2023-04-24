@@ -520,7 +520,7 @@ qint32 SocketPrivate::peek(char *data, qint32 size)
     if (fd == -1) {
         return false;
     }
-    ssize_t r = ::recv(fd, data + total, static_cast<size_t>(size - total), MSG_PEEK)
+    ssize_t r = ::recv(fd, data, static_cast<size_t>(size), MSG_PEEK);
     if (r < 0){
         int err = errno;
         if (err == EINPROGRESS ||
