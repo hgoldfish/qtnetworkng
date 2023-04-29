@@ -517,7 +517,7 @@ bool SocketPrivate::fetchConnectionParameters()
 
 qint32 SocketPrivate::peek(char *data, qint32 size)
 {
-    if (fd == -1) {
+    if (fd <= 0) {
         return false;
     }
     ssize_t r = ::recv(fd, data, static_cast<size_t>(size), MSG_PEEK);

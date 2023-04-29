@@ -1,4 +1,10 @@
 #include <QtCore/qprocess.h>
+#ifdef Q_OS_WIN
+#include <synchapi.h>
+#else
+#include <sys/wait.h>
+#endif
+
 #include "../include/coroutine_utils.h"
 #include "../include/eventloop.h"
 #include "debugger.h"
@@ -110,13 +116,30 @@ bool waitThread(QThread *thread)
     }
 }
 
-
-
 bool waitProcess(QProcess *process)
 {
     if (!process) {
         return false;
     }
+
+    if (!EventLoopCoroutine::get()->isQt()) {
+        // fix a bug that the state of QProcesses is never changed if the qt eventloop is not run.
+        int pid = process->processId();
+        bool ok = callInThread<bool>([pid] {
+#ifdef Q_OS_UNIX
+            int wstatus = 0;
+            return waitpid(pid, &wstatus, 0) == pid;
+#else
+            return WaitForSingleObject(pid) == WAIT_OBJECT_0;
+#endif
+        });
+        // qt will print warning message: Destroyed while process ("/path/..") is still running.
+//        if (ok) {
+//            process->waitForFinished(0);
+//        }
+        return ok;
+    }
+
     if (process->state() == QProcess::NotRunning) {
         return true;
     }
