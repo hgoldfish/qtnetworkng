@@ -1,6 +1,6 @@
 #include <QtCore/qprocess.h>
 #ifdef Q_OS_WIN
-#include <synchapi.h>
+#include <windows.h>
 #else
 #include <sys/wait.h>
 #endif
@@ -130,7 +130,7 @@ bool waitProcess(QProcess *process)
             int wstatus = 0;
             return waitpid(pid, &wstatus, 0) == pid;
 #else
-            return WaitForSingleObject(pid) == WAIT_OBJECT_0;
+            return WaitForSingleObject(reinterpret_cast<HANDLE>(pid), 0) == WAIT_OBJECT_0;
 #endif
         });
         // qt will print warning message: Destroyed while process ("/path/..") is still running.
