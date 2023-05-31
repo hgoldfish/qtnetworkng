@@ -1,4 +1,4 @@
-﻿#include <QtCore/qbuffer.h>
+#include <QtCore/qbuffer.h>
 #include <QtCore/qdebug.h>
 #include "../include/msgpack.h"
 
@@ -62,7 +62,7 @@ static inline QDateTime unpackDatetime(const QByteArray &bs)
         Q_UNREACHABLE();
     }
 #endif
-    return QDateTime::fromMSecsSinceEpoch(seconds * 1000 + nanoseconds / 1000);
+    return QDateTime::fromMSecsSinceEpoch(seconds * 1000 + nanoseconds / 1000000);
 }
 
 MsgPackExtUserData::~MsgPackExtUserData() { }
@@ -1622,7 +1622,7 @@ static QByteArray packDatetime(const QDateTime &dt)
         return QByteArray();
     }
     quint64 msecs = static_cast<quint64>(dt.toMSecsSinceEpoch());
-    quint64 t = ((msecs % 1000) * 1000) << 34 | (msecs / 1000);
+    quint64 t = ((msecs % 1000) * 1000000) << 34 | (msecs / 1000);
     QByteArray bs(8, Qt::Uninitialized);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     qToBigEndian(t, static_cast<void *>(bs.data()));
