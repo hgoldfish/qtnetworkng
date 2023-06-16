@@ -65,6 +65,7 @@ public:
     virtual qint32 peekRaw(char *data, qint32 size) = 0;
     bool handleDatagram(const char *buf, quint32 len);
     void updateKcp();
+    void updateStatus();
     void doUpdate();
     virtual qint32 rawSend(const char *data, qint32 size) = 0;
     virtual qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port) = 0;
@@ -302,7 +303,7 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 1024, 1024);
         kcp->rx_minrto = 30;
-        //kcp->interval = 5;
+        // kcp->interval = 5;
         break;
     case KcpSocket::FastInternet:
         waterLine = 192;
@@ -310,7 +311,7 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 512, 512);
         kcp->rx_minrto = 20;
-        //kcp->interval = 2;
+        // kcp->interval = 2;
         break;
     case KcpSocket::Ethernet:
         waterLine = 64;
@@ -318,7 +319,7 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
         ikcp_setmtu(kcp, 1024 * 32);
         ikcp_wndsize(kcp, 128, 128);
         kcp->rx_minrto = 10;
-        //kcp->interval = 1;
+        // kcp->interval = 1;
         break;
     case KcpSocket::Loopback:
         waterLine = 64;
@@ -326,7 +327,7 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
         ikcp_setmtu(kcp, 1024 * 64 - 256);
         ikcp_wndsize(kcp, 128, 128);
         kcp->rx_minrto = 5;
-        //kcp->interval = 1;
+        // kcp->interval = 1;
         break;
     }
 }
@@ -356,6 +357,7 @@ qint32 KcpSocketPrivate::send(const char *data, qint32 size, bool all)
             ScopedLock<RLock> l(kcpLock);
             result = ikcp_send(kcp, data + count, nextBlockSize);
         }
+        updateStatus();
         if (result < 0) {
             qtng_warning << "why this happened?";
             if (count > 0) {
@@ -512,27 +514,7 @@ void KcpSocketPrivate::doUpdate()
             }
         }
 
-        int sendingQueueSize = ikcp_waitsnd(kcp);
-        if (sendingQueueSize <= 0) {
-            sendingQueueNotFull.set();
-            sendingQueueEmpty.set();
-            q->busy.clear();
-            q->notBusy.set();
-        } else {
-            sendingQueueEmpty.clear();
-            if (static_cast<quint32>(sendingQueueSize) > (waterLine * 1.2)) {
-                sendingQueueNotFull.clear();
-                q->busy.set();
-                q->notBusy.clear();
-            } else if (static_cast<quint32>(sendingQueueSize) > waterLine) {
-                q->busy.set();
-                q->notBusy.clear();
-            } else {
-                sendingQueueNotFull.set();
-                q->busy.clear();
-                q->notBusy.set();
-            }
-        }
+        updateStatus();
 
         quint32 ts = ikcp_check(kcp, current);
         quint32 interval = ts - current;
@@ -549,6 +531,32 @@ void KcpSocketPrivate::updateKcp()
             QString::fromLatin1("update_kcp"), [this] { doUpdate(); }, false);
     kcp->updated = 0;
     forceToUpdate.open();
+}
+
+void KcpSocketPrivate::updateStatus()
+{
+    Q_Q(KcpSocket);
+    int sendingQueueSize = ikcp_waitsnd(kcp);
+    if (sendingQueueSize <= 0) {
+        sendingQueueNotFull.set();
+        sendingQueueEmpty.set();
+        q->busy.clear();
+        q->notBusy.set();
+    } else {
+        sendingQueueEmpty.clear();
+        if (static_cast<quint32>(sendingQueueSize) > (waterLine * 1.2)) {
+            sendingQueueNotFull.clear();
+            q->busy.set();
+            q->notBusy.clear();
+        } else if (static_cast<quint32>(sendingQueueSize) > waterLine) {
+            q->busy.set();
+            q->notBusy.clear();
+        } else {
+            sendingQueueNotFull.set();
+            q->busy.clear();
+            q->notBusy.set();
+        }
+    }
 }
 
 QByteArray KcpSocketPrivate::makeDataPacket(const char *data, qint32 size)

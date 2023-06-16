@@ -111,7 +111,7 @@ void TestThreadQueue::testCoroutineConsumer()
 
     consumer->join();
     for (int i = 0; i < ProducerNumber; ++i) {
-        producers.at(i)->wait();
+        producers.at(i)->tryWait();
     }
 
     QVERIFY(done->isSet());
