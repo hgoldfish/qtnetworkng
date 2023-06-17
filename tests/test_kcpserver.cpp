@@ -1,5 +1,4 @@
 #include <QtCore/qcoreapplication.h>
-#include <QElapsedTimer>
 #include <stdio.h>
 #include "qtnetworkng.h"
 
@@ -13,8 +12,11 @@ public:
 
 int main(int argc, char **argv)
 {
+    // comment out the next line to use more effective libev/libev-win instead of Qt eventloop.
     QCoreApplication app(argc, argv);
     KcpServer<QtL2Handler> server(HostAddress::LocalHost, 7943);
-    server.start();
-    return startQtLoop();
+    return !server.serveForever();
+    // the serveForever() equals the next two line.
+    // server.start();
+    // return startQtLoop();
 }
