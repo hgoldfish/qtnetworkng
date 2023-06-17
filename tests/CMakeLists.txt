@@ -18,3 +18,6 @@ add_test(qtng_tests test_threadqueue)
 
 add_executable(test_kcp test_kcp.cpp)
 target_link_libraries(test_kcp PRIVATE Qt5::Core qtnetworkng)
+
+add_executable(test_kcpserver test_kcpserver.cpp)
+target_link_libraries(test_kcpserver PRIVATE Qt5::Core qtnetworkng)
