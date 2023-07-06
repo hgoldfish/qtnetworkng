@@ -14,7 +14,7 @@ int main(int argc, char **argv)
 {
     // comment out the next line to use more effective libev/libev-win instead of Qt eventloop.
     QCoreApplication app(argc, argv);
-    KcpServer<QtL2Handler> server(HostAddress::LocalHost, 7943);
+    KcpServer<QtL2Handler> server(HostAddress::AnyIPv4, 7943);
     return !server.serveForever();
     // the serveForever() equals the next two line.
     // server.start();

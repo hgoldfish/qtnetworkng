@@ -1223,7 +1223,8 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
             } else if (debugLevel > 1 && !body.isEmpty()) {
                 qtng_debug << "receiving body:" << body;
             }
-            if (!ptrLock.isNull() && connection->isValid()
+            // HttpStatus::SwitchProtocol connection can not be recycled().
+            if (!ptrLock.isNull() && connection->isValid() && response.statusCode() >= 200
                 && response.header(KnownHeader::ConnectionHeader).toLower() == "keep-alive" && keepAlive) {
                 recycle(response.d->url, connection);
             }
