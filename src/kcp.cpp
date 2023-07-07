@@ -706,12 +706,13 @@ bool MasterKcpSocketPrivate::close(bool force)
         }
     } else if (state == Socket::ListeningState) {
         state = Socket::UnconnectedState;
-        for (QPointer<SlaveKcpSocketPrivate> receiver : receiversByHostAndPort.values()) {
+        QMap<QString, QPointer<class SlaveKcpSocketPrivate>> receiversByHostAndPort(this->receiversByHostAndPort);
+        this->receiversByHostAndPort.clear();
+        for (QPointer<SlaveKcpSocketPrivate> receiver : receiversByHostAndPort) {
             if (!receiver.isNull()) {
                 receiver->close(force);
             }
         }
-        receiversByHostAndPort.clear();
         receiversByConnectionId.clear();
     } else {  // BoundState
         state = Socket::UnconnectedState;

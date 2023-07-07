@@ -124,13 +124,21 @@ bool waitProcess(QProcess *process)
 
     if (!EventLoopCoroutine::get()->isQt()) {
         // fix a bug that the state of QProcesses is never changed if the qt eventloop is not run.
+
+#ifdef Q_OS_UNIX
         int pid = process->processId();
+#else
+        HANDLE pid = process->pid() ? process->pid()->hProcess : NULL;
+        if (!pid) {
+            return false;
+        }
+#endif
         bool ok = callInThread<bool>([pid] {
 #ifdef Q_OS_UNIX
             int wstatus = 0;
             return waitpid(pid, &wstatus, 0) == pid;
 #else
-            return WaitForSingleObject(reinterpret_cast<HANDLE>(pid), -1) == WAIT_OBJECT_0;
+            return WaitForSingleObject(pid, -1) == WAIT_OBJECT_0;
 #endif
         });
         // qt will print warning message: Destroyed while process ("/path/..") is still running.
