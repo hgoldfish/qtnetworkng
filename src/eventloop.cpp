@@ -403,7 +403,7 @@ void Coroutine::kill(CoroutineException *e, quint32 msecs)
             }
             setState(Coroutine::Stopped);
             delete e;
-            d->finishedEvent.set();
+            finished.callback(this);
         } else {
             if (d->callbackId == 0) {
                 d->callbackId = c->callLater(msecs, new StartCoroutineFunctor(d));
@@ -418,22 +418,6 @@ void Coroutine::kill(CoroutineException *e, quint32 msecs)
         qtng_warning << "invalid state while kiling coroutine.";
         delete e;
     }
-}
-
-void Coroutine::cancelStart()
-{
-    Q_D(Coroutine);
-    EventLoopCoroutine *c = EventLoopCoroutine::get();
-    if (d->callbackId > 0) {
-        c->cancelCall(d->callbackId);
-    }
-    if (state() == Coroutine::Initialized) {
-        setState(Coroutine::Stopped);
-        d->finishedEvent.set();
-    } else if (state() == Coroutine::Started) {
-        c->callLater(0, new KillCoroutineFunctor(d, new CoroutineExitException()));
-    }
-    d->callbackId = 0;
 }
 
 void Coroutine::run()
