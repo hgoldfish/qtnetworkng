@@ -117,6 +117,7 @@ public:
     QSharedPointer<VirtualChannel> makeChannel();
     QSharedPointer<VirtualChannel> takeChannel();
     QSharedPointer<VirtualChannel> takeChannel(quint32 channelNumber);
+    QSharedPointer<VirtualChannel> peekChannel(quint32 channelNumber);
     QByteArray recvPacket();
     bool sendPacket(const QByteArray &packet);
     bool sendPacketAsync(const QByteArray &packet);
@@ -329,7 +330,7 @@ DataChannel::ChannelError DataChannelPrivate::handleIncomingPacket(quint32 chann
         QSharedPointer<VirtualChannel> channel = subChannels.value(channelNumber).toStrongRef();
         if (channel.isNull()) {
 #ifdef DEBUG_PROTOCOL
-            qtng_debug << "channel is destroyed and data is abondoned: " << channelNumber;
+            qtng_debug << "channel is destroyed and data is abandoned: " << channelNumber;
 #endif
             subChannels.remove(channelNumber);
         } else {
@@ -359,7 +360,7 @@ DataChannel::ChannelError DataChannelPrivate::handleIncomingPacket(quint32 chann
         }
     } else {
 #ifdef DEBUG_PROTOCOL
-        qtng_debug << "channel is destroyed and data is abondoned: " << channelNumber;
+        qtng_debug << "channel is destroyed and data is abandoned: " << channelNumber;
 #endif
     }
     return DataChannel::NoError;
@@ -414,6 +415,27 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel(quint32 channelNu
             break;
         } else {
             tmp.append(channel);
+        }
+    }
+    for (int i = tmp.size() - 1; i >= 0; i--) {
+        pendingChannels.returnsForcely(tmp.at(i));
+    }
+    return found;
+}
+
+QSharedPointer<VirtualChannel> DataChannelPrivate::peekChannel(quint32 channelNumber)
+{
+    if (isBroken()) {
+        return QSharedPointer<VirtualChannel>();
+    }
+    QSharedPointer<VirtualChannel> found;
+    QList<QSharedPointer<VirtualChannel>> tmp;
+    while (!pendingChannels.isEmpty()) {
+        QSharedPointer<VirtualChannel> channel = pendingChannels.get();
+        tmp.append(channel);
+        if (channel && channel->channelNumber() == channelNumber) {
+            found = channel;
+            break;
         }
     }
     for (int i = tmp.size() - 1; i >= 0; i--) {
@@ -495,16 +517,18 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
 #ifdef DEBUG_PROTOCOL
         qtng_debug << "destroy channel request:" << channelNumber;
 #endif
-        bool nothing = takeChannel(channelNumber).isNull();  // remove channel from pending channels.
-        if (nothing && subChannels.contains(channelNumber)) {
+        QSharedPointer<VirtualChannel> strong = peekChannel(channelNumber); // not remove channel from pending channels.
+        if (strong.isNull() && subChannels.contains(channelNumber)) {
             QWeakPointer<VirtualChannel> channel = subChannels.value(channelNumber);
             cleanChannel(channelNumber, false);
             if (!channel.isNull()) {
-                QSharedPointer<VirtualChannel> strong = channel.toStrongRef();
-                strong->d_func()->parentChannel.clear();
-                // the receiving queue is still ok after aborted.
-                strong->d_func()->abort(DataChannel::RemotePeerClosedError);
+                strong = channel.toStrongRef();
             }
+        }
+        if (strong) {
+            strong->d_func()->parentChannel.clear();
+            // the receiving queue is still ok after aborted.
+            strong->d_func()->abort(DataChannel::RemotePeerClosedError);
         }
         return true;
     } else if (command == SLOW_DOWN_REQUEST) {
@@ -551,7 +575,7 @@ SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection
 
 SocketChannelPrivate::~SocketChannelPrivate()
 {
-    abort(DataChannel::UserShutdown);
+    SocketChannelPrivate::abort(DataChannel::UserShutdown);
     delete operations;
 }
 
@@ -814,7 +838,7 @@ VirtualChannelPrivate::VirtualChannelPrivate(DataChannel *parentChannel, DataCha
 
 VirtualChannelPrivate::~VirtualChannelPrivate()
 {
-    abort(DataChannel::UserShutdown);
+    VirtualChannelPrivate::abort(DataChannel::UserShutdown);
 }
 
 bool VirtualChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking)
