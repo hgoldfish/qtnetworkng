@@ -21,7 +21,8 @@ void WebSocketRequestHandler::doGET()
     }
     qDebug() << webSocketProtocols();
     endHeader();
-    WebSocketConnection conn(request, WebSocketConnection::Server);
+
+    WebSocketConnection conn(request, body, WebSocketConnection::Server);
     conn.setDebugLevel(1);
     WebSocketConnection::FrameType type;
     while (true) {

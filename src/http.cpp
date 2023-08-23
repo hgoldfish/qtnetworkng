@@ -1400,17 +1400,14 @@ QSharedPointer<WebSocketConnection> HttpSessionPrivate::makeWebSocketConnection(
         return QSharedPointer<WebSocketConnection>();
     }
 
-    QByteArray readBytes;
-    QSharedPointer<SocketLike> raw = response.takeStream(&readBytes);
-    if (!readBytes.isEmpty()) {
-        qtng_warning << "the web socket is dirty after handshake.";
-    }
+    QByteArray headBytes;
+    QSharedPointer<SocketLike> raw = response.takeStream(&headBytes);
     if (raw.isNull()) {
         qtng_warning << "the web socket steam is null.";
     }
 
     QSharedPointer<WebSocketConnection> connection =
-            QSharedPointer<WebSocketConnection>::create(raw, WebSocketConnection::Client, webSocketConfiguration);
+            QSharedPointer<WebSocketConnection>::create(raw, headBytes, WebSocketConnection::Client, webSocketConfiguration);
     connection->setDebugLevel(this->debugLevel);
     setWebSocketConnectionPrivateResponse(connection->d_func(), response);
     return connection;

@@ -122,12 +122,12 @@ public:
 class WebSocketConnectionPrivate
 {
 public:
-    WebSocketConnectionPrivate(QSharedPointer<SocketLike> connection, WebSocketConnection::Side side,
+    WebSocketConnectionPrivate(QSharedPointer<SocketLike> connection, const QByteArray &headBytes, WebSocketConnection::Side side,
                                const WebSocketConfiguration &config, WebSocketConnection *q);
     ~WebSocketConnectionPrivate();
 public:
     void doSend();
-    void doReceive();
+    void doReceive(const QByteArray &headBytes);
     void doKeepalive();
     void setErrorCode(int errorCode, const QString &errorString);
     void abort(int errorCode);
@@ -469,7 +469,7 @@ QByteArray WebSocketFrame::toByteArray() const
     return buf.left(packetSize);
 }
 
-WebSocketConnectionPrivate::WebSocketConnectionPrivate(QSharedPointer<SocketLike> connection,
+WebSocketConnectionPrivate::WebSocketConnectionPrivate(QSharedPointer<SocketLike> connection,const QByteArray &headBytes,
                                                        WebSocketConnection::Side side,
                                                        const WebSocketConfiguration &config, WebSocketConnection *q)
     : operations(new CoroutineGroup())
@@ -498,7 +498,7 @@ WebSocketConnectionPrivate::WebSocketConnectionPrivate(QSharedPointer<SocketLike
     }
 #endif
     operations->spawnWithName(QString::fromUtf8("send"), [this] { doSend(); });
-    operations->spawnWithName(QString::fromUtf8("receive"), [this] { doReceive(); });
+    operations->spawnWithName(QString::fromUtf8("receive"), [this, headBytes] { doReceive(headBytes); });
     operations->spawnWithName(QString::fromUtf8("keepalive"), [this] { doKeepalive(); });
 }
 
@@ -665,10 +665,18 @@ inline bool isCloseCodeValid(int closeCode)
             && ((closeCode >= 3000) || (closeCode < 1012));
 }
 
-void WebSocketConnectionPrivate::doReceive()
+void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
 {
-    char packet[1024 * 64];
+    QByteArray buf(1024 * 64, Qt::Uninitialized);
     size_t packetSize = 0;
+    if (headBytes.size() > 1024 * 64) {
+        buf = headBytes;
+        packetSize = headBytes.size();
+    } else if (!headBytes.isEmpty()) {
+        memcpy(buf.data(), headBytes.constData(), headBytes.size());
+        packetSize = headBytes.size();
+    }
+    char *packet = buf.data();
 
     WebSocketConnection::FrameType tmpType = WebSocketConnection::Unknown;
     QByteArray tmpPayload;
@@ -1003,10 +1011,10 @@ bool WebSocketConnectionPrivate::sendBytes(const QByteArray &packet)
     return true;
 }
 
-WebSocketConnection::WebSocketConnection(QSharedPointer<SocketLike> connection, Side side,
+WebSocketConnection::WebSocketConnection(QSharedPointer<SocketLike> connection, const QByteArray &headBytes, Side side,
                                          const WebSocketConfiguration &config)
     : disconnected(new Event())
-    , d_ptr(new WebSocketConnectionPrivate(connection, side, config, this))
+    , d_ptr(new WebSocketConnectionPrivate(connection, headBytes, side, config, this))
 {
 }
 

@@ -41,14 +41,14 @@ class HttpResponse;
 class WebSocketConnection
 {
 public:
-    enum FrameType { Unknown = 0, Binary, Text};
+    enum FrameType { Unknown = 0, Binary, Text };
     enum State { Closed = 0, Open, Closing };
     enum Side { Client = 0, Server };
     enum WebSocketError {
         NoError = 0,
         NormalClosure = 1000,
         GoingAway = 1001,
-        ProtocolError= 1002,
+        ProtocolError = 1002,
         UnsupportedData = 1003,
         NoStatusRcvd = 1005,
         AbnormalClosure = 1006,
@@ -63,7 +63,8 @@ public:
         TlsHandshake = 1015,
     };
 public:
-    WebSocketConnection(QSharedPointer<SocketLike> connection, Side side = Client, const WebSocketConfiguration &config = WebSocketConfiguration());
+    WebSocketConnection(QSharedPointer<SocketLike> connection, const QByteArray &headBytes, Side side = Client,
+                        const WebSocketConfiguration &config = WebSocketConfiguration());
     ~WebSocketConnection();
 public:
     QSharedPointer<Event> disconnected;
