@@ -197,6 +197,7 @@ class Socks5Proxy;
 class HttpProxy;
 class HttpSessionPrivate;
 class HttpCacheManager;
+class WebSocketConnection;
 class HttpSession
 {
 public:
@@ -350,6 +351,18 @@ public:
     HttpResponse propfind(const QUrl &url);
     HttpResponse when(const QUrl &url);
 
+    // make web socket connection.
+    QSharedPointer<WebSocketConnection> ws(const QUrl &url);
+    QSharedPointer<WebSocketConnection> ws(const QUrl &url, const QMap<QString, QString> &query);
+    QSharedPointer<WebSocketConnection> ws(const QUrl &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    QSharedPointer<WebSocketConnection> ws(const QUrl &url, const QUrlQuery &query);
+    QSharedPointer<WebSocketConnection> ws(const QUrl &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+    QSharedPointer<WebSocketConnection> ws(const QString &url);
+    QSharedPointer<WebSocketConnection> ws(const QString &url, const QMap<QString, QString> &query);
+    QSharedPointer<WebSocketConnection> ws(const QString &url, const QMap<QString, QString> &query, const QMap<QString, QByteArray> &headers);
+    QSharedPointer<WebSocketConnection> ws(const QString &url, const QUrlQuery &query);
+    QSharedPointer<WebSocketConnection> ws(const QString &url, const QUrlQuery &query, const QMap<QString, QByteArray> &headers);
+
     HttpResponse send(HttpRequest &request);
     HttpCookieJar &cookieJar();
     HttpCookie cookie(const QUrl &url, const QString &name);
@@ -384,6 +397,7 @@ public:
 #ifndef QTNG_NO_CRYPTO
     class SslConfiguration &sslConfiguration();
 #endif
+    class WebSocketConfiguration &webSocketConfiguration();
 private:
     HttpSessionPrivate *d_ptr;
     Q_DECLARE_PRIVATE(HttpSession)

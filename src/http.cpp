@@ -8,15 +8,16 @@
 #include <QtCore/qcryptographichash.h>
 #include <QtCore/qelapsedtimer.h>
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
-#  include <QtCore/qrandom.h>
+#include <QtCore/qrandom.h>
 #endif
 #include "../include/private/http_p.h"
 #include "../include/socks5_proxy.h"
+#include "../include/random.h"
 #ifdef QTNG_HAVE_ZLIB
-#  include "../include/gzip.h"
+#include "../include/gzip.h"
 #endif
 #ifndef QTNG_NO_CRYPTO
-#  include "../include/ssl.h"
+#include "../include/ssl.h"
 #endif
 #include "debugger.h"
 
@@ -118,6 +119,7 @@ public:
     HttpRequest::Priority priority;
     HttpVersion version;
     bool streamResponse;
+    bool isWebSocket;
 };
 
 HttpRequestPrivate::HttpRequestPrivate()
@@ -129,6 +131,7 @@ HttpRequestPrivate::HttpRequestPrivate()
     , priority(HttpRequest::NormalPriority)
     , version(Unknown)
     , streamResponse(false)
+    , isWebSocket(false)
 {
 }
 
@@ -150,6 +153,7 @@ HttpRequestPrivate::HttpRequestPrivate(const HttpRequestPrivate &other)
     , priority(other.priority)
     , version(other.version)
     , streamResponse(other.streamResponse)
+    , isWebSocket(other.isWebSocket)
 {
 }
 
@@ -417,6 +421,8 @@ HttpResponsePrivate::HttpResponsePrivate(const HttpResponsePrivate &other)
     , request(other.request)
     , body(other.body)
     , history(other.history)
+    , error(other.error)
+    , stream(other.stream)
     , elapsed(other.elapsed)
     , statusCode(other.statusCode)
     , version(other.version)
@@ -621,7 +627,7 @@ QByteArray HttpResponse::body()
             setError(new ContentDecodingError());
         } else
 #endif
-        if (bodyFile.dynamicCast<ChunkedBodyFile>()) {
+                if (bodyFile.dynamicCast<ChunkedBodyFile>()) {
             RequestError *error = nullptr;
             error = toRequestError(bodyFile.dynamicCast<ChunkedBodyFile>()->error);
             if (error != nullptr) {
@@ -795,10 +801,10 @@ QSharedPointer<SocketLike> ConnectionPool::oldConnectionForUrl(const QUrl &url)
 
         char tbuf;
         if (connection->peekRaw(&tbuf, 1) >= 0) {
-            //qtng_debug << "reuse connect" << connection->localPort();
+            // qtng_debug << "reuse connect" << connection->localPort();
             return connection;
-        //} else {
-        //    qtng_debug << "abandon connect" << connection->localPort();
+            //} else {
+            //    qtng_debug << "abandon connect" << connection->localPort();
         }
     }
     return QSharedPointer<SocketLike>();
@@ -808,7 +814,7 @@ QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, 
 {
     QSharedPointer<SocketLike> connection;
     quint16 port;
-    if (url.scheme() == QString::fromLatin1("http")) {
+    if (url.scheme() == QString::fromLatin1("http") || url.scheme() == QString::fromLatin1("ws")) {
         port = static_cast<quint16>(url.port(80));
     } else {
 #ifndef QTNG_NO_CRYPTO
@@ -845,7 +851,7 @@ QSharedPointer<SocketLike> ConnectionPool::newConnectionForUrl(const QUrl &url, 
         connection = asSocketLike(rawSocket);
     }
 
-    if (url.scheme() == QString::fromLatin1("https")) {
+    if (url.scheme() == QString::fromLatin1("https") || url.scheme() == QString::fromLatin1("wss")) {
 #ifndef QTNG_NO_CRYPTO
         QSharedPointer<SslSocket> ssl(new SslSocket(connection, sslConfig));
         if (!ssl->handshake(false, url.host())) {
@@ -946,13 +952,13 @@ RequestError *toRequestError(HeaderSplitter::Error error)
 
 // for old qt
 #if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
-#  define QBYTEARRAYLIST QByteArrayList
+#define QBYTEARRAYLIST QByteArrayList
 inline static QByteArray join(const QByteArrayList &lines)
 {
     return lines.join();
 }
 #else
-#  define QBYTEARRAYLIST QList<QByteArray>
+#define QBYTEARRAYLIST QList<QByteArray>
 inline static QByteArray join(const QList<QByteArray> &lines)
 {
     QByteArray buf;
@@ -1006,7 +1012,10 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     HttpResponse response;
     response.d->url = url;
     response.d->request = request;
-    if (url.scheme() != QString::fromLatin1("http") && url.scheme() != QString::fromLatin1("https")) {
+    if ((!request.d->isWebSocket && url.scheme() != QString::fromLatin1("http")
+         && url.scheme() != QString::fromLatin1("https"))
+        || (request.d->isWebSocket && url.scheme() != QString::fromLatin1("ws")
+            && url.scheme() != QString::fromLatin1("wss"))) {
         if (debugLevel > 0) {
             qtng_debug << "invalid scheme:" << url.scheme();
         }
@@ -1341,6 +1350,70 @@ void HttpSessionPrivate::mergeCookies(HttpRequest &request, const QUrl &url)
             request.d->cookies.append(cookie);
         }
     }
+}
+
+void HttpSessionPrivate::prepareWebSocketRequest(HttpRequest &request, QByteArray &secKey)
+{
+    secKey = randomBytes(16).toBase64();
+    request.setStreamResponse(true);
+    request.d->isWebSocket = true;
+    request.setMethod(QString::fromLatin1("GET"));
+    request.addHeader(UpgradeHeader, "websocket");
+    request.addHeader(ConnectionHeader, "Upgrade");
+    request.addHeader(QString::fromUtf8("Sec-WebSocket-Key"), secKey);
+    request.addHeader(QString::fromUtf8("Sec-WebSocket-Version"), "13");
+    if (!webSocketConfiguration.protocols().isEmpty()) {
+        request.addHeader(QString::fromUtf8("Sec-WebSocket-Protocol"),
+                          webSocketConfiguration.protocols().join(", ").toUtf8());
+    }
+}
+
+// implemented in websocket.cpp
+void setWebSocketConnectionPrivateResponse(WebSocketConnectionPrivate *d, HttpResponse response);
+
+QSharedPointer<WebSocketConnection> HttpSessionPrivate::makeWebSocketConnection(HttpResponse &response,
+                                                                                const QByteArray &secKey)
+{
+    if (!response.isOk()) {
+        // TODO 设置错误值并返回。
+        return QSharedPointer<WebSocketConnection>();
+    }
+    if (response.statusCode() != SwitchProtocol) {
+        // TODO 设置错误值并返回。
+        return QSharedPointer<WebSocketConnection>();
+    }
+
+    const QByteArray &upgradeHeader = response.header(QString::fromUtf8("Upgrade"));
+    const QByteArray &connectionHeader = response.header(QString::fromUtf8("Connection"));
+    if (upgradeHeader.compare("websocket", Qt::CaseInsensitive)
+        || connectionHeader.compare("Upgrade", Qt::CaseInsensitive)) {
+        // TODO 设置错误值并返回。
+        return QSharedPointer<WebSocketConnection>();
+    }
+
+    const QByteArray uuid("258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+    const QByteArray &t = secKey + uuid;
+    const QByteArray &myKey = QCryptographicHash::hash(t, QCryptographicHash::Sha1).toBase64();
+    const QByteArray &itsKey = response.header(QString::fromUtf8("Sec-WebSocket-Accept"));
+    if (myKey != itsKey) {
+        // TODO 设置错误值并返回。
+        return QSharedPointer<WebSocketConnection>();
+    }
+
+    QByteArray readBytes;
+    QSharedPointer<SocketLike> raw = response.takeStream(&readBytes);
+    if (!readBytes.isEmpty()) {
+        qtng_warning << "the web socket is dirty after handshake.";
+    }
+    if (raw.isNull()) {
+        qtng_warning << "the web socket steam is null.";
+    }
+
+    QSharedPointer<WebSocketConnection> connection =
+            QSharedPointer<WebSocketConnection>::create(raw, WebSocketConnection::Client, webSocketConfiguration);
+    connection->setDebugLevel(this->debugLevel);
+    setWebSocketConnectionPrivateResponse(connection->d_func(), response);
+    return connection;
 }
 
 void setProxySwitcher(HttpSession *session, QSharedPointer<BaseProxySwitcher> switcher)
@@ -2622,6 +2695,132 @@ HttpResponse HttpSession::when(const QUrl &url)
     return send(request);
 }
 
+QSharedPointer<WebSocketConnection> HttpSession::ws(const QUrl &url)
+{
+    Q_D(HttpSession);
+    HttpRequest request;
+    QByteArray secKey;
+    d->prepareWebSocketRequest(request, secKey);
+    request.setUrl(url);
+    HttpResponse response = send(request);
+    return d->makeWebSocketConnection(response, secKey);
+}
+
+QSharedPointer<WebSocketConnection> HttpSession::ws(const QUrl &url, const QMap<QString, QString> &query)
+{
+    Q_D(HttpSession);
+    HttpRequest request;
+    QByteArray secKey;
+    d->prepareWebSocketRequest(request, secKey);
+    request.setUrl(url);
+    request.setQuery(query);
+    HttpResponse response = send(request);
+    return d->makeWebSocketConnection(response, secKey);
+}
+
+QSharedPointer<WebSocketConnection> HttpSession::ws(const QUrl &url, const QMap<QString, QString> &query,
+                                                    const QMap<QString, QByteArray> &headers)
+{
+    Q_D(HttpSession);
+    HttpRequest request;
+    QByteArray secKey;
+    d->prepareWebSocketRequest(request, secKey);
+    request.setUrl(url);
+    request.setHeaders(headers);
+    request.setQuery(query);
+    HttpResponse response = send(request);
+    return d->makeWebSocketConnection(response, secKey);
+}
+
+QSharedPointer<WebSocketConnection> HttpSession::ws(const QUrl &url, const QUrlQuery &query)
+{
+    Q_D(HttpSession);
+    HttpRequest request;
+    QByteArray secKey;
+    d->prepareWebSocketRequest(request, secKey);
+    request.setUrl(url);
+    request.setQuery(query);
+    HttpResponse response = send(request);
+    return d->makeWebSocketConnection(response, secKey);
+}
+
+QSharedPointer<WebSocketConnection> HttpSession::ws(const QUrl &url, const QUrlQuery &query,
+                                                    const QMap<QString, QByteArray> &headers)
+{
+    Q_D(HttpSession);
+    HttpRequest request;
+    QByteArray secKey;
+    d->prepareWebSocketRequest(request, secKey);
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    HttpResponse response = send(request);
+    return d->makeWebSocketConnection(response, secKey);
+}
+
+QSharedPointer<WebSocketConnection> HttpSession::ws(const QString &url)
+{
+    Q_D(HttpSession);
+    HttpRequest request;
+    QByteArray secKey;
+    d->prepareWebSocketRequest(request, secKey);
+    request.setUrl(url);
+    HttpResponse response = send(request);
+    return d->makeWebSocketConnection(response, secKey);
+}
+
+QSharedPointer<WebSocketConnection> HttpSession::ws(const QString &url, const QMap<QString, QString> &query)
+{
+    Q_D(HttpSession);
+    HttpRequest request;
+    QByteArray secKey;
+    d->prepareWebSocketRequest(request, secKey);
+    request.setUrl(url);
+    request.setQuery(query);
+    HttpResponse response = send(request);
+    return d->makeWebSocketConnection(response, secKey);
+}
+
+QSharedPointer<WebSocketConnection> HttpSession::ws(const QString &url, const QMap<QString, QString> &query,
+                                                    const QMap<QString, QByteArray> &headers)
+{
+    Q_D(HttpSession);
+    HttpRequest request;
+    QByteArray secKey;
+    d->prepareWebSocketRequest(request, secKey);
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    HttpResponse response = send(request);
+    return d->makeWebSocketConnection(response, secKey);
+}
+
+QSharedPointer<WebSocketConnection> HttpSession::ws(const QString &url, const QUrlQuery &query)
+{
+    Q_D(HttpSession);
+    HttpRequest request;
+    QByteArray secKey;
+    d->prepareWebSocketRequest(request, secKey);
+    request.setUrl(url);
+    request.setQuery(query);
+    HttpResponse response = send(request);
+    return d->makeWebSocketConnection(response, secKey);
+}
+
+QSharedPointer<WebSocketConnection> HttpSession::ws(const QString &url, const QUrlQuery &query,
+                                                    const QMap<QString, QByteArray> &headers)
+{
+    Q_D(HttpSession);
+    HttpRequest request;
+    QByteArray secKey;
+    d->prepareWebSocketRequest(request, secKey);
+    request.setUrl(url);
+    request.setQuery(query);
+    request.setHeaders(headers);
+    HttpResponse response = send(request);
+    return d->makeWebSocketConnection(response, secKey);
+}
+
 inline bool isRedirect(int httpCode)
 {
     switch (httpCode) {
@@ -2868,6 +3067,12 @@ SslConfiguration &HttpSession::sslConfiguration()
 }
 
 #endif
+
+WebSocketConfiguration &HttpSession::webSocketConfiguration()
+{
+    Q_D(HttpSession);
+    return d->webSocketConfiguration;
+}
 
 HttpCacheManager::HttpCacheManager() { }
 

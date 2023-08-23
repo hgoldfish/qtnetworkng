@@ -43,6 +43,9 @@ protected:  // http protocol, parsing request and making response.
     virtual QString errorMessageContentType();
     virtual QString dateTimeString();
     virtual QSharedPointer<FileLike> bodyAsFile(bool processEncoding = true);
+protected:  // support web socket.
+    virtual bool switchToWebSocket();
+    QBYTEARRAYLIST webSocketProtocols();
 protected:  // util methods.
     void sendCommandLine(HttpStatus status, const QString &shortMessage);
     void sendHeader(KnownHeader name, const QByteArray &value) { sendHeader(toString(name).toLatin1(), value); }

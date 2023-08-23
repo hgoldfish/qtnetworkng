@@ -1,8 +1,9 @@
 #include <QtCore/qmimedatabase.h>
+#include <QtCore/qcryptographichash.h>
 #include <stdio.h>
 #include "../include/httpd.h"
 #ifdef QTNG_HAVE_ZLIB
-#  include "../include/gzip.h"
+#include "../include/gzip.h"
 #endif
 #include "debugger.h"
 
@@ -429,6 +430,53 @@ bool BaseHttpRequestHandler::readBody()
     bool ok;
     body = bodyFile->readall(&ok);
     return ok;
+}
+
+bool BaseHttpRequestHandler::switchToWebSocket()
+{
+    if (this->method != "GET") {
+        return false;
+    }
+    const QByteArray &upgradeHeader = header(UpgradeHeader);
+    const QByteArray &connectionHeader = header(ConnectionHeader);
+    if (upgradeHeader.compare("websocket", Qt::CaseInsensitive) != 0
+        || connectionHeader.compare("Upgrade", Qt::CaseInsensitive) != 0) {
+        return false;
+    }
+
+    const QByteArray &itsKey = header(QString::fromUtf8("Sec-WebSocket-Key"));
+    const QByteArray &itsVersion = header(QString::fromUtf8("Sec-WebSocket-Version"));
+    if (itsKey.isEmpty() || itsVersion != "13") {
+        return false;
+    }
+
+    const QByteArray uuid("258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+    const QByteArray &t = itsKey + uuid;
+    const QByteArray &myKey = QCryptographicHash::hash(t, QCryptographicHash::Sha1).toBase64();
+
+    sendResponse(HttpStatus::SwitchProtocol);
+    sendHeader(UpgradeHeader, "websocket");
+    sendHeader(ConnectionHeader, "Upgrade");
+    sendHeader("Sec-WebSocket-Accept", myKey);
+
+    // it's the responsibility of caller to call endHeader().
+    return true;
+}
+
+QBYTEARRAYLIST BaseHttpRequestHandler::webSocketProtocols()
+{
+    const QBYTEARRAYLIST &lines = multiHeader(QString::fromUtf8("Sec-WebSocket-Protocol"));
+    QBYTEARRAYLIST result;
+    for (const QByteArray &line : lines) {
+        const QList<QByteArray> &protocols = line.split(',');
+        for (const QByteArray &protocol : protocols) {
+            const QByteArray &t = protocol.trimmed();
+            if (!t.isEmpty()) {
+                result.append(t);
+            }
+        }
+    }
+    return result;
 }
 
 QString BaseHttpRequestHandler::serverName()

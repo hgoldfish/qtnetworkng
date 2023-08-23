@@ -539,9 +539,13 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
         return true;
     } else if (command == KEEPALIVE_REQUEST) {
         return true;
-    } else {
+    } else if (command < 32) {
+        // if command < 32, this command must be processed.
         qtng_warning << "unknown command.";
         return false;
+    } else {
+        qtng_info << "unknown optional command, you might upgrade your qtng.";
+        return true;
     }
 }
 
@@ -719,7 +723,7 @@ void SocketChannelPrivate::doKeepalive()
         // operator to them.
         if (now > lastActiveTimestamp && (now - lastActiveTimestamp > keepaliveTimeout)) {
 #ifdef DEBUG_PROTOCOL
-            qCDebug(qtng_logger) << "channel is timeout.";
+            qtng_debug << "channel is timeout.";
 #endif
             return abort(DataChannel::KeepaliveTimeoutError);
         }
@@ -730,7 +734,7 @@ void SocketChannelPrivate::doKeepalive()
             // lastKeepaliveTimestamp = now;  // no need to update the timestamp as the doSend() does it.
             QSharedPointer<ValueEvent<bool>> done;
 #ifdef DEBUG_PROTOCOL
-            qCDebug(qtng_logger) << "sending keepalive packet.";
+            qtng_debug << "sending keepalive packet.";
 #endif
             sendingQueue.putForcedly(WritingPacket(CommandChannelNumber, packKeepaliveRequest(), done));
         }
@@ -744,7 +748,7 @@ void SocketChannelPrivate::abort(DataChannel::ChannelError reason)
     }
     error = reason;
 #ifdef DEBUG_PROTOCOL
-    qCDebug(qtng_logger) << "socket data channel abort:" << error;
+    qtng_debug << "socket data channel abort:" << error;
 #endif
     Coroutine *current = Coroutine::current();
     connection->abort();

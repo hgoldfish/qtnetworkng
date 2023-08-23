@@ -6,7 +6,6 @@
 #include "eventloop.h"
 #include "socket.h"
 #include "socket_utils.h"
-#include "coroutine_utils.h"
 #include "http.h"
 #include "http_proxy.h"
 #include "http_utils.h"
@@ -17,6 +16,7 @@
 #include "kcp.h"
 #include "socket_server.h"
 #include "network_interface.h"
+#include "websocket.h"
 
 #ifndef QTNG_NO_CRYPTO
 #  include "ssl.h"

@@ -61,6 +61,7 @@ set(QTNETWORKNG_SRC
     src/httpd.cpp
     src/httpd2.cpp
     src/socks5_server.cpp
+    src/websocket.cpp
 
     src/kcp.cpp
     src/kcp/ikcp.c
@@ -93,6 +94,7 @@ set(QTNETWORKNG_INCLUDE
     include/hostaddress.h
     include/network_interface.h
     include/gzip.h
+    include/websocket.h
 )
 
 set(QTNETWORKNG_PRIVATE_INCLUDE

@@ -24,7 +24,8 @@ Features
 * `SSLSocket` with similar API to `Socket`.
 * `KcpSocket` implements KCP over UDP.
 * `HttpSession` implements a HTTP 1.0/1.1 client, supports connection via SOCKS5/HTTP proxy.
-* `HttpServr` implements a static HTTP 1.0/1.1 server, can be used for reversed http proxy.
+* `HttpServer` implements a static HTTP 1.0/1.1 server, can be used for reversed http proxy.
+* `WebSocketConnection` implements WebSocket client/server.
 * `MsgPackStream` is a new MessagePack implementation similar to `QDataStream`
 * `Cipher`, `MessageDigest`, `PublicKey`, `PrivateKey` wrap complicate LibreSSL C API.
 
@@ -179,7 +180,7 @@ Towards 1.0
 - [ ] Support verification/ALPS for https connection.
 - [x] Support MacOS and iOS platforms.
 - [x] Remove the QtNetwork dependence.
-
+- [x] Support WebSocket Client and Server.
 
 Towards 2.0
 -----------

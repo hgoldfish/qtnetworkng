@@ -8,6 +8,7 @@
 #include "../coroutine_utils.h"
 #include "../http_proxy.h"
 #include "../ssl.h"
+#include "../websocket.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -61,8 +62,11 @@ public:
     QList<HttpHeader> makeHeaders(HttpRequest &request, const QUrl &url);
     void mergeCookies(HttpRequest &request, const QUrl &url);
     HttpResponse send(HttpRequest &req);
+    void prepareWebSocketRequest(HttpRequest &request, QByteArray &secKey);
+    QSharedPointer<WebSocketConnection> makeWebSocketConnection(HttpResponse &response, const QByteArray &secKey);
 public:
     HttpCookieJar cookieJar;
+    WebSocketConfiguration webSocketConfiguration;
     QSharedPointer<HttpCacheManager> cacheManager;
     QString defaultUserAgent;
     HttpVersion defaultVersion;
