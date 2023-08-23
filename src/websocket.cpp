@@ -919,7 +919,11 @@ void WebSocketConnectionPrivate::abort(int errorCode)
     setErrorCode(errorCode, QString());
     state = WebSocketConnection::Closed;
     Coroutine *current = Coroutine::current();
-    connection->abort();
+    if (errorCode == WebSocketConnection::NormalClosure) {
+        connection->close();
+    } else {
+        connection->abort();
+    }
 
     while (!sendingQueue.isEmpty()) {
         const PacketToWrite &writingPacket = sendingQueue.get();
