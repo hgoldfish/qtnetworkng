@@ -95,7 +95,7 @@ public:
     virtual bool runUntil(BaseCoroutine *coroutine) override;
 public:
     void timerEvent(QTimerEvent *event);
-    void handleIoEvent(int socket, QSocketNotifier *n);
+    bool handleIoEvent(int socket, QSocketNotifier *n);
 private:
     QMap<int, QtWatcher *> watchers;
     QMap<int, int> timers;
@@ -134,7 +134,10 @@ public slots:
     void handleIoEvent(int socket)
     {
         QSocketNotifier *n = dynamic_cast<QSocketNotifier *>(sender());
-        parent->handleIoEvent(socket, n);
+        if (!parent->handleIoEvent(socket, n)) {
+            // prevent cpu 100%
+            n->setEnabled(false);
+        }
     }
 private:
     QtEventLoopCoroutinePrivate * const parent;
@@ -162,17 +165,17 @@ void QtEventLoopCoroutinePrivate::run()
     this->qtExitCode = result;
 }
 
-void QtEventLoopCoroutinePrivate::handleIoEvent(int socket, QSocketNotifier *n)
+bool QtEventLoopCoroutinePrivate::handleIoEvent(int socket, QSocketNotifier *n)
 {
     Q_UNUSED(socket)
 
     if (!n) {
         qtng_debug << "can not retrieve sender() while handling qt io event.";
-        return;
+        return false;
     }
 
     IoWatcher *w = static_cast<IoWatcher *>(n->property("parent").value<void *>());
-    (*w->callback)();
+    return (*w->callback)();
 }
 
 int QtEventLoopCoroutinePrivate::createWatcher(EventLoopCoroutine::EventType event, qintptr fd, Functor *callback)
@@ -236,22 +239,23 @@ struct TriggerIoWatchersArgumentsFunctor : public Functor
     virtual ~TriggerIoWatchersArgumentsFunctor() override;
     QPointer<EventLoopCoroutine> eventloop;
     int watcherId;
-    virtual void operator()() override;
+    virtual bool operator()() override;
 };
 
 TriggerIoWatchersArgumentsFunctor::~TriggerIoWatchersArgumentsFunctor() { }
 
-void TriggerIoWatchersArgumentsFunctor::operator()()
+bool TriggerIoWatchersArgumentsFunctor::operator()()
 {
     if (eventloop.isNull()) {
         qtng_warning << "triggerIoWatchers() is called without eventloop.";
-        return;
+        return false;
     }
     QtEventLoopCoroutinePrivate *d = QtEventLoopCoroutinePrivate::getPrivateHelper(eventloop.data());
     IoWatcher *w = dynamic_cast<IoWatcher *>(d->watchers.value(watcherId));
     if (w) {
-        (*w->callback)();
+        return (*w->callback)();
     }
+    return false;
 }
 
 void QtEventLoopCoroutinePrivate::triggerIoWatchers(qintptr fd)

@@ -53,24 +53,28 @@ void Coroutine::preferLibev()
 
 Functor::~Functor() { }
 
-void DoNothingFunctor::operator()() { }
+bool DoNothingFunctor::operator()()
+{
+    return false;
+}
 
 YieldCurrentFunctor::YieldCurrentFunctor()
 {
     coroutine = BaseCoroutine::current();
 }
 
-void YieldCurrentFunctor::operator()()
+bool YieldCurrentFunctor::operator()()
 {
     if (coroutine.isNull()) {
         qtng_debug << "coroutine is deleted while YieldCurrentFunctor called.";
-        return;
+        return false;
     }
     try {
         coroutine->yield();
     } catch (CoroutineException &e) {
         qtng_debug << "do not send exception to event loop, just delete event loop:" << e.what();
     }
+    return true;
 }
 
 EventLoopCoroutinePrivate::EventLoopCoroutinePrivate(EventLoopCoroutine *q)
@@ -311,18 +315,19 @@ struct StartCoroutineFunctor : public Functor
     }
     virtual ~StartCoroutineFunctor() override;
     QPointer<CoroutinePrivate> cp;
-    virtual void operator()() override
+    virtual bool operator()() override
     {
         if (cp.isNull()) {
             qtng_warning << "startCouroutine is called without coroutine.";
-            return;
+            return false;
         }
         cp->callbackId = 0;
         if (cp->q_func()->state() != BaseCoroutine::Initialized) {
             //            qtng_debug << "coroutine has been started or stopped.";
-            return;
+            return false;
         }
         cp->q_func()->yield();
+        return true;
     }
 };
 
@@ -338,7 +343,7 @@ struct KillCoroutineFunctor : public Functor
     virtual ~KillCoroutineFunctor() override;
     QPointer<CoroutinePrivate> cp;
     CoroutineException *e;
-    virtual void operator()() override;
+    virtual bool operator()() override;
 };
 
 KillCoroutineFunctor::~KillCoroutineFunctor()
@@ -348,17 +353,19 @@ KillCoroutineFunctor::~KillCoroutineFunctor()
     }
 }
 
-void KillCoroutineFunctor::operator()()
+bool KillCoroutineFunctor::operator()()
 {
     if (cp.isNull()) {
         qtng_warning << "killCoroutine is called without coroutine";
         delete e;
+        return false;
     } else if (cp->q_func()->state() != BaseCoroutine::Started) {
         delete e;
     } else {
         cp->q_func()->raise(e);
     }
     e = nullptr;
+    return true;
 }
 
 Coroutine::Coroutine(size_t stackSize)
@@ -492,18 +499,19 @@ struct TimeoutFunctor : public Functor
     virtual ~TimeoutFunctor() override;
     QPointer<Timeout> out;
     QPointer<BaseCoroutine> coroutine;
-    virtual void operator()() override;
+    virtual bool operator()() override;
 };
 
 TimeoutFunctor::~TimeoutFunctor() { }
 
-void TimeoutFunctor::operator()()
+bool TimeoutFunctor::operator()()
 {
     if (out.isNull() || coroutine.isNull()) {
         qtng_debug << "triggerTimeout is called while timeout or coroutine is deleted.";
-        return;
+        return false;
     }
     coroutine->raise(new TimeoutException());
+    return true;
 }
 
 TimeoutException::TimeoutException() { }

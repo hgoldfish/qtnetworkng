@@ -9,20 +9,20 @@ class Functor
 {
 public:
     virtual ~Functor();
-    virtual void operator()() = 0;
+    virtual bool operator()() = 0;
 };
 
 class DoNothingFunctor : public Functor
 {
 public:
-    virtual void operator()();
+    virtual bool operator()();
 };
 
 class YieldCurrentFunctor : public Functor
 {
 public:
     explicit YieldCurrentFunctor();
-    virtual void operator()();
+    virtual bool operator()();
     QPointer<BaseCoroutine> coroutine;
 };
 
@@ -34,7 +34,7 @@ public:
         : p(p)
     {
     }
-    virtual void operator()() { delete p; }
+    virtual bool operator()() { delete p; return true; }
     T * const p;
 };
 
@@ -45,7 +45,7 @@ public:
         : callback(callback)
     {
     }
-    virtual void operator()() override;
+    virtual bool operator()() override;
     std::function<void()> callback;
 };
 

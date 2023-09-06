@@ -13,9 +13,10 @@ QTNG_LOGGER("qtng.coroutine");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-void LambdaFunctor::operator()()
+bool LambdaFunctor::operator()()
 {
     callback();
+    return true;
 }
 
 class MarkDoneFunctor : public Functor
@@ -25,13 +26,14 @@ public:
         : done(done)
     {
     }
-    virtual void operator()() override;
+    virtual bool operator()() override;
     QSharedPointer<Event> done;
 };
 
-void MarkDoneFunctor::operator()()
+bool MarkDoneFunctor::operator()()
 {
     done->set();
+    return true;
 }
 
 DeferCallThread::DeferCallThread(std::function<void()> makeResult, QSharedPointer<Event> done,
@@ -350,11 +352,14 @@ class DeleteCoroutineFunctor : public Functor
 {
 public:
     virtual ~DeleteCoroutineFunctor() override;
-    virtual void operator()() override;
+    virtual bool operator()() override;
     QSharedPointer<BaseCoroutine> coroutine;
 };
 DeleteCoroutineFunctor::~DeleteCoroutineFunctor() { }
-void DeleteCoroutineFunctor::operator()() { }
+bool DeleteCoroutineFunctor::operator()()
+{
+    return true;
+}
 
 void CoroutineGroup::deleteCoroutine(BaseCoroutine *baseCoroutine)
 {
