@@ -434,7 +434,7 @@ bool BaseHttpRequestHandler::readBody()
 
 bool BaseHttpRequestHandler::switchToWebSocket()
 {
-    if (this->method != "GET") {
+    if (this->method != QString::fromUtf8("GET")) {
         return false;
     }
     const QByteArray &upgradeHeader = header(UpgradeHeader);

@@ -1362,9 +1362,9 @@ void HttpSessionPrivate::prepareWebSocketRequest(HttpRequest &request, QByteArra
     request.addHeader(ConnectionHeader, "Upgrade");
     request.addHeader(QString::fromUtf8("Sec-WebSocket-Key"), secKey);
     request.addHeader(QString::fromUtf8("Sec-WebSocket-Version"), "13");
-    if (!webSocketConfiguration.protocols().isEmpty()) {
-        request.addHeader(QString::fromUtf8("Sec-WebSocket-Protocol"),
-                          webSocketConfiguration.protocols().join(", ").toUtf8());
+    QStringList ps = webSocketConfiguration.protocols();
+    if (!ps.isEmpty()) {
+        request.addHeader(QString::fromUtf8("Sec-WebSocket-Protocol"), ps.join(QString::fromUtf8(", ")).toUtf8());
     }
 }
 
