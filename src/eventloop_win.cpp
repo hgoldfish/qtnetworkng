@@ -316,13 +316,14 @@ struct TriggerIoWatchersFunctor: public Functor
     virtual ~TriggerIoWatchersFunctor() override;
     WinEventLoopCoroutinePrivate *eventloop;
     int watcherId;
-    virtual void operator()() override
+    virtual bool operator()() override
     {
         IoWatcher *watcher = dynamic_cast<IoWatcher*>(eventloop->watchers.take(watcherId));
         if (watcher) {
             (*watcher->callback)();
             delete watcher;
         }
+        return true;
     }
 };
 

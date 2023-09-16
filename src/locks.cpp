@@ -112,7 +112,7 @@ public:
     }
     QSharedPointer<SemaphorePrivate> sp;
     bool doDelete;
-    virtual void operator()() override
+    virtual bool operator()() override
     {
         while ((doDelete || (sp->notified != 0 && sp->counter > 0)) && !sp->waiters.isEmpty()) {
             QPointer<BaseCoroutine> waiter = sp->waiters.takeFirst();
@@ -124,6 +124,7 @@ public:
         }
         // do not move this line above the loop, see the Q_ASSERT_X(notified != 0) in SemaphorePrivate::acquire()
         sp->notified = 0;
+        return true;
     }
 };
 
@@ -584,7 +585,11 @@ public:
         : condition(condition)
     {
     }
-    virtual void operator()() { condition->notifyAll(); }
+    virtual bool operator()()
+    {
+        condition->notifyAll();
+        return true;
+    }
     QSharedPointer<Condition> condition;
 };
 

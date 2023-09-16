@@ -1154,6 +1154,12 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
                 response.setError(new ConnectionError());
                 return response;
             }
+        } catch (...) {
+            if (sendingReuqestBodyCoroutine->isRunning()) {
+                sendingReuqestBodyCoroutine->kill();
+            }
+            sendingReuqestBodyCoroutine->join();
+            throw;
         }
     }
 

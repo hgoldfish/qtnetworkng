@@ -676,7 +676,7 @@ class PollFunctor : public Functor
 public:
     PollFunctor(QSharedPointer<QSet<QSharedPointer<Socket>>> events, QSharedPointer<Event> done,
                 QSharedPointer<Socket> socket);
-    virtual void operator()();
+    virtual bool operator()();
     QSharedPointer<QSet<QSharedPointer<Socket>>> events;
     QSharedPointer<Event> done;
     QWeakPointer<Socket> socket;
@@ -690,12 +690,13 @@ PollFunctor::PollFunctor(QSharedPointer<QSet<QSharedPointer<Socket>>> events, QS
 {
 }
 
-void PollFunctor::operator()()
+bool PollFunctor::operator()()
 {
     if (!socket.isNull()) {
         events->insert(socket.toStrongRef());
         done->set();
     }
+    return true;
 }
 
 PollPrivate::PollPrivate()

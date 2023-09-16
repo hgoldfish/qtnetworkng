@@ -243,12 +243,13 @@ struct TriggerIoWatchersFunctor : public Functor
     }
     EvEventLoopCoroutinePrivate *eventloop;
     int watcherId;
-    virtual void operator()() override
+    virtual bool operator()() override
     {
         IoWatcher *watcher = dynamic_cast<IoWatcher *>(eventloop->watchers.value(watcherId));
         if (watcher) {
-            (*watcher->callback)();
+            return (*watcher->callback)();
         }
+        return false;
     }
 };
 
