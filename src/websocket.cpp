@@ -299,8 +299,10 @@ WebSocketFrame::WebSocketFrame()
 qint64 WebSocketFrame::feedHeader(char *packet, size_t &packetSize)
 {
     Q_ASSERT(packetSize >= 2);
-    unsigned char b0 = packet[0];
-    unsigned char b1 = packet[1];
+    // the qFromBigEndian<>() only accept uchar* in the earlier version of Qt.
+    uchar *upacket = reinterpret_cast<uchar *>(packet);
+    unsigned char b0 = upacket[0];
+    unsigned char b1 = upacket[1];
 
     fin = (b0 & 0x80) >> 7;
     rsv1 = (b0 & 0x40) >> 6;
@@ -317,7 +319,7 @@ qint64 WebSocketFrame::feedHeader(char *packet, size_t &packetSize)
         // pass
     } else if (len == 126) {
         if (packetSize >= headerSize + 2) {
-            len = qFromBigEndian<quint16>(packet + headerSize);
+            len = qFromBigEndian<quint16>(upacket + headerSize);
             headerSize += 2;
         } else {
             return -1;
@@ -325,7 +327,7 @@ qint64 WebSocketFrame::feedHeader(char *packet, size_t &packetSize)
     } else {
         Q_ASSERT(len == 127);
         if (packetSize >= headerSize + 8) {
-            len = qFromBigEndian<quint64>(packet + headerSize);
+            len = qFromBigEndian<quint64>(upacket + headerSize);
             headerSize += 8;
         } else {
             return -1;
@@ -333,13 +335,13 @@ qint64 WebSocketFrame::feedHeader(char *packet, size_t &packetSize)
     }
     if (has_mask) {
         if (packetSize >= headerSize + 4) {
-            maskkey = qFromBigEndian<quint32>(packet + headerSize);
+            maskkey = qFromBigEndian<quint32>(upacket + headerSize);
             headerSize += 4;
         } else {
             return -1;
         }
     }
-    memmove(packet, packet + headerSize, packetSize - headerSize);
+    memmove(packet, upacket + headerSize, packetSize - headerSize);
     packetSize -= headerSize;
     return len;
 }
