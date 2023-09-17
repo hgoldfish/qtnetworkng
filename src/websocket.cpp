@@ -593,7 +593,7 @@ QPair<int, QString> WebSocketConnectionPrivate::parseClosePayload(const QByteArr
     if (payload.size() < 2) {
         return result;
     }
-    result.first = qFromBigEndian<quint16>(payload.constData());
+    result.first = qFromBigEndian<quint16>(reinterpret_cast<const uchar*>(payload.constData()));
     result.second = QString::fromUtf8(QByteArray::fromRawData(payload.constData() + 2, payload.size() - 2));
     return result;
 }
