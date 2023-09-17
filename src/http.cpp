@@ -1391,8 +1391,7 @@ QSharedPointer<WebSocketConnection> HttpSessionPrivate::makeWebSocketConnection(
 
     const QByteArray &upgradeHeader = response.header(QString::fromUtf8("Upgrade"));
     const QByteArray &connectionHeader = response.header(QString::fromUtf8("Connection"));
-    if (upgradeHeader.compare("websocket", Qt::CaseInsensitive)
-        || connectionHeader.compare("Upgrade", Qt::CaseInsensitive)) {
+    if (upgradeHeader.toLower() != "websocket" || connectionHeader.toLower() != "upgrade") {
         // TODO 设置错误值并返回。
         return QSharedPointer<WebSocketConnection>();
     }
