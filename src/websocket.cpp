@@ -355,8 +355,8 @@ void WebSocketFrame::applyMaskTo(char *dst, int offset, int size) const
         qtng_warning << "applyMaskTo() got an dest buffer which is too small.";
     }
     const char *src = payload.constData();
-    char maskbuf[4];
-    qToBigEndian<quint32>(maskkey, reinterpret_cast<void *>(&maskbuf));
+    uchar maskbuf[4];
+    qToBigEndian<quint32>(maskkey, &maskbuf);
     int last = offset + qMin(size, payload.size());
     // XOR the remainder of the input byte by byte.
     for (; i < last; ++i, ++j) {
@@ -376,8 +376,8 @@ void WebSocketFrame::applyMaskTo(char *dst, int offset, int size) const
     int last = offset + qMin(size, payload.size());
     int next_offset_8 = (offset + 7) / 8 * 8;
     const char *src = payload.constData();
-    char maskbuf[4];
-    qToBigEndian<quint32>(maskkey, reinterpret_cast<void *>(&maskbuf));
+    uchar maskbuf[4];
+    qToBigEndian<quint32>(maskkey, &maskbuf);
 
     // We shoud make sure the memory allocator aligns everything on 8 bytes boundaries.
     // and assume that payload buf is aligns on 8 bytes boundaries.
@@ -448,20 +448,21 @@ QByteArray WebSocketFrame::toByteArray() const
         buf[1] = 0;
     }
 
+    uchar *ubuf = reinterpret_cast<uchar *>(buf.data());
     if (len <= 125) {
         buf[1] = buf[1] | len;
     } else if (len < 65535) {
         buf[1] = buf[1] | 126;
-        qToBigEndian<quint16>(len, buf.data() + 2);
+        qToBigEndian<quint16>(len, ubuf + 2);
         packetSize += 2;
     } else {
         buf[1] = buf[1] | 127;
-        qToBigEndian<quint64>(len, buf.data() + 2);
+        qToBigEndian<quint64>(len, ubuf + 2);
         packetSize += 8;
     }
 
     if (maskkey > 0) {
-        qToBigEndian<quint32>(this->maskkey, buf.data() + packetSize);
+        qToBigEndian<quint32>(this->maskkey, ubuf + packetSize);
         packetSize += 4;
         applyMaskTo(buf.data(), packetSize, buf.size() - packetSize);
     } else {
@@ -603,7 +604,7 @@ QByteArray WebSocketConnectionPrivate::makeClosePayload(int closeCode, const QSt
         return QByteArray();
     }
     QByteArray buf(closeReason.size() * 4 + 2, Qt::Uninitialized);
-    qToBigEndian<quint16>(closeCode, buf.data());
+    qToBigEndian<quint16>(closeCode, reinterpret_cast<uchar *>(buf.data()));
     const QByteArray t = closeReason.toUtf8();
     memcpy(buf.data() + 2, t.constData(), t.size());
     // the the max size of control frames is 125.
