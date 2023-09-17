@@ -439,8 +439,7 @@ bool BaseHttpRequestHandler::switchToWebSocket()
     }
     const QByteArray &upgradeHeader = header(UpgradeHeader);
     const QByteArray &connectionHeader = header(ConnectionHeader);
-    if (upgradeHeader.compare("websocket", Qt::CaseInsensitive) != 0
-        || connectionHeader.compare("Upgrade", Qt::CaseInsensitive) != 0) {
+    if (upgradeHeader.toLower() != "websocket" || connectionHeader.toLower() != "upgrade") {
         return false;
     }
 
