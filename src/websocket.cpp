@@ -356,7 +356,7 @@ void WebSocketFrame::applyMaskTo(char *dst, int offset, int size) const
     }
     const char *src = payload.constData();
     uchar maskbuf[4];
-    qToBigEndian<quint32>(maskkey, &maskbuf);
+    qToBigEndian<quint32>(maskkey, maskbuf);
     int last = offset + qMin(size, payload.size());
     // XOR the remainder of the input byte by byte.
     for (; i < last; ++i, ++j) {
