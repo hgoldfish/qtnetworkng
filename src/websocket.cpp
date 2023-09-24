@@ -377,7 +377,7 @@ void WebSocketFrame::applyMaskTo(char *dst, int offset, int size) const
     int next_offset_8 = (offset + 7) / 8 * 8;
     const char *src = payload.constData();
     uchar maskbuf[4];
-    qToBigEndian<quint32>(maskkey, &maskbuf);
+    qToBigEndian<quint32>(maskkey, maskbuf);
 
     // We shoud make sure the memory allocator aligns everything on 8 bytes boundaries.
     // and assume that payload buf is aligns on 8 bytes boundaries.
