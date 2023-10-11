@@ -2702,8 +2702,8 @@ QSharedPointer<WebSocketConnection> HttpSession::ws(const QUrl &url)
     Q_D(HttpSession);
     HttpRequest request;
     QByteArray secKey;
-    d->prepareWebSocketRequest(request, secKey);
     request.setUrl(url);
+    d->prepareWebSocketRequest(request, secKey);
     HttpResponse response = send(request);
     return d->makeWebSocketConnection(response, secKey);
 }
@@ -2713,9 +2713,9 @@ QSharedPointer<WebSocketConnection> HttpSession::ws(const QUrl &url, const QMap<
     Q_D(HttpSession);
     HttpRequest request;
     QByteArray secKey;
-    d->prepareWebSocketRequest(request, secKey);
     request.setUrl(url);
     request.setQuery(query);
+    d->prepareWebSocketRequest(request, secKey);
     HttpResponse response = send(request);
     return d->makeWebSocketConnection(response, secKey);
 }
@@ -2726,10 +2726,10 @@ QSharedPointer<WebSocketConnection> HttpSession::ws(const QUrl &url, const QMap<
     Q_D(HttpSession);
     HttpRequest request;
     QByteArray secKey;
-    d->prepareWebSocketRequest(request, secKey);
     request.setUrl(url);
     request.setHeaders(headers);
     request.setQuery(query);
+    d->prepareWebSocketRequest(request, secKey);
     HttpResponse response = send(request);
     return d->makeWebSocketConnection(response, secKey);
 }
@@ -2739,9 +2739,9 @@ QSharedPointer<WebSocketConnection> HttpSession::ws(const QUrl &url, const QUrlQ
     Q_D(HttpSession);
     HttpRequest request;
     QByteArray secKey;
-    d->prepareWebSocketRequest(request, secKey);
     request.setUrl(url);
     request.setQuery(query);
+    d->prepareWebSocketRequest(request, secKey);
     HttpResponse response = send(request);
     return d->makeWebSocketConnection(response, secKey);
 }
@@ -2752,10 +2752,10 @@ QSharedPointer<WebSocketConnection> HttpSession::ws(const QUrl &url, const QUrlQ
     Q_D(HttpSession);
     HttpRequest request;
     QByteArray secKey;
-    d->prepareWebSocketRequest(request, secKey);
     request.setUrl(url);
     request.setQuery(query);
     request.setHeaders(headers);
+    d->prepareWebSocketRequest(request, secKey);
     HttpResponse response = send(request);
     return d->makeWebSocketConnection(response, secKey);
 }
@@ -2765,8 +2765,8 @@ QSharedPointer<WebSocketConnection> HttpSession::ws(const QString &url)
     Q_D(HttpSession);
     HttpRequest request;
     QByteArray secKey;
-    d->prepareWebSocketRequest(request, secKey);
     request.setUrl(url);
+    d->prepareWebSocketRequest(request, secKey);
     HttpResponse response = send(request);
     return d->makeWebSocketConnection(response, secKey);
 }
@@ -2776,9 +2776,9 @@ QSharedPointer<WebSocketConnection> HttpSession::ws(const QString &url, const QM
     Q_D(HttpSession);
     HttpRequest request;
     QByteArray secKey;
-    d->prepareWebSocketRequest(request, secKey);
     request.setUrl(url);
     request.setQuery(query);
+    d->prepareWebSocketRequest(request, secKey);
     HttpResponse response = send(request);
     return d->makeWebSocketConnection(response, secKey);
 }
@@ -2789,10 +2789,10 @@ QSharedPointer<WebSocketConnection> HttpSession::ws(const QString &url, const QM
     Q_D(HttpSession);
     HttpRequest request;
     QByteArray secKey;
-    d->prepareWebSocketRequest(request, secKey);
     request.setUrl(url);
     request.setQuery(query);
     request.setHeaders(headers);
+    d->prepareWebSocketRequest(request, secKey);
     HttpResponse response = send(request);
     return d->makeWebSocketConnection(response, secKey);
 }
@@ -2802,9 +2802,9 @@ QSharedPointer<WebSocketConnection> HttpSession::ws(const QString &url, const QU
     Q_D(HttpSession);
     HttpRequest request;
     QByteArray secKey;
-    d->prepareWebSocketRequest(request, secKey);
     request.setUrl(url);
     request.setQuery(query);
+    d->prepareWebSocketRequest(request, secKey);
     HttpResponse response = send(request);
     return d->makeWebSocketConnection(response, secKey);
 }
@@ -2815,10 +2815,10 @@ QSharedPointer<WebSocketConnection> HttpSession::ws(const QString &url, const QU
     Q_D(HttpSession);
     HttpRequest request;
     QByteArray secKey;
-    d->prepareWebSocketRequest(request, secKey);
     request.setUrl(url);
     request.setQuery(query);
     request.setHeaders(headers);
+    d->prepareWebSocketRequest(request, secKey);
     HttpResponse response = send(request);
     return d->makeWebSocketConnection(response, secKey);
 }

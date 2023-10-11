@@ -11,7 +11,7 @@ public:
 
 void WebSocketRequestHandler::doGET()
 {
-    if (path != QString::fromUtf8("/ws_test/")) {
+    if (path != QString::fromUtf8("/")) {
         sendError(HttpStatus::NotFound);
         return;
     }
@@ -50,6 +50,6 @@ void WebSocketRequestHandler::doGET()
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
-    TcpServer<WebSocketRequestHandler> httpd(HostAddress::AnyIPv4, 8000);
+    TcpServer<WebSocketRequestHandler> httpd(HostAddress::AnyIPv4, 8765);
     return httpd.serveForever() ? 0 : 1;
 }

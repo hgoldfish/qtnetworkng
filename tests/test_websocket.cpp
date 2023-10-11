@@ -10,7 +10,10 @@ int main(int argc, char **argv)
     session.setDebugLevel(1);
     WebSocketConfiguration config;
     config.setProtocols(QStringList() << "chat");
-    QSharedPointer<WebSocketConnection> req = session.ws("ws://localhost:8765");
+    QMap<QString, QByteArray> headers;
+    headers.insert("X-QtNetworkNg-Test", "yes!");
+    QSharedPointer<WebSocketConnection> req = session.ws("ws://localhost:8765", QMap<QString, QString>(),
+                                                         headers);
     if (req.isNull()) {
         qDebug() << "can not connect to localhost.";
         return 1;
