@@ -108,7 +108,7 @@ public:
     void sendTimerEvent(TimerWatcher *watcher);
     void sendIoEvent(qintptr fd, EventLoopCoroutine::EventType event);
     void createInternalWindow();
-    void updateTimeStamp(bool force);
+    void updateTimeStamp();
     void processTimers();
     int addTimer(TimerWatcher *watcher);
     HWND internalHwnd;
@@ -129,7 +129,6 @@ private:
     bool inProcessTimer;
     quint64 perCnt;
     quint64 timeCurrent;
-    bool currentTimeStampValid;
     int nextWatcherId;
     int padding;
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
@@ -146,7 +145,6 @@ WinEventLoopCoroutinePrivate::WinEventLoopCoroutinePrivate(EventLoopCoroutine *p
     , internalHwnd(nullptr)
     , interrupted(false)
     , inProcessTimer(false)
-    , currentTimeStampValid(false)
     , nextWatcherId(1)
 {
     createInternalWindow();
@@ -209,7 +207,7 @@ void WinEventLoopCoroutinePrivate::run()
         if (!haveMessage) {
             quint64 waittime = INFINITE;
             if (!activeTimers.empty()) {
-                updateTimeStamp(true);
+                updateTimeStamp();
                 quint64 top_time = activeTimers.top()->at;
                 if (perCnt == 0) {
                     waittime = top_time > timeCurrent ? top_time - timeCurrent : 0;
@@ -234,9 +232,6 @@ void WinEventLoopCoroutinePrivate::run()
         }
         if (msg.message == WM_QTNG_WAKEUP) {
             continue;
-        }
-        if (currentTimeStampValid) {
-            currentTimeStampValid = false;
         }
         TranslateMessage(&msg);
         DispatchMessage(&msg);
@@ -349,7 +344,7 @@ int WinEventLoopCoroutinePrivate::addTimer(TimerWatcher *watcher)
         watcher->id = timerId;
         watchers.insert(timerId, watcher);
     }
-    updateTimeStamp(false);
+    updateTimeStamp();
     if (perCnt == 0) {
         watcher->at = timeCurrent + watcher->interval;
     } else {
@@ -658,7 +653,7 @@ void WinEventLoopCoroutinePrivate::updateIoMask(qintptr fd)
 
 void WinEventLoopCoroutinePrivate::processTimers()
 {
-    updateTimeStamp(true);
+    updateTimeStamp();
     inProcessTimer = true;
 
     //The margin of error is 200 microsecond 
@@ -675,12 +670,8 @@ void WinEventLoopCoroutinePrivate::processTimers()
 }
 
 
-void WinEventLoopCoroutinePrivate::updateTimeStamp(bool force)
+void WinEventLoopCoroutinePrivate::updateTimeStamp()
 {
-    if (!force && currentTimeStampValid) {
-        return;
-    }
-    currentTimeStampValid = true;
     if (perCnt == 0) {
 #if _WIN32_WINNT >= 0x0600
         timeCurrent = GetTickCount64();
