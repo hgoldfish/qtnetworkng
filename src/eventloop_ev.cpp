@@ -27,7 +27,7 @@ struct EvWatcher
 struct IoWatcher : public EvWatcher
 {
     IoWatcher(EventLoopCoroutine::EventType event, qintptr fd);
-    virtual ~IoWatcher();
+    virtual ~IoWatcher() override;
 
     struct ev_io w;
     Functor *callback;
@@ -36,7 +36,7 @@ struct IoWatcher : public EvWatcher
 struct TimerWatcher : public EvWatcher
 {
     TimerWatcher(quint32 msecs, bool repeat);
-    virtual ~TimerWatcher();
+    virtual ~TimerWatcher() override;
 
     ev_timer w;
     Functor *callback;
@@ -168,7 +168,7 @@ extern "C" void qtng__ev_timer_callback(struct ev_loop *loop, ev_timer *w, int)
     }
     (*watcher->callback)();
     if (qFuzzyIsNull(w->repeat)) {
-        delete watcher;
+        parent->uselessWatchers.append(watcher);
     }
 }
 
