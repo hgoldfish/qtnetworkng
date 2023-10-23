@@ -30,6 +30,7 @@ SOURCES += \
     $$PWD/src/httpd.cpp \
     $$PWD/src/httpd2.cpp \
     $$PWD/src/socks5_server.cpp \
+    $$PWD/src/websocket.cpp \
     $$PWD/src/random.cpp \
     $$PWD/src/hostaddress.cpp \
     $$PWD/src/network_interface/network_interface.cpp
