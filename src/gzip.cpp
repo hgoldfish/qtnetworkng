@@ -234,6 +234,10 @@ qint32 GzipDecompressFile::read(char *data, qint32 size)
             if (have > 0) {
                 d->buf.append(outBuf.data(), have);
             }
+            if (ret == Z_STREAM_END) {
+                d->eof = true;
+                break;
+            }
         } while (d->zstream.avail_out == 0 || d->zstream.avail_in > 0);
     }
     qint32 bytesToRead = qMin(size, d->buf.size());
