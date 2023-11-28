@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_conninfo.c,v 1.21 2019/11/02 13:37:59 jsing Exp $ */
+/* $OpenBSD: tls_conninfo.c,v 1.23 2023/05/14 07:26:25 op Exp $ */
 /*
  * Copyright (c) 2015 Joel Sing <jsing@openbsd.org>
  * Copyright (c) 2015 Bob Beck <beck@openbsd.org>
@@ -17,6 +17,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
 #include <openssl/x509.h>
 
@@ -111,9 +112,6 @@ tls_get_peer_cert_times(struct tls *ctx, time_t *notbefore,
 
 	if (ctx->ssl_peer_cert == NULL)
 		return (-1);
-
-	memset(&before_tm, 0, sizeof(before_tm));
-	memset(&after_tm, 0, sizeof(after_tm));
 
 	if ((before = X509_get_notBefore(ctx->ssl_peer_cert)) == NULL)
 		goto err;

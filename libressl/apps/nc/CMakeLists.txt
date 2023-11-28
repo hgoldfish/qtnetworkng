@@ -29,13 +29,6 @@ else()
 	set(NC_SRC ${NC_SRC} compat/readpassphrase.c)
 endif()
 
-check_function_exists(strtonum HAVE_STRTONUM)
-if(HAVE_STRTONUM)
-	add_definitions(-DHAVE_STRTONUM)
-else()
-	set(NC_SRC ${NC_SRC} compat/strtonum.c)
-endif()
-
 if(NOT "${OPENSSLDIR}" STREQUAL "")
 	add_definitions(-DDEFAULT_CA_FILE=\"${OPENSSLDIR}/cert.pem\")
 else()
@@ -43,8 +36,15 @@ else()
 endif()
 
 add_executable(nc ${NC_SRC})
-target_include_directories(nc PRIVATE . ./compat ../../include/compat)
-target_link_libraries(nc tls ${OPENSSL_LIBS})
+target_include_directories(nc
+	PRIVATE
+		.
+		./compat
+		../../include/compat
+	PUBLIC
+		../../include
+		${CMAKE_BINARY_DIR}/include)
+target_link_libraries(nc ${LIBTLS_LIBS})
 
 if(ENABLE_NC)
 	if(ENABLE_LIBRESSL_INSTALL)

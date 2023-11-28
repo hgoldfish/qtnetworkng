@@ -1,4 +1,4 @@
-/* $OpenBSD: ocspcheck.c,v 1.28 2020/10/16 01:16:55 beck Exp $ */
+/* $OpenBSD: ocspcheck.c,v 1.31 2022/12/28 21:30:17 jmc Exp $ */
 
 /*
  * Copyright (c) 2017,2020 Bob Beck <beck@openbsd.org>
@@ -113,7 +113,6 @@ host_dns(const char *s, struct addr vec[MAX_SERVERS_DNS])
 
 		dspew("DNS returns %s for %s\n", vec[vecsz].ip, s);
 		vecsz++;
-		break;
 	}
 
 	freeaddrinfo(res0);
@@ -380,7 +379,7 @@ ocsp_request_new_from_cert(const char *cadir, char *file, int nonce)
 		goto err;
 	}
 	if (request->data == NULL) {
-		warnx("Unable to allocte memory");
+		warnx("Unable to allocate memory");
 		goto err;
 	}
 	return request;
@@ -618,14 +617,14 @@ main(int argc, char **argv)
 
 	if (cafile != NULL) {
 		if (unveil(cafile, "r") == -1)
-			err(1, "unveil");
+			err(1, "unveil %s", cafile);
 	}
 	if (cadir != NULL) {
 		if (unveil(cadir, "r") == -1)
-			err(1, "unveil");
+			err(1, "unveil %s", cadir);
 	}
 	if (unveil(certfile, "r") == -1)
-		err(1, "unveil");
+		err(1, "unveil %s", certfile);
 
 	if (pledge("stdio inet rpath dns", NULL) == -1)
 		err(1, "pledge");

@@ -1,4 +1,4 @@
-.\" $OpenBSD: tls_config_set_protocols.3,v 1.8 2020/01/22 06:46:34 beck Exp $
+.\" $OpenBSD: tls_config_set_protocols.3,v 1.12 2023/07/02 06:37:27 beck Exp $
 .\"
 .\" Copyright (c) 2014 Ted Unangst <tedu@openbsd.org>
 .\" Copyright (c) 2015, 2016 Joel Sing <jsing@openbsd.org>
@@ -16,7 +16,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: January 22 2020 $
+.Dd $Mdocdate: July 2 2023 $
 .Dt TLS_CONFIG_SET_PROTOCOLS 3
 .Os
 .Sh NAME
@@ -74,16 +74,16 @@ otherwise.
 specifies which versions of the TLS protocol may be used.
 Possible values are the bitwise OR of:
 .Pp
-.Bl -tag -width "TLS_PROTOCOL_TLSv1_2" -offset indent -compact
-.It Dv TLS_PROTOCOL_TLSv1_0
-.It Dv TLS_PROTOCOL_TLSv1_1
-.It Dv TLS_PROTOCOL_TLSv1_2
-.It Dv TLS_PROTOCOL_TLSv1_3
+.Bl -item -offset indent -compact
+.It
+.Dv TLS_PROTOCOL_TLSv1_2
+.It
+.Dv TLS_PROTOCOL_TLSv1_3
 .El
 .Pp
 Additionally, the values
 .Dv TLS_PROTOCOL_TLSv1
-(TLSv1.0, TLSv1.1, TLSv1.2, TLSv1.3),
+(TLSv1.2, TLSv1.3),
 .Dv TLS_PROTOCOLS_ALL
 (all supported protocols) and
 .Dv TLS_PROTOCOLS_DEFAULT
@@ -99,9 +99,21 @@ This value can then be passed to the
 .Fn tls_config_set_protocols
 function.
 The protocol string is a comma or colon separated list of keywords.
-Valid keywords are tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.3, all (all supported
-protocols), default (an alias for secure), legacy (an alias for all) and
-secure (currently TLSv1.2 and TLSv1.3).
+Valid keywords are:
+.Pp
+.Bl -tag -width "tlsv1.3" -offset indent -compact
+.It Dv tlsv1.2
+.It Dv tlsv1.3
+.It Dv all
+.Pq all supported protocols
+.It Dv default
+.Pq an alias for Dv secure
+.It Dv legacy
+.Pq an alias for Dv all
+.It Dv secure
+.Pq currently TLSv1.2 and TLSv1.3
+.El
+.Pp
 If a value has a negative prefix (in the form of a leading exclamation mark)
 then it is removed from the list of available protocols, rather than being
 added to it.
@@ -115,11 +127,15 @@ sets the list of ciphers that may be used.
 Lists of ciphers are specified by name, and the
 permitted names are:
 .Pp
-.Bl -tag -width "insecure" -offset indent -compact
-.It Dv "secure" (or alias "default")
-.It Dv "compat"
-.It Dv "legacy"
-.It Dv "insecure" (or alias "all")
+.Bl -item -offset indent -compact
+.It
+.Dv secure Pq or alias Dv default
+.It
+.Dv compat
+.It
+.Dv legacy
+.It
+.Dv insecure Pq or alias Dv all
 .El
 .Pp
 Alternatively, libssl cipher strings can be specified.
@@ -130,11 +146,27 @@ for further information.
 .Fn tls_config_set_dheparams
 specifies the parameters that will be used during Diffie-Hellman Ephemeral
 (DHE) key exchange.
-Possible values are "none", "auto" and "legacy".
-In "auto" mode, the key size for the ephemeral key is automatically selected
+Possible values are:
+.Pp
+.Bl -item -offset indent -compact
+.It
+.Dv none
+.It
+.Dv auto
+.It
+.Dv legacy
+.El
+.Pp
+In
+.Dv auto
+mode, the key size for the ephemeral key is automatically selected
 based on the size of the private key being used for signing.
-In "legacy" mode, 1024 bit ephemeral keys are used.
-The default value is "none", which disables DHE key exchange.
+In
+.Dv legacy
+mode, 1024 bit ephemeral keys are used.
+The default value is
+.Dv none ,
+which disables DHE key exchange.
 .Pp
 .Fn tls_config_set_ecdhecurves
 specifies the names of the elliptic curves that may be used during Elliptic

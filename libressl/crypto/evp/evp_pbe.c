@@ -1,4 +1,4 @@
-/* $OpenBSD: evp_pbe.c,v 1.26 2020/06/05 17:30:41 jsing Exp $ */
+/* $OpenBSD: evp_pbe.c,v 1.29 2023/07/07 19:37:53 beck Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */
@@ -66,7 +66,7 @@
 #include <openssl/pkcs12.h>
 #include <openssl/x509.h>
 
-#include "evp_locl.h"
+#include "evp_local.h"
 
 /* Password based encryption (PBE) functions */
 

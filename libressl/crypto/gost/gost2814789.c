@@ -1,4 +1,4 @@
-/* $OpenBSD: gost2814789.c,v 1.6 2020/09/12 02:45:05 inoguchi Exp $ */
+/* $OpenBSD: gost2814789.c,v 1.9 2023/07/08 14:30:44 beck Exp $ */
 /*
  * Copyright (c) 2014 Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
  * Copyright (c) 2005-2006 Cryptocom LTD
@@ -49,8 +49,7 @@
  * ====================================================================
  */
 
-#include <machine/endian.h>
-
+#include <endian.h>
 #include <string.h>
 
 #include <openssl/opensslconf.h>
@@ -59,7 +58,7 @@
 #include <openssl/objects.h>
 #include <openssl/gost.h>
 
-#include "gost_locl.h"
+#include "gost_local.h"
 
 static inline unsigned int
 f(const GOST2814789_KEY *c, unsigned int x)
@@ -181,6 +180,7 @@ Gost2814789_ecb_encrypt(const unsigned char *in, unsigned char *out,
 	else
 		Gost2814789_decrypt(in, out, key);
 }
+LCRYPTO_ALIAS(Gost2814789_ecb_encrypt);
 
 static inline void
 Gost2814789_encrypt_mesh(unsigned char *iv, GOST2814789_KEY *key)
@@ -319,6 +319,7 @@ Gost2814789_cfb64_encrypt(const unsigned char *in, unsigned char *out,
 		*num = n;
 	}
 }
+LCRYPTO_ALIAS(Gost2814789_cfb64_encrypt);
 
 static inline void
 Gost2814789_cnt_next(unsigned char *ivec, unsigned char *out,
@@ -404,6 +405,7 @@ Gost2814789_cnt_encrypt(const unsigned char *in, unsigned char *out, size_t len,
 
 	*num=n;
 }
+LCRYPTO_ALIAS(Gost2814789_cnt_encrypt);
 
 int
 GOST2814789IMIT_Init(GOST2814789IMIT_CTX *c, int nid)
@@ -412,6 +414,7 @@ GOST2814789IMIT_Init(GOST2814789IMIT_CTX *c, int nid)
 	memset(c->mac, 0, 8);
 	return Gost2814789_set_sbox(&c->cipher, nid);
 }
+LCRYPTO_ALIAS(GOST2814789IMIT_Init);
 
 static void
 GOST2814789IMIT_block_data_order(GOST2814789IMIT_CTX *ctx,
@@ -436,6 +439,8 @@ GOST2814789IMIT_block_data_order(GOST2814789IMIT_CTX *ctx,
 #define HASH_BLOCK_DATA_ORDER	GOST2814789IMIT_block_data_order
 
 #include "md32_common.h"
+LCRYPTO_ALIAS(GOST2814789IMIT_Update);
+LCRYPTO_ALIAS(GOST2814789IMIT_Transform);
 
 int
 GOST2814789IMIT_Final(unsigned char *md, GOST2814789IMIT_CTX *c)
@@ -451,6 +456,7 @@ GOST2814789IMIT_Final(unsigned char *md, GOST2814789IMIT_CTX *c)
 	memcpy(md, c->mac, 4);
 	return 1;
 }
+LCRYPTO_ALIAS(GOST2814789IMIT_Final);
 
 unsigned char *
 GOST2814789IMIT(const unsigned char *d, size_t n, unsigned char *md, int nid,
@@ -469,5 +475,6 @@ GOST2814789IMIT(const unsigned char *d, size_t n, unsigned char *md, int nid,
 	explicit_bzero(&c, sizeof(c));
 	return (md);
 }
+LCRYPTO_ALIAS(GOST2814789IMIT);
 
 #endif

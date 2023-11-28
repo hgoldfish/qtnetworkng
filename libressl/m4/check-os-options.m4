@@ -61,17 +61,28 @@ char buf[1]; getentropy(buf, 1);
 	*freebsd*)
 		HOST_OS=freebsd
 		HOST_ABI=elf
-		# fork detection missing, weak seed on failure
-		# https://svnweb.freebsd.org/base/head/lib/libc/gen/arc4random.c?revision=268642&view=markup
-		USE_BUILTIN_ARC4RANDOM=yes
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/param.h>
+#if __FreeBSD_version < 1200000
+        undefined
+#endif
+                       ]], [[]])],
+                       [ USE_BUILTIN_ARC4RANDOM=no ],
+                       [ USE_BUILTIN_ARC4RANDOM=yes ]
+		)
 		AC_SUBST([PROG_LDADD], ['-lthr'])
 		;;
 	*hpux*)
 		HOST_OS=hpux;
-		if test "`echo $CC | cut -d ' ' -f 1`" = "gcc" ; then
-			CFLAGS="$CFLAGS -mlp64"
-		else
-			CFLAGS="-g -O2 +DD64 +Otype_safety=off $USER_CFLAGS"
+		if test "`echo $host_os | cut -c 1-4`" = "ia64" ; then
+			if test "`echo $CC | cut -d ' ' -f 1`" = "gcc" ; then
+				CFLAGS="$CFLAGS -mlp64"
+			else
+				CFLAGS="+DD64"
+			fi
+		fi
+		if ! test "`echo $CC | cut -d ' ' -f 1`" = "gcc" ; then
+			CFLAGS="-g -O2 +Otype_safety=off $CFLAGS $USER_CFLAGS"
 		fi
 		CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE=600 -D__STRICT_ALIGNMENT"
 		;;
@@ -118,15 +129,25 @@ char buf[1]; getentropy(buf, 1);
 		HOST_OS=solaris
 		HOST_ABI=elf
 		CPPFLAGS="$CPPFLAGS -D__EXTENSIONS__ -D_XOPEN_SOURCE=600 -DBSD_COMP"
-		AC_SUBST([PLATFORM_LDADD], ['-ldl -lnsl -lsocket'])
+		AC_SUBST([PLATFORM_LDADD], ['-ldl -lmd -lnsl -lsocket'])
 		;;
 	*) ;;
 esac
 
-AC_ARG_ENABLE([nc],
-	AS_HELP_STRING([--enable-nc], [Enable installing TLS-enabled nc(1)]))
-AM_CONDITIONAL([ENABLE_NC], [test "x$enable_nc" = xyes])
-AM_CONDITIONAL([BUILD_NC],  [test x$BUILD_NC = xyes -o "x$enable_nc" = xyes])
+# Check if time_t is sized correctly
+AC_CHECK_SIZEOF([time_t], [time.h])
+AM_CONDITIONAL([SMALL_TIME_T], [test "$ac_cv_sizeof_time_t" = "4"])
+if test "$ac_cv_sizeof_time_t" = "4"; then
+    AC_DEFINE([SMALL_TIME_T])
+    echo " ** Warning, this system is unable to represent times past 2038"
+    echo " ** It will behave incorrectly when handling valid RFC5280 dates"
+
+    if test "$host_os" = "mingw32" ; then
+        echo " **"
+        echo " ** You can solve this by adjusting the build flags in your"
+        echo " ** mingw-w64 toolchain. Refer to README.windows for details."
+    fi
+fi
 
 AM_CONDITIONAL([HOST_AIX],     [test x$HOST_OS = xaix])
 AM_CONDITIONAL([HOST_CYGWIN],  [test x$HOST_OS = xcygwin])
