@@ -4,16 +4,13 @@ AC_DEFUN([CHECK_CFLAG], [
 	 AC_MSG_CHECKING([if $saved_CC supports "$1"])
 	 old_cflags="$CFLAGS"
 	 CFLAGS="$1 -Wall -Werror"
-	 AC_TRY_LINK([
-		      #include <stdio.h>
-		      ],
-		     [printf("Hello")],
-		     AC_MSG_RESULT([yes])
+	 AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]], [[printf("Hello")]])],
+		     [AC_MSG_RESULT([yes])
 		     CFLAGS=$old_cflags
-		     HARDEN_CFLAGS="$HARDEN_CFLAGS $1",
-		     AC_MSG_RESULT([no])
+		     HARDEN_CFLAGS="$HARDEN_CFLAGS $1"],
+		     [AC_MSG_RESULT([no])
 		     CFLAGS=$old_cflags
-		     [$2])
+		     [$2]])
 ])
 
 AC_DEFUN([CHECK_LDFLAG], [
@@ -21,16 +18,13 @@ AC_DEFUN([CHECK_LDFLAG], [
 	 AC_MSG_CHECKING([if $saved_LD supports "$1"])
 	 old_ldflags="$LDFLAGS"
 	 LDFLAGS="$1 -Wall -Werror"
-	 AC_TRY_LINK([
-		      #include <stdio.h>
-		      ],
-		     [printf("Hello")],
-		     AC_MSG_RESULT([yes])
+	 AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]], [[printf("Hello")]])],
+		     [AC_MSG_RESULT([yes])
 		     LDFLAGS=$old_ldflags
-		     HARDEN_LDFLAGS="$HARDEN_LDFLAGS $1",
-		     AC_MSG_RESULT([no])
+		     HARDEN_LDFLAGS="$HARDEN_LDFLAGS $1"],
+		     [AC_MSG_RESULT([no])
 		     LDFLAGS=$old_ldflags
-		     [$2])
+		     [$2]])
 ])
 
 AC_DEFUN([DISABLE_AS_EXECUTABLE_STACK], [
@@ -73,7 +67,9 @@ AC_DEFUN([CHECK_C_HARDENING_OPTIONS], [
 		CHECK_CFLAG([[-fno-strict-overflow]])
 
 		# _FORTIFY_SOURCE replaces builtin functions with safer versions.
-		AX_ADD_FORTIFY_SOURCE
+		AS_IF([test "x$HOST_OS" != "xwin"], [
+			AX_ADD_FORTIFY_SOURCE
+		])
 
 		# Enable read only relocations
 		CHECK_LDFLAG([[-Wl,-z,relro]])

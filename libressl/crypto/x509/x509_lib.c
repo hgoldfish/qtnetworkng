@@ -1,4 +1,4 @@
-/* $OpenBSD: x509_lib.c,v 1.2 2020/09/14 11:35:32 beck Exp $ */
+/* $OpenBSD: x509_lib.c,v 1.14 2023/04/25 10:56:58 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */
@@ -63,13 +63,90 @@
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
 
-#include "ext_dat.h"
+#include "x509_local.h"
 
 static STACK_OF(X509V3_EXT_METHOD) *ext_list = NULL;
 
-static int ext_cmp(const X509V3_EXT_METHOD * const *a,
-    const X509V3_EXT_METHOD * const *b);
-static void ext_list_free(X509V3_EXT_METHOD *ext);
+extern const X509V3_EXT_METHOD v3_bcons, v3_nscert, v3_key_usage, v3_ext_ku;
+extern const X509V3_EXT_METHOD v3_pkey_usage_period, v3_info, v3_sinfo;
+extern const X509V3_EXT_METHOD v3_ns_ia5_list[], v3_alt[], v3_skey_id, v3_akey_id;
+extern const X509V3_EXT_METHOD v3_crl_num, v3_crl_reason, v3_crl_invdate;
+extern const X509V3_EXT_METHOD v3_delta_crl, v3_cpols, v3_crld, v3_freshest_crl;
+extern const X509V3_EXT_METHOD v3_ocsp_nonce, v3_ocsp_accresp, v3_ocsp_acutoff;
+extern const X509V3_EXT_METHOD v3_ocsp_crlid, v3_ocsp_nocheck, v3_ocsp_serviceloc;
+extern const X509V3_EXT_METHOD v3_crl_hold;
+extern const X509V3_EXT_METHOD v3_policy_mappings, v3_policy_constraints;
+extern const X509V3_EXT_METHOD v3_name_constraints, v3_inhibit_anyp, v3_idp;
+extern const X509V3_EXT_METHOD v3_addr, v3_asid;
+extern const X509V3_EXT_METHOD v3_ct_scts[3];
+
+/*
+ * This table needs to be sorted by increasing ext_nid values for OBJ_bsearch_.
+ */
+
+static const X509V3_EXT_METHOD *standard_exts[] = {
+	&v3_nscert,
+	&v3_ns_ia5_list[0],
+	&v3_ns_ia5_list[1],
+	&v3_ns_ia5_list[2],
+	&v3_ns_ia5_list[3],
+	&v3_ns_ia5_list[4],
+	&v3_ns_ia5_list[5],
+	&v3_ns_ia5_list[6],
+	&v3_skey_id,
+	&v3_key_usage,
+	&v3_pkey_usage_period,
+	&v3_alt[0],
+	&v3_alt[1],
+	&v3_bcons,
+	&v3_crl_num,
+	&v3_cpols,
+	&v3_akey_id,
+	&v3_crld,
+	&v3_ext_ku,
+	&v3_delta_crl,
+	&v3_crl_reason,
+#ifndef OPENSSL_NO_OCSP
+	&v3_crl_invdate,
+#endif
+	&v3_info,
+#ifndef OPENSSL_NO_RFC3779
+	&v3_addr,
+	&v3_asid,
+#endif
+#ifndef OPENSSL_NO_OCSP
+	&v3_ocsp_nonce,
+	&v3_ocsp_crlid,
+	&v3_ocsp_accresp,
+	&v3_ocsp_nocheck,
+	&v3_ocsp_acutoff,
+	&v3_ocsp_serviceloc,
+#endif
+	&v3_sinfo,
+	&v3_policy_constraints,
+#ifndef OPENSSL_NO_OCSP
+	&v3_crl_hold,
+#endif
+	&v3_name_constraints,
+	&v3_policy_mappings,
+	&v3_inhibit_anyp,
+	&v3_idp,
+	&v3_alt[2],
+	&v3_freshest_crl,
+#ifndef OPENSSL_NO_CT
+	&v3_ct_scts[0],
+	&v3_ct_scts[1],
+	&v3_ct_scts[2],
+#endif
+};
+
+#define STANDARD_EXTENSION_COUNT (sizeof(standard_exts) / sizeof(standard_exts[0]))
+
+static int
+ext_cmp(const X509V3_EXT_METHOD * const *a, const X509V3_EXT_METHOD * const *b)
+{
+	return ((*a)->ext_nid - (*b)->ext_nid);
+}
 
 int
 X509V3_EXT_add(X509V3_EXT_METHOD *ext)
@@ -84,16 +161,7 @@ X509V3_EXT_add(X509V3_EXT_METHOD *ext)
 	}
 	return 1;
 }
-
-static int
-ext_cmp(const X509V3_EXT_METHOD * const *a, const X509V3_EXT_METHOD * const *b)
-{
-	return ((*a)->ext_nid - (*b)->ext_nid);
-}
-
-static int ext_cmp_BSEARCH_CMP_FN(const void *, const void *);
-static int ext_cmp(const X509V3_EXT_METHOD * const *, const X509V3_EXT_METHOD * const *);
-static const X509V3_EXT_METHOD * *OBJ_bsearch_ext(const X509V3_EXT_METHOD * *key, const X509V3_EXT_METHOD * const *base, int num);
+LCRYPTO_ALIAS(X509V3_EXT_add);
 
 static int
 ext_cmp_BSEARCH_CMP_FN(const void *a_, const void *b_)
@@ -131,6 +199,7 @@ X509V3_EXT_get_nid(int nid)
 		return NULL;
 	return sk_X509V3_EXT_METHOD_value(ext_list, idx);
 }
+LCRYPTO_ALIAS(X509V3_EXT_get_nid);
 
 const X509V3_EXT_METHOD *
 X509V3_EXT_get(X509_EXTENSION *ext)
@@ -141,6 +210,7 @@ X509V3_EXT_get(X509_EXTENSION *ext)
 		return NULL;
 	return X509V3_EXT_get_nid(nid);
 }
+LCRYPTO_ALIAS(X509V3_EXT_get);
 
 int
 X509V3_EXT_add_list(X509V3_EXT_METHOD *extlist)
@@ -150,6 +220,7 @@ X509V3_EXT_add_list(X509V3_EXT_METHOD *extlist)
 			return 0;
 	return 1;
 }
+LCRYPTO_ALIAS(X509V3_EXT_add_list);
 
 int
 X509V3_EXT_add_alias(int nid_to, int nid_from)
@@ -174,13 +245,7 @@ X509V3_EXT_add_alias(int nid_to, int nid_from)
 	}
 	return 1;
 }
-
-void
-X509V3_EXT_cleanup(void)
-{
-	sk_X509V3_EXT_METHOD_pop_free(ext_list, ext_list_free);
-	ext_list = NULL;
-}
+LCRYPTO_ALIAS(X509V3_EXT_add_alias);
 
 static void
 ext_list_free(X509V3_EXT_METHOD *ext)
@@ -189,15 +254,20 @@ ext_list_free(X509V3_EXT_METHOD *ext)
 		free(ext);
 }
 
-/* Legacy function: we don't need to add standard extensions
- * any more because they are now kept in ext_dat.h.
- */
+void
+X509V3_EXT_cleanup(void)
+{
+	sk_X509V3_EXT_METHOD_pop_free(ext_list, ext_list_free);
+	ext_list = NULL;
+}
+LCRYPTO_ALIAS(X509V3_EXT_cleanup);
 
 int
 X509V3_add_standard_extensions(void)
 {
 	return 1;
 }
+LCRYPTO_ALIAS(X509V3_add_standard_extensions);
 
 /* Return an extension internal structure */
 
@@ -215,6 +285,7 @@ X509V3_EXT_d2i(X509_EXTENSION *ext)
 		    method->it);
 	return method->d2i(NULL, &p, ext->value->length);
 }
+LCRYPTO_ALIAS(X509V3_EXT_d2i);
 
 /* Get critical flag and decoded version of extension from a NID.
  * The "idx" variable returns the last found extension and can
@@ -280,6 +351,7 @@ X509V3_get_d2i(const STACK_OF(X509_EXTENSION) *x, int nid, int *crit, int *idx)
 		*crit = -1;
 	return NULL;
 }
+LCRYPTO_ALIAS(X509V3_get_d2i);
 
 /* This function is a general extension append, replace and delete utility.
  * The precise operation is governed by the 'flags' value. The 'crit' and
@@ -313,8 +385,9 @@ X509V3_add1_i2d(STACK_OF(X509_EXTENSION) **x, int nid, void *value,
 		}
 		/* If delete, just delete it */
 		if (ext_op == X509V3_ADD_DELETE) {
-			if (!sk_X509_EXTENSION_delete(*x, extidx))
+			if ((extmp = sk_X509_EXTENSION_delete(*x, extidx)) == NULL)
 				return -1;
+			X509_EXTENSION_free(extmp);
 			return 1;
 		}
 	} else {
@@ -360,3 +433,4 @@ err:
 		X509V3error(errcode);
 	return 0;
 }
+LCRYPTO_ALIAS(X509V3_add1_i2d);

@@ -350,6 +350,7 @@ if (QTNG_USE_OPENSSL)
         set(OS_EXTRA_LINK ${OS_EXTRA_LINK} "ws2_32")
     endif()
 else()
+    target_include_directories(qtnetworkng PRIVATE "libressl/include")
     set(OPENSSL_LIBRARIES crypto ssl)
 endif()
 

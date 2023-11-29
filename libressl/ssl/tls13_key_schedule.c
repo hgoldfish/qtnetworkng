@@ -1,5 +1,6 @@
-/* $OpenBSD: tls13_key_schedule.c,v 1.9 2020/11/16 18:55:15 jsing Exp $ */
-/* Copyright (c) 2018, Bob Beck <beck@openbsd.org>
+/* $OpenBSD: tls13_key_schedule.c,v 1.18 2022/11/26 16:08:56 tb Exp $ */
+/*
+ * Copyright (c) 2018, Bob Beck <beck@openbsd.org>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -20,48 +21,28 @@
 #include <openssl/hkdf.h>
 
 #include "bytestring.h"
+#include "ssl_local.h"
 #include "tls13_internal.h"
 
-void
-tls13_secrets_destroy(struct tls13_secrets *secrets)
+int
+tls13_secret_init(struct tls13_secret *secret, size_t len)
 {
-	if (secrets == NULL)
-		return;
+	if (secret->data != NULL)
+		return 0;
 
-	/* you can never be too sure :) */
-	freezero(secrets->zeros.data, secrets->zeros.len);
-	freezero(secrets->empty_hash.data, secrets->empty_hash.len);
+	if ((secret->data = calloc(1, len)) == NULL)
+		return 0;
+	secret->len = len;
 
-	freezero(secrets->extracted_early.data,
-	    secrets->extracted_early.len);
-	freezero(secrets->binder_key.data,
-	    secrets->binder_key.len);
-	freezero(secrets->client_early_traffic.data,
-	    secrets->client_early_traffic.len);
-	freezero(secrets->early_exporter_master.data,
-	    secrets->early_exporter_master.len);
-	freezero(secrets->derived_early.data,
-	    secrets->derived_early.len);
-	freezero(secrets->extracted_handshake.data,
-	    secrets->extracted_handshake.len);
-	freezero(secrets->client_handshake_traffic.data,
-	    secrets->client_handshake_traffic.len);
-	freezero(secrets->server_handshake_traffic.data,
-	    secrets->server_handshake_traffic.len);
-	freezero(secrets->derived_handshake.data,
-	    secrets->derived_handshake.len);
-	freezero(secrets->extracted_master.data,
-	    secrets->extracted_master.len);
-	freezero(secrets->client_application_traffic.data,
-	    secrets->client_application_traffic.len);
-	freezero(secrets->server_application_traffic.data,
-	    secrets->server_application_traffic.len);
-	freezero(secrets->exporter_master.data,
-	    secrets->exporter_master.len);
-	freezero(secrets->resumption_master.data,
-	    secrets->resumption_master.len);
+	return 1;
+}
 
-	freezero(secrets, sizeof(struct tls13_secrets));
+void
+tls13_secret_cleanup(struct tls13_secret *secret)
+{
+	freezero(secret->data, secret->len);
+	secret->data = NULL;
+	secret->len = 0;
 }
 
 /*
@@ -81,62 +62,39 @@ tls13_secrets_create(const EVP_MD *digest, int resumption)
 	if ((secrets = calloc(1, sizeof(struct tls13_secrets))) == NULL)
 		goto err;
 
-	if ((secrets->zeros.data = calloc(hash_length, sizeof(uint8_t))) ==
-	    NULL)
+	if (!tls13_secret_init(&secrets->zeros, hash_length))
 		goto err;
-	secrets->zeros.len = hash_length;
+	if (!tls13_secret_init(&secrets->empty_hash, hash_length))
+		goto err;
 
-	if ((secrets->empty_hash.data = malloc(hash_length)) == NULL)
+	if (!tls13_secret_init(&secrets->extracted_early, hash_length))
 		goto err;
-	secrets->empty_hash.len = hash_length;
-
-	if ((secrets->extracted_early.data = malloc(hash_length)) == NULL)
+	if (!tls13_secret_init(&secrets->binder_key, hash_length))
 		goto err;
-	secrets->extracted_early.len = hash_length;
-	if ((secrets->binder_key.data = malloc(hash_length)) == NULL)
+	if (!tls13_secret_init(&secrets->client_early_traffic, hash_length))
 		goto err;
-	secrets->binder_key.len = hash_length;
-	if ((secrets->client_early_traffic.data = malloc(hash_length)) == NULL)
+	if (!tls13_secret_init(&secrets->early_exporter_master, hash_length))
 		goto err;
-	secrets->client_early_traffic.len = hash_length;
-	if ((secrets->early_exporter_master.data = malloc(hash_length)) ==
-	    NULL)
+	if (!tls13_secret_init(&secrets->derived_early, hash_length))
 		goto err;
-	secrets->early_exporter_master.len = hash_length;
-	if ((secrets->derived_early.data = malloc(hash_length)) == NULL)
+	if (!tls13_secret_init(&secrets->extracted_handshake, hash_length))
 		goto err;
-	secrets->derived_early.len = hash_length;
-	if ((secrets->extracted_handshake.data = malloc(hash_length)) == NULL)
+	if (!tls13_secret_init(&secrets->client_handshake_traffic, hash_length))
 		goto err;
-	secrets->extracted_handshake.len = hash_length;
-	if ((secrets->client_handshake_traffic.data = malloc(hash_length))
-	    == NULL)
+	if (!tls13_secret_init(&secrets->server_handshake_traffic, hash_length))
 		goto err;
-	secrets->client_handshake_traffic.len = hash_length;
-	if ((secrets->server_handshake_traffic.data = malloc(hash_length))
-	    == NULL)
+	if (!tls13_secret_init(&secrets->derived_handshake, hash_length))
 		goto err;
-	secrets->server_handshake_traffic.len = hash_length;
-	if ((secrets->derived_handshake.data = malloc(hash_length)) == NULL)
+	if (!tls13_secret_init(&secrets->extracted_master, hash_length))
 		goto err;
-	secrets->derived_handshake.len = hash_length;
-	if ((secrets->extracted_master.data = malloc(hash_length)) == NULL)
+	if (!tls13_secret_init(&secrets->client_application_traffic, hash_length))
 		goto err;
-	secrets->extracted_master.len = hash_length;
-	if ((secrets->client_application_traffic.data = malloc(hash_length)) ==
-	    NULL)
+	if (!tls13_secret_init(&secrets->server_application_traffic, hash_length))
 		goto err;
-	secrets->client_application_traffic.len = hash_length;
-	if ((secrets->server_application_traffic.data = malloc(hash_length)) ==
-	    NULL)
+	if (!tls13_secret_init(&secrets->exporter_master, hash_length))
 		goto err;
-	secrets->server_application_traffic.len = hash_length;
-	if ((secrets->exporter_master.data = malloc(hash_length)) == NULL)
+	if (!tls13_secret_init(&secrets->resumption_master, hash_length))
 		goto err;
-	secrets->exporter_master.len = hash_length;
-	if ((secrets->resumption_master.data = malloc(hash_length)) == NULL)
-		goto err;
-	secrets->resumption_master.len = hash_length;
 
 	/*
 	 * Calculate the hash of a zero-length string - this is needed during
@@ -169,6 +127,34 @@ tls13_secrets_create(const EVP_MD *digest, int resumption)
 	return NULL;
 }
 
+void
+tls13_secrets_destroy(struct tls13_secrets *secrets)
+{
+	if (secrets == NULL)
+		return;
+
+	/* you can never be too sure :) */
+	tls13_secret_cleanup(&secrets->zeros);
+	tls13_secret_cleanup(&secrets->empty_hash);
+
+	tls13_secret_cleanup(&secrets->extracted_early);
+	tls13_secret_cleanup(&secrets->binder_key);
+	tls13_secret_cleanup(&secrets->client_early_traffic);
+	tls13_secret_cleanup(&secrets->early_exporter_master);
+	tls13_secret_cleanup(&secrets->derived_early);
+	tls13_secret_cleanup(&secrets->extracted_handshake);
+	tls13_secret_cleanup(&secrets->client_handshake_traffic);
+	tls13_secret_cleanup(&secrets->server_handshake_traffic);
+	tls13_secret_cleanup(&secrets->derived_handshake);
+	tls13_secret_cleanup(&secrets->extracted_master);
+	tls13_secret_cleanup(&secrets->client_application_traffic);
+	tls13_secret_cleanup(&secrets->server_application_traffic);
+	tls13_secret_cleanup(&secrets->exporter_master);
+	tls13_secret_cleanup(&secrets->resumption_master);
+
+	freezero(secrets, sizeof(struct tls13_secrets));
+}
+
 int
 tls13_hkdf_expand_label(struct tls13_secret *out, const EVP_MD *digest,
     const struct tls13_secret *secret, const char *label,
@@ -184,13 +170,17 @@ tls13_hkdf_expand_label_with_length(struct tls13_secret *out,
     const uint8_t *label, size_t label_len, const struct tls13_secret *context)
 {
 	const char tls13_plabel[] = "tls13 ";
-	uint8_t *hkdf_label;
+	uint8_t *hkdf_label = NULL;
 	size_t hkdf_label_len;
 	CBB cbb, child;
 	int ret;
 
 	if (!CBB_init(&cbb, 256))
-		return 0;
+		goto err;
+
+	if (out->data == NULL || out->len == 0)
+		goto err;
+
 	if (!CBB_add_u16(&cbb, out->len))
 		goto err;
 	if (!CBB_add_u8_length_prefixed(&cbb, &child))
@@ -395,4 +385,74 @@ tls13_update_server_traffic_secret(struct tls13_secrets *secrets)
 	return tls13_hkdf_expand_label(&secrets->server_application_traffic,
 	    secrets->digest, &secrets->server_application_traffic,
 	    "traffic upd", &context);
+}
+
+int
+tls13_exporter(struct tls13_ctx *ctx, const uint8_t *label, size_t label_len,
+    const uint8_t *context_value, size_t context_value_len, uint8_t *out,
+    size_t out_len)
+{
+	struct tls13_secret context, export_out, export_secret;
+	struct tls13_secrets *secrets = ctx->hs->tls13.secrets;
+	EVP_MD_CTX *md_ctx = NULL;
+	unsigned int md_out_len;
+	int md_len;
+	int ret = 0;
+
+	/*
+	 * RFC 8446 Section 7.5.
+	 */
+
+	memset(&context, 0, sizeof(context));
+	memset(&export_secret, 0, sizeof(export_secret));
+
+	export_out.data = out;
+	export_out.len = out_len;
+
+	if (!ctx->handshake_completed)
+		return 0;
+
+	md_len = EVP_MD_size(secrets->digest);
+	if (md_len <= 0 || md_len > EVP_MAX_MD_SIZE)
+		goto err;
+
+	if (!tls13_secret_init(&export_secret, md_len))
+		goto err;
+	if (!tls13_secret_init(&context, md_len))
+		goto err;
+
+	/* In TLSv1.3 no context is equivalent to an empty context. */
+	if (context_value == NULL) {
+		context_value = "";
+		context_value_len = 0;
+	}
+
+	if ((md_ctx = EVP_MD_CTX_new()) == NULL)
+		goto err;
+	if (!EVP_DigestInit_ex(md_ctx, secrets->digest, NULL))
+		goto err;
+	if (!EVP_DigestUpdate(md_ctx, context_value, context_value_len))
+		goto err;
+	if (!EVP_DigestFinal_ex(md_ctx, context.data, &md_out_len))
+		goto err;
+	if (md_len != md_out_len)
+		goto err;
+
+	if (!tls13_derive_secret_with_label_length(&export_secret,
+	    secrets->digest, &secrets->exporter_master, label, label_len,
+	    &secrets->empty_hash))
+		goto err;
+
+	if (!tls13_hkdf_expand_label(&export_out, secrets->digest,
+	    &export_secret, "exporter", &context))
+		goto err;
+
+	ret = 1;
+
+ err:
+	EVP_MD_CTX_free(md_ctx);
+	tls13_secret_cleanup(&context);
+	tls13_secret_cleanup(&export_secret);
+
+	return ret;
 }

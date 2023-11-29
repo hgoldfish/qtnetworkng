@@ -1,7 +1,7 @@
 ; 1 "crypto/aes/aesni-masm-x86_64.S.tmp"
 ; 1 "<built-in>" 1
 ; 1 "<built-in>" 3
-; 340 "<built-in>" 3
+; 343 "<built-in>" 3
 ; 1 "<command line>" 1
 ; 1 "<built-in>" 2
 ; 1 "crypto/aes/aesni-masm-x86_64.S.tmp" 2
@@ -1034,7 +1034,10 @@ $L$SEH_begin_aesni_ctr32_encrypt_blocks::
 	mov	r8,QWORD PTR[40+rsp]
 
 
-	lea	rsp,QWORD PTR[((-200))+rsp]
+	endbr64
+	lea	rax,QWORD PTR[rsp]
+	push	rbp
+	sub	rsp,192
 	movaps	XMMWORD PTR[32+rsp],xmm6
 	movaps	XMMWORD PTR[48+rsp],xmm7
 	movaps	XMMWORD PTR[64+rsp],xmm8
@@ -1046,6 +1049,7 @@ $L$SEH_begin_aesni_ctr32_encrypt_blocks::
 	movaps	XMMWORD PTR[160+rsp],xmm14
 	movaps	XMMWORD PTR[176+rsp],xmm15
 $L$ctr32_body::
+	lea	rbp,QWORD PTR[((-8))+rax]
 	cmp	rdx,1
 	je	$L$ctr32_one_shortcut
 
@@ -1298,7 +1302,8 @@ $L$ctr32_done::
 	movaps	xmm13,XMMWORD PTR[144+rsp]
 	movaps	xmm14,XMMWORD PTR[160+rsp]
 	movaps	xmm15,XMMWORD PTR[176+rsp]
-	lea	rsp,QWORD PTR[200+rsp]
+	lea	rsp,QWORD PTR[rbp]
+	pop	rbp
 $L$ctr32_ret::
 	mov	rdi,QWORD PTR[8+rsp]	;WIN64 epilogue
 	mov	rsi,QWORD PTR[16+rsp]
@@ -1321,7 +1326,9 @@ $L$SEH_begin_aesni_xts_encrypt::
 	mov	r9,QWORD PTR[48+rsp]
 
 
-	lea	rsp,QWORD PTR[((-264))+rsp]
+	lea	rax,QWORD PTR[rsp]
+	push	rbp
+	sub	rsp,256
 	movaps	XMMWORD PTR[96+rsp],xmm6
 	movaps	XMMWORD PTR[112+rsp],xmm7
 	movaps	XMMWORD PTR[128+rsp],xmm8
@@ -1333,6 +1340,7 @@ $L$SEH_begin_aesni_xts_encrypt::
 	movaps	XMMWORD PTR[224+rsp],xmm14
 	movaps	XMMWORD PTR[240+rsp],xmm15
 $L$xts_enc_body::
+	lea	rbp,QWORD PTR[((-8))+rax]
 	movups	xmm15,XMMWORD PTR[r9]
 	mov	eax,DWORD PTR[240+r8]
 	mov	r10d,DWORD PTR[240+rcx]
@@ -1730,7 +1738,8 @@ $L$xts_enc_ret::
 	movaps	xmm13,XMMWORD PTR[208+rsp]
 	movaps	xmm14,XMMWORD PTR[224+rsp]
 	movaps	xmm15,XMMWORD PTR[240+rsp]
-	lea	rsp,QWORD PTR[264+rsp]
+	lea	rsp,QWORD PTR[rbp]
+	pop	rbp
 $L$xts_enc_epilogue::
 	mov	rdi,QWORD PTR[8+rsp]	;WIN64 epilogue
 	mov	rsi,QWORD PTR[16+rsp]
@@ -1753,7 +1762,9 @@ $L$SEH_begin_aesni_xts_decrypt::
 	mov	r9,QWORD PTR[48+rsp]
 
 
-	lea	rsp,QWORD PTR[((-264))+rsp]
+	lea	rax,QWORD PTR[rsp]
+	push	rbp
+	sub	rsp,256
 	movaps	XMMWORD PTR[96+rsp],xmm6
 	movaps	XMMWORD PTR[112+rsp],xmm7
 	movaps	XMMWORD PTR[128+rsp],xmm8
@@ -1765,6 +1776,7 @@ $L$SEH_begin_aesni_xts_decrypt::
 	movaps	XMMWORD PTR[224+rsp],xmm14
 	movaps	XMMWORD PTR[240+rsp],xmm15
 $L$xts_dec_body::
+	lea	rbp,QWORD PTR[((-8))+rax]
 	movups	xmm15,XMMWORD PTR[r9]
 	mov	eax,DWORD PTR[240+r8]
 	mov	r10d,DWORD PTR[240+rcx]
@@ -2206,7 +2218,8 @@ $L$xts_dec_ret::
 	movaps	xmm13,XMMWORD PTR[208+rsp]
 	movaps	xmm14,XMMWORD PTR[224+rsp]
 	movaps	xmm15,XMMWORD PTR[240+rsp]
-	lea	rsp,QWORD PTR[264+rsp]
+	lea	rsp,QWORD PTR[rbp]
+	pop	rbp
 $L$xts_dec_epilogue::
 	mov	rdi,QWORD PTR[8+rsp]	;WIN64 epilogue
 	mov	rsi,QWORD PTR[16+rsp]
@@ -2288,12 +2301,15 @@ $L$cbc_enc_tail::
 
 ALIGN	16
 $L$cbc_decrypt::
-	lea	rsp,QWORD PTR[((-88))+rsp]
-	movaps	XMMWORD PTR[rsp],xmm6
-	movaps	XMMWORD PTR[16+rsp],xmm7
-	movaps	XMMWORD PTR[32+rsp],xmm8
-	movaps	XMMWORD PTR[48+rsp],xmm9
+	lea	rax,QWORD PTR[rsp]
+	push	rbp
+	sub	rsp,80
+	movaps	XMMWORD PTR[16+rsp],xmm6
+	movaps	XMMWORD PTR[32+rsp],xmm7
+	movaps	XMMWORD PTR[48+rsp],xmm8
+	movaps	XMMWORD PTR[64+rsp],xmm9
 $L$cbc_decrypt_body::
+	lea	rbp,QWORD PTR[((-8))+rax]
 	movups	xmm9,XMMWORD PTR[r8]
 	mov	eax,r10d
 	cmp	rdx,070h
@@ -2301,11 +2317,11 @@ $L$cbc_decrypt_body::
 	shr	r10d,1
 	sub	rdx,070h
 	mov	eax,r10d
-	movaps	XMMWORD PTR[64+rsp],xmm9
+	movaps	XMMWORD PTR[rsp],xmm9
 	jmp	$L$cbc_dec_loop8_enter
 ALIGN	16
 $L$cbc_dec_loop8::
-	movaps	XMMWORD PTR[64+rsp],xmm0
+	movaps	XMMWORD PTR[rsp],xmm0
 	movups	XMMWORD PTR[rsi],xmm9
 	lea	rsi,QWORD PTR[16+rsi]
 $L$cbc_dec_loop8_enter::
@@ -2345,7 +2361,7 @@ $L$cbc_dec_loop8_enter::
 
 	movups	xmm1,XMMWORD PTR[rdi]
 	movups	xmm0,XMMWORD PTR[16+rdi]
-	xorps	xmm2,XMMWORD PTR[64+rsp]
+	xorps	xmm2,XMMWORD PTR[rsp]
 	xorps	xmm3,xmm1
 	movups	xmm1,XMMWORD PTR[32+rdi]
 	xorps	xmm4,xmm0
@@ -2409,11 +2425,11 @@ $L$cbc_dec_tail::
 	jbe	$L$cbc_dec_six
 
 	movups	xmm8,XMMWORD PTR[96+rdi]
-	movaps	XMMWORD PTR[64+rsp],xmm9
+	movaps	XMMWORD PTR[rsp],xmm9
 	call	_aesni_decrypt8
 	movups	xmm1,XMMWORD PTR[rdi]
 	movups	xmm0,XMMWORD PTR[16+rdi]
-	xorps	xmm2,XMMWORD PTR[64+rsp]
+	xorps	xmm2,XMMWORD PTR[rsp]
 	xorps	xmm3,xmm1
 	movups	xmm1,XMMWORD PTR[32+rdi]
 	xorps	xmm4,xmm0
@@ -2545,19 +2561,20 @@ $L$cbc_dec_tail_collected::
 	jmp	$L$cbc_dec_ret
 ALIGN	16
 $L$cbc_dec_tail_partial::
-	movaps	XMMWORD PTR[64+rsp],xmm2
+	movaps	XMMWORD PTR[rsp],xmm2
 	mov	rcx,16
 	mov	rdi,rsi
 	sub	rcx,rdx
-	lea	rsi,QWORD PTR[64+rsp]
+	lea	rsi,QWORD PTR[rsp]
 	DD	09066A4F3h	
 
 $L$cbc_dec_ret::
-	movaps	xmm6,XMMWORD PTR[rsp]
-	movaps	xmm7,XMMWORD PTR[16+rsp]
-	movaps	xmm8,XMMWORD PTR[32+rsp]
-	movaps	xmm9,XMMWORD PTR[48+rsp]
-	lea	rsp,QWORD PTR[88+rsp]
+	movaps	xmm6,XMMWORD PTR[16+rsp]
+	movaps	xmm7,XMMWORD PTR[32+rsp]
+	movaps	xmm8,XMMWORD PTR[48+rsp]
+	movaps	xmm9,XMMWORD PTR[64+rsp]
+	lea	rsp,QWORD PTR[rbp]
+	pop	rbp
 $L$cbc_ret::
 	mov	rdi,QWORD PTR[8+rsp]	;WIN64 epilogue
 	mov	rsi,QWORD PTR[16+rsp]
@@ -2901,9 +2918,8 @@ ctr32_se_handler	PROC PRIVATE
 	lea	rdi,QWORD PTR[512+r8]
 	mov	ecx,20
 	DD	0a548f3fch		
-	lea	rax,QWORD PTR[200+rax]
 
-	jmp	$L$common_seh_tail
+	jmp	$L$common_rbp_tail
 ctr32_se_handler	ENDP
 
 
@@ -2942,9 +2958,8 @@ xts_se_handler	PROC PRIVATE
 	lea	rdi,QWORD PTR[512+r8]
 	mov	ecx,20
 	DD	0a548f3fch		
-	lea	rax,QWORD PTR[((104+160))+rax]
 
-	jmp	$L$common_seh_tail
+	jmp	$L$common_rbp_tail
 xts_se_handler	ENDP
 
 ALIGN	16
@@ -2975,11 +2990,16 @@ cbc_se_handler	PROC PRIVATE
 	cmp	rbx,r10
 	jae	$L$common_seh_tail
 
-	lea	rsi,QWORD PTR[rax]
+	lea	rsi,QWORD PTR[16+rax]
 	lea	rdi,QWORD PTR[512+r8]
 	mov	ecx,8
 	DD	0a548f3fch		
-	lea	rax,QWORD PTR[88+rax]
+
+$L$common_rbp_tail::
+	mov	rax,QWORD PTR[160+r8]
+	mov	rbp,QWORD PTR[rax]
+	lea	rax,QWORD PTR[8+rax]
+	mov	QWORD PTR[160+r8],rbp
 	jmp	$L$common_seh_tail
 
 $L$restore_cbc_rax::
