@@ -56,7 +56,7 @@ GzipCompressFile::GzipCompressFile(QSharedPointer<FileLike> backend, int level)
     d->zstream.opaque = nullptr;
     d->zstream.avail_in = 0;
     d->zstream.next_in = nullptr;
-    int ret = deflateInit2(&d->zstream, level, Z_DEFLATED, GZIP_WINDOWS_BIT, 8, Z_DEFAULT_STRATEGY);
+    int ret = deflateInit2(&d->zstream, level, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY);
     d->inited = (ret == Z_OK);
 }
 
@@ -238,7 +238,10 @@ qint32 GzipDecompressFile::read(char *data, qint32 size)
                 d->eof = true;
                 break;
             }
-        } while (d->zstream.avail_out == 0 || d->zstream.avail_in > 0);
+            if (d->zstream.avail_in == 0) {
+                break;
+            }
+        } while (d->zstream.avail_out == 0);
     }
     qint32 bytesToRead = qMin(size, d->buf.size());
     memcpy(data, d->buf.data(), bytesToRead);
