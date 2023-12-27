@@ -1,6 +1,7 @@
 QtNetworkNg
 ===========
 
+[中文](README.HANS.md)
 
 Introduction
 ------------
@@ -23,12 +24,15 @@ Features
 * `Socket` supports UDP and TCP.
 * `SSLSocket` with similar API to `Socket`.
 * `KcpSocket` implements KCP over UDP.
-* `HttpSession` implements a HTTP 1.0/1.1 client, supports connection via SOCKS5/HTTP proxy.
-* `HttpServer` implements a static HTTP 1.0/1.1 server, can be used for reversed http proxy.
+* `SocketLike` unite these three classes, act as the base of other compoments.
+* `SocketServer` provide a framework for network servers. QtNetworkNg use it to implement customizable HTTP proxy and SOCKS5 proxy server.
+* `HttpSession` implements a HTTP 1.1 client, supports connection via SOCKS5/HTTP proxy.
+* `HttpServer` implements a static HTTP 1.1 server, can be used for reversed http proxy.
+* `NetworkInterface` equals to `QNetworkInterface`, and `HostAddress` equals to `QHostAddress`.
 * `WebSocketConnection` implements WebSocket client/server.
 * `MsgPackStream` is a new MessagePack implementation similar to `QDataStream`
 * `Cipher`, `MessageDigest`, `PublicKey`, `PrivateKey` wrap complicate LibreSSL C API.
-
+* Not yet support Qt 6, because this may break the compatibility with earlier version of Qt 5
 
 Examples
 --------
@@ -171,9 +175,9 @@ Towards 1.0
 -----------
 
 - [ ] Complete reference documents
-- [x] Implements an HTTP 1.1 server.
-- [x] HTTP support gzip compression.
-- [x] HttpResponse support stream.
+- [x] Implement a HTTP 1.1 server.
+- [x] HTTP supports gzip compression.
+- [x] HttpResponse supports stream.
 - [x] Support HTTP proxy and cache.
 - [x] A simple replacement for libev in Windows.
 - [ ] Add more OpenSSL functions.
@@ -182,19 +186,32 @@ Towards 1.0
 - [x] Remove the QtNetwork dependence.
 - [x] Support WebSocket Client and Server.
 
+
 Towards 2.0
 -----------
+
+- [ ] Remove the QtCore dependence.
+- [ ] provide the API to both Qt 5 and 6.
 - [ ] Support HTTP/2
 - [ ] Support HTTP/3
+- [ ] Support QUIC
 - [ ] Support Kademlia
-- [ ] Support Tox
+- [ ] Support BitTorrent protocol
+- [ ] Support MTQQ
+
+
+Towards 3.0
+
+- [ ] use IOCP under Windows to deliver an ulimate performance.
+- [ ] use I/O Rings under Windows 11
+- [ ] use io_uring under the nearlier Linux environment.
 
 
 Building
 --------
 
 1. Clone QtNetworkNg from github as git subrepository.
-2. include `qtnetworkng/qtnetworkng.pri` in your `project.pro` file.
+2. include `qtnetworkng/qtnetworkng.pri` to your `project.pro` file. Or include `qtnetworkng/CMakeLists.txt` to the `CMakeLists.txt` of your project.
 3. include `qtnetworkng.h` in you cpp files.
 
 
