@@ -64,6 +64,9 @@ set(QTNETWORKNG_SRC
     src/websocket.cpp
 
     src/kcp.cpp
+    src/kcp_base_p.h
+    src/kcp_base.cpp
+    src/multi_path_kcp.cpp
     src/kcp/ikcp.c
     src/kcp/ikcp.h
 
@@ -91,6 +94,8 @@ set(QTNETWORKNG_INCLUDE
     include/msgpack.h
     include/data_channel.h
     include/kcp.h
+    include/kcp_base.h
+    include/multi_path_kcp.h
     include/hostaddress.h
     include/network_interface.h
     include/gzip.h

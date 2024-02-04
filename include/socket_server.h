@@ -2,6 +2,8 @@
 #define QTNG_SOCKET_SERVER_H
 
 #include "kcp.h"
+#include "kcp_base.h"
+#include "multi_path_kcp.h"
 #include "socket_utils.h"
 #include "coroutine_utils.h"
 #ifndef QTNG_NO_CRYPTO
@@ -120,6 +122,81 @@ QSharedPointer<SocketLike> KcpServer<RequestHandler>::serverCreate()
 
 template<typename RequestHandler>
 void KcpServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
+{
+    RequestHandler handler;
+    handler.request = request;
+    handler.server = this;
+    handler.run();
+}
+
+template<typename RequestHandler>
+class KcpServerV2 : public BaseStreamServer
+{
+public:
+    KcpServerV2(const HostAddress &serverAddress, quint16 serverPort)
+        : BaseStreamServer(serverAddress, serverPort)
+    {
+    }
+    KcpServerV2(quint16 serverPort)
+        : BaseStreamServer(HostAddress::Any, serverPort)
+    {
+    }
+protected:
+    virtual QSharedPointer<SocketLike> serverCreate() override;
+    virtual void processRequest(QSharedPointer<SocketLike> request) override;
+};
+
+template<typename RequestHandler>
+QSharedPointer<SocketLike> KcpServerV2<RequestHandler>::serverCreate()
+{
+    return createKcpServer(serverAddress(), serverPort(), 0);
+}
+
+template<typename RequestHandler>
+void KcpServerV2<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
+{
+    RequestHandler handler;
+    handler.request = request;
+    handler.server = this;
+    handler.run();
+}
+
+template<typename RequestHandler>
+class MultiPathKcpServer : public BaseStreamServer
+{
+public:
+    MultiPathKcpServer(const QList<QPair<HostAddress, quint16>> &localHosts)
+        : BaseStreamServer(HostAddress::Any, 0)
+        , localHosts(localHosts)
+    {
+    }
+    MultiPathKcpServer(const HostAddress &, quint16)
+        : BaseStreamServer(HostAddress::Any, 0)
+    {
+    }
+
+    void setLocalHosts(const QList<QPair<HostAddress, quint16>> &localHosts);
+protected:
+    virtual QSharedPointer<SocketLike> serverCreate() override;
+    virtual void processRequest(QSharedPointer<SocketLike> request) override;
+protected:
+    QList<QPair<HostAddress, quint16>> localHosts;
+};
+
+template<typename RequestHandler>
+void MultiPathKcpServer<RequestHandler>::setLocalHosts(const QList<QPair<HostAddress, quint16>> &localHosts)
+{
+    this->localHosts = localHosts;
+}
+
+template<typename RequestHandler>
+QSharedPointer<SocketLike> MultiPathKcpServer<RequestHandler>::serverCreate()
+{
+    return createMultiKcpServer(localHosts, 0);
+}
+
+template<typename RequestHandler>
+void MultiPathKcpServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
 {
     RequestHandler handler;
     handler.request = request;
