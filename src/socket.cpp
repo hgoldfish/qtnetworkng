@@ -3,6 +3,7 @@
 #include <QtCore/qmap.h>
 #include <QtCore/qset.h>
 #include <QtCore/qcache.h>
+#include <QtCore/qdatetime.h>
 #include "../include/private/socket_p.h"
 #include "../include/coroutine_utils.h"
 #include "debugger.h"
@@ -793,15 +794,22 @@ QSharedPointer<Socket> Poll::wait(float secs)
     return d->wait(secs);
 }
 
+struct SocketDnsCacheCacheItem
+{
+    QList<HostAddress> addresses;
+    quint64 firstSeen;
+};
+
 class SocketDnsCachePrivate
 {
 public:
     SocketDnsCachePrivate()
-        : cache(1024)
+        : timeToLive(1000 * 60 * 5)
+        , cache(1024)
     {
     }
-
-    QCache<QString, QList<HostAddress>> cache;
+    quint64 timeToLive;  // in msecs
+    QCache<QString, SocketDnsCacheCacheItem> cache;
 };
 
 SocketDnsCache::SocketDnsCache()
@@ -817,14 +825,21 @@ SocketDnsCache::~SocketDnsCache()
 QList<HostAddress> SocketDnsCache::resolve(const QString &hostName)
 {
     Q_D(SocketDnsCache);
+    quint64 now = QDateTime::currentMSecsSinceEpoch();
     if (d->cache.contains(hostName)) {
-        return *(d->cache.object(hostName));
+        SocketDnsCacheCacheItem *item = d->cache.object(hostName);
+        if (now > item->firstSeen || (now - item->firstSeen < d->timeToLive)) {
+            return item->addresses;
+        }
     }
     const QList<HostAddress> &addresses = Socket::resolve(hostName);
     if (addresses.isEmpty()) {
         return QList<HostAddress>();
     } else {
-        d->cache.insert(hostName, new QList<HostAddress>(addresses));
+        SocketDnsCacheCacheItem *item = new SocketDnsCacheCacheItem();
+        item->firstSeen = now;
+        item->addresses = addresses;
+        d->cache.insert(hostName, item);
         return addresses;
     }
 }
@@ -835,18 +850,36 @@ bool SocketDnsCache::hasHost(const QString &hostName) const
     return d->cache.contains(hostName);
 }
 
-void SocketDnsCache::addHost(const QString &hostName, const QList<HostAddress> &addrList)
+void SocketDnsCache::addHost(const QString &hostName, const QList<HostAddress> &addresses)
 {
     Q_D(SocketDnsCache);
-    d->cache.insert(hostName, new QList<HostAddress>(addrList));
+    SocketDnsCacheCacheItem *item = new SocketDnsCacheCacheItem();
+    item->firstSeen = QDateTime::currentMSecsSinceEpoch();
+    item->addresses = addresses;
+    d->cache.insert(hostName, item);
 }
 
 void SocketDnsCache::addHost(const QString &hostName, const HostAddress &addr)
 {
     Q_D(SocketDnsCache);
-    QList<HostAddress> *addrList = new QList<HostAddress>();
-    addrList->append(addr);
-    d->cache.insert(hostName, addrList);
+    SocketDnsCacheCacheItem *item = new SocketDnsCacheCacheItem();
+    item->firstSeen = QDateTime::currentMSecsSinceEpoch();
+    QList<HostAddress> addresses;
+    addresses.append(addr);
+    item->addresses = addresses;
+    d->cache.insert(hostName, item);
+}
+
+quint64 SocketDnsCache::timeToLive() const
+{
+    Q_D(const SocketDnsCache);
+    return d->timeToLive;
+}
+
+void SocketDnsCache::setTimeToLive(quint64 msecs)
+{
+    Q_D(SocketDnsCache);
+    d->timeToLive = msecs;
 }
 
 QTNETWORKNG_NAMESPACE_END

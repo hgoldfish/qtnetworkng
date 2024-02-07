@@ -195,6 +195,8 @@ public:
     bool hasHost(const QString &hostName) const;
     void addHost(const QString &hostName, const QList<HostAddress> &addrList);
     void addHost(const QString &hostName, const HostAddress &addr);
+    quint64 timeToLive() const;
+    void setTimeToLive(quint64 msecs);
 private:
     SocketDnsCachePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(SocketDnsCache)
