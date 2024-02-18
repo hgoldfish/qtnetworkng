@@ -544,7 +544,7 @@ createKcpConnection(const QString &hostName, quint16 port, Socket::SocketError *
                     KcpMode mode /*= Internet*/)
 {
     SinglePathUdpLinkSocketLike *socket = createConnection<SinglePathUdpLinkSocketLike>(
-            hostName, port, error, allowProtocol, MakeSocketType<SinglePathUdpLinkSocketLike>);
+            hostName, port, error, dnsCache, allowProtocol, MakeSocketType<SinglePathUdpLinkSocketLike>);
     if (socket) {
         socket->kcpBase->setMode(mode);
     }

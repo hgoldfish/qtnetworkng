@@ -101,6 +101,8 @@ public:
     QByteArray waitToRead;
     int waitToReadOffset;
 
+    QVarLengthArray<char, 1024 * 1024> buffer;
+
     const quint64 zeroTimestamp;
     quint64 lastActiveTimestamp;
     quint64 lastKeepaliveTimestamp;
@@ -334,15 +336,14 @@ qint32 KcpBase<Link>::peek(char *data, qint32 size)
     }
     int peeksize = ikcp_peeksize(kcp);
     if (peeksize > 0) {
-        QByteArray buf(peeksize, Qt::Uninitialized);
         int readBytes;
         {
             ScopedLock<RLock> l(kcpLock);
-            readBytes = ikcp_recv(kcp, buf.data(), buf.size());
+            waitToRead.resize(peeksize);
+            waitToReadOffset = 0;
+            readBytes = ikcp_recv(kcp, waitToRead.data(), peeksize);
         }
         Q_ASSERT(readBytes == peeksize);
-        waitToRead = buf;
-        waitToReadOffset = 0;
 
         qint32 result = qMin(size, waitToRead.size());
         memcpy(data, waitToRead.data(), result);
@@ -418,20 +419,18 @@ qint32 KcpBase<Link>::recv(char *data, qint32 size, bool all)
             }
             int peeksize = ikcp_peeksize(kcp);
             if (peeksize > 0) {
-                QByteArray buf(peeksize, Qt::Uninitialized);
                 int readBytes;
                 {
                     ScopedLock<RLock> l(kcpLock);
-                    readBytes = ikcp_recv(kcp, buf.data(), buf.size());
+                    waitToRead.resize(peeksize);
+                    waitToReadOffset = 0;
+                    readBytes = ikcp_recv(kcp, waitToRead.data(), peeksize);
                 }
                 Q_ASSERT(readBytes == peeksize);
-                waitToRead = buf;
-                waitToReadOffset = 0;
                 break;
             }
             receivingQueueNotEmpty.clear();
-            bool ok = receivingQueueNotEmpty.tryWait();
-            if (!ok) {
+            if (!receivingQueueNotEmpty.tryWait()) {
                 return total > 0 ? total : -1;
             }
         }
