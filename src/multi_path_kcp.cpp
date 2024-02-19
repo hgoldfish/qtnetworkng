@@ -10,6 +10,7 @@ const char PACKET_TYPE_UNCOMPRESSED_DATA_WITH_TOKEN = 0x05;
 
 // #define DEBUG_PROTOCOL 1
 #define TOKEN_SIZE 256
+#define INVALIDE_SINCE_TIME 15 // 15s
 
 int multi_path_kcp_client_callback(const char *buf, int len, ikcpcb *kcp, void *user);
 
@@ -45,6 +46,7 @@ public:
         QString toString() const { return QString("%1:%2").arg(addr.toString(), QString::number(port)); }
     };
     QList<RemoteHost> remoteHosts;
+    QList<QSharedPointer<Socket>> rawSockets;
     QByteArray token;  // size == TOKEN_SIZE
 
     QByteArray unhandleData;
@@ -106,8 +108,10 @@ public:
     void abortSlave(const QByteArray &who);
     bool addSlave(const QByteArray &who, quint32 connectionId);
 public:
+    bool accpetConnection(QMap<QByteArray, QSharedPointer<MultiPathUdpLinkSlaveOnePath>> &tokenToOnePath,
+                          QSharedPointer<Socket> rawSocket,
+                          const QByteArray &token, const HostAddress &addr, quint16 port);
     void doReceive(int localIndex);
-    quint32 nextConnectionId();
 public:
     struct Path
     {
@@ -201,6 +205,7 @@ bool MultiPathUdpLinkClient::connect(const QList<QPair<HostAddress, quint16>> &r
                     ipv4.clear();
                     continue;
                 }
+                this->rawSockets.append(ipv4);
             }
             remote.rawSocket = ipv4;
         } else {
@@ -213,6 +218,7 @@ bool MultiPathUdpLinkClient::connect(const QList<QPair<HostAddress, quint16>> &r
                     ipv6.clear();
                     continue;
                 }
+                this->rawSockets.append(ipv6);
             }
             remote.rawSocket = ipv6;
         }
@@ -223,6 +229,12 @@ bool MultiPathUdpLinkClient::connect(const QList<QPair<HostAddress, quint16>> &r
 
 qint32 MultiPathUdpLinkClient::recvfrom(char *data, qint32 size, QByteArray &)
 {
+    if (rawSockets.size() == 0) {
+        return -1;
+    }
+    if (rawSockets.size() == 1) {
+        return rawSockets.at(0)->recvfrom(data, size, nullptr, nullptr);
+    }
     if (!unhandleDataNotEmpty.tryWait()) {
         return -1;
     }
@@ -245,9 +257,6 @@ qint32 MultiPathUdpLinkClient::sendto(const char *data, qint32 size, const QByte
 {
     const RemoteHost &remote = remoteHosts.at(nextSend());
     QSharedPointer<Socket> rawSocket = remote.rawSocket;
-    if (rawSocket.isNull()) {
-        return -1;
-    }
 #ifdef DEBUG_PROTOCOL
     qtng_debug << "send udp packet" << size << "to:" << remote.toString() << (int) (data[0]);
 #endif
@@ -261,10 +270,8 @@ bool MultiPathUdpLinkClient::filter(char *data, qint32 *size, QByteArray *who)
 
 void MultiPathUdpLinkClient::close()
 {
-    for (const RemoteHost &remote : remoteHosts) {
-        if (remote.rawSocket) {
-            remote.rawSocket->close();
-        }
+    for (QSharedPointer<Socket> rawSocket : rawSockets) {
+        rawSocket->close();
     }
     unhandleDataNotEmpty.clear();
     unhandleDataEmpty.clear();
@@ -273,10 +280,8 @@ void MultiPathUdpLinkClient::close()
 
 void MultiPathUdpLinkClient::abort()
 {
-    for (const RemoteHost &remote : remoteHosts) {
-        if (remote.rawSocket) {
-            remote.rawSocket->abort();
-        }
+    for (QSharedPointer<Socket> rawSocket : rawSockets) {
+        rawSocket->abort();
     }
     unhandleDataNotEmpty.clear();
     unhandleDataEmpty.clear();
@@ -515,47 +520,9 @@ void MultiPathUdpLinkServer::doReceive(int localIndex)
 #ifdef DEBUG_PROTOCOL
             token = token.toHex();
 #endif
-            QSharedPointer<MultiPathUdpLinkSlaveOnePath> onePath = tokenToOnePath.value(token);
-            QSharedPointer<MultiPathUdpLinkSlaveInfo> slave;
-            if (!onePath.isNull()) {
-                // in this case we must find slave
-                slave = tokenToSlave.value(token);
-                if (slave.isNull()) {
-#ifdef DEBUG_PROTOCOL
-                    qtng_debug << "can not find slave:" << token << "addr:" << addr << "port:" << port;
-#endif
-                    continue;
-                }
-                // if pass 15s since last connected time, we reject the connection
-                quint64 now = QDateTime::currentSecsSinceEpoch();
-                if (now > 15 + slave->connectedTime) {
-#ifdef DEBUG_PROTOCOL
-                    qtng_debug << "reject data since pass " << (now - slave->connectedTime)
-                               << "secs. connectionId:" << slave->connectionId;
-#endif
-                    continue;
-                }
-                onePath->lastActiveTimestamp = QDateTime::currentSecsSinceEpoch();
-            } else {
-                slave = tokenToSlave.value(token);
-                if (slave.isNull()) {
-                    slave.reset(new MultiPathUdpLinkSlaveInfo(0));
-                    tokenToSlave.insert(token, slave);
-                } else {
-                    // if pass 15s since last connected time, we reject the connection
-                    quint64 now = QDateTime::currentSecsSinceEpoch();
-                    if (now > 15 + slave->connectedTime) {
-#ifdef DEBUG_PROTOCOL
-                        qtng_debug << "reject data since pass " << (now - slave->connectedTime)
-                                   << "secs. connectionId:" << slave->connectionId;
-#endif
-                        continue;
-                    }
-                }
-                onePath = slave->append(addr, port, rawSocket);
-                tokenToOnePath.insert(token, onePath);
+            if (!accpetConnection(tokenToOnePath, rawSocket, token, addr, port)) {
+                continue;
             }
-            Q_ASSERT(!onePath.isNull());
             // trans data to PACKET_TYPE_UNCOMPRESSED_DATA
             data[0] = PACKET_TYPE_UNCOMPRESSED_DATA;
             memmove(data + 1, data + 1 + TOKEN_SIZE, len - 1 - TOKEN_SIZE);
@@ -566,27 +533,37 @@ void MultiPathUdpLinkServer::doReceive(int localIndex)
 #else
             quint32 connectionId = qFromBigEndian<quint32>(reinterpret_cast<uchar *>(data + 1));
 #endif
-            token = connectionIdToToken.value(connectionId);
-            if (token.isEmpty()) {
+            if (connectionId == 0) {
+                // compatible single path
+                const QString &path = addr.toString() + ":" + port;
+                token = path.toLatin1();
+                if (!accpetConnection(tokenToOnePath, rawSocket, token, addr, port)) {
+                    continue;
+                }
+                qToBigEndian<quint32>(connectionId, reinterpret_cast<uchar *>(data + 1));
+            } else {
+                token = connectionIdToToken.value(connectionId);
+                if (token.isEmpty()) {
 #ifdef DEBUG_PROTOCOL
-                qtng_debug << "reject data because can not find connection(1): " << connectionId;
-#endif
-                continue;
-            }
-            QSharedPointer<MultiPathUdpLinkSlaveOnePath> onePath = tokenToOnePath.value(token);
-            if (onePath.isNull()) {
-                QSharedPointer<MultiPathUdpLinkSlaveInfo> slave = tokenToSlave.value(token);
-                if (slave.isNull()) { 
-#ifdef DEBUG_PROTOCOL
-                    qtng_debug << "reject data because can not find connection(2): " << connectionId;
+                    qtng_debug << "reject data because can not find connection(1): " << connectionId;
 #endif
                     continue;
                 }
+                QSharedPointer<MultiPathUdpLinkSlaveOnePath> onePath = tokenToOnePath.value(token);
+                if (onePath.isNull()) {
+                    QSharedPointer<MultiPathUdpLinkSlaveInfo> slave = tokenToSlave.value(token);
+                    if (slave.isNull()) {
+#ifdef DEBUG_PROTOCOL
+                        qtng_debug << "reject data because can not find connection(2): " << connectionId;
+#endif
+                        continue;
+                    }
 
-                onePath = slave->append(addr, port, rawSocket);
-                tokenToOnePath.insert(token, onePath);
-            } else {
-                onePath->lastActiveTimestamp = QDateTime::currentSecsSinceEpoch();
+                    onePath = slave->append(addr, port, rawSocket);
+                    tokenToOnePath.insert(token, onePath);
+                } else {
+                    onePath->lastActiveTimestamp = QDateTime::currentSecsSinceEpoch();
+                }
             }
         }
 
@@ -603,19 +580,6 @@ void MultiPathUdpLinkServer::doReceive(int localIndex)
         unhandleDataNotEmpty.set();
         unhandleDataEmpty.clear();
     }
-}
-
-quint32 MultiPathUdpLinkServer::nextConnectionId()
-{
-    quint32 id;
-    do {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
-        id = qFromBigEndian<quint32>(randomBytes(4).constData());
-#else
-        id = qFromBigEndian<quint32>(reinterpret_cast<const uchar *>(randomBytes(4).constData()));
-#endif
-    } while (connectionIdToToken.contains(id));
-    return id;
 }
 
 void MultiPathUdpLinkServer::closeSlave(const QByteArray &who)
@@ -652,6 +616,52 @@ bool MultiPathUdpLinkServer::addSlave(const QByteArray &who, quint32 connectionI
     }
     slave->connectionId = connectionId;
     connectionIdToToken.insert(connectionId, who);
+    return true;
+}
+
+bool MultiPathUdpLinkServer::accpetConnection(
+        QMap<QByteArray, QSharedPointer<MultiPathUdpLinkSlaveOnePath>> &tokenToOnePath,
+        QSharedPointer<Socket> rawSocket, const QByteArray &token, const HostAddress &addr, quint16 port)
+{
+    QSharedPointer<MultiPathUdpLinkSlaveOnePath> onePath = tokenToOnePath.value(token);
+    QSharedPointer<MultiPathUdpLinkSlaveInfo> slave;
+    if (!onePath.isNull()) {
+        if (onePath->addr != addr || onePath->port != port) {
+            return false;
+        }
+        // in this case we must find slave
+        slave = tokenToSlave.value(token);
+        if (slave.isNull()) {
+#ifdef DEBUG_PROTOCOL
+            qtng_debug << "can not find slave:" << token << "addr:" << addr << "port:" << port;
+#endif
+            return false;
+        }
+        // if pass 15s since last connected time, we reject the connection
+        quint64 now = QDateTime::currentSecsSinceEpoch();
+        if (now > INVALIDE_SINCE_TIME + slave->connectedTime) {
+#ifdef DEBUG_PROTOCOL
+            qtng_debug << "reject data since pass " << (now - slave->connectedTime)
+                       << "secs. connectionId:" << slave->connectionId;
+#endif
+            return false;
+        }
+        onePath->lastActiveTimestamp = QDateTime::currentSecsSinceEpoch();
+    } else {
+        slave = tokenToSlave.value(token);
+        if (!slave.isNull()) {
+#ifdef DEBUG_PROTOCOL
+            qtng_debug << "why this happened ?";
+#endif
+            return false;
+        }
+        slave.reset(new MultiPathUdpLinkSlaveInfo(0));
+        tokenToSlave.insert(token, slave);
+
+        onePath = slave->append(addr, port, rawSocket);
+        tokenToOnePath.insert(token, onePath);
+    }
+    Q_ASSERT(!onePath.isNull());
     return true;
 }
 
@@ -701,22 +711,17 @@ bool MultiPathKcpClientSocketLike::connect(const QList<QPair<HostAddress, quint1
     if (!link->connect(remoteHosts, allowProtocol)) {
         return false;
     }
-    kcpBase->setState(Socket::ConnectedState);
-
-    QList<QSharedPointer<Socket>> rawSockets;
-    for (int i = 0; i < link->remoteHosts.size(); ++i) {
-        QSharedPointer<Socket> rawSocket = link->remoteHosts.at(i).rawSocket;
-        if (!rawSockets.contains(rawSocket)) {
-            rawSockets.append(rawSocket);
-        }
-    }
-    if (rawSockets.isEmpty()) {
+    if (link->rawSockets.isEmpty()) {
         return false;
     }
-    for (int i = 0; i < rawSockets.size(); i++) {
-        QSharedPointer<Socket> rawSocket = rawSockets.at(i);
-        master->operations->spawnWithName("do_receive_" + QString::number(i),
-                                          [link, rawSocket] { link->doReceive(rawSocket); });
+    kcpBase->setState(Socket::ConnectedState);
+    if (link->rawSockets.size() > 1) {
+        // ipv4 + ipv6
+        for (int i = 0; i < link->rawSockets.size(); i++) {
+            QSharedPointer<Socket> rawSocket = link->rawSockets.at(i);
+            master->operations->spawnWithName("do_receive_" + QString::number(i),
+                                              [link, rawSocket] { link->doReceive(rawSocket); });
+        }
     }
     return true;
 }

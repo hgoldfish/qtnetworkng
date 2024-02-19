@@ -170,7 +170,7 @@ public:
         , localHosts(localHosts)
     {
     }
-    MultiPathKcpServer(const HostAddress &, quint16)
+    MultiPathKcpServer(const HostAddress & = HostAddress(), quint16 = 0)
         : BaseStreamServer(HostAddress::Any, 0)
     {
     }
