@@ -5,6 +5,18 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
+class MultiPathKcpServerSocketLikeHelper
+{
+public:
+    explicit MultiPathKcpServerSocketLikeHelper(QSharedPointer<SocketLike> socket = nullptr);
+public:
+    bool isValid() const;
+    void setSocket(QSharedPointer<SocketLike> socket);
+    bool rebind(const QList<QPair<HostAddress, quint16>> &localHosts);
+protected:
+    QSharedPointer<SocketLike> socket;
+};
+
 QSharedPointer<SocketLike> createMultiPathKcpConnection(const QList<QPair<HostAddress, quint16>> &remoteHosts,
                                                         Socket::SocketError *error = nullptr,
                     int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol, KcpMode mode = Internet);
