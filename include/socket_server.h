@@ -176,6 +176,7 @@ public:
     }
 
     void setLocalHosts(const QList<QPair<HostAddress, quint16>> &localHosts);
+    bool restart();
 protected:
     virtual QSharedPointer<SocketLike> serverCreate() override;
     virtual void processRequest(QSharedPointer<SocketLike> request) override;
@@ -187,6 +188,13 @@ template<typename RequestHandler>
 void MultiPathKcpServer<RequestHandler>::setLocalHosts(const QList<QPair<HostAddress, quint16>> &localHosts)
 {
     this->localHosts = localHosts;
+}
+
+template<typename RequestHandler>
+inline bool MultiPathKcpServer<RequestHandler>::restart()
+{
+    MultiPathKcpServerSocketLikeHelper helper(serverSocket());
+    return helper.rebind(localHosts);
 }
 
 template<typename RequestHandler>
@@ -385,7 +393,6 @@ protected:
     bool sendConnectReply(const HostAddress &hostAddress, quint16 port);
     bool sendFailedReply();
 private:
-    void handleRequest();
     bool handshake();
     bool parseAddress(QString *hostName, HostAddress *addr, quint16 *port);
 };

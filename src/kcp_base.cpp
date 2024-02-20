@@ -37,13 +37,6 @@ public:
     SinglePathUdpLinkManager(QSharedPointer<Socket> rawSocket);
     ~SinglePathUdpLinkManager();
 public:
-    HostAddress localAddress() const;
-    quint16 localPort() const;
-    bool joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface);
-    bool leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface);
-    NetworkInterface multicastInterface() const;
-    bool setMulticastInterface(const NetworkInterface &iface);
-
     // template
     qint32 recvfrom(char *data, qint32 size, SinglePathUdpLinkId &who);
     qint32 sendto(const char *data, qint32 size, const SinglePathUdpLinkId &who);
@@ -55,6 +48,7 @@ public:
     bool addSlave(const SinglePathUdpLinkId &who, quint32 connectionId) { return true; };
 public:
     QSharedPointer<Socket> rawSocket;
+    std::function<bool(char *data, qint32 *size, HostAddress *add, quint16 *port)> filterCallback;
 };
 
 SinglePathUdpLinkId::SinglePathUdpLinkId()
@@ -137,40 +131,10 @@ qint32 SinglePathUdpLinkManager::sendto(const char *data, qint32 size, const Sin
 
 bool SinglePathUdpLinkManager::filter(char *data, qint32 *size, SinglePathUdpLinkId *who)
 {
-    Q_UNUSED(data);
-    Q_UNUSED(size);
-    Q_UNUSED(who);
+    if (filterCallback) {
+        return filterCallback(data, size, &(who->addr), &(who->port));
+    }
     return false;
-}
-
-HostAddress SinglePathUdpLinkManager::localAddress() const
-{
-    return rawSocket->localAddress();
-}
-
-quint16 SinglePathUdpLinkManager::localPort() const
-{
-    return rawSocket->localPort();
-}
-
-bool SinglePathUdpLinkManager::joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
-{
-    return rawSocket->joinMulticastGroup(groupAddress, iface);
-}
-
-bool SinglePathUdpLinkManager::leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface)
-{
-    return rawSocket->leaveMulticastGroup(groupAddress, iface);
-}
-
-NetworkInterface SinglePathUdpLinkManager::multicastInterface() const
-{
-    return rawSocket->multicastInterface();
-}
-
-bool SinglePathUdpLinkManager::setMulticastInterface(const NetworkInterface &iface)
-{
-    return rawSocket->setMulticastInterface(iface);
 }
 
 void SinglePathUdpLinkManager::close()
@@ -224,6 +188,8 @@ public:
     bool leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface = NetworkInterface());
     NetworkInterface multicastInterface() const;
     bool setMulticastInterface(const NetworkInterface &iface);
+    bool setFilter(std::function<bool(char *, qint32 *, HostAddress *, quint16 *)> callback);
+    qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port);
 protected:
     QSharedPointer<Socket> socket() const;
 };
@@ -478,7 +444,7 @@ bool SinglePathUdpLinkSocketLike::joinMulticastGroup(const HostAddress &groupAdd
 {
     MasterKcpBase<SinglePathUdpLinkManager> *master = dynamic_cast<MasterKcpBase<SinglePathUdpLinkManager> *>(kcpBase);
     if (master) {
-        return master->link->joinMulticastGroup(groupAddress, iface);
+        return master->link->rawSocket->joinMulticastGroup(groupAddress, iface);
     }
     return false;
 }
@@ -488,7 +454,7 @@ bool SinglePathUdpLinkSocketLike::leaveMulticastGroup(const HostAddress &groupAd
 {
     MasterKcpBase<SinglePathUdpLinkManager> *master = dynamic_cast<MasterKcpBase<SinglePathUdpLinkManager> *>(kcpBase);
     if (master) {
-        return master->link->leaveMulticastGroup(groupAddress, iface);
+        return master->link->rawSocket->leaveMulticastGroup(groupAddress, iface);
     }
     return false;
 }
@@ -497,7 +463,7 @@ NetworkInterface SinglePathUdpLinkSocketLike::multicastInterface() const
 {
     MasterKcpBase<SinglePathUdpLinkManager> *master = dynamic_cast<MasterKcpBase<SinglePathUdpLinkManager> *>(kcpBase);
     if (master) {
-        return master->link->multicastInterface();
+        return master->link->rawSocket->multicastInterface();
     }
     return NetworkInterface();
 }
@@ -506,9 +472,28 @@ bool SinglePathUdpLinkSocketLike::setMulticastInterface(const NetworkInterface &
 {
     MasterKcpBase<SinglePathUdpLinkManager> *master = dynamic_cast<MasterKcpBase<SinglePathUdpLinkManager> *>(kcpBase);
     if (master) {
-        return master->link->setMulticastInterface(iface);
+        return master->link->rawSocket->setMulticastInterface(iface);
     }
     return false;
+}
+
+bool SinglePathUdpLinkSocketLike::setFilter(std::function<bool(char *, qint32 *, HostAddress *, quint16 *)> callback)
+{
+    MasterKcpBase<SinglePathUdpLinkManager> *master = dynamic_cast<MasterKcpBase<SinglePathUdpLinkManager> *>(kcpBase);
+    if (master) {
+        master->link->filterCallback = callback;
+        return true;
+    }
+    return false;
+}
+
+qint32 SinglePathUdpLinkSocketLike::udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port)
+{
+    MasterKcpBase<SinglePathUdpLinkManager> *master = dynamic_cast<MasterKcpBase<SinglePathUdpLinkManager> *>(kcpBase);
+    if (master) {
+        return master->link->rawSocket->sendto(data, size, addr, port);
+    }
+    return -1;
 }
 
 QSharedPointer<Socket> SinglePathUdpLinkSocketLike::socket() const
@@ -567,6 +552,23 @@ KcpSocketLikeHelper::KcpSocketLikeHelper(QSharedPointer<SocketLike> socket)
 {
 }
 
+bool KcpSocketLikeHelper::isValid() const
+{
+    SinglePathUdpLinkSocketLike *kcp = dynamic_cast<SinglePathUdpLinkSocketLike *>(socket.data());
+    return !!kcp;
+}
+
+void KcpSocketLikeHelper::setSocket(QSharedPointer<SocketLike> socket)
+{
+    this->socket = socket;
+}
+
+quint32 KcpSocketLikeHelper::payloadSizeHint() const
+{
+    SinglePathUdpLinkSocketLike *kcp = dynamic_cast<SinglePathUdpLinkSocketLike *>(socket.data());
+    return kcp->kcpBase->payloadSizeHint();
+}
+
 void KcpSocketLikeHelper::setMode(KcpMode mode)
 {
     SinglePathUdpLinkSocketLike *kcp = dynamic_cast<SinglePathUdpLinkSocketLike *>(socket.data());
@@ -597,6 +599,24 @@ void KcpSocketLikeHelper::setTearDownTime(float secs)
     if (kcp) {
         kcp->kcpBase->setTearDownTime(secs);
     }
+}
+
+bool KcpSocketLikeHelper::setFilter(std::function<bool(char *, qint32 *, HostAddress *, quint16 *)> callback)
+{
+    SinglePathUdpLinkSocketLike *kcp = dynamic_cast<SinglePathUdpLinkSocketLike *>(socket.data());
+    if (kcp) {
+        return kcp->setFilter(callback);
+    }
+    return false;
+}
+
+qint32 KcpSocketLikeHelper::udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port)
+{
+    SinglePathUdpLinkSocketLike *kcp = dynamic_cast<SinglePathUdpLinkSocketLike *>(socket.data());
+    if (kcp) {
+        return kcp->udpSend(data, size, addr, port);
+    }
+    return -1;
 }
 
 QTNETWORKNG_NAMESPACE_END

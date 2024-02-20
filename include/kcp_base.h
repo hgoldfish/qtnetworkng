@@ -16,12 +16,17 @@ enum KcpMode {
 class KcpSocketLikeHelper
 {
 public:
-    explicit KcpSocketLikeHelper(QSharedPointer<SocketLike> socket);
+    explicit KcpSocketLikeHelper(QSharedPointer<SocketLike> socket = nullptr);
 public:
+    bool isValid() const;
+    void setSocket(QSharedPointer<SocketLike> socket);
+    quint32 payloadSizeHint() const;
     void setMode(KcpMode mode);
     void setSendQueueSize(quint32 sendQueueSize);
     void setUdpPacketSize(quint32 udpPacketSize);
     void setTearDownTime(float secs);
+    bool setFilter(std::function<bool(char *, qint32 *, HostAddress *, quint16 *)> callback);
+    qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port);
 protected:
     QSharedPointer<SocketLike> socket;
 };

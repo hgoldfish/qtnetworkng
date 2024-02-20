@@ -101,8 +101,6 @@ public:
     QByteArray waitToRead;
     int waitToReadOffset;
 
-    QVarLengthArray<char, 1024 * 1024> buffer;
-
     const quint64 zeroTimestamp;
     quint64 lastActiveTimestamp;
     quint64 lastKeepaliveTimestamp;

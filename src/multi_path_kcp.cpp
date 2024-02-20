@@ -10,7 +10,7 @@ const char PACKET_TYPE_UNCOMPRESSED_DATA_WITH_TOKEN = 0x05;
 
 // #define DEBUG_PROTOCOL 1
 #define TOKEN_SIZE 256
-#define INVALIDE_SINCE_TIME 15 // 15s
+#define INVALIDE_SINCE_TIME 15  // 15s
 
 int multi_path_kcp_client_callback(const char *buf, int len, ikcpcb *kcp, void *user);
 
@@ -34,6 +34,7 @@ public:
     bool addSlave(const QByteArray &who, quint32 connectionId) { return false; };
 public:
     void doReceive(QSharedPointer<Socket> rawSocket);
+    void startReceive(CoroutineGroup *operations);
 public:
     struct RemoteHost
     {
@@ -109,15 +110,18 @@ public:
     bool addSlave(const QByteArray &who, quint32 connectionId);
 public:
     bool accpetConnection(QMap<QByteArray, QSharedPointer<MultiPathUdpLinkSlaveOnePath>> &tokenToOnePath,
-                          QSharedPointer<Socket> rawSocket,
-                          const QByteArray &token, const HostAddress &addr, quint16 port);
-    void doReceive(int localIndex);
+                          QSharedPointer<Socket> rawSocket, const QByteArray &token, const HostAddress &addr,
+                          quint16 port);
 public:
     struct Path
     {
         QMap<QByteArray, QSharedPointer<MultiPathUdpLinkSlaveOnePath>> tokenToOnePath;
         QSharedPointer<Socket> rawSocket;
+        HostAddress localAddress;
+        quint16 localPort;
     };
+    void doReceive(QSharedPointer<Path> rawPath);
+    void startReceive(CoroutineGroup *operations);
 
     QList<QSharedPointer<Path>> rawPaths;
 
@@ -304,8 +308,7 @@ void MultiPathUdpLinkClient::doReceive(QSharedPointer<Socket> rawSocket)
         qint32 len = rawSocket->recvfrom(buf.data(), buf.size(), nullptr, nullptr);
         if (len <= 0) {
 #ifdef DEBUG_PROTOCOL
-            qtng_debug << "multi path client can not receive udp packet. remote:"
-                       << rawSocket->localAddressURI()
+            qtng_debug << "multi path client can not receive udp packet. remote:" << rawSocket->localAddressURI()
                        << "error:" << rawSocket->errorString();
 #endif
             return;
@@ -324,6 +327,14 @@ void MultiPathUdpLinkClient::doReceive(QSharedPointer<Socket> rawSocket)
     }
 }
 
+void MultiPathUdpLinkClient::startReceive(CoroutineGroup *operations)
+{
+    for (int i = 0; i < rawSockets.size(); i++) {
+        QSharedPointer<Socket> rawSocket = rawSockets.at(i);
+        operations->spawnWithName("do_receive_" + QString::number(i), [this, rawSocket] { doReceive(rawSocket); });
+    }
+}
+
 int MultiPathUdpLinkClient::nextSend()
 {
     if ((++lastSend) < remoteHosts.size()) {
@@ -338,12 +349,20 @@ int MultiPathUdpLinkSlaveInfo::nextSend()
     quint64 now = QDateTime::currentSecsSinceEpoch();
     int last = lastSend++;
     for (; lastSend < remoteHosts.size(); ++lastSend) {
-        if (now <= remoteHosts.at(lastSend)->lastActiveTimestamp + 30) {
+        QSharedPointer<RemoteHost> remoteHost = remoteHosts.at(lastSend);
+        if (!remoteHost->rawSocket->isValid()) {
+            continue;
+        }
+        if (now <= remoteHost->lastActiveTimestamp + 30) {
             return lastSend;
         }
     }
     for (lastSend = 0; lastSend < last; ++lastSend) {
-        if (now <= remoteHosts.at(lastSend)->lastActiveTimestamp + 30) {
+        QSharedPointer<RemoteHost> remoteHost = remoteHosts.at(lastSend);
+        if (!remoteHost->rawSocket->isValid()) {
+            continue;
+        }
+        if (now <= remoteHost->lastActiveTimestamp + 30) {
             return lastSend;
         }
     }
@@ -353,11 +372,7 @@ int MultiPathUdpLinkSlaveInfo::nextSend()
 qint32 MultiPathUdpLinkSlaveInfo::send(const char *data, qint32 len)
 {
     QSharedPointer<RemoteHost> remote = remoteHosts.at(nextSend());
-    QSharedPointer<Socket> rawSocket = remote->rawSocket;
-    if (rawSocket.isNull()) {
-        return -1;
-    }
-    return rawSocket->sendto(data, len, remote->addr, remote->port);
+    return remote->rawSocket->sendto(data, len, remote->addr, remote->port);
 }
 
 QSharedPointer<MultiPathUdpLinkSlaveOnePath> MultiPathUdpLinkSlaveInfo::append(const HostAddress &addr, quint16 port,
@@ -408,6 +423,12 @@ bool MultiPathUdpLinkServer::bind(const QList<QPair<HostAddress, quint16>> &loca
         }
         QSharedPointer<Path> path(new Path());
         path->rawSocket = rawSocket;
+        path->localAddress = addr;
+        if (port == 0) {
+            path->localPort = rawSocket->localPort();
+        } else {
+            path->localPort = port;
+        }
         rawPaths.append(path);
     }
     return !rawPaths.isEmpty();
@@ -474,7 +495,7 @@ void MultiPathUdpLinkServer::abort()
     unhandleData.clear();
 }
 
-void MultiPathUdpLinkServer::doReceive(int localIndex)
+void MultiPathUdpLinkServer::doReceive(QSharedPointer<Path> rawPath)
 {
     auto cleanup = qScopeGuard([this] {
         if ((--receiver) > 0) {
@@ -486,8 +507,6 @@ void MultiPathUdpLinkServer::doReceive(int localIndex)
     });
     ++receiver;
 
-    Q_ASSERT(localIndex >= 0 && localIndex < rawPaths.size());
-    QSharedPointer<Path> rawPath = rawPaths.at(localIndex);
     QSharedPointer<Socket> rawSocket = rawPath->rawSocket;
     QMap<QByteArray, QSharedPointer<MultiPathUdpLinkSlaveOnePath>> &tokenToOnePath = rawPath->tokenToOnePath;
 
@@ -579,6 +598,20 @@ void MultiPathUdpLinkServer::doReceive(int localIndex)
         unhandleData = buf.left(len);
         unhandleDataNotEmpty.set();
         unhandleDataEmpty.clear();
+    }
+}
+
+void MultiPathUdpLinkServer::startReceive(CoroutineGroup *operations)
+{
+    for (int i = 0; i < rawPaths.size(); ++i) {
+        QSharedPointer<Path> rawPath = rawPaths.at(i);
+        QString localUri;
+        if (rawPath->localAddress.protocol() == HostAddress::IPv6Protocol) {
+            localUri = QString("[%1]:%2").arg(rawPath->localAddress.toString(), QString::number(rawPath->localPort));
+        } else {
+            localUri = QString("%1:%2").arg(rawPath->localAddress.toString(), QString::number(rawPath->localPort));
+        }
+        operations->spawnWithName("do_accept_" + localUri, [rawPath, this] { doReceive(rawPath); });
     }
 }
 
@@ -688,6 +721,7 @@ public:
     }
     virtual bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform) override { return true; }
     bool bind(const QList<QPair<HostAddress, quint16>> &localHosts, Socket::BindMode mode = Socket::DefaultForPlatform);
+    bool rebind(const QList<QPair<HostAddress, quint16>> &localHosts, Socket::BindMode mode = Socket::DefaultForPlatform);
 
     virtual QSharedPointer<SocketLike> accept() override;
 };
@@ -717,11 +751,7 @@ bool MultiPathKcpClientSocketLike::connect(const QList<QPair<HostAddress, quint1
     kcpBase->setState(Socket::ConnectedState);
     if (link->rawSockets.size() > 1) {
         // ipv4 + ipv6
-        for (int i = 0; i < link->rawSockets.size(); i++) {
-            QSharedPointer<Socket> rawSocket = link->rawSockets.at(i);
-            master->operations->spawnWithName("do_receive_" + QString::number(i),
-                                              [link, rawSocket] { link->doReceive(rawSocket); });
-        }
+        link->startReceive(master->operations);
     }
     return true;
 }
@@ -752,9 +782,59 @@ bool MultiPathKcpServerSocketLike::bind(const QList<QPair<HostAddress, quint16>>
         return false;
     }
     kcpBase->setState(Socket::BoundState);
-    for (int i = 0; i < link->rawPaths.size(); ++i) {
-        master->operations->spawnWithName("do_accept_" + QString::number(i), [link, i] { link->doReceive(i); });
+    link->startReceive(master->operations);
+    return true;
+}
+
+bool MultiPathKcpServerSocketLike::rebind(const QList<QPair<HostAddress, quint16>> &localHosts, Socket::BindMode mode)
+{
+    MasterKcpBase<MultiPathUdpLinkServer> *master = dynamic_cast<MasterKcpBase<MultiPathUdpLinkServer> *>(kcpBase);
+    if (!master) {
+        return false;
     }
+    QSharedPointer<MultiPathUdpLinkServer> link(master->link);
+
+    QList<QPair<HostAddress, quint16>> newLocalHosts;
+    QList<QPair<HostAddress, quint16>> toRemoveLocalHosts;
+    for (QSharedPointer<MultiPathUdpLinkServer::Path> path : link->rawPaths) {
+        toRemoveLocalHosts.append(qMakePair(path->localAddress, path->localPort));
+    }
+    for (const QPair<HostAddress, quint16> localHost : localHosts) {
+        bool find = false;
+        for (int i = 0; i < toRemoveLocalHosts.size(); i++) {
+            if (toRemoveLocalHosts.at(i).first == localHost.first
+                && toRemoveLocalHosts.at(i).second == localHost.second) {
+                find = true;
+                toRemoveLocalHosts.removeAt(i);
+                break;
+            }
+        }
+        if (!find) {
+            newLocalHosts.append(localHost);
+        }
+    }
+    // nothing changed
+    if (toRemoveLocalHosts.isEmpty() && newLocalHosts.isEmpty()) {
+        return true;
+    }
+
+    // remove old
+    for (const QPair<HostAddress, quint16> toRemove : toRemoveLocalHosts) {
+        for (int i = 0; i < link->rawPaths.size(); i++) {
+            QSharedPointer<MultiPathUdpLinkServer::Path> path = link->rawPaths.at(i);
+            link->rawPaths.removeAt(i);
+            path->rawSocket->abort();
+            break;
+        }
+    }
+
+    // bind new
+    if (!newLocalHosts.isEmpty()) {
+        if (!link->bind(newLocalHosts)) {
+            return false;
+        }
+    }
+    link->startReceive(master->operations);
     return true;
 }
 
@@ -765,6 +845,31 @@ QSharedPointer<SocketLike> MultiPathKcpServerSocketLike::accept()
         return QSharedPointer<SocketLike>();
     }
     return QSharedPointer<MultiPathKcpServerSocketLike>(new MultiPathKcpServerSocketLike(slave));
+}
+
+ MultiPathKcpServerSocketLikeHelper::MultiPathKcpServerSocketLikeHelper(QSharedPointer<SocketLike> socket /*= nullptr*/)
+    : socket(socket)
+{
+}
+
+bool MultiPathKcpServerSocketLikeHelper::isValid() const
+{
+    MultiPathKcpServerSocketLike *kcp = dynamic_cast<MultiPathKcpServerSocketLike *>(socket.data());
+    return !!kcp;
+}
+
+void MultiPathKcpServerSocketLikeHelper::setSocket(QSharedPointer<SocketLike> socket)
+{
+    this->socket = socket;
+}
+
+bool MultiPathKcpServerSocketLikeHelper::rebind(const QList<QPair<HostAddress, quint16>> &localHosts)
+{
+    MultiPathKcpServerSocketLike *kcp = dynamic_cast<MultiPathKcpServerSocketLike *>(socket.data());
+    if (kcp) {
+        return kcp->rebind(localHosts);
+    }
+    return false;
 }
 
 QSharedPointer<SocketLike> createMultiPathKcpConnection(const QList<QPair<HostAddress, quint16>> &remoteHosts,
