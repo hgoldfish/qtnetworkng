@@ -301,6 +301,7 @@ bool SocketPrivate::bind(const HostAddress &address, quint16 port, Socket::BindM
         return false;
     }
     state = Socket::BoundState;
+    fetchConnectionParameters();
     return true;
 }
 
@@ -507,7 +508,9 @@ bool SocketPrivate::fetchConnectionParameters()
             type = Socket::TcpSocket;
         } else if (value == SOCK_DGRAM) {
             type = Socket::UdpSocket;
-            state = Socket::UnconnectedState;
+            if (state == Socket::ConnectingState || state == Socket::ConnectedState || state == Socket::ListeningState) {
+                state = Socket::UnconnectedState;
+            }
         } else {
             type = Socket::UnknownSocketType;
         }

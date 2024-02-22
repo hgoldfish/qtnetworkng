@@ -311,9 +311,9 @@ QString SinglePathUdpLinkSocketLike::localAddressURI() const
     const HostAddress &addr = localAddress();
     quint16 port = localPort();
     if (addr.protocol() == HostAddress::IPv6Protocol) {
-        return QLatin1String("kcp://[%1]:%2").arg(addr.toString(), QString::number(port));
+        return QString::fromLatin1("kcp://[%1]:%2").arg(addr.toString()).arg(port);
     }
-    return QLatin1String("kcp://%1:%2").arg(addr.toString(), QString::number(port));
+    return QString::fromLatin1("kcp://%1:%2").arg(addr.toString()).arg(port);
 }
 
 QString SinglePathUdpLinkSocketLike::peerAddressURI() const
@@ -321,9 +321,9 @@ QString SinglePathUdpLinkSocketLike::peerAddressURI() const
     const HostAddress &addr = peerAddress();
     quint16 port = peerPort();
     if (addr.protocol() == HostAddress::IPv6Protocol) {
-        return QLatin1String("kcp://[%1]:%2").arg(addr.toString(), QString::number(port));
+        return QString::fromLatin1("kcp://[%1]:%2").arg(addr.toString()).arg(port);
     }
-    return QLatin1String("kcp://%1:%2").arg(addr.toString(), QString::number(port));
+    return QString::fromLatin1("kcp://%1:%2").arg(addr.toString()).arg(port);
 }
 
 QSharedPointer<SocketLike> SinglePathUdpLinkSocketLike::accept()
