@@ -390,6 +390,7 @@ int startQtLoop()
         }
     } else {
         qtEventLoop = new QtEventLoopCoroutine();
+        qtEventLoop->setObjectName(QString::fromLatin1("qt_eventloop_coroutine"));
         currentLoop()->set(QSharedPointer<EventLoopCoroutine>(qtEventLoop));
     }
 
