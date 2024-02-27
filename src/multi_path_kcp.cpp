@@ -11,6 +11,7 @@ const char PACKET_TYPE_UNCOMPRESSED_DATA_WITH_TOKEN = 0x05;
 // #define DEBUG_PROTOCOL 1
 #define TOKEN_SIZE 256
 #define INVALIDE_SINCE_TIME 15  // 15s
+#define ReceiveQueueSize 10
 
 int multi_path_kcp_client_callback(const char *buf, int len, ikcpcb *kcp, void *user);
 
@@ -29,9 +30,9 @@ public:
     bool filter(char *data, qint32 *size, QByteArray *who);
     void close();
     void abort();
-    void closeSlave(const QByteArray &who){};
-    void abortSlave(const QByteArray &who){};
-    bool addSlave(const QByteArray &who, quint32 connectionId) { return false; };
+    void closeSlave(const QByteArray &){};
+    void abortSlave(const QByteArray &){};
+    bool addSlave(const QByteArray &, quint32) { return false; };
 public:
     void doReceive(QSharedPointer<Socket> rawSocket);
     void startReceive(CoroutineGroup *operations);
@@ -51,8 +52,9 @@ public:
     QByteArray token;  // size == TOKEN_SIZE
 
     QByteArray unhandleData;
+    qint32 unhandleDataSize;
     Event unhandleDataNotEmpty;
-    Event unhandleDataEmpty;
+    Condition unhandleDataEmpty;
 
     int receiver;
 
@@ -128,10 +130,15 @@ public:
     QMap<QByteArray, QSharedPointer<MultiPathUdpLinkSlaveInfo>> tokenToSlave;
     QMap<quint32, QByteArray> connectionIdToToken;
 
-    QByteArray unhandleDataFromWho;
-    QByteArray unhandleData;
-    Event unhandleDataNotEmpty;
-    Event unhandleDataEmpty;
+
+    Queue<QByteArray> buffers; // pool for doReceive
+
+    struct UnhandleData {
+        QByteArray who;
+        QByteArray buf;
+        qint32 size = 0;
+    };
+    Queue<UnhandleData> unhandleDatas;
 
     int receiver;
 };
@@ -183,11 +190,10 @@ int multi_path_kcp_client_callback(const char *buf, int len, ikcpcb *kcp, void *
 
 MultiPathUdpLinkClient::MultiPathUdpLinkClient()
     : token(randomBytes(TOKEN_SIZE))
+    , unhandleDataSize(0)
     , lastSend(-1)
     , receiver(0)
 {
-
-    unhandleDataEmpty.set();
 }
 
 MultiPathUdpLinkClient::~MultiPathUdpLinkClient() { }
@@ -245,15 +251,12 @@ qint32 MultiPathUdpLinkClient::recvfrom(char *data, qint32 size, QByteArray &)
     if (unhandleData.isEmpty()) {
         return 0;
     }
-    qint32 result = unhandleData.size();
+    qint32 result = unhandleDataSize;
     Q_ASSERT(size >= result);
     memcpy(data, unhandleData.data(), result);
-    unhandleData.clear();
+    unhandleDataSize = 0;
     unhandleDataNotEmpty.clear();
-    unhandleDataEmpty.set();
-#ifdef DEBUG_PROTOCOL
-    qtng_debug << "recv from udp packet" << result;
-#endif
+    unhandleDataEmpty.notify();
     return result;
 }
 
@@ -278,8 +281,9 @@ void MultiPathUdpLinkClient::close()
         rawSocket->close();
     }
     unhandleDataNotEmpty.clear();
-    unhandleDataEmpty.clear();
     unhandleData.clear();
+    unhandleDataSize = 0;
+    unhandleDataEmpty.notifyAll();
 }
 
 void MultiPathUdpLinkClient::abort()
@@ -288,8 +292,9 @@ void MultiPathUdpLinkClient::abort()
         rawSocket->abort();
     }
     unhandleDataNotEmpty.clear();
-    unhandleDataEmpty.clear();
     unhandleData.clear();
+    unhandleDataSize = 0;
+    unhandleDataEmpty.notifyAll();
 }
 
 void MultiPathUdpLinkClient::doReceive(QSharedPointer<Socket> rawSocket)
@@ -300,7 +305,7 @@ void MultiPathUdpLinkClient::doReceive(QSharedPointer<Socket> rawSocket)
         }
         unhandleData.clear();
         unhandleDataNotEmpty.set();
-        unhandleDataEmpty.clear();
+        unhandleDataEmpty.notifyAll();
     });
     ++receiver;
     QByteArray buf(1024 * 64, Qt::Uninitialized);
@@ -313,17 +318,26 @@ void MultiPathUdpLinkClient::doReceive(QSharedPointer<Socket> rawSocket)
 #endif
             return;
         }
-        do {
-            if (!unhandleDataEmpty.tryWait()) {
+        while (true) {
+            if (unhandleDataSize == 0) {
+                break;
+            }
+            if (!unhandleDataEmpty.wait()) {
 #ifdef DEBUG_PROTOCOL
                 qtng_debug << "wait unhandle data empty error:" << rawSocket->localAddressURI();
 #endif
                 return;
             }
-        } while (!unhandleData.isEmpty());
-        unhandleData = buf.left(len);
+            if (!rawSocket->isValid()) {
+                return;
+            }
+        }
+        unhandleData = buf;
+        unhandleDataSize = len;
         unhandleDataNotEmpty.set();
-        unhandleDataEmpty.clear();
+#ifdef DEBUG_PROTOCOL
+        qtng_debug << "recv from udp packet" << len << rawSocket->localAddressURI();
+#endif
     }
 }
 
@@ -396,8 +410,8 @@ MultiPathUdpLinkSlaveInfo::MultiPathUdpLinkSlaveInfo(quint32 connectionId)
 
 MultiPathUdpLinkServer::MultiPathUdpLinkServer()
     : receiver(0)
+    , buffers(0)
 {
-    unhandleDataEmpty.set();
 }
 
 MultiPathUdpLinkServer::~MultiPathUdpLinkServer() { }
@@ -436,24 +450,18 @@ bool MultiPathUdpLinkServer::bind(const QList<QPair<HostAddress, quint16>> &loca
 
 qint32 MultiPathUdpLinkServer::recvfrom(char *data, qint32 size, QByteArray &who)
 {
-    if (!unhandleDataNotEmpty.tryWait()) {
-        return -1;
+    UnhandleData unhandle = unhandleDatas.get();
+    if (unhandle.size <= 0) {
+        return unhandle.size;
     }
-    if (unhandleData.isEmpty()) {
-        return 0;
-    }
-    who = unhandleDataFromWho;
-    qint32 result = unhandleData.size();
-    Q_ASSERT(size >= result);
-    memcpy(data, unhandleData.data(), result);
-    unhandleData.clear();
-    unhandleDataFromWho.clear();
-    unhandleDataNotEmpty.clear();
-    unhandleDataEmpty.set();
+    who = unhandle.who;
+    Q_ASSERT(size >= unhandle.size);
+    memcpy(data, unhandle.buf.data(), unhandle.size);
+    buffers.put(unhandle.buf);
 #ifdef DEBUG_PROTOCOL
-    qtng_debug << "recv from udp packet" << result;
+    qtng_debug << "recv from udp packet" << unhandle.size;
 #endif
-    return result;
+    return unhandle.size;
 }
 
 qint32 MultiPathUdpLinkServer::sendto(const char *data, qint32 size, const QByteArray &who)
@@ -478,10 +486,9 @@ void MultiPathUdpLinkServer::close()
     for (QSharedPointer<Path> rawPath : rawPaths) {
         rawPath->rawSocket->close();
     }
-    unhandleDataFromWho.clear();
-    unhandleDataNotEmpty.clear();
-    unhandleDataEmpty.clear();
-    unhandleData.clear();
+    UnhandleData unhandle;
+    unhandle.size = 0;
+    unhandleDatas.put(unhandle);
 }
 
 void MultiPathUdpLinkServer::abort()
@@ -489,10 +496,9 @@ void MultiPathUdpLinkServer::abort()
     for (QSharedPointer<Path> rawPath : rawPaths) {
         rawPath->rawSocket->abort();
     }
-    unhandleDataFromWho.clear();
-    unhandleDataNotEmpty.clear();
-    unhandleDataEmpty.clear();
-    unhandleData.clear();
+    UnhandleData unhandle;
+    unhandle.size = 0;
+    unhandleDatas.put(unhandle);
 }
 
 void MultiPathUdpLinkServer::doReceive(QSharedPointer<Path> rawPath)
@@ -501,23 +507,27 @@ void MultiPathUdpLinkServer::doReceive(QSharedPointer<Path> rawPath)
         if ((--receiver) > 0) {
             return;
         }
-        unhandleData.clear();
-        unhandleDataNotEmpty.set();
-        unhandleDataEmpty.clear();
+        UnhandleData unhandle;
+        unhandle.size = 0;
+        unhandleDatas.put(unhandle);
     });
     ++receiver;
 
     QSharedPointer<Socket> rawSocket = rawPath->rawSocket;
     QMap<QByteArray, QSharedPointer<MultiPathUdpLinkSlaveOnePath>> &tokenToOnePath = rawPath->tokenToOnePath;
 
-    QByteArray buf(1024 * 64, Qt::Uninitialized);
     QByteArray token;
-    char *data = buf.data();
     HostAddress addr;
     quint16 port;
+    qint32 len;
 
     while (true) {
-        qint32 len = rawSocket->recvfrom(data, buf.size(), &addr, &port);
+        QByteArray buf = buffers.get(); // 64K
+        if (buf.isEmpty()) {
+            return;
+        }
+        char *data = buf.data();
+        len = rawSocket->recvfrom(data, buf.size(), &addr, &port);
         if (len <= 0) {
 #ifdef DEBUG_PROTOCOL
             qtng_debug << "multi path server can not receive udp packet.";
@@ -532,10 +542,10 @@ void MultiPathUdpLinkServer::doReceive(QSharedPointer<Path> rawPath)
         }
         const char packType = data[0];
         if (packType == PACKET_TYPE_UNCOMPRESSED_DATA_WITH_TOKEN) {
-            token = buf.mid(1, TOKEN_SIZE);
-            if (token.size() != TOKEN_SIZE) {
+            if (len < TOKEN_SIZE + 1) {
                 continue;
             }
+            token = buf.mid(1, TOKEN_SIZE);
 #ifdef DEBUG_PROTOCOL
             token = token.toHex();
 #endif
@@ -554,17 +564,15 @@ void MultiPathUdpLinkServer::doReceive(QSharedPointer<Path> rawPath)
 #endif
             if (connectionId == 0) {
                 // compatible single path
-                const QString &path = addr.toString() + ":" + port;
-                token = path.toLatin1();
+                token = QString("%1:%2").arg(addr.toString(), QString::number(port)).toLatin1();
                 if (!accpetConnection(tokenToOnePath, rawSocket, token, addr, port)) {
                     continue;
                 }
-                qToBigEndian<quint32>(connectionId, reinterpret_cast<uchar *>(data + 1));
             } else {
                 token = connectionIdToToken.value(connectionId);
                 if (token.isEmpty()) {
 #ifdef DEBUG_PROTOCOL
-                    qtng_debug << "reject data because can not find connection(1): " << connectionId;
+                    qtng_warning << "reject data because can not find connection(1): " << connectionId;
 #endif
                     continue;
                 }
@@ -586,23 +594,30 @@ void MultiPathUdpLinkServer::doReceive(QSharedPointer<Path> rawPath)
             }
         }
 
-        do {
-            if (!unhandleDataEmpty.tryWait()) {
+        UnhandleData unhandle;
+        unhandle.who = token;
+        unhandle.buf = buf;
+        unhandle.size = len;
+        unhandleDatas.put(unhandle);
 #ifdef DEBUG_PROTOCOL
-                qtng_debug << "wait unhandle data empty error:" << rawSocket->localAddressURI();
+        qtng_debug << "recv from udp packet" << len << addr << port;
 #endif
-                return;
-            }
-        } while (!unhandleData.isEmpty());
-        unhandleDataFromWho = token;
-        unhandleData = buf.left(len);
-        unhandleDataNotEmpty.set();
-        unhandleDataEmpty.clear();
     }
 }
 
 void MultiPathUdpLinkServer::startReceive(CoroutineGroup *operations)
 {
+    int capacity = ReceiveQueueSize * rawPaths.size();
+    int oldCapacity = buffers.capacity();
+    // only grows
+    if (oldCapacity < capacity) {
+        buffers.setCapacity(capacity);
+        int diff = capacity - oldCapacity;
+        for (int i = 0; i < diff; i++) {
+            buffers.putForcedly(QByteArray(1024 * 64, Qt::Uninitialized));
+        }
+    }
+
     for (int i = 0; i < rawPaths.size(); ++i) {
         QSharedPointer<Path> rawPath = rawPaths.at(i);
         QString localUri;
@@ -799,7 +814,7 @@ bool MultiPathKcpServerSocketLike::rebind(const QList<QPair<HostAddress, quint16
     for (QSharedPointer<MultiPathUdpLinkServer::Path> path : link->rawPaths) {
         toRemoveLocalHosts.append(qMakePair(path->localAddress, path->localPort));
     }
-    for (const QPair<HostAddress, quint16> localHost : localHosts) {
+    for (const QPair<HostAddress, quint16> &localHost : localHosts) {
         bool find = false;
         for (int i = 0; i < toRemoveLocalHosts.size(); i++) {
             if (toRemoveLocalHosts.at(i).first == localHost.first
@@ -821,10 +836,12 @@ bool MultiPathKcpServerSocketLike::rebind(const QList<QPair<HostAddress, quint16
     // remove old
     for (const QPair<HostAddress, quint16> toRemove : toRemoveLocalHosts) {
         for (int i = 0; i < link->rawPaths.size(); i++) {
-            QSharedPointer<MultiPathUdpLinkServer::Path> path = link->rawPaths.at(i);
-            link->rawPaths.removeAt(i);
-            path->rawSocket->abort();
-            break;
+            if (link->rawPaths.at(i)->localAddress == toRemove.first && link->rawPaths.at(i)->localPort == toRemove.second) {
+                QSharedPointer<MultiPathUdpLinkServer::Path> path = link->rawPaths.at(i);
+                link->rawPaths.removeAt(i);
+                path->rawSocket->abort();
+                break;
+            }
         }
     }
 
