@@ -641,4 +641,40 @@ QSharedPointer<SocketLike> KcpSocketLikeHelper::accept(const HostAddress &addr, 
     return QSharedPointer<SocketLike>();
 }
 
+bool KcpSocketLikeHelper::joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface /*= NetworkInterface()*/)
+{
+    SinglePathUdpLinkSocketLike *kcp = dynamic_cast<SinglePathUdpLinkSocketLike *>(socket.data());
+    if (kcp) {
+        return kcp->joinMulticastGroup(groupAddress, iface);
+    }
+    return false;
+}
+
+bool KcpSocketLikeHelper::leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface /*= NetworkInterface()*/)
+{
+    SinglePathUdpLinkSocketLike *kcp = dynamic_cast<SinglePathUdpLinkSocketLike *>(socket.data());
+    if (kcp) {
+        return kcp->leaveMulticastGroup(groupAddress, iface);
+    }
+    return false;
+}
+
+bool KcpSocketLikeHelper::setOption(Socket::SocketOption option, const QVariant &value)
+{
+    SinglePathUdpLinkSocketLike *kcp = dynamic_cast<SinglePathUdpLinkSocketLike *>(socket.data());
+    if (kcp) {
+        return kcp->setOption(option, value);
+    }
+    return false;
+}
+
+QVariant KcpSocketLikeHelper::option(Socket::SocketOption option) const
+{
+    SinglePathUdpLinkSocketLike *kcp = dynamic_cast<SinglePathUdpLinkSocketLike *>(socket.data());
+    if (kcp) {
+        return kcp->option(option);
+    }
+    return QVariant();
+}
+
 QTNETWORKNG_NAMESPACE_END

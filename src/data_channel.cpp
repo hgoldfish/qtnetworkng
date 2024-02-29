@@ -731,7 +731,7 @@ void SocketChannelPrivate::doKeepalive()
         // operator to them.
         if (now > lastKeepaliveTimestamp && (now - lastKeepaliveTimestamp > keepaliveInterval)
             && sendingQueue.isEmpty()) {
-            // lastKeepaliveTimestamp = now;  // no need to update the timestamp as the doSend() does it.
+            lastKeepaliveTimestamp = now;
             QSharedPointer<ValueEvent<bool>> done;
 #ifdef DEBUG_PROTOCOL
             qtng_debug << "sending keepalive packet.";

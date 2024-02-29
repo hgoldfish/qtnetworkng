@@ -28,6 +28,10 @@ public:
     bool setFilter(std::function<bool(char *, qint32 *, HostAddress *, quint16 *)> callback);
     qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port);
     QSharedPointer<SocketLike> accept(const HostAddress &addr, quint16 port);
+    bool joinMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface = NetworkInterface());
+    bool leaveMulticastGroup(const HostAddress &groupAddress, const NetworkInterface &iface = NetworkInterface());
+    bool setOption(Socket::SocketOption option, const QVariant &value);
+    QVariant option(Socket::SocketOption option) const;
 protected:
     QSharedPointer<SocketLike> socket;
 };
