@@ -134,8 +134,6 @@ public:
     virtual qint32 sendRaw(const char *data, qint32 size) override;
     virtual qint32 udpSend(const char *data, qint32 size, const LinkPathID &remote) override;
 protected:
-    void removeSlave(const LinkPathID &originalId) { receiversByHostAndPort.remove(originalId); }
-    void removeSlave(quint32 connectionId) { receiversByConnectionId.remove(connectionId); }
     quint32 nextConnectionId();
     void doReceive();
     void doAccept();
@@ -144,7 +142,7 @@ protected:
 public:
     friend class SlaveKcpBase<Link>;
     QSharedPointer<Link> link;
-    QMap<LinkPathID, QPointer<class SlaveKcpBase<Link>>> receiversByHostAndPort;
+    QMap<LinkPathID, QPointer<class SlaveKcpBase<Link>>> receiversByLinkPathID;
     QMap<quint32, QPointer<class SlaveKcpBase<Link>>> receiversByConnectionId;
     Queue<KcpBase<Link> *> pendingSlaves;
 };
@@ -169,7 +167,7 @@ public:
     virtual qint32 udpSend(const char *data, qint32 size, const LinkPathID &remote) override;
 public:
     friend class MasterKcpBase<Link>;
-    LinkPathID originalId;
+    LinkPathID originalPathID;
     QPointer<MasterKcpBase<Link>> parent;
 };
 
@@ -239,7 +237,7 @@ void KcpBase<Link>::setMode(KcpMode mode)
         break;
     case KcpMode::Loopback:
         waterLine = 64;
-        ikcp_nodelay(kcp, 1, 10, 0, 0);
+        ikcp_nodelay(kcp, 1, 10, 0, 1);
         ikcp_setmtu(kcp, 1024 * 64 - 256);
         ikcp_wndsize(kcp, 128, 128);
         kcp->rx_minrto = 5;
@@ -764,14 +762,14 @@ KcpBase<Link> *MasterKcpBase<Link>::accept(const LinkPathID &remote)
     }
     startReceivingCoroutine();
     QPointer<SlaveKcpBase<Link>> receiver;
-    receiver = receiversByHostAndPort.value(remote);
-    if (!receiver.isNull() || !receiver->isValid()) {
+    receiver = receiversByLinkPathID.value(remote);
+    if (!receiver.isNull() && !receiver->isValid()) {
         return nullptr;
     }
 
     QScopedPointer<SlaveKcpBase<Link>> slave(new SlaveKcpBase<Link>(this, remote, this->mode));
     slave->updateKcp();
-    receiversByHostAndPort.insert(remote, slave.data());
+    receiversByLinkPathID.insert(remote, slave.data());
     // the connectionId is generated in server side. accept() is acually a connect().
     // receiversByConnectionId.insert(slave->connectionId, slave);
     return slave.take();
@@ -797,10 +795,10 @@ bool MasterKcpBase<Link>::close(bool force)
         }
     } else if (this->state == Socket::ListeningState) {
         this->state = Socket::UnconnectedState;
-        QMap<LinkPathID, QPointer<class SlaveKcpBase<Link>>> receiversByHostAndPort(
-                this->receiversByHostAndPort);
-        this->receiversByHostAndPort.clear();
-        for (QPointer<SlaveKcpBase<Link>> receiver : receiversByHostAndPort) {
+        QMap<LinkPathID, QPointer<class SlaveKcpBase<Link>>> receiversByLinkPathID(
+                this->receiversByLinkPathID);
+        this->receiversByLinkPathID.clear();
+        for (QPointer<SlaveKcpBase<Link>> receiver : receiversByLinkPathID) {
             if (!receiver.isNull()) {
                 receiver->close(force);
             }
@@ -987,7 +985,7 @@ void MasterKcpBase<Link>::doAccept()
                 continue;
             }
 
-            receiversByHostAndPort.insert(remote, slave.data());
+            receiversByLinkPathID.insert(remote, slave.data());
             receiversByConnectionId.insert(slave->connectionId, slave.data());
             const QByteArray &multiPathPacket = KcpBase<Link>::makeMultiPathPacket(slave->connectionId);
             pendingSlaves.put(slave.take());
@@ -1027,7 +1025,7 @@ QPointer<SlaveKcpBase<Link>> MasterKcpBase<Link>::doAccept(quint32 connectionId,
             }
             return receiver;
         }
-        receiver = receiversByHostAndPort.value(remote);
+        receiver = receiversByLinkPathID.value(remote);
         if (!receiver.isNull() && receiver->connectionId == 0) {
             // only if the slave was created by accept(host, port), we had zero id.
             // if this connectionId is unique in client. we add it to the receiversByConnectionId map.
@@ -1057,7 +1055,7 @@ QPointer<SlaveKcpBase<Link>> MasterKcpBase<Link>::doAccept(quint32 connectionId,
         return nullptr;
     }
     // at beginning, all connectionId is zero
-    receiver = receiversByConnectionId.value(connectionId);
+    receiver = receiversByLinkPathID.value(remote);
     if (!receiver.isNull()) {
         return receiver;
     }
@@ -1096,7 +1094,7 @@ template<typename Link>
 SlaveKcpBase<Link>::SlaveKcpBase(MasterKcpBase<Link> *parent, const LinkPathID &remote,
                                              KcpMode mode)
     : KcpBase<Link>(mode)
-    , originalId(remote)
+    , originalPathID(remote)
     , parent(parent)
 {
     this->remoteId = remote;
@@ -1139,12 +1137,12 @@ bool SlaveKcpBase<Link>::close(bool force)
     }
     this->operations->killall();
     if (!parent.isNull()) {
-        parent->removeSlave(originalId);
-        parent->removeSlave(this->connectionId);
+        parent->receiversByLinkPathID.remove(originalPathID);
+        parent->receiversByConnectionId.remove(this->connectionId);
         if (force) {
-            parent->link->abortSlave(originalId);
+            parent->link->abortSlave(originalPathID);
         } else {
-            parent->link->closeSlave(originalId);
+            parent->link->closeSlave(originalPathID);
         }
         parent.clear();
     }

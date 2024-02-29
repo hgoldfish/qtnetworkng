@@ -27,6 +27,7 @@ public:
     void setTearDownTime(float secs);
     bool setFilter(std::function<bool(char *, qint32 *, HostAddress *, quint16 *)> callback);
     qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port);
+    QSharedPointer<SocketLike> accept(const HostAddress &addr, quint16 port);
 protected:
     QSharedPointer<SocketLike> socket;
 };

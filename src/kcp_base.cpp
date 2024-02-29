@@ -190,6 +190,7 @@ public:
     bool setMulticastInterface(const NetworkInterface &iface);
     bool setFilter(std::function<bool(char *, qint32 *, HostAddress *, quint16 *)> callback);
     qint32 udpSend(const char *data, qint32 size, const HostAddress &addr, quint16 port);
+    QSharedPointer<SocketLike> accept(const HostAddress &addr, quint16 port);
 protected:
     QSharedPointer<Socket> socket() const;
 };
@@ -496,6 +497,18 @@ qint32 SinglePathUdpLinkSocketLike::udpSend(const char *data, qint32 size, const
     return -1;
 }
 
+QSharedPointer<SocketLike> SinglePathUdpLinkSocketLike::accept(const HostAddress &addr, quint16 port)
+{
+    SinglePathUdpLinkId remote;
+    remote.addr = addr;
+    remote.port = port;
+    KcpBase<SinglePathUdpLinkManager> *slave = kcpBase->accept(remote);
+    if (!slave) {
+        return QSharedPointer<SocketLike>();
+    }
+    return QSharedPointer<SinglePathUdpLinkSocketLike>(new SinglePathUdpLinkSocketLike(slave));
+}
+
 QSharedPointer<Socket> SinglePathUdpLinkSocketLike::socket() const
 {
     MasterKcpBase<SinglePathUdpLinkManager> *master = dynamic_cast<MasterKcpBase<SinglePathUdpLinkManager> *>(kcpBase);
@@ -617,6 +630,15 @@ qint32 KcpSocketLikeHelper::udpSend(const char *data, qint32 size, const HostAdd
         return kcp->udpSend(data, size, addr, port);
     }
     return -1;
+}
+
+QSharedPointer<SocketLike> KcpSocketLikeHelper::accept(const HostAddress &addr, quint16 port)
+{
+    SinglePathUdpLinkSocketLike *kcp = dynamic_cast<SinglePathUdpLinkSocketLike *>(socket.data());
+    if (kcp) {
+        return kcp->accept(addr, port);
+    }
+    return QSharedPointer<SocketLike>();
 }
 
 QTNETWORKNG_NAMESPACE_END
