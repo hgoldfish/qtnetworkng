@@ -45,7 +45,7 @@ public:
 
         bool operator==(const RemoteHost &other) { return addr == other.addr && port == other.port; }
 
-        QString toString() const { return QString("%1:%2").arg(addr.toString(), QString::number(port)); }
+        QString toString() const { return QString::fromLatin1("%1:%2").arg(addr.toString(), QString::number(port)); }
     };
     QList<RemoteHost> remoteHosts;
     QList<QSharedPointer<Socket>> rawSockets;
@@ -78,7 +78,7 @@ public:
         QSharedPointer<Socket> rawSocket;
 
         quint64 lastActiveTimestamp;
-        QString toString() const { return QString("%1:%2").arg(addr.toString(), QString::number(port)); }
+        QString toString() const { return QString::fromLatin1("%1:%2").arg(addr.toString(), QString::number(port)); }
     };
     QList<QSharedPointer<RemoteHost>> remoteHosts;
 
@@ -345,7 +345,7 @@ void MultiPathUdpLinkClient::startReceive(CoroutineGroup *operations)
 {
     for (int i = 0; i < rawSockets.size(); i++) {
         QSharedPointer<Socket> rawSocket = rawSockets.at(i);
-        operations->spawnWithName("do_receive_" + QString::number(i), [this, rawSocket] { doReceive(rawSocket); });
+        operations->spawnWithName(QString::fromLatin1("do_receive_") + QString::number(i), [this, rawSocket] { doReceive(rawSocket); });
     }
 }
 
@@ -564,7 +564,7 @@ void MultiPathUdpLinkServer::doReceive(QSharedPointer<Path> rawPath)
 #endif
             if (connectionId == 0) {
                 // compatible single path
-                token = QString("%1:%2").arg(addr.toString(), QString::number(port)).toLatin1();
+                token = QString::fromLatin1("%1:%2").arg(addr.toString(), QString::number(port)).toLatin1();
                 if (!accpetConnection(tokenToOnePath, rawSocket, token, addr, port)) {
                     continue;
                 }
@@ -622,11 +622,11 @@ void MultiPathUdpLinkServer::startReceive(CoroutineGroup *operations)
         QSharedPointer<Path> rawPath = rawPaths.at(i);
         QString localUri;
         if (rawPath->localAddress.protocol() == HostAddress::IPv6Protocol) {
-            localUri = QString("[%1]:%2").arg(rawPath->localAddress.toString(), QString::number(rawPath->localPort));
+            localUri = QString::fromLatin1("[%1]:%2").arg(rawPath->localAddress.toString(), QString::number(rawPath->localPort));
         } else {
-            localUri = QString("%1:%2").arg(rawPath->localAddress.toString(), QString::number(rawPath->localPort));
+            localUri = QString::fromLatin1("%1:%2").arg(rawPath->localAddress.toString(), QString::number(rawPath->localPort));
         }
-        operations->spawnWithName("do_accept_" + localUri, [rawPath, this] { doReceive(rawPath); });
+        operations->spawnWithName(QString::fromLatin1("do_accept_") + localUri, [rawPath, this] { doReceive(rawPath); });
     }
 }
 
