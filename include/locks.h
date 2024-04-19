@@ -254,7 +254,51 @@ public:
     bool putForcedly(const T &e);  // insert e to the tail of queue ignoring capacity.
     bool returns(const T &e);  // like put() but insert e to the head of queue.
     bool returnsForcely(const T &e);  // like putForcedly() but insert e to the head of queue.
-    T get();
+
+    template<typename U = EventType, std::enable_if_t<std::is_same<U, ThreadEvent>::value, int> = 0>
+    T get()
+    {
+        do {
+            if (!notEmpty.tryWait()) {
+                return T();
+            }
+            lock.lockForWrite();
+            if (!this->queue.isEmpty()) {
+                break;
+            }
+            lock.unlock();
+        } while (true);
+
+        const T &e = queue.dequeue();
+        if (this->queue.isEmpty()) {
+            notEmpty.clear();
+        }
+        if (static_cast<quint32>(queue.size()) < mCapacity) {
+            notFull.set();
+        }
+        lock.unlock();
+        return e;
+    }
+
+    template<typename U = EventType, std::enable_if_t<!std::is_same<U, ThreadEvent>::value, int> = 0>
+    T get()
+    {
+        if (!notEmpty.tryWait()) {
+            return T();
+        }
+        lock.lockForWrite();
+
+        const T &e = queue.dequeue();
+        if (this->queue.isEmpty()) {
+            notEmpty.clear();
+        }
+        if (static_cast<quint32>(queue.size()) < mCapacity) {
+            notFull.set();
+        }
+        lock.unlock();
+        return e;
+    }
+
     T peek();
     void clear();
     bool remove(const T &e);
@@ -451,24 +495,6 @@ bool QueueType<T, EventType, ReadWriteLockType>::returnsForcely(const T &e)
     }
     lock.unlock();
     return true;
-}
-
-template<typename T, typename EventType, typename ReadWriteLockType>
-T QueueType<T, EventType, ReadWriteLockType>::get()
-{
-    if (!notEmpty.tryWait()) {
-        return T();
-    }
-    lock.lockForWrite();
-    const T &e = queue.dequeue();
-    if (this->queue.isEmpty()) {
-        notEmpty.clear();
-    }
-    if (static_cast<quint32>(queue.size()) < mCapacity) {
-        notFull.set();
-    }
-    lock.unlock();
-    return e;
 }
 
 template<typename T, typename EventType, typename ReadWriteLockType>
