@@ -1,4 +1,4 @@
-/* $OpenBSD: a_strnid.c,v 1.27 2023/07/05 21:23:36 beck Exp $ */
+/* $OpenBSD: a_strnid.c,v 1.25 2021/12/13 17:55:53 schwarze Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */
@@ -86,14 +86,12 @@ ASN1_STRING_set_default_mask(unsigned long mask)
 {
 	global_mask = mask;
 }
-LCRYPTO_ALIAS(ASN1_STRING_set_default_mask);
 
 unsigned long
 ASN1_STRING_get_default_mask(void)
 {
 	return global_mask;
 }
-LCRYPTO_ALIAS(ASN1_STRING_get_default_mask);
 
 /*
  * This function sets the default to various "flavours" of configuration
@@ -136,7 +134,6 @@ ASN1_STRING_set_default_mask_asc(const char *p)
 	ASN1_STRING_set_default_mask(mask);
 	return 1;
 }
-LCRYPTO_ALIAS(ASN1_STRING_set_default_mask_asc);
 
 /*
  * The following function generates an ASN1_STRING based on limits in a table.
@@ -169,7 +166,6 @@ ASN1_STRING_set_by_NID(ASN1_STRING **out, const unsigned char *in, int inlen,
 		return NULL;
 	return *out;
 }
-LCRYPTO_ALIAS(ASN1_STRING_set_by_NID);
 
 /*
  * Now the tables and helper functions for the string table:
@@ -191,139 +187,25 @@ LCRYPTO_ALIAS(ASN1_STRING_set_by_NID);
 /* This table must be kept in NID order */
 
 static const ASN1_STRING_TABLE tbl_standard[] = {
-	{
-		.nid = NID_commonName,
-		.minsize = 1,
-		.maxsize = ub_common_name,
-		.mask = DIRSTRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_countryName,
-		.minsize = 2,
-		.maxsize = 2,
-		.mask = B_ASN1_PRINTABLESTRING,
-		.flags = STABLE_NO_MASK,
-	},
-	{
-		.nid = NID_localityName,
-		.minsize = 1,
-		.maxsize = ub_locality_name,
-		.mask = DIRSTRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_stateOrProvinceName,
-		.minsize = 1,
-		.maxsize = ub_state_name,
-		.mask = DIRSTRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_organizationName,
-		.minsize = 1,
-		.maxsize = ub_organization_name,
-		.mask = DIRSTRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_organizationalUnitName,
-		.minsize = 1,
-		.maxsize = ub_organization_unit_name,
-		.mask = DIRSTRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_pkcs9_emailAddress,
-		.minsize = 1,
-		.maxsize = ub_email_address,
-		.mask = B_ASN1_IA5STRING,
-		.flags = STABLE_NO_MASK,
-	},
-	{
-		.nid = NID_pkcs9_unstructuredName,
-		.minsize = 1,
-		.maxsize = -1,
-		.mask = PKCS9STRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_pkcs9_challengePassword,
-		.minsize = 1,
-		.maxsize = -1,
-		.mask = PKCS9STRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_pkcs9_unstructuredAddress,
-		.minsize = 1,
-		.maxsize = -1,
-		.mask = DIRSTRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_givenName,
-		.minsize = 1,
-		.maxsize = ub_name,
-		.mask = DIRSTRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_surname,
-		.minsize = 1,
-		.maxsize = ub_name,
-		.mask = DIRSTRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_initials,
-		.minsize = 1,
-		.maxsize = ub_name,
-		.mask = DIRSTRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_serialNumber,
-		.minsize = 1,
-		.maxsize = ub_serial_number,
-		.mask = B_ASN1_PRINTABLESTRING,
-		.flags = STABLE_NO_MASK,
-	},
-	{
-		.nid = NID_friendlyName,
-		.minsize = -1,
-		.maxsize = -1,
-		.mask = B_ASN1_BMPSTRING,
-		.flags = STABLE_NO_MASK,
-	},
-	{
-		.nid = NID_name,
-		.minsize = 1,
-		.maxsize = ub_name,
-		.mask = DIRSTRING_TYPE,
-		.flags = 0,
-	},
-	{
-		.nid = NID_dnQualifier,
-		.minsize = -1,
-		.maxsize = -1,
-		.mask = B_ASN1_PRINTABLESTRING,
-		.flags = STABLE_NO_MASK,
-	},
-	{
-		.nid = NID_domainComponent,
-		.minsize = 1,
-		.maxsize = -1,
-		.mask = B_ASN1_IA5STRING,
-		.flags = STABLE_NO_MASK,
-	},
-	{
-		.nid = NID_ms_csp_name,
-		.minsize = -1,
-		.maxsize = -1,
-		.mask = B_ASN1_BMPSTRING,
-		.flags = STABLE_NO_MASK,
-	},
+	{NID_commonName,		1, ub_common_name, DIRSTRING_TYPE, 0},
+	{NID_countryName,		2, 2, B_ASN1_PRINTABLESTRING, STABLE_NO_MASK},
+	{NID_localityName,		1, ub_locality_name, DIRSTRING_TYPE, 0},
+	{NID_stateOrProvinceName,	1, ub_state_name, DIRSTRING_TYPE, 0},
+	{NID_organizationName,		1, ub_organization_name, DIRSTRING_TYPE, 0},
+	{NID_organizationalUnitName,	1, ub_organization_unit_name, DIRSTRING_TYPE, 0},
+	{NID_pkcs9_emailAddress,	1, ub_email_address, B_ASN1_IA5STRING, STABLE_NO_MASK},
+	{NID_pkcs9_unstructuredName,	1, -1, PKCS9STRING_TYPE, 0},
+	{NID_pkcs9_challengePassword,	1, -1, PKCS9STRING_TYPE, 0},
+	{NID_pkcs9_unstructuredAddress,	1, -1, DIRSTRING_TYPE, 0},
+	{NID_givenName,			1, ub_name, DIRSTRING_TYPE, 0},
+	{NID_surname,			1, ub_name, DIRSTRING_TYPE, 0},
+	{NID_initials,			1, ub_name, DIRSTRING_TYPE, 0},
+	{NID_serialNumber,		1, ub_serial_number, B_ASN1_PRINTABLESTRING, STABLE_NO_MASK},
+	{NID_friendlyName,		-1, -1, B_ASN1_BMPSTRING, STABLE_NO_MASK},
+	{NID_name,			1, ub_name, DIRSTRING_TYPE, 0},
+	{NID_dnQualifier,		-1, -1, B_ASN1_PRINTABLESTRING, STABLE_NO_MASK},
+	{NID_domainComponent,		1, -1, B_ASN1_IA5STRING, STABLE_NO_MASK},
+	{NID_ms_csp_name,		-1, -1, B_ASN1_BMPSTRING, STABLE_NO_MASK}
 };
 
 static int
@@ -372,9 +254,8 @@ ASN1_STRING_TABLE_get(int nid)
 			return sk_ASN1_STRING_TABLE_value(stable, idx);
 	}
 	return OBJ_bsearch_table(&fnd, tbl_standard,
-	    sizeof(tbl_standard) / sizeof(tbl_standard[0]));
+	    sizeof(tbl_standard)/sizeof(ASN1_STRING_TABLE));
 }
-LCRYPTO_ALIAS(ASN1_STRING_TABLE_get);
 
 /*
  * Return a string table pointer which can be modified: either directly
@@ -440,7 +321,6 @@ ASN1_STRING_TABLE_add(int nid, long minsize, long maxsize, unsigned long mask,
 
 	return 1;
 }
-LCRYPTO_ALIAS(ASN1_STRING_TABLE_add);
 
 void
 ASN1_STRING_TABLE_cleanup(void)
@@ -453,7 +333,6 @@ ASN1_STRING_TABLE_cleanup(void)
 	stable = NULL;
 	sk_ASN1_STRING_TABLE_pop_free(tmp, st_free);
 }
-LCRYPTO_ALIAS(ASN1_STRING_TABLE_cleanup);
 
 static void
 st_free(ASN1_STRING_TABLE *tbl)

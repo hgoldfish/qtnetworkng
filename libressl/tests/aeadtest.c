@@ -1,4 +1,4 @@
-/*	$OpenBSD: aeadtest.c,v 1.26 2023/09/28 14:55:48 tb Exp $	*/
+/*	$OpenBSD: aeadtest.c,v 1.23 2022/08/20 19:25:14 jsing Exp $	*/
 /*
  * Copyright (c) 2022 Joel Sing <jsing@openbsd.org>
  * Copyright (c) 2014, Google Inc.
@@ -48,7 +48,6 @@
 
 #define BUF_MAX 1024
 
-/* MS defines in global headers, remove it */
 #ifdef _MSC_VER
 #ifdef IN
 #undef IN
@@ -203,7 +202,6 @@ run_cipher_aead_encrypt_test(const EVP_CIPHER *cipher,
 	EVP_CIPHER_CTX *ctx;
 	size_t out_len;
 	int len;
-	int ivlen;
 	int ret = 0;
 
 	if ((ctx = EVP_CIPHER_CTX_new()) == NULL) {
@@ -218,13 +216,6 @@ run_cipher_aead_encrypt_test(const EVP_CIPHER *cipher,
 
 	if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, lengths[NONCE], NULL)) {
 		fprintf(stderr, "FAIL: EVP_CTRL_AEAD_SET_IVLEN\n");
-		goto err;
-	}
-
-	ivlen = EVP_CIPHER_CTX_iv_length(ctx);
-	if (ivlen != (int)lengths[NONCE]) {
-		fprintf(stderr, "FAIL: ivlen %d != nonce length %d\n", ivlen,
-		    (int)lengths[NONCE]);
 		goto err;
 	}
 

@@ -1,4 +1,4 @@
-/* $OpenBSD: c_all.c,v 1.32 2023/07/24 10:24:58 jsing Exp $ */
+/* $OpenBSD: c_all.c,v 1.28 2022/10/21 13:39:35 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -290,14 +290,6 @@ OpenSSL_add_all_digests_internal(void)
 #ifndef OPENSSL_NO_SHA512
 	EVP_add_digest(EVP_sha384());
 	EVP_add_digest(EVP_sha512());
-	EVP_add_digest(EVP_sha512_224());
-	EVP_add_digest(EVP_sha512_256());
-#endif
-#ifndef OPENSSL_NO_SHA3
-	EVP_add_digest(EVP_sha3_224());
-	EVP_add_digest(EVP_sha3_256());
-	EVP_add_digest(EVP_sha3_384());
-	EVP_add_digest(EVP_sha3_512());
 #endif
 #ifndef OPENSSL_NO_SM3
 	EVP_add_digest(EVP_sm3());
@@ -317,6 +309,7 @@ OpenSSL_add_all_digests(void)
 void
 OPENSSL_add_all_algorithms_noconf(void)
 {
+	OPENSSL_cpuid_setup();
 	OpenSSL_add_all_ciphers();
 	OpenSSL_add_all_digests();
 }

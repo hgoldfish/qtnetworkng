@@ -1,4 +1,4 @@
-/* $OpenBSD: e_chacha20poly1305.c,v 1.32 2023/09/28 11:29:10 tb Exp $ */
+/* $OpenBSD: e_chacha20poly1305.c,v 1.28 2023/03/01 11:16:06 tb Exp $ */
 
 /*
  * Copyright (c) 2022 Joel Sing <jsing@openbsd.org>
@@ -18,7 +18,6 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <limits.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -107,7 +106,7 @@ poly1305_pad16(poly1305_state *poly1305, size_t data_len)
 	static const unsigned char zero_pad16[16];
 	size_t pad_len;
 
-	/* pad16() is defined in RFC 8439 2.8.1. */
+	/* pad16() is defined in RFC 7539 2.8.1. */
 	if ((pad_len = data_len % 16) == 0)
 		return;
 
@@ -331,7 +330,7 @@ aead_xchacha20_poly1305_open(const EVP_AEAD_CTX *ctx, unsigned char *out,
 	return 1;
 }
 
-/* RFC 8439 */
+/* RFC 7539 */
 static const EVP_AEAD aead_chacha20_poly1305 = {
 	.key_len = 32,
 	.nonce_len = CHACHA20_NONCE_LEN,
@@ -552,12 +551,6 @@ chacha20_poly1305_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 		cpx->nonce_len = sizeof(cpx->nonce);
 		return 1;
 
-	case EVP_CTRL_AEAD_GET_IVLEN:
-		if (cpx->nonce_len > INT_MAX)
-			return 0;
-		*(int *)ptr = (int)cpx->nonce_len;
-		return 1;
-
 	case EVP_CTRL_AEAD_SET_IVLEN:
 		if (arg <= 0 || arg > sizeof(cpx->nonce))
 			return 0;
@@ -599,9 +592,8 @@ static const EVP_CIPHER cipher_chacha20_poly1305 = {
 	.key_len = 32,
 	.iv_len = 12,
 	.flags = EVP_CIPH_ALWAYS_CALL_INIT | EVP_CIPH_CTRL_INIT |
-	    EVP_CIPH_CUSTOM_IV | EVP_CIPH_FLAG_CUSTOM_IV_LENGTH |
-	    EVP_CIPH_FLAG_AEAD_CIPHER | EVP_CIPH_FLAG_CUSTOM_CIPHER |
-	    EVP_CIPH_FLAG_DEFAULT_ASN1,
+	    EVP_CIPH_CUSTOM_IV | EVP_CIPH_FLAG_AEAD_CIPHER |
+	    EVP_CIPH_FLAG_CUSTOM_CIPHER | EVP_CIPH_FLAG_DEFAULT_ASN1,
 	.init = chacha20_poly1305_init,
 	.do_cipher = chacha20_poly1305_cipher,
 	.cleanup = chacha20_poly1305_cleanup,

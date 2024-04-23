@@ -1,4 +1,4 @@
-/* $OpenBSD: evp_local.h,v 1.5 2023/09/28 11:29:10 tb Exp $ */
+/* $OpenBSD: evp_local.h,v 1.3 2023/03/01 11:16:06 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */
@@ -61,12 +61,6 @@
 
 __BEGIN_HIDDEN_DECLS
 
-/* XXX - move these to evp.h after unlock. */
-#define	EVP_CTRL_GET_IVLEN		0x25
-#define	EVP_CIPH_FLAG_CUSTOM_IV_LENGTH	0x400000
-
-#define	EVP_CTRL_AEAD_GET_IVLEN		EVP_CTRL_GET_IVLEN
-
 /*
  * Don't free md_ctx->pctx in EVP_MD_CTX_cleanup().  Needed for ownership
  * handling in EVP_MD_CTX_set_pkey_ctx().
@@ -121,7 +115,7 @@ struct evp_pkey_st {
 	STACK_OF(X509_ATTRIBUTE) *attributes; /* [ 0 ] */
 } /* EVP_PKEY */;
 
-struct evp_md_st {
+struct env_md_st {
 	int type;
 	int pkey_type;
 	int md_size;
@@ -138,7 +132,7 @@ struct evp_md_st {
 	int (*md_ctrl)(EVP_MD_CTX *ctx, int cmd, int p1, void *p2);
 } /* EVP_MD */;
 
-struct evp_md_ctx_st {
+struct env_md_ctx_st {
 	const EVP_MD *digest;
 	ENGINE *engine; /* functional reference if 'digest' is ENGINE-provided */
 	unsigned long flags;

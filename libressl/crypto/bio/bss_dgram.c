@@ -1,4 +1,4 @@
-/* $OpenBSD: bss_dgram.c,v 1.45 2023/07/05 21:23:37 beck Exp $ */
+/* $OpenBSD: bss_dgram.c,v 1.44 2022/12/26 07:18:51 jmc Exp $ */
 /* 
  * DTLS implementation written by Nagendra Modadugu
  * (nagendra@cs.stanford.edu) for the OpenSSL project 2005.  
@@ -119,7 +119,6 @@ BIO_s_datagram(void)
 {
 	return (&methods_dgramp);
 }
-LCRYPTO_ALIAS(BIO_s_datagram);
 
 BIO *
 BIO_new_dgram(int fd, int close_flag)
@@ -132,7 +131,6 @@ BIO_new_dgram(int fd, int close_flag)
 	BIO_set_fd(ret, fd, close_flag);
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_new_dgram);
 
 static int
 dgram_new(BIO *bi)
@@ -658,6 +656,5 @@ BIO_dgram_non_fatal_error(int err)
 	}
 	return (0);
 }
-LCRYPTO_ALIAS(BIO_dgram_non_fatal_error);
 
 #endif

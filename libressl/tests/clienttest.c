@@ -1,4 +1,4 @@
-/*	$OpenBSD: clienttest.c,v 1.42 2023/07/11 17:03:44 tb Exp $ */
+/*	$OpenBSD: clienttest.c,v 1.39 2022/07/19 20:16:50 tb Exp $ */
 /*
  * Copyright (c) 2015 Joel Sing <jsing@openbsd.org>
  *
@@ -36,12 +36,10 @@
 #define TLS13_RANDOM_OFFSET (TLS13_HM_OFFSET + 2)
 #define TLS13_SESSION_OFFSET (TLS13_HM_OFFSET + 34)
 #define TLS13_CIPHER_OFFSET (TLS13_HM_OFFSET + 69)
-#define TLS13_KEY_SHARE_OFFSET (TLS13_HM_OFFSET + 188)
+#define TLS13_KEY_SHARE_OFFSET (TLS13_HM_OFFSET + 192)
 #define TLS13_ONLY_KEY_SHARE_OFFSET (TLS13_HM_OFFSET + 98)
 
 #define TLS1_3_VERSION_ONLY (TLS1_3_VERSION | 0x10000)
-
-int tlsext_linearize_build_order(SSL *);
 
 static const uint8_t cipher_list_dtls1[] = {
 	0xc0, 0x14, 0xc0, 0x0a, 0x00, 0x39, 0xff, 0x85,
@@ -213,7 +211,7 @@ static const uint8_t cipher_list_tls12_chacha[] = {
 };
 
 static const uint8_t client_hello_tls12[] = {
-	0x16, 0x03, 0x03, 0x00, 0xbb, 0x01, 0x00, 0x00,
+	0x16, 0x03, 0x01, 0x00, 0xbb, 0x01, 0x00, 0x00,
 	0xb7, 0x03, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -270,8 +268,8 @@ static const uint8_t cipher_list_tls13_chacha[] = {
 };
 
 static const uint8_t client_hello_tls13[] = {
-	0x16, 0x03, 0x03, 0x01, 0x14, 0x01, 0x00, 0x01,
-	0x10, 0x03, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x16, 0x03, 0x01, 0x01, 0x18, 0x01, 0x00, 0x01,
+	0x14, 0x03, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -292,20 +290,20 @@ static const uint8_t client_hello_tls13[] = {
 	0x00, 0x2f, 0x00, 0xba, 0x00, 0x41, 0xc0, 0x11,
 	0xc0, 0x07, 0x00, 0x05, 0xc0, 0x12, 0xc0, 0x08,
 	0x00, 0x16, 0x00, 0x0a, 0x00, 0xff, 0x01, 0x00,
-	0x00, 0x67, 0x00, 0x2b, 0x00, 0x05, 0x04, 0x03,
-	0x04, 0x03, 0x03, 0x00, 0x33, 0x00, 0x26, 0x00,
-	0x24, 0x00, 0x1d, 0x00, 0x20, 0x00, 0x00, 0x00,
+	0x00, 0x6b, 0x00, 0x2b, 0x00, 0x09, 0x08, 0x03,
+	0x04, 0x03, 0x03, 0x03, 0x02, 0x03, 0x01, 0x00,
+	0x33, 0x00, 0x26, 0x00, 0x24, 0x00, 0x1d, 0x00,
+	0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0b, 0x00,
-	0x02, 0x01, 0x00, 0x00, 0x0a, 0x00, 0x0a, 0x00,
-	0x08, 0x00, 0x1d, 0x00, 0x17, 0x00, 0x18, 0x00,
-	0x19, 0x00, 0x23, 0x00, 0x00, 0x00, 0x0d, 0x00,
-	0x18, 0x00, 0x16, 0x08, 0x06, 0x06, 0x01, 0x06,
-	0x03, 0x08, 0x05, 0x05, 0x01, 0x05, 0x03, 0x08,
-	0x04, 0x04, 0x01, 0x04, 0x03, 0x02, 0x01, 0x02,
-	0x03,
+	0x00, 0x00, 0x0b, 0x00, 0x02, 0x01, 0x00, 0x00,
+	0x0a, 0x00, 0x0a, 0x00, 0x08, 0x00, 0x1d, 0x00,
+	0x17, 0x00, 0x18, 0x00, 0x19, 0x00, 0x23, 0x00,
+	0x00, 0x00, 0x0d, 0x00, 0x18, 0x00, 0x16, 0x08,
+	0x06, 0x06, 0x01, 0x06, 0x03, 0x08, 0x05, 0x05,
+	0x01, 0x05, 0x03, 0x08, 0x04, 0x04, 0x01, 0x04,
+	0x03, 0x02, 0x01, 0x02, 0x03,
 };
 
 static const uint8_t cipher_list_tls13_only_aes[] = {
@@ -351,7 +349,6 @@ struct client_hello_test {
 	const size_t key_share_start;
 	const SSL_METHOD *(*ssl_method)(void);
 	const long ssl_options;
-	int connect_fails;
 };
 
 static const struct client_hello_test client_hello_tests[] = {
@@ -360,7 +357,6 @@ static const struct client_hello_test client_hello_tests[] = {
 		.protocol = DTLS1_VERSION,
 		.random_start = DTLS_RANDOM_OFFSET,
 		.ssl_method = DTLSv1_client_method,
-		.connect_fails = 1,
 	},
 	{
 		.desc = "DTLSv1.2 client method",
@@ -380,7 +376,6 @@ static const struct client_hello_test client_hello_tests[] = {
 		.random_start = DTLS_RANDOM_OFFSET,
 		.ssl_method = DTLS_client_method,
 		.ssl_options = SSL_OP_NO_DTLSv1_2,
-		.connect_fails = 1,
 	},
 	{
 		.desc = "DTLS client method (no DTLSv1.0)",
@@ -394,14 +389,12 @@ static const struct client_hello_test client_hello_tests[] = {
 		.protocol = TLS1_VERSION,
 		.random_start = SSL3_RANDOM_OFFSET,
 		.ssl_method = TLSv1_client_method,
-		.connect_fails = 1,
 	},
 	{
 		.desc = "TLSv1_1 client method",
 		.protocol = TLS1_1_VERSION,
 		.random_start = SSL3_RANDOM_OFFSET,
 		.ssl_method = TLSv1_1_client_method,
-		.connect_fails = 1,
 	},
 	{
 		.desc = "TLSv1_2 client method",
@@ -427,19 +420,15 @@ static const struct client_hello_test client_hello_tests[] = {
 	},
 	{
 		.desc = "SSLv23 (no TLSv1.2)",
-		.protocol = TLS1_3_VERSION_ONLY,
-		.random_start = TLS13_RANDOM_OFFSET,
-		.session_start = TLS13_SESSION_OFFSET,
-		.key_share_start = TLS13_ONLY_KEY_SHARE_OFFSET,
+		.protocol = TLS1_1_VERSION,
+		.random_start = SSL3_RANDOM_OFFSET,
 		.ssl_method = SSLv23_client_method,
 		.ssl_options = SSL_OP_NO_TLSv1_2,
 	},
 	{
 		.desc = "SSLv23 (no TLSv1.1)",
-		.protocol = TLS1_3_VERSION,
-		.random_start = TLS13_RANDOM_OFFSET,
-		.session_start = TLS13_SESSION_OFFSET,
-		.key_share_start = TLS13_KEY_SHARE_OFFSET,
+		.protocol = TLS1_VERSION,
+		.random_start = SSL3_RANDOM_OFFSET,
 		.ssl_method = SSLv23_client_method,
 		.ssl_options = SSL_OP_NO_TLSv1_1,
 	},
@@ -461,19 +450,15 @@ static const struct client_hello_test client_hello_tests[] = {
 	},
 	{
 		.desc = "TLS (no TLSv1.2)",
-		.protocol = TLS1_3_VERSION_ONLY,
-		.random_start = TLS13_RANDOM_OFFSET,
-		.session_start = TLS13_SESSION_OFFSET,
-		.key_share_start = TLS13_ONLY_KEY_SHARE_OFFSET,
+		.protocol = TLS1_1_VERSION,
+		.random_start = SSL3_RANDOM_OFFSET,
 		.ssl_method = TLS_client_method,
 		.ssl_options = SSL_OP_NO_TLSv1_2,
 	},
 	{
 		.desc = "TLS (no TLSv1.1)",
-		.protocol = TLS1_3_VERSION,
-		.random_start = TLS13_RANDOM_OFFSET,
-		.session_start = TLS13_SESSION_OFFSET,
-		.key_share_start = TLS13_KEY_SHARE_OFFSET,
+		.protocol = TLS1_VERSION,
+		.random_start = SSL3_RANDOM_OFFSET,
 		.ssl_method = TLS_client_method,
 		.ssl_options = SSL_OP_NO_TLSv1_1,
 	},
@@ -664,18 +649,11 @@ client_hello_test(int testno, const struct client_hello_test *cht)
 		goto failure;
 	}
 
-	if (!tlsext_linearize_build_order(ssl)) {
-		fprintf(stderr, "failed to linearize build order");
-		goto failure;
-	}
-
 	BIO_up_ref(rbio);
 	BIO_up_ref(wbio);
 	SSL_set_bio(ssl, rbio, wbio);
 
 	if (SSL_connect(ssl) != 0) {
-		if (cht->connect_fails)
-			goto done;
 		fprintf(stderr, "SSL_connect() returned non-zero\n");
 		goto failure;
 	}
@@ -724,7 +702,6 @@ client_hello_test(int testno, const struct client_hello_test *cht)
 		goto failure;
 	}
 
- done:
 	ret = 0;
 
  failure:

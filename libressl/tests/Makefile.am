@@ -57,12 +57,6 @@ TESTS += aes_wrap
 check_PROGRAMS += aes_wrap
 aes_wrap_SOURCES = aes_wrap.c
 
-# apitest
-TESTS += apitest
-check_PROGRAMS += apitest
-apitest_SOURCES = apitest.c
-apitest_CPPFLAGS = $(AM_CPPFLAGS) -DCERTSDIR=\"$(srcdir)\"
-
 # arc4randomforktest
 # Windows/mingw does not have fork, but Cygwin does.
 if !HOST_WIN
@@ -102,11 +96,6 @@ TESTS += asn1object
 check_PROGRAMS += asn1object
 asn1object_SOURCES = asn1object.c
 
-# asn1oct
-TESTS += asn1oct
-check_PROGRAMS += asn1oct
-asn1oct_SOURCES = asn1oct.c
-
 # asn1string_copy
 TESTS += asn1string_copy
 check_PROGRAMS += asn1string_copy
@@ -137,11 +126,6 @@ TESTS += bf_test
 check_PROGRAMS += bf_test
 bf_test_SOURCES = bf_test.c
 
-# bio_asn1
-TESTS += bio_asn1
-check_PROGRAMS += bio_asn1
-bio_asn1_SOURCES = bio_asn1.c
-
 # bio_chain
 TESTS += bio_chain
 check_PROGRAMS += bio_chain
@@ -170,18 +154,6 @@ TESTS += bn_cmp
 check_PROGRAMS += bn_cmp
 bn_cmp_SOURCES = bn_cmp.c
 
-# bn_convert
-TESTS += bn_convert
-check_PROGRAMS += bn_convert
-bn_convert_SOURCES = bn_convert.c
-
-# bn_gcd
-TESTS += bn_gcd
-check_PROGRAMS += bn_gcd
-bn_gcd_SOURCES = bn_gcd.c
-
-# bn_general is a benchmark.
-
 # bn_isqrt
 TESTS += bn_isqrt
 check_PROGRAMS += bn_isqrt
@@ -193,10 +165,10 @@ check_PROGRAMS += bn_mod_exp
 bn_mod_exp_CPPFLAGS = $(AM_CPPFLAGS) -ULIBRESSL_INTERNAL
 bn_mod_exp_SOURCES = bn_mod_exp.c
 
-# bn_mod_inverse
-TESTS += bn_mod_inverse
-check_PROGRAMS += bn_mod_inverse
-bn_mod_inverse_SOURCES = bn_mod_inverse.c
+# bn_mod_exp2_mont
+TESTS += bn_mod_exp2_mont
+check_PROGRAMS += bn_mod_exp2_mont
+bn_mod_exp2_mont_SOURCES = bn_mod_exp2_mont.c
 
 # bn_mod_sqrt
 TESTS += bn_mod_sqrt
@@ -213,10 +185,10 @@ TESTS += bn_primes
 check_PROGRAMS += bn_primes
 bn_primes_SOURCES = bn_primes.c
 
-# bn_print
-TESTS += bn_print
-check_PROGRAMS += bn_print
-bn_print_SOURCES = bn_print.c
+# bn_rand_interval
+TESTS += bn_rand_interval
+check_PROGRAMS += bn_rand_interval
+bn_rand_interval_SOURCES = bn_rand_interval.c
 
 # bn_shift
 TESTS += bn_shift
@@ -253,9 +225,6 @@ buffertest_SOURCES = buffertest.c
 TESTS += bytestringtest
 check_PROGRAMS += bytestringtest
 bytestringtest_SOURCES = bytestringtest.c
-
-# callback
-# callbackfailures
 
 # casttest
 TESTS += casttest
@@ -298,14 +267,10 @@ TESTS += constraints
 check_PROGRAMS += constraints
 constraints_SOURCES = constraints.c
 
-# cttest
-TESTS += cttest
-check_PROGRAMS += cttest
-cttest_SOURCES = cttest.c
-cttest_CPPFLAGS = $(AM_CPPFLAGS) -DCTPATH=\"$(srcdir)\"
-EXTRA_DIST += ctlog.conf
-EXTRA_DIST += letsencrypt-r3.crt
-EXTRA_DIST += libressl.org.crt
+# cts128test
+TESTS += cts128test
+check_PROGRAMS += cts128test
+cts128test_SOURCES = cts128test.c
 
 # destest
 TESTS += destest
@@ -330,11 +295,6 @@ dsatest_SOURCES = dsatest.c
 #dtlstest_SOURCES = dtlstest.c
 #endif
 #EXTRA_DIST += dtlstest.sh
-
-# ecc_cdh
-TESTS += ecc_cdh
-check_PROGRAMS += ecc_cdh
-ecc_cdh_SOURCES = ecc_cdh.c
 
 # ec_asn1_test
 TESTS += ec_asn1_test
@@ -393,13 +353,6 @@ evptest_SOURCES = evptest.c
 EXTRA_DIST += evptest.sh
 EXTRA_DIST += evptests.txt
 
-# evp_test
-TESTS += evp_test
-check_PROGRAMS += evp_test
-evp_test_SOURCES = evp_test.c
-
-# expirecallback.c
-
 # explicit_bzero
 # explicit_bzero relies on SA_ONSTACK, which is unavailable on Windows
 if !HOST_WIN
@@ -412,11 +365,6 @@ explicit_bzero_SOURCES += compat/memmem.c
 endif
 endif
 endif
-
-# exportertest
-TESTS += exportertest
-check_PROGRAMS += exportertest
-exportertest_SOURCES = exportertest.c
 
 # freenull
 TESTS += freenull
@@ -458,8 +406,6 @@ ideatest_SOURCES = ideatest.c
 TESTS += igetest
 check_PROGRAMS += igetest
 igetest_SOURCES = igetest.c
-
-# init_pledge.c
 
 # key_schedule
 TESTS += key_schedule
@@ -521,39 +467,6 @@ TESTS += poly1305test
 check_PROGRAMS += poly1305test
 poly1305test_SOURCES = poly1305test.c
 
-# policy
-TESTS += policy
-check_PROGRAMS += policy
-policy_CPPFLAGS = $(AM_CPPFLAGS) -DCERTSDIR=\"$(srcdir)\"
-policy_SOURCES = policy.c
-EXTRA_DIST += policy_intermediate.pem
-EXTRA_DIST += policy_intermediate_any.pem
-EXTRA_DIST += policy_intermediate_duplicate.pem
-EXTRA_DIST += policy_intermediate_invalid.pem
-EXTRA_DIST += policy_intermediate_mapped.pem
-EXTRA_DIST += policy_intermediate_mapped_any.pem
-EXTRA_DIST += policy_intermediate_mapped_oid3.pem
-EXTRA_DIST += policy_intermediate_require.pem
-EXTRA_DIST += policy_intermediate_require1.pem
-EXTRA_DIST += policy_intermediate_require2.pem
-EXTRA_DIST += policy_intermediate_require_duplicate.pem
-EXTRA_DIST += policy_intermediate_require_no_policies.pem
-EXTRA_DIST += policy_leaf.pem
-EXTRA_DIST += policy_leaf_any.pem
-EXTRA_DIST += policy_leaf_duplicate.pem
-EXTRA_DIST += policy_leaf_invalid.pem
-EXTRA_DIST += policy_leaf_none.pem
-EXTRA_DIST += policy_leaf_oid1.pem
-EXTRA_DIST += policy_leaf_oid2.pem
-EXTRA_DIST += policy_leaf_oid3.pem
-EXTRA_DIST += policy_leaf_oid4.pem
-EXTRA_DIST += policy_leaf_oid5.pem
-EXTRA_DIST += policy_leaf_require.pem
-EXTRA_DIST += policy_leaf_require1.pem
-EXTRA_DIST += policy_root.pem
-EXTRA_DIST += policy_root2.pem
-EXTRA_DIST += policy_root_cross_inhibit_mapping.pem
-
 # pq_test
 TESTS += pq_test.sh
 check_PROGRAMS += pq_test
@@ -594,7 +507,7 @@ record_layer_test_SOURCES = record_layer_test.c
 
 # rfc3779
 TESTS += rfc3779
-rfc3779_CPPFLAGS = $(AM_CPPFLAGS)
+rfc3779_CPPFLAGS = $(AM_CPPFLAGS) -D__unused=
 check_PROGRAMS += rfc3779
 rfc3779_SOURCES = rfc3779.c
 
@@ -618,8 +531,6 @@ TESTS += rsa_test
 check_PROGRAMS += rsa_test
 rsa_test_SOURCES = rsa_test.c
 
-# server.c
-
 # servertest
 TESTS += servertest.sh
 check_PROGRAMS += servertest
@@ -630,19 +541,6 @@ EXTRA_DIST += servertest.sh servertest.bat
 TESTS += sha_test
 check_PROGRAMS += sha_test
 sha_test_SOURCES = sha_test.c
-
-# signertest
-TESTS += signertest
-check_PROGRAMS += signertest
-signertest_CPPFLAGS = -I $(top_srcdir)/tls $(AM_CPPFLAGS) -DCERTSDIR=\"$(srcdir)\"
-signertest_SOURCES = signertest.c
-if !HAVE_PIPE2
-signertest_SOURCES += compat/pipe2.c
-endif
-
-# sm2crypttest
-# sm2evptest
-# sm2sigtest
 
 # sm3test
 TESTS += sm3test
@@ -670,11 +568,6 @@ TESTS += ssl_set_alpn_protos
 check_PROGRAMS += ssl_set_alpn_protos
 ssl_set_alpn_protos_SOURCES = ssl_set_alpn_protos.c
 
-# ssl_verify_param
-TESTS += ssl_verify_param
-check_PROGRAMS += ssl_verify_param
-ssl_verify_param_SOURCES = ssl_verify_param.c
-
 # ssl_versions
 TESTS += ssl_versions
 check_PROGRAMS += ssl_versions
@@ -697,6 +590,7 @@ EXTRA_DIST += server1-rsa-chain.pem server1-rsa.pem server2-ecdsa-chain.pem
 EXTRA_DIST += server2-ecdsa.pem server2-rsa-chain.pem server2-rsa.pem
 EXTRA_DIST += server3-ecdsa-chain.pem server3-ecdsa.pem server3-rsa-chain.pem
 EXTRA_DIST += server3-rsa.pem
+
 
 # string_table
 TESTS += string_table
@@ -774,11 +668,6 @@ x25519test_SOURCES = x25519test.c
 TESTS += x509attribute
 check_PROGRAMS += x509attribute
 x509attribute_SOURCES = x509attribute.c
-
-# x509_asn1
-TESTS += x509_asn1
-check_PROGRAMS += x509_asn1
-x509_asn1_SOURCES = x509_asn1.c
 
 # x509_info
 TESTS += x509_info

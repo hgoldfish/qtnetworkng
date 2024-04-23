@@ -1,4 +1,4 @@
-/*	$OpenBSD: ct_sct.c,v 1.10 2023/07/22 17:02:49 tb Exp $ */
+/*	$OpenBSD: ct_sct.c,v 1.8 2022/01/22 00:29:59 inoguchi Exp $ */
 /*
  * Written by Rob Stradling (rob@comodo.com), Stephen Henson (steve@openssl.org)
  * and Adam Eijdenberg (adam.eijdenberg@gmail.com) for the OpenSSL project 2016.
@@ -61,15 +61,13 @@
 # error "CT disabled"
 #endif
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <openssl/asn1.h>
 #include <openssl/ct.h>
 #include <openssl/err.h>
-#include <openssl/objects.h>
+#include <openssl/evp.h>
+#include <openssl/tls1.h>
 #include <openssl/x509.h>
+
+#include <string.h>
 
 #include "ct_local.h"
 
@@ -87,7 +85,6 @@ SCT_new(void)
 	sct->version = SCT_VERSION_NOT_SET;
 	return sct;
 }
-LCRYPTO_ALIAS(SCT_new);
 
 void
 SCT_free(SCT *sct)
@@ -101,14 +98,12 @@ SCT_free(SCT *sct)
 	free(sct->sct);
 	free(sct);
 }
-LCRYPTO_ALIAS(SCT_free);
 
 void
 SCT_LIST_free(STACK_OF(SCT) *scts)
 {
 	sk_SCT_pop_free(scts, SCT_free);
 }
-LCRYPTO_ALIAS(SCT_LIST_free);
 
 int
 SCT_set_version(SCT *sct, sct_version_t version)
@@ -121,7 +116,6 @@ SCT_set_version(SCT *sct, sct_version_t version)
 	sct->validation_status = SCT_VALIDATION_STATUS_NOT_SET;
 	return 1;
 }
-LCRYPTO_ALIAS(SCT_set_version);
 
 int
 SCT_set_log_entry_type(SCT *sct, ct_log_entry_type_t entry_type)
@@ -139,7 +133,6 @@ SCT_set_log_entry_type(SCT *sct, ct_log_entry_type_t entry_type)
 	CTerror(CT_R_UNSUPPORTED_ENTRY_TYPE);
 	return 0;
 }
-LCRYPTO_ALIAS(SCT_set_log_entry_type);
 
 int
 SCT_set0_log_id(SCT *sct, unsigned char *log_id, size_t log_id_len)
@@ -155,7 +148,6 @@ SCT_set0_log_id(SCT *sct, unsigned char *log_id, size_t log_id_len)
 	sct->validation_status = SCT_VALIDATION_STATUS_NOT_SET;
 	return 1;
 }
-LCRYPTO_ALIAS(SCT_set0_log_id);
 
 int
 SCT_set1_log_id(SCT *sct, const unsigned char *log_id, size_t log_id_len)
@@ -181,7 +173,6 @@ SCT_set1_log_id(SCT *sct, const unsigned char *log_id, size_t log_id_len)
 	}
 	return 1;
 }
-LCRYPTO_ALIAS(SCT_set1_log_id);
 
 
 void
@@ -190,7 +181,6 @@ SCT_set_timestamp(SCT *sct, uint64_t timestamp)
 	sct->timestamp = timestamp;
 	sct->validation_status = SCT_VALIDATION_STATUS_NOT_SET;
 }
-LCRYPTO_ALIAS(SCT_set_timestamp);
 
 int
 SCT_set_signature_nid(SCT *sct, int nid)
@@ -211,7 +201,6 @@ SCT_set_signature_nid(SCT *sct, int nid)
 		return 0;
 	}
 }
-LCRYPTO_ALIAS(SCT_set_signature_nid);
 
 void
 SCT_set0_extensions(SCT *sct, unsigned char *ext, size_t ext_len)
@@ -221,7 +210,6 @@ SCT_set0_extensions(SCT *sct, unsigned char *ext, size_t ext_len)
 	sct->ext_len = ext_len;
 	sct->validation_status = SCT_VALIDATION_STATUS_NOT_SET;
 }
-LCRYPTO_ALIAS(SCT_set0_extensions);
 
 int
 SCT_set1_extensions(SCT *sct, const unsigned char *ext, size_t ext_len)
@@ -242,7 +230,6 @@ SCT_set1_extensions(SCT *sct, const unsigned char *ext, size_t ext_len)
 	}
 	return 1;
 }
-LCRYPTO_ALIAS(SCT_set1_extensions);
 
 void
 SCT_set0_signature(SCT *sct, unsigned char *sig, size_t sig_len)
@@ -252,7 +239,6 @@ SCT_set0_signature(SCT *sct, unsigned char *sig, size_t sig_len)
 	sct->sig_len = sig_len;
 	sct->validation_status = SCT_VALIDATION_STATUS_NOT_SET;
 }
-LCRYPTO_ALIAS(SCT_set0_signature);
 
 int
 SCT_set1_signature(SCT *sct, const unsigned char *sig, size_t sig_len)
@@ -273,21 +259,18 @@ SCT_set1_signature(SCT *sct, const unsigned char *sig, size_t sig_len)
 	}
 	return 1;
 }
-LCRYPTO_ALIAS(SCT_set1_signature);
 
 sct_version_t
 SCT_get_version(const SCT *sct)
 {
 	return sct->version;
 }
-LCRYPTO_ALIAS(SCT_get_version);
 
 ct_log_entry_type_t
 SCT_get_log_entry_type(const SCT *sct)
 {
 	return sct->entry_type;
 }
-LCRYPTO_ALIAS(SCT_get_log_entry_type);
 
 size_t
 SCT_get0_log_id(const SCT *sct, unsigned char **log_id)
@@ -295,14 +278,12 @@ SCT_get0_log_id(const SCT *sct, unsigned char **log_id)
 	*log_id = sct->log_id;
 	return sct->log_id_len;
 }
-LCRYPTO_ALIAS(SCT_get0_log_id);
 
 uint64_t
 SCT_get_timestamp(const SCT *sct)
 {
 	return sct->timestamp;
 }
-LCRYPTO_ALIAS(SCT_get_timestamp);
 
 int
 SCT_get_signature_nid(const SCT *sct)
@@ -322,7 +303,6 @@ SCT_get_signature_nid(const SCT *sct)
 	}
 	return NID_undef;
 }
-LCRYPTO_ALIAS(SCT_get_signature_nid);
 
 size_t
 SCT_get0_extensions(const SCT *sct, unsigned char **ext)
@@ -330,7 +310,6 @@ SCT_get0_extensions(const SCT *sct, unsigned char **ext)
 	*ext = sct->ext;
 	return sct->ext_len;
 }
-LCRYPTO_ALIAS(SCT_get0_extensions);
 
 size_t
 SCT_get0_signature(const SCT *sct, unsigned char **sig)
@@ -338,7 +317,6 @@ SCT_get0_signature(const SCT *sct, unsigned char **sig)
 	*sig = sct->sig;
 	return sct->sig_len;
 }
-LCRYPTO_ALIAS(SCT_get0_signature);
 
 int
 SCT_is_complete(const SCT *sct)
@@ -365,7 +343,6 @@ SCT_get_source(const SCT *sct)
 {
 	return sct->source;
 }
-LCRYPTO_ALIAS(SCT_get_source);
 
 int
 SCT_set_source(SCT *sct, sct_source_t source)
@@ -384,14 +361,12 @@ SCT_set_source(SCT *sct, sct_source_t source)
 	/* if we aren't sure, leave the log entry type alone */
 	return 1;
 }
-LCRYPTO_ALIAS(SCT_set_source);
 
 sct_validation_status_t
 SCT_get_validation_status(const SCT *sct)
 {
 	return sct->validation_status;
 }
-LCRYPTO_ALIAS(SCT_get_validation_status);
 
 int
 SCT_validate(SCT *sct, const CT_POLICY_EVAL_CTX *ctx)
@@ -480,7 +455,6 @@ SCT_validate(SCT *sct, const CT_POLICY_EVAL_CTX *ctx)
 
 	return is_sct_valid;
 }
-LCRYPTO_ALIAS(SCT_validate);
 
 int
 SCT_LIST_validate(const STACK_OF(SCT) *scts, CT_POLICY_EVAL_CTX *ctx)
@@ -504,4 +478,3 @@ SCT_LIST_validate(const STACK_OF(SCT) *scts, CT_POLICY_EVAL_CTX *ctx)
 
 	return are_scts_valid;
 }
-LCRYPTO_ALIAS(SCT_LIST_validate);

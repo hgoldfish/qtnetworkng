@@ -1,4 +1,4 @@
-.\" $OpenBSD: X509_STORE_CTX_get_error.3,v 1.28 2023/06/06 16:20:13 schwarze Exp $
+.\" $OpenBSD: X509_STORE_CTX_get_error.3,v 1.25 2022/11/29 19:52:48 tb Exp $
 .\" full merge up to:
 .\" OpenSSL man3/X509_STORE_CTX_get_error 24a535ea Sep 22 13:14:20 2020 +0100
 .\" OpenSSL man3/X509_STORE_CTX_new 24a535ea Sep 22 13:14:20 2020 +0100
@@ -68,7 +68,7 @@
 .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 .\" OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd $Mdocdate: June 6 2023 $
+.Dd $Mdocdate: November 29 2022 $
 .Dt X509_STORE_CTX_GET_ERROR 3
 .Os
 .Sh NAME
@@ -86,6 +86,8 @@
 .Nm X509_STORE_CTX_get_chain ,
 .Nm X509_STORE_CTX_get1_chain ,
 .Nm X509_STORE_CTX_set0_verified_chain ,
+.Nm X509_STORE_CTX_get0_policy_tree ,
+.Nm X509_STORE_CTX_get_explicit_policy ,
 .Nm X509_verify_cert_error_string
 .Nd get or set certificate verification status information
 .Sh SYNOPSIS
@@ -149,6 +151,14 @@
 .Fo X509_STORE_CTX_set0_verified_chain
 .Fa "X509_STORE_CTX *ctx"
 .Fa "STACK_OF(X509) *chain"
+.Fc
+.Ft X509_POLICY_TREE *
+.Fo X509_STORE_CTX_get0_policy_tree
+.Fa "X509_STORE_CTX *ctx"
+.Fc
+.Ft int
+.Fo X509_STORE_CTX_get_explicit_policy
+.Fa "X509_STORE_CTX *ctx"
 .Fc
 .In openssl/x509.h
 .Ft const char *
@@ -327,6 +337,24 @@ return a pointer to a stack of certificates or
 .Dv NULL
 if an error occurs.
 .Pp
+.Fn X509_STORE_CTX_get0_policy_tree
+returns an internal pointer to the
+.Fa valid_policy_tree
+created by
+.Xr X509_policy_check 3
+or
+.Dv NULL
+if validation failed or the resulting tree was empty.
+.Pp
+.Fn X509_STORE_CTX_get_explicit_policy
+returns the
+.Pf * Fa pexplicit_policy
+output argument of
+.Xr X509_policy_check 3 .
+If validation succeeded, it is 1 if
+.Dv X509_V_FLAG_EXPLICIT_POLICY
+was requested or 0 otherwise.
+.Pp
 .Fn X509_verify_cert_error_string
 returns a human readable error string for verification error
 .Fa n .
@@ -386,9 +414,7 @@ The certificate notBefore field contains an invalid time.
 The certificate notAfter field contains an invalid time.
 .It Dv X509_V_ERR_ERROR_IN_CRL_LAST_UPDATE_FIELD : \
  No format error in CRL's lastUpdate field
-The CRL thisUpdate field (sic!) contains an invalid time.
-Both the name of the error constant and the text of the error message
-give a wrong name for the field that contains the problem.
+The CRL lastUpdate field contains an invalid time.
 .It Dv X509_V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD : \
  No format error in CRL's nextUpdate field
 The CRL nextUpdate field contains an invalid time.
@@ -459,24 +485,14 @@ This is only set if issuer check debugging is enabled it is used for
 status notification and is
 .Sy not
 in itself an error.
-.It Dv X509_V_ERR_UNABLE_TO_GET_CRL_ISSUER : \
- No unable to get CRL issuer certificate
-The CRL's issuer could not be found:
-there is no alternative CRL issuer set on
-.Ar ctx
-and the last certificate in the chain is not self signed.
-.It Dv X509_V_ERR_UNHANDLED_CRITICAL_EXTENSION : \
- No unhandled critical extension
-The certificate contains a critical extension that is unsupported
-by the library.
-.It Dv X509_V_ERR_KEYUSAGE_NO_CRL_SIGN : \
- No key usage does not include CRL signing
-The CRL issuer has a key usage extension with unset cRLSign bit.
-.It Dv X509_V_ERR_UNHANDLED_CRITICAL_CRL_EXTENSION : \
- No unhandled critical CRL extension
-The CRL contains a critical extension that is unsupported
-by the library.
-.\" XXX - The following are unreachable (X509_V_ERR_INVALID_NON_CA) or unused.
+.\" .It Dv X509_V_ERR_UNABLE_TO_GET_CRL_ISSUER : \
+.\"  No unable to get CRL issuer certificate
+.\" .It Dv X509_V_ERR_UNHANDLED_CRITICAL_EXTENSION : \
+.\"  No unhandled critical extension
+.\" .It Dv X509_V_ERR_KEYUSAGE_NO_CRL_SIGN : \
+.\"  No key usage does not include CRL signing
+.\" .It Dv X509_V_ERR_UNHANDLED_CRITICAL_CRL_EXTENSION : \
+.\"  No unhandled critical CRL extension
 .\" .It Dv X509_V_ERR_INVALID_NON_CA : \
 .\"  No invalid non-CA certificate (has CA markings)
 .\" .It Dv X509_V_ERR_PROXY_PATH_LENGTH_EXCEEDED : \
@@ -550,6 +566,8 @@ This will never be returned unless explicitly set by an application.
 .\"  No CA signature digest algorithm too weak
 .El
 .Sh SEE ALSO
+.Xr X509_policy_check 3 ,
+.Xr X509_policy_tree_level_count 3 ,
 .Xr X509_STORE_CTX_new 3 ,
 .Xr X509_STORE_CTX_set_verify 3 ,
 .Xr X509_STORE_CTX_set_verify_cb 3 ,
@@ -570,6 +588,12 @@ first appeared in SSLeay 0.8.0 and have been available since
 .Fn X509_STORE_CTX_get1_chain
 first appeared in OpenSSL 0.9.5 and has been available since
 .Ox 2.7 .
+.Pp
+.Fn X509_STORE_CTX_get0_policy_tree
+and
+.Fn X509_STORE_CTX_get_explicit_policy
+first appeared in OpenSSL 0.9.8 and have been available since
+.Ox 4.5 .
 .Pp
 .Fn X509_STORE_CTX_get0_current_issuer ,
 .Fn X509_STORE_CTX_get0_current_crl ,

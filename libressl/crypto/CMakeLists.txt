@@ -4,6 +4,7 @@ if(HOST_ASM_ELF_ARMV4)
 	set(
 		ASM_ARMV4_ELF_SRC
 		aes/aes-elf-armv4.S
+		bn/gf2m-elf-armv4.S
 		bn/mont-elf-armv4.S
 		sha/sha1-elf-armv4.S
 		sha/sha512-elf-armv4.S
@@ -14,6 +15,7 @@ if(HOST_ASM_ELF_ARMV4)
 	)
 	add_definitions(-DAES_ASM)
 	add_definitions(-DOPENSSL_BN_ASM_MONT)
+	add_definitions(-DOPENSSL_BN_ASM_GF2m)
 	add_definitions(-DGHASH_ASM)
 	add_definitions(-DSHA1_ASM)
 	add_definitions(-DSHA256_ASM)
@@ -34,6 +36,7 @@ if(HOST_ASM_ELF_X86_64)
 		bn/modexp512-elf-x86_64.S
 		bn/mont-elf-x86_64.S
 		bn/mont5-elf-x86_64.S
+		bn/gf2m-elf-x86_64.S
 		camellia/cmll-elf-x86_64.S
 		md5/md5-elf-x86_64.S
 		modes/ghash-elf-x86_64.S
@@ -64,6 +67,7 @@ if(HOST_ASM_ELF_X86_64)
 	add_definitions(-DOPENSSL_IA32_SSE2)
 	add_definitions(-DOPENSSL_BN_ASM_MONT)
 	add_definitions(-DOPENSSL_BN_ASM_MONT5)
+	add_definitions(-DOPENSSL_BN_ASM_GF2m)
 	add_definitions(-DMD5_ASM)
 	add_definitions(-DGHASH_ASM)
 	add_definitions(-DRSA_ASM)
@@ -87,6 +91,7 @@ if(HOST_ASM_MACOSX_X86_64)
 		bn/modexp512-macosx-x86_64.S
 		bn/mont-macosx-x86_64.S
 		bn/mont5-macosx-x86_64.S
+		bn/gf2m-macosx-x86_64.S
 		camellia/cmll-macosx-x86_64.S
 		md5/md5-macosx-x86_64.S
 		modes/ghash-macosx-x86_64.S
@@ -117,6 +122,7 @@ if(HOST_ASM_MACOSX_X86_64)
 	add_definitions(-DOPENSSL_IA32_SSE2)
 	add_definitions(-DOPENSSL_BN_ASM_MONT)
 	add_definitions(-DOPENSSL_BN_ASM_MONT5)
+	add_definitions(-DOPENSSL_BN_ASM_GF2m)
 	add_definitions(-DMD5_ASM)
 	add_definitions(-DGHASH_ASM)
 	add_definitions(-DRSA_ASM)
@@ -141,6 +147,7 @@ if(HOST_ASM_MASM_X86_64)
 		#bn/modexp512-masm-x86_64.S
 		#bn/mont-masm-x86_64.S
 		#bn/mont5-masm-x86_64.S
+		#bn/gf2m-masm-x86_64.S
 		camellia/cmll-masm-x86_64.S
 		md5/md5-masm-x86_64.S
 		modes/ghash-masm-x86_64.S
@@ -152,13 +159,13 @@ if(HOST_ASM_MASM_X86_64)
 		whrlpool/wp-masm-x86_64.S
 		cpuid-masm-x86_64.S
 	)
-	add_definitions(-Dendbr64=)
 	add_definitions(-DAES_ASM)
 	add_definitions(-DBSAES_ASM)
 	add_definitions(-DVPAES_ASM)
 	add_definitions(-DOPENSSL_IA32_SSE2)
 	#add_definitions(-DOPENSSL_BN_ASM_MONT)
 	#add_definitions(-DOPENSSL_BN_ASM_MONT5)
+	#add_definitions(-DOPENSSL_BN_ASM_GF2m)
 	add_definitions(-DMD5_ASM)
 	add_definitions(-DGHASH_ASM)
 	add_definitions(-DRSA_ASM)
@@ -182,6 +189,7 @@ if(HOST_ASM_MINGW64_X86_64)
 		#bn/modexp512-mingw64-x86_64.S
 		#bn/mont-mingw64-x86_64.S
 		#bn/mont5-mingw64-x86_64.S
+		#bn/gf2m-mingw64-x86_64.S
 		camellia/cmll-mingw64-x86_64.S
 		md5/md5-mingw64-x86_64.S
 		modes/ghash-mingw64-x86_64.S
@@ -193,13 +201,13 @@ if(HOST_ASM_MINGW64_X86_64)
 		whrlpool/wp-mingw64-x86_64.S
 		cpuid-mingw64-x86_64.S
 	)
-	add_definitions(-Dendbr64=)
 	add_definitions(-DAES_ASM)
 	add_definitions(-DBSAES_ASM)
 	add_definitions(-DVPAES_ASM)
 	add_definitions(-DOPENSSL_IA32_SSE2)
 	#add_definitions(-DOPENSSL_BN_ASM_MONT)
 	#add_definitions(-DOPENSSL_BN_ASM_MONT5)
+	#add_definitions(-DOPENSSL_BN_ASM_GF2m)
 	add_definitions(-DMD5_ASM)
 	add_definitions(-DGHASH_ASM)
 	add_definitions(-DRSA_ASM)
@@ -258,6 +266,7 @@ set(
 	aes/aes_ctr.c
 	aes/aes_ecb.c
 	aes/aes_ige.c
+	aes/aes_misc.c
 	aes/aes_ofb.c
 	aes/aes_wrap.c
 	asn1/a_bitstr.c
@@ -290,10 +299,12 @@ set(
 	asn1/asn_moid.c
 	asn1/bio_asn1.c
 	asn1/bio_ndef.c
+	asn1/nsseq.c
 	asn1/p5_pbe.c
 	asn1/p5_pbev2.c
 	asn1/p8_pkey.c
 	asn1/t_crl.c
+	asn1/t_pkey.c
 	asn1/t_req.c
 	asn1/t_spki.c
 	asn1/t_x509.c
@@ -346,31 +357,35 @@ set(
 	bio/bss_null.c
 	bio/bss_sock.c
 	bn/bn_add.c
+	bn/bn_blind.c
 	bn/bn_bpsw.c
 	bn/bn_const.c
-	bn/bn_convert.c
 	bn/bn_ctx.c
 	bn/bn_div.c
 	bn/bn_err.c
 	bn/bn_exp.c
 	bn/bn_gcd.c
+	bn/bn_gf2m.c
 	bn/bn_isqrt.c
 	bn/bn_kron.c
 	bn/bn_lib.c
 	bn/bn_mod.c
-	bn/bn_mod_sqrt.c
 	bn/bn_mont.c
+	bn/bn_mpi.c
 	bn/bn_mul.c
+	bn/bn_nist.c
 	bn/bn_prime.c
-	bn/bn_primitives.c
 	bn/bn_print.c
 	bn/bn_rand.c
 	bn/bn_recp.c
 	bn/bn_shift.c
 	bn/bn_small_primes.c
 	bn/bn_sqr.c
+	bn/bn_sqrt.c
 	bn/bn_word.c
+	bn/bn_x931p.c
 	buffer/buf_err.c
+	buffer/buf_str.c
 	buffer/buffer.c
 	bytestring/bs_ber.c
 	bytestring/bs_cbb.c
@@ -391,6 +406,7 @@ set(
 	cmac/cmac.c
 	cms/cms_asn1.c
 	cms/cms_att.c
+	cms/cms_cd.c
 	cms/cms_dd.c
 	cms/cms_enc.c
 	cms/cms_env.c
@@ -402,6 +418,10 @@ set(
 	cms/cms_pwri.c
 	cms/cms_sd.c
 	cms/cms_smime.c
+	comp/c_rle.c
+	comp/c_zlib.c
+	comp/comp_err.c
+	comp/comp_lib.c
 	conf/conf_api.c
 	conf/conf_def.c
 	conf/conf_err.c
@@ -446,13 +466,16 @@ set(
 	dh/dh_ameth.c
 	dh/dh_asn1.c
 	dh/dh_check.c
+	dh/dh_depr.c
 	dh/dh_err.c
 	dh/dh_gen.c
 	dh/dh_key.c
 	dh/dh_lib.c
 	dh/dh_pmeth.c
+	dh/dh_prn.c
 	dsa/dsa_ameth.c
 	dsa/dsa_asn1.c
+	dsa/dsa_depr.c
 	dsa/dsa_err.c
 	dsa/dsa_gen.c
 	dsa/dsa_key.c
@@ -461,6 +484,14 @@ set(
 	dsa/dsa_ossl.c
 	dsa/dsa_pmeth.c
 	dsa/dsa_prn.c
+	dso/dso_dlfcn.c
+	dso/dso_err.c
+	dso/dso_lib.c
+	dso/dso_null.c
+	dso/dso_openssl.c
+	ec/ec2_mult.c
+	ec/ec2_oct.c
+	ec/ec2_smpl.c
 	ec/ec_ameth.c
 	ec/ec_asn1.c
 	ec/ec_check.c
@@ -476,12 +507,44 @@ set(
 	ec/ec_print.c
 	ec/eck_prn.c
 	ec/ecp_mont.c
+	ec/ecp_nist.c
 	ec/ecp_oct.c
 	ec/ecp_smpl.c
 	ec/ecx_methods.c
-	ecdh/ecdh.c
-	ecdsa/ecdsa.c
-	engine/engine_stubs.c
+	ecdh/ecdh_kdf.c
+	ecdh/ech_err.c
+	ecdh/ech_key.c
+	ecdh/ech_lib.c
+	ecdsa/ecs_asn1.c
+	ecdsa/ecs_err.c
+	ecdsa/ecs_lib.c
+	ecdsa/ecs_ossl.c
+	ecdsa/ecs_sign.c
+	ecdsa/ecs_vrf.c
+	engine/eng_all.c
+	engine/eng_cnf.c
+	engine/eng_ctrl.c
+	engine/eng_dyn.c
+	engine/eng_err.c
+	engine/eng_fat.c
+	engine/eng_init.c
+	engine/eng_lib.c
+	engine/eng_list.c
+	engine/eng_openssl.c
+	engine/eng_pkey.c
+	engine/eng_table.c
+	engine/tb_asnmth.c
+	engine/tb_cipher.c
+	engine/tb_dh.c
+	engine/tb_digest.c
+	engine/tb_dsa.c
+	engine/tb_ecdh.c
+	engine/tb_ecdsa.c
+	engine/tb_eckey.c
+	engine/tb_pkmeth.c
+	engine/tb_rand.c
+	engine/tb_rsa.c
+	engine/tb_store.c
 	err/err.c
 	err/err_all.c
 	err/err_prn.c
@@ -503,6 +566,7 @@ set(
 	evp/e_gost2814789.c
 	evp/e_idea.c
 	evp/e_null.c
+	evp/e_old.c
 	evp/e_rc2.c
 	evp/e_rc4.c
 	evp/e_rc4_hmac_md5.c
@@ -524,7 +588,6 @@ set(
 	evp/m_null.c
 	evp/m_ripemd.c
 	evp/m_sha1.c
-	evp/m_sha3.c
 	evp/m_sigver.c
 	evp/m_streebog.c
 	evp/m_sm3.c
@@ -569,12 +632,15 @@ set(
 	kdf/kdf_err.c
 	lhash/lh_stats.c
 	lhash/lhash.c
-	md4/md4.c
-	md5/md5.c
+	md4/md4_dgst.c
+	md4/md4_one.c
+	md5/md5_dgst.c
+	md5/md5_one.c
 	modes/cbc128.c
 	modes/ccm128.c
 	modes/cfb128.c
 	modes/ctr128.c
+	modes/cts128.c
 	modes/gcm128.c
 	modes/ofb128.c
 	modes/xts128.c
@@ -619,6 +685,7 @@ set(
 	pkcs12/p12_sbag.c
 	pkcs12/p12_utl.c
 	pkcs12/pk12err.c
+	pkcs7/bio_pk7.c
 	pkcs7/pk7_asn1.c
 	pkcs7/pk7_attr.c
 	pkcs7/pk7_doit.c
@@ -635,11 +702,13 @@ set(
 	rc2/rc2_skey.c
 	rc2/rc2cfb64.c
 	rc2/rc2ofb64.c
-	ripemd/ripemd.c
+	ripemd/rmd_dgst.c
+	ripemd/rmd_one.c
 	rsa/rsa_ameth.c
 	rsa/rsa_asn1.c
-	rsa/rsa_blinding.c
 	rsa/rsa_chk.c
+	rsa/rsa_crpt.c
+	rsa/rsa_depr.c
 	rsa/rsa_eay.c
 	rsa/rsa_err.c
 	rsa/rsa_gen.c
@@ -654,9 +723,9 @@ set(
 	rsa/rsa_saos.c
 	rsa/rsa_sign.c
 	rsa/rsa_x931.c
-	sha/sha1.c
+	sha/sha1_one.c
+	sha/sha1dgst.c
 	sha/sha256.c
-	sha/sha3.c
 	sha/sha512.c
 	sm3/sm3.c
 	sm4/sm4.c
@@ -681,6 +750,12 @@ set(
 	x509/by_dir.c
 	x509/by_file.c
 	x509/by_mem.c
+	x509/pcy_cache.c
+	x509/pcy_data.c
+	x509/pcy_lib.c
+	x509/pcy_map.c
+	x509/pcy_node.c
+	x509/pcy_tree.c
 	x509/x509_addr.c
 	x509/x509_akey.c
 	x509/x509_akeya.c
@@ -696,6 +771,7 @@ set(
 	x509/x509_crld.c
 	x509/x509_d2.c
 	x509/x509_def.c
+	x509/x509_enum.c
 	x509/x509_err.c
 	x509/x509_ext.c
 	x509/x509_extku.c
@@ -709,16 +785,18 @@ set(
 	x509/x509_ncons.c
 	x509/x509_obj.c
 	x509/x509_ocsp.c
+	x509/x509_pci.c
+	x509/x509_pcia.c
 	x509/x509_pcons.c
 	x509/x509_pku.c
 	x509/x509_pmaps.c
-	x509/x509_policy.c
 	x509/x509_prn.c
 	x509/x509_purp.c
 	x509/x509_r2x.c
 	x509/x509_req.c
 	x509/x509_set.c
 	x509/x509_skey.c
+	x509/x509_sxnet.c
 	x509/x509_trs.c
 	x509/x509_txt.c
 	x509/x509_utl.c
@@ -774,13 +852,6 @@ endif()
 if(NOT HAVE_FREEZERO)
 	set(CRYPTO_SRC ${CRYPTO_SRC} compat/freezero.c)
 	set(EXTRA_EXPORT ${EXTRA_EXPORT} freezero)
-endif()
-
-if(NOT HAVE_GETOPT)
-	set(CRYPTO_SRC ${CRYPTO_SRC} compat/getopt_long.c)
-	set(EXTRA_EXPORT ${EXTRA_EXPORT} getopt)
-	set(EXTRA_EXPORT ${EXTRA_EXPORT} optarg)
-	set(EXTRA_EXPORT ${EXTRA_EXPORT} optind)
 endif()
 
 if(NOT HAVE_GETPAGESIZE)
@@ -907,7 +978,7 @@ else()
 		   (NOT "${CMAKE_GENERATOR_PLATFORM}" STREQUAL "x64"))
 			add_definitions(-DOPENSSL_NO_ASM)
 		endif()
-	elseif(WIN32 AND NOT MINGW)
+	elseif(WIN32)
 		add_definitions(-DOPENSSL_NO_ASM)
 	endif()
 endif()
@@ -957,12 +1028,10 @@ target_include_directories(crypto_obj
 		ocsp
 		pkcs12
 		rsa
-		sha
 		x509
 		../include/compat
 	PUBLIC
-		../include
-		${CMAKE_BINARY_DIR}/include)
+		../include)
 
 if(HOST_AARCH64)
 	target_include_directories(crypto_obj PRIVATE bn/arch/aarch64/)
@@ -989,33 +1058,13 @@ add_library(crypto $<TARGET_OBJECTS:crypto_obj> empty.c)
 export_symbol(crypto ${CMAKE_CURRENT_BINARY_DIR}/crypto_p.sym)
 target_link_libraries(crypto ${PLATFORM_LIBS})
 if (WIN32)
-	set(CRYPTO_POSTFIX -${CRYPTO_MAJOR_VERSION} PARENT_SCOPE)
+	set(CRYPTO_POSTFIX -${CRYPTO_MAJOR_VERSION})
 endif()
 set_target_properties(crypto PROPERTIES
 	OUTPUT_NAME crypto${CRYPTO_POSTFIX}
-	ARCHIVE_OUTPUT_NAME crypto${CRYPTO_POSTFIX}
-	EXPORT_NAME Crypto
-	VERSION ${CRYPTO_VERSION}
-	SOVERSION ${CRYPTO_MAJOR_VERSION}
-)
-
-target_include_directories(
-	crypto
-	PUBLIC
-	$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
-	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-)
-
-install(
-	TARGETS crypto
-	EXPORT Crypto-target
-)
-
-export(
-	EXPORT Crypto-target
-	FILE "${LibreSSL_BINARY_DIR}/LibreSSL-Crypto.cmake"
-	NAMESPACE LibreSSL::
-)
+	ARCHIVE_OUTPUT_NAME crypto${CRYPTO_POSTFIX})
+set_target_properties(crypto PROPERTIES VERSION
+	${CRYPTO_VERSION} SOVERSION ${CRYPTO_MAJOR_VERSION})
 
 if(ENABLE_LIBRESSL_INSTALL)
 	install(
@@ -1023,12 +1072,6 @@ if(ENABLE_LIBRESSL_INSTALL)
 		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-	)
-	install(
-		EXPORT Crypto-target
-		FILE "LibreSSL-Crypto.cmake"
-		NAMESPACE LibreSSL::
-		DESTINATION "${LIBRESSL_INSTALL_CMAKEDIR}"
 	)
 endif(ENABLE_LIBRESSL_INSTALL)
 

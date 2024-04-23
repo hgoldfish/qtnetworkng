@@ -119,7 +119,10 @@ am_ocspcheck_OBJECTS = http.$(OBJEXT) ocspcheck.$(OBJEXT) \
 	$(am__objects_1)
 ocspcheck_OBJECTS = $(am_ocspcheck_OBJECTS)
 am__DEPENDENCIES_1 =
-ocspcheck_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+ocspcheck_DEPENDENCIES = $(abs_top_builddir)/crypto/libcrypto.la \
+	$(abs_top_builddir)/ssl/libssl.la \
+	$(abs_top_builddir)/tls/libtls.la $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -350,9 +353,10 @@ AM_CPPFLAGS = -I$(top_srcdir)/include -I$(abs_top_builddir)/include \
 	-D__BEGIN_HIDDEN_DECLS= -D__END_HIDDEN_DECLS=
 @ENABLE_LIBTLS_ONLY_FALSE@dist_man_MANS = ocspcheck.8
 EXTRA_DIST = ocspcheck.8 CMakeLists.txt
-ocspcheck_LDADD = $(libcrypto_la_objects) $(libcompat_la_objects) \
-	$(libcompatnoopt_la_objects) $(libssl_la_objects) \
-	$(libtls_la_objects) $(PLATFORM_LDADD) $(PROG_LDADD)
+ocspcheck_LDADD = $(abs_top_builddir)/crypto/libcrypto.la \
+	$(abs_top_builddir)/ssl/libssl.la \
+	$(abs_top_builddir)/tls/libtls.la $(PLATFORM_LDADD) \
+	$(PROG_LDADD)
 ocspcheck_SOURCES = http.c ocspcheck.c $(am__append_1)
 noinst_HEADERS = http.h
 all: all-am
@@ -770,10 +774,6 @@ uninstall-man: uninstall-man8
 
 .PRECIOUS: Makefile
 
-
--include $(abs_top_builddir)/crypto/libcrypto_la_objects.mk
--include $(abs_top_builddir)/ssl/libssl_la_objects.mk
--include $(abs_top_builddir)/tls/libtls_la_objects.mk
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

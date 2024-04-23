@@ -1,4 +1,4 @@
-/* $OpenBSD: bn_local.h,v 1.38 2023/08/09 09:23:03 tb Exp $ */
+/* $OpenBSD: bn_local.h,v 1.17 2023/02/22 05:57:19 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -141,13 +141,13 @@ struct bn_mont_ctx_st {
 /* Used for reciprocal division/mod functions
  * It cannot be shared between threads
  */
-typedef struct bn_recp_ctx_st {
+struct bn_recp_ctx_st {
 	BIGNUM N;	/* the divisor */
 	BIGNUM Nr;	/* the reciprocal */
 	int num_bits;
 	int shift;
 	int flags;
-} BN_RECP_CTX;
+};
 
 /* Used for slow "generation" functions. */
 struct bn_gencb_st {
@@ -252,11 +252,22 @@ void bn_mul_normal(BN_ULONG *r, BN_ULONG *a, int na, BN_ULONG *b, int nb);
 void bn_mul_comba4(BN_ULONG *r, BN_ULONG *a, BN_ULONG *b);
 void bn_mul_comba8(BN_ULONG *r, BN_ULONG *a, BN_ULONG *b);
 
+void bn_sqr_normal(BN_ULONG *r, const BN_ULONG *a, int n, BN_ULONG *tmp);
 void bn_sqr_comba4(BN_ULONG *r, const BN_ULONG *a);
 void bn_sqr_comba8(BN_ULONG *r, const BN_ULONG *a);
 
+int bn_cmp_words(const BN_ULONG *a, const BN_ULONG *b, int n);
+int bn_cmp_part_words(const BN_ULONG *a, const BN_ULONG *b,
+    int cl, int dl);
+void bn_mul_recursive(BN_ULONG *r, BN_ULONG *a, BN_ULONG *b, int n2,
+    int dna, int dnb, BN_ULONG *t);
+void bn_mul_part_recursive(BN_ULONG *r, BN_ULONG *a, BN_ULONG *b,
+    int n, int tna, int tnb, BN_ULONG *t);
+void bn_sqr_recursive(BN_ULONG *r, const BN_ULONG *a, int n2, BN_ULONG *t);
 int bn_mul_mont(BN_ULONG *rp, const BN_ULONG *ap, const BN_ULONG *bp,
     const BN_ULONG *np, const BN_ULONG *n0, int num);
+
+int bn_word_clz(BN_ULONG w);
 
 void bn_correct_top(BIGNUM *a);
 int bn_expand(BIGNUM *a, int bits);
@@ -274,23 +285,7 @@ void bn_div_rem_words(BN_ULONG h, BN_ULONG l, BN_ULONG d, BN_ULONG *out_q,
     BN_ULONG *out_r);
 
 int BN_bntest_rand(BIGNUM *rnd, int bits, int top, int bottom);
-int bn_rand_in_range(BIGNUM *rnd, const BIGNUM *lower_inc, const BIGNUM *upper_exc);
-int bn_rand_interval(BIGNUM *rnd, BN_ULONG lower_word, const BIGNUM *upper_exc);
-
-void	BN_init(BIGNUM *);
-
-int	BN_reciprocal(BIGNUM *r, const BIGNUM *m, int len, BN_CTX *ctx);
-
-void	BN_RECP_CTX_init(BN_RECP_CTX *recp);
-BN_RECP_CTX *BN_RECP_CTX_new(void);
-void	BN_RECP_CTX_free(BN_RECP_CTX *recp);
-int	BN_RECP_CTX_set(BN_RECP_CTX *recp, const BIGNUM *rdiv, BN_CTX *ctx);
-int	BN_mod_mul_reciprocal(BIGNUM *r, const BIGNUM *x, const BIGNUM *y,
-    BN_RECP_CTX *recp, BN_CTX *ctx);
-int	BN_mod_exp_recp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
-    const BIGNUM *m, BN_CTX *ctx);
-int	BN_div_recp(BIGNUM *dv, BIGNUM *rem, const BIGNUM *m,
-    BN_RECP_CTX *recp, BN_CTX *ctx);
+int bn_rand_interval(BIGNUM *rnd, const BIGNUM *lower_inc, const BIGNUM *upper_exc);
 
 /* Explicitly const time / non-const time versions for internal use */
 int BN_mod_exp_ct(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
@@ -317,19 +312,10 @@ int	BN_gcd_nonct(BIGNUM *r, const BIGNUM *a, const BIGNUM *b, BN_CTX *ctx);
 
 int	BN_swap_ct(BN_ULONG swap, BIGNUM *a, BIGNUM *b, size_t nwords);
 
-int bn_copy(BIGNUM *dst, const BIGNUM *src);
-
 int bn_isqrt(BIGNUM *out_sqrt, int *out_perfect, const BIGNUM *n, BN_CTX *ctx);
 int bn_is_perfect_square(int *out_perfect, const BIGNUM *n, BN_CTX *ctx);
 
-int bn_is_prime_bpsw(int *is_prime, const BIGNUM *n, BN_CTX *ctx, size_t rounds);
-
-int bn_printf(BIO *bio, const BIGNUM *bn, int indent, const char *fmt, ...)
-    __attribute__((__format__ (printf, 4, 5)))
-    __attribute__((__nonnull__ (4)));
-
-int bn_bn2hex_nosign(const BIGNUM *bn, char **out, size_t *out_len);
-int bn_bn2hex_nibbles(const BIGNUM *bn, char **out, size_t *out_len);
+int bn_is_prime_bpsw(int *is_prime, const BIGNUM *n, BN_CTX *in_ctx);
 
 __END_HIDDEN_DECLS
 #endif /* !HEADER_BN_LOCAL_H */

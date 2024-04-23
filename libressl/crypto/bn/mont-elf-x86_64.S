@@ -5,7 +5,6 @@
 .type	bn_mul_mont,@function
 .align	16
 bn_mul_mont:
-	endbr64
 	testl	$3,%r9d
 	jnz	.Lmul_enter
 	cmpl	$8,%r9d
@@ -213,7 +212,6 @@ bn_mul_mont:
 .align	16
 bn_mul4x_mont:
 .Lmul4x_enter:
-	endbr64
 	pushq	%rbx
 	pushq	%rbp
 	pushq	%r12
@@ -612,7 +610,6 @@ bn_mul4x_mont:
 .align	16
 bn_sqr4x_mont:
 .Lsqr4x_enter:
-	endbr64
 	pushq	%rbx
 	pushq	%rbp
 	pushq	%r12

@@ -1,4 +1,4 @@
-/* $OpenBSD: p_verify.c,v 1.18 2023/07/07 19:37:54 beck Exp $ */
+/* $OpenBSD: p_verify.c,v 1.16 2022/11/26 16:08:53 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

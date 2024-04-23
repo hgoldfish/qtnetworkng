@@ -1,4 +1,4 @@
-/* $OpenBSD: bio_asn1.c,v 1.23 2023/07/28 09:58:30 tb Exp $ */
+/* $OpenBSD: bio_asn1.c,v 1.19 2023/03/10 11:55:38 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project.
  */
@@ -68,9 +68,6 @@
 #include <openssl/asn1.h>
 
 #include "bio_local.h"
-
-#define BIO_C_SET_PREFIX			149
-#define BIO_C_SET_SUFFIX			151
 
 /* Must be large enough for biggest tag+length */
 #define DEFAULT_ASN1_BUF_SIZE 20
@@ -166,7 +163,7 @@ asn1_bio_new(BIO *b)
 	ctx->state = ASN1_STATE_START;
 
 	b->init = 1;
-	b->ptr = ctx;
+	b->ptr = (char *)ctx;
 	b->flags = 0;
 
 	return 1;
@@ -175,8 +172,9 @@ asn1_bio_new(BIO *b)
 static int
 asn1_bio_free(BIO *b)
 {
-	BIO_ASN1_BUF_CTX *ctx = b->ptr;
+	BIO_ASN1_BUF_CTX *ctx;
 
+	ctx = (BIO_ASN1_BUF_CTX *) b->ptr;
 	if (ctx == NULL)
 		return 0;
 
@@ -202,8 +200,8 @@ asn1_bio_write(BIO *b, const char *in , int inl)
 
 	if (!in || (inl < 0) || (b->next_bio == NULL))
 		return 0;
-
-	if ((ctx = b->ptr) == NULL)
+	ctx = (BIO_ASN1_BUF_CTX *) b->ptr;
+	if (ctx == NULL)
 		return 0;
 
 	wrlen = 0;
@@ -368,7 +366,8 @@ asn1_bio_ctrl(BIO *b, int cmd, long arg1, void *arg2)
 	BIO_ASN1_EX_FUNCS *ex_func;
 	long ret = 1;
 
-	if ((ctx = b->ptr) == NULL)
+	ctx = (BIO_ASN1_BUF_CTX *) b->ptr;
+	if (ctx == NULL)
 		return 0;
 	switch (cmd) {
 
@@ -378,10 +377,22 @@ asn1_bio_ctrl(BIO *b, int cmd, long arg1, void *arg2)
 		ctx->prefix_free = ex_func->ex_free_func;
 		break;
 
+	case BIO_C_GET_PREFIX:
+		ex_func = arg2;
+		ex_func->ex_func = ctx->prefix;
+		ex_func->ex_free_func = ctx->prefix_free;
+		break;
+
 	case BIO_C_SET_SUFFIX:
 		ex_func = arg2;
 		ctx->suffix = ex_func->ex_func;
 		ctx->suffix_free = ex_func->ex_free_func;
+		break;
+
+	case BIO_C_GET_SUFFIX:
+		ex_func = arg2;
+		ex_func->ex_func = ctx->suffix;
+		ex_func->ex_free_func = ctx->suffix_free;
 		break;
 
 	case BIO_C_SET_EX_ARG:
@@ -440,6 +451,21 @@ asn1_bio_set_ex(BIO *b, int cmd, asn1_ps_func *ex_func, asn1_ps_func
 	return BIO_ctrl(b, cmd, 0, &extmp);
 }
 
+static int
+asn1_bio_get_ex(BIO *b, int cmd, asn1_ps_func **ex_func,
+    asn1_ps_func **ex_free_func)
+{
+	BIO_ASN1_EX_FUNCS extmp;
+	int ret;
+
+	ret = BIO_ctrl(b, cmd, 0, &extmp);
+	if (ret > 0) {
+		*ex_func = extmp.ex_func;
+		*ex_free_func = extmp.ex_free_func;
+	}
+	return ret;
+}
+
 int
 BIO_asn1_set_prefix(BIO *b, asn1_ps_func *prefix, asn1_ps_func *prefix_free)
 {
@@ -447,7 +473,19 @@ BIO_asn1_set_prefix(BIO *b, asn1_ps_func *prefix, asn1_ps_func *prefix_free)
 }
 
 int
+BIO_asn1_get_prefix(BIO *b, asn1_ps_func **pprefix, asn1_ps_func **pprefix_free)
+{
+	return asn1_bio_get_ex(b, BIO_C_GET_PREFIX, pprefix, pprefix_free);
+}
+
+int
 BIO_asn1_set_suffix(BIO *b, asn1_ps_func *suffix, asn1_ps_func *suffix_free)
 {
 	return asn1_bio_set_ex(b, BIO_C_SET_SUFFIX, suffix, suffix_free);
+}
+
+int
+BIO_asn1_get_suffix(BIO *b, asn1_ps_func **psuffix, asn1_ps_func **psuffix_free)
+{
+	return asn1_bio_get_ex(b, BIO_C_GET_SUFFIX, psuffix, psuffix_free);
 }

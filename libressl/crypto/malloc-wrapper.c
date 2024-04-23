@@ -1,4 +1,4 @@
-/* $OpenBSD: malloc-wrapper.c,v 1.8 2023/07/08 08:28:23 beck Exp $ */
+/* $OpenBSD: malloc-wrapper.c,v 1.7 2018/05/13 13:49:04 jsing Exp $ */
 /*
  * Copyright (c) 2014 Bob Beck
  *
@@ -18,15 +18,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <openssl/crypto.h>
-
 int
 CRYPTO_set_mem_functions(void *(*m)(size_t), void *(*r)(void *, size_t),
     void (*f)(void *))
 {
 	return 0;
 }
-LCRYPTO_ALIAS(CRYPTO_set_mem_functions);
 
 int
 CRYPTO_set_mem_ex_functions(void *(*m)(size_t, const char *, int),
@@ -34,14 +31,12 @@ CRYPTO_set_mem_ex_functions(void *(*m)(size_t, const char *, int),
 {
 	return 0;
 }
-LCRYPTO_ALIAS(CRYPTO_set_mem_ex_functions);
 
 int
 CRYPTO_set_locked_mem_functions(void *(*m)(size_t), void (*f)(void *))
 {
 	return 0;
 }
-LCRYPTO_ALIAS(CRYPTO_set_locked_mem_functions);
 
 int
 CRYPTO_set_locked_mem_ex_functions(void *(*m)(size_t, const char *, int),
@@ -49,7 +44,6 @@ CRYPTO_set_locked_mem_ex_functions(void *(*m)(size_t, const char *, int),
 {
 	return 0;
 }
-LCRYPTO_ALIAS(CRYPTO_set_locked_mem_ex_functions);
 
 int
 CRYPTO_set_mem_debug_functions(void (*m)(void *, int, const char *, int, int),
@@ -58,7 +52,6 @@ CRYPTO_set_mem_debug_functions(void (*m)(void *, int, const char *, int, int),
 {
 	return 0;
 }
-LCRYPTO_ALIAS(CRYPTO_set_mem_debug_functions);
 
 
 void
@@ -72,7 +65,6 @@ CRYPTO_get_mem_functions(void *(**m)(size_t), void *(**r)(void *, size_t),
 	if (f != NULL)
 		*f = free;
 }
-LCRYPTO_ALIAS(CRYPTO_get_mem_functions);
 
 void
 CRYPTO_get_mem_ex_functions(void *(**m)(size_t, const char *, int),
@@ -85,7 +77,6 @@ CRYPTO_get_mem_ex_functions(void *(**m)(size_t, const char *, int),
 	if (f != NULL)
 		*f = free;
 }
-LCRYPTO_ALIAS(CRYPTO_get_mem_ex_functions);
 
 void
 CRYPTO_get_locked_mem_functions(void *(**m)(size_t), void (**f)(void *))
@@ -95,7 +86,6 @@ CRYPTO_get_locked_mem_functions(void *(**m)(size_t), void (**f)(void *))
 	if (f != NULL)
 		*f = free;
 }
-LCRYPTO_ALIAS(CRYPTO_get_locked_mem_functions);
 
 void
 CRYPTO_get_locked_mem_ex_functions(void *(**m)(size_t, const char *, int),
@@ -106,7 +96,6 @@ CRYPTO_get_locked_mem_ex_functions(void *(**m)(size_t, const char *, int),
 	if (f != NULL)
 		*f = free;
 }
-LCRYPTO_ALIAS(CRYPTO_get_locked_mem_ex_functions);
 
 void
 CRYPTO_get_mem_debug_functions(void (**m)(void *, int, const char *, int, int),
@@ -124,7 +113,6 @@ CRYPTO_get_mem_debug_functions(void (**m)(void *, int, const char *, int, int),
 	if (go != NULL)
 		*go = NULL;
 }
-LCRYPTO_ALIAS(CRYPTO_get_mem_debug_functions);
 
 
 void *
@@ -174,7 +162,6 @@ CRYPTO_realloc_clean(void *ptr, int old_len, int num, const char *file,
 		return NULL;
 	return recallocarray(ptr, old_len, num, 1);
 }
-LCRYPTO_ALIAS(CRYPTO_realloc_clean);
 
 void
 CRYPTO_free(void *ptr)
@@ -188,18 +175,15 @@ CRYPTO_remalloc(void *a, int num, const char *file, int line)
 	free(a);
 	return malloc(num);
 }
-LCRYPTO_ALIAS(CRYPTO_remalloc);
 
 void
 CRYPTO_set_mem_debug_options(long bits)
 {
 	return;
 }
-LCRYPTO_ALIAS(CRYPTO_set_mem_debug_options);
 
 long
 CRYPTO_get_mem_debug_options(void)
 {
 	return 0;
 }
-LCRYPTO_ALIAS(CRYPTO_get_mem_debug_options);

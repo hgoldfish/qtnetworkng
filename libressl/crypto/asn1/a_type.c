@@ -1,4 +1,4 @@
-/* $OpenBSD: a_type.c,v 1.27 2023/07/28 10:00:10 tb Exp $ */
+/* $OpenBSD: a_type.c,v 1.25 2023/03/11 14:05:02 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -62,8 +62,6 @@
 #include <openssl/err.h>
 #include <openssl/objects.h>
 
-#include "asn1_local.h"
-
 typedef struct {
 	ASN1_INTEGER *num;
 	ASN1_OCTET_STRING *value;
@@ -96,14 +94,12 @@ ASN1_TYPE_new(void)
 {
 	return (ASN1_TYPE *)ASN1_item_new(&ASN1_ANY_it);
 }
-LCRYPTO_ALIAS(ASN1_TYPE_new);
 
 void
 ASN1_TYPE_free(ASN1_TYPE *a)
 {
 	ASN1_item_free((ASN1_VALUE *)a, &ASN1_ANY_it);
 }
-LCRYPTO_ALIAS(ASN1_TYPE_free);
 
 int
 ASN1_TYPE_get(const ASN1_TYPE *a)
@@ -117,7 +113,6 @@ ASN1_TYPE_get(const ASN1_TYPE *a)
 
 	return 0;
 }
-LCRYPTO_ALIAS(ASN1_TYPE_get);
 
 void
 ASN1_TYPE_set(ASN1_TYPE *a, int type, void *value)
@@ -132,7 +127,6 @@ ASN1_TYPE_set(ASN1_TYPE *a, int type, void *value)
 	else
 		a->value.ptr = value;
 }
-LCRYPTO_ALIAS(ASN1_TYPE_set);
 
 int
 ASN1_TYPE_set1(ASN1_TYPE *a, int type, const void *value)
@@ -155,7 +149,6 @@ ASN1_TYPE_set1(ASN1_TYPE *a, int type, const void *value)
 	}
 	return 1;
 }
-LCRYPTO_ALIAS(ASN1_TYPE_set1);
 
 /* Returns 0 if they are equal, != 0 otherwise. */
 int
@@ -205,7 +198,6 @@ ASN1_TYPE_cmp(const ASN1_TYPE *a, const ASN1_TYPE *b)
 
 	return result;
 }
-LCRYPTO_ALIAS(ASN1_TYPE_cmp);
 
 int
 ASN1_TYPE_set_octetstring(ASN1_TYPE *a, const unsigned char *data, int len)
@@ -221,7 +213,6 @@ ASN1_TYPE_set_octetstring(ASN1_TYPE *a, const unsigned char *data, int len)
 	ASN1_TYPE_set(a, V_ASN1_OCTET_STRING, os);
 	return (1);
 }
-LCRYPTO_ALIAS(ASN1_TYPE_set_octetstring);
 
 int
 ASN1_TYPE_get_octetstring(const ASN1_TYPE *a, unsigned char *data, int max_len)
@@ -243,7 +234,6 @@ ASN1_TYPE_get_octetstring(const ASN1_TYPE *a, unsigned char *data, int max_len)
 	memcpy(data, p, num);
 	return (ret);
 }
-LCRYPTO_ALIAS(ASN1_TYPE_get_octetstring);
 
 int
 ASN1_TYPE_set_int_octetstring(ASN1_TYPE *at, long num, const unsigned char *data,
@@ -275,7 +265,6 @@ ASN1_TYPE_set_int_octetstring(ASN1_TYPE *at, long num, const unsigned char *data
 
 	return ret;
 }
-LCRYPTO_ALIAS(ASN1_TYPE_set_int_octetstring);
 
 int
 ASN1_TYPE_get_int_octetstring(const ASN1_TYPE *at, long *num, unsigned char *data,
@@ -311,7 +300,6 @@ ASN1_TYPE_get_int_octetstring(const ASN1_TYPE *at, long *num, unsigned char *dat
 
 	return ret;
 }
-LCRYPTO_ALIAS(ASN1_TYPE_get_int_octetstring);
 
 ASN1_TYPE *
 ASN1_TYPE_pack_sequence(const ASN1_ITEM *it, void *s, ASN1_TYPE **t)
@@ -349,7 +337,6 @@ i2d_ASN1_TYPE(ASN1_TYPE *a, unsigned char **out)
 {
 	return ASN1_item_i2d((ASN1_VALUE *)a, out, &ASN1_ANY_it);
 }
-LCRYPTO_ALIAS(i2d_ASN1_TYPE);
 
 ASN1_TYPE *
 d2i_ASN1_TYPE(ASN1_TYPE **a, const unsigned char **in, long len)
@@ -357,4 +344,3 @@ d2i_ASN1_TYPE(ASN1_TYPE **a, const unsigned char **in, long len)
 	return (ASN1_TYPE *)ASN1_item_d2i((ASN1_VALUE **)a, in, len,
 	    &ASN1_ANY_it);
 }
-LCRYPTO_ALIAS(d2i_ASN1_TYPE);

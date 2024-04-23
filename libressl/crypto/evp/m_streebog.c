@@ -1,4 +1,4 @@
-/* $OpenBSD: m_streebog.c,v 1.7 2023/07/07 19:37:54 beck Exp $ */
+/* $OpenBSD: m_streebog.c,v 1.5 2022/11/26 16:08:52 tb Exp $ */
 /*
  * Copyright (c) 2014 Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
  * Copyright (c) 2005-2006 Cryptocom LTD

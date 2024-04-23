@@ -1,4 +1,4 @@
-/* $OpenBSD: pkcs7.h,v 1.3 2023/07/05 21:14:54 bcook Exp $ */
+/* $OpenBSD: pkcs7.h,v 1.1 2022/11/12 12:11:14 beck Exp $ */
 /*
  * Copyright (c) 2022 Bob Beck <beck@openbsd.org>
  *
@@ -18,10 +18,10 @@
 #ifndef _LIBCRYPTO_PKCS7_H
 #define _LIBCRYPTO_PKCS7_H
 
-#ifndef _MSC_VER
-#include_next <openssl/pkcs7.h>
+#ifdef _MSC_VER
+#include <../include/openssl/pkcs7.h>
 #else
-#include "../include/openssl/pkcs7.h"
+#include_next <openssl/pkcs7.h>
 #endif
 #include "crypto_namespace.h"
 
@@ -73,6 +73,7 @@ LCRYPTO_USED(PKCS7_new);
 LCRYPTO_USED(PKCS7_free);
 LCRYPTO_USED(d2i_PKCS7);
 LCRYPTO_USED(i2d_PKCS7);
+LCRYPTO_USED(i2d_PKCS7_NDEF);
 LCRYPTO_USED(PKCS7_print_ctx);
 LCRYPTO_USED(PKCS7_ctrl);
 LCRYPTO_USED(PKCS7_set_type);

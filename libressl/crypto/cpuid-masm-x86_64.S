@@ -119,7 +119,6 @@ OPENSSL_ia32_cpuid	PROC PUBLIC
 	mov	r10d,eax
 	mov	eax,080000001h
 	cpuid
-	or	r9d,ecx
 	and	r9d,(1 SHL 11)
 	or	r9d,1
 

@@ -7,7 +7,6 @@
 .type	aesni_cbc_sha1_enc,@function
 .align	16
 aesni_cbc_sha1_enc:
-	endbr64
 
 	movl	OPENSSL_ia32cap_P+0(%rip),%r10d
 	movl	OPENSSL_ia32cap_P+4(%rip),%r11d
@@ -17,7 +16,6 @@ aesni_cbc_sha1_enc:
 .type	aesni_cbc_sha1_enc_ssse3,@function
 .align	16
 aesni_cbc_sha1_enc_ssse3:
-	endbr64
 	movq	8(%rsp),%r10
 
 

@@ -1,4 +1,4 @@
-/* $OpenBSD: ssl_lib.c,v 1.314 2023/09/19 01:22:31 tb Exp $ */
+/* $OpenBSD: ssl_lib.c,v 1.308 2022/11/26 16:08:55 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -218,7 +218,6 @@ SSL_clear(SSL *s)
 
 	return (1);
 }
-LSSL_ALIAS(SSL_clear);
 
 /* Used to change an SSL_CTXs default SSL method type */
 int
@@ -237,7 +236,6 @@ SSL_CTX_set_ssl_version(SSL_CTX *ctx, const SSL_METHOD *meth)
 	}
 	return (1);
 }
-LSSL_ALIAS(SSL_CTX_set_ssl_version);
 
 SSL *
 SSL_new(SSL_CTX *ctx)
@@ -292,7 +290,7 @@ SSL_new(SSL_CTX *ctx)
 
 	CRYPTO_add(&ctx->references, 1, CRYPTO_LOCK_SSL_CTX);
 	s->ctx = ctx;
-	s->tlsext_debug_cb = NULL;
+	s->tlsext_debug_cb = 0;
 	s->tlsext_debug_arg = NULL;
 	s->tlsext_ticket_expected = 0;
 	s->tlsext_status_type = -1;
@@ -303,9 +301,6 @@ SSL_new(SSL_CTX *ctx)
 	s->tlsext_ocsp_resp_len = 0;
 	CRYPTO_add(&ctx->references, 1, CRYPTO_LOCK_SSL_CTX);
 	s->initial_ctx = ctx;
-
-	if (!tlsext_randomize_build_order(s))
-		goto err;
 
 	if (ctx->tlsext_ecpointformatlist != NULL) {
 		s->tlsext_ecpointformatlist =
@@ -362,7 +357,6 @@ SSL_new(SSL_CTX *ctx)
 	SSLerrorx(ERR_R_MALLOC_FAILURE);
 	return (NULL);
 }
-LSSL_ALIAS(SSL_new);
 
 int
 SSL_CTX_set_session_id_context(SSL_CTX *ctx, const unsigned char *sid_ctx,
@@ -377,7 +371,6 @@ SSL_CTX_set_session_id_context(SSL_CTX *ctx, const unsigned char *sid_ctx,
 
 	return (1);
 }
-LSSL_ALIAS(SSL_CTX_set_session_id_context);
 
 int
 SSL_set_session_id_context(SSL *ssl, const unsigned char *sid_ctx,
@@ -392,7 +385,6 @@ SSL_set_session_id_context(SSL *ssl, const unsigned char *sid_ctx,
 
 	return (1);
 }
-LSSL_ALIAS(SSL_set_session_id_context);
 
 int
 SSL_CTX_set_generate_session_id(SSL_CTX *ctx, GEN_SESSION_CB cb)
@@ -402,7 +394,6 @@ SSL_CTX_set_generate_session_id(SSL_CTX *ctx, GEN_SESSION_CB cb)
 	CRYPTO_w_unlock(CRYPTO_LOCK_SSL_CTX);
 	return (1);
 }
-LSSL_ALIAS(SSL_CTX_set_generate_session_id);
 
 int
 SSL_set_generate_session_id(SSL *ssl, GEN_SESSION_CB cb)
@@ -412,7 +403,6 @@ SSL_set_generate_session_id(SSL *ssl, GEN_SESSION_CB cb)
 	CRYPTO_w_unlock(CRYPTO_LOCK_SSL);
 	return (1);
 }
-LSSL_ALIAS(SSL_set_generate_session_id);
 
 int
 SSL_has_matching_session_id(const SSL *ssl, const unsigned char *id,
@@ -439,35 +429,30 @@ SSL_has_matching_session_id(const SSL *ssl, const unsigned char *id,
 	CRYPTO_r_unlock(CRYPTO_LOCK_SSL_CTX);
 	return (p != NULL);
 }
-LSSL_ALIAS(SSL_has_matching_session_id);
 
 int
 SSL_CTX_set_purpose(SSL_CTX *s, int purpose)
 {
 	return (X509_VERIFY_PARAM_set_purpose(s->param, purpose));
 }
-LSSL_ALIAS(SSL_CTX_set_purpose);
 
 int
 SSL_set_purpose(SSL *s, int purpose)
 {
 	return (X509_VERIFY_PARAM_set_purpose(s->param, purpose));
 }
-LSSL_ALIAS(SSL_set_purpose);
 
 int
 SSL_CTX_set_trust(SSL_CTX *s, int trust)
 {
 	return (X509_VERIFY_PARAM_set_trust(s->param, trust));
 }
-LSSL_ALIAS(SSL_CTX_set_trust);
 
 int
 SSL_set_trust(SSL *s, int trust)
 {
 	return (X509_VERIFY_PARAM_set_trust(s->param, trust));
 }
-LSSL_ALIAS(SSL_set_trust);
 
 int
 SSL_set1_host(SSL *s, const char *hostname)
@@ -482,49 +467,42 @@ SSL_set1_host(SSL *s, const char *hostname)
 	else
 		return X509_VERIFY_PARAM_set1_host(s->param, hostname, 0);
 }
-LSSL_ALIAS(SSL_set1_host);
 
 void
 SSL_set_hostflags(SSL *s, unsigned int flags)
 {
 	X509_VERIFY_PARAM_set_hostflags(s->param, flags);
 }
-LSSL_ALIAS(SSL_set_hostflags);
 
 const char *
 SSL_get0_peername(SSL *s)
 {
 	return X509_VERIFY_PARAM_get0_peername(s->param);
 }
-LSSL_ALIAS(SSL_get0_peername);
 
 X509_VERIFY_PARAM *
 SSL_CTX_get0_param(SSL_CTX *ctx)
 {
 	return (ctx->param);
 }
-LSSL_ALIAS(SSL_CTX_get0_param);
 
 int
 SSL_CTX_set1_param(SSL_CTX *ctx, X509_VERIFY_PARAM *vpm)
 {
 	return (X509_VERIFY_PARAM_set1(ctx->param, vpm));
 }
-LSSL_ALIAS(SSL_CTX_set1_param);
 
 X509_VERIFY_PARAM *
 SSL_get0_param(SSL *ssl)
 {
 	return (ssl->param);
 }
-LSSL_ALIAS(SSL_get0_param);
 
 int
 SSL_set1_param(SSL *ssl, X509_VERIFY_PARAM *vpm)
 {
 	return (X509_VERIFY_PARAM_set1(ssl->param, vpm));
 }
-LSSL_ALIAS(SSL_set1_param);
 
 void
 SSL_free(SSL *s)
@@ -572,8 +550,6 @@ SSL_free(SSL *s)
 
 	ssl_cert_free(s->cert);
 
-	free(s->tlsext_build_order);
-
 	free(s->tlsext_hostname);
 	SSL_CTX_free(s->initial_ctx);
 
@@ -604,7 +580,6 @@ SSL_free(SSL *s)
 
 	free(s);
 }
-LSSL_ALIAS(SSL_free);
 
 int
 SSL_up_ref(SSL *s)
@@ -612,7 +587,6 @@ SSL_up_ref(SSL *s)
 	int refs = CRYPTO_add(&s->references, 1, CRYPTO_LOCK_SSL);
 	return (refs > 1) ? 1 : 0;
 }
-LSSL_ALIAS(SSL_up_ref);
 
 void
 SSL_set_bio(SSL *s, BIO *rbio, BIO *wbio)
@@ -632,14 +606,12 @@ SSL_set_bio(SSL *s, BIO *rbio, BIO *wbio)
 	s->rbio = rbio;
 	s->wbio = wbio;
 }
-LSSL_ALIAS(SSL_set_bio);
 
 BIO *
 SSL_get_rbio(const SSL *s)
 {
 	return (s->rbio);
 }
-LSSL_ALIAS(SSL_get_rbio);
 
 void
 SSL_set0_rbio(SSL *s, BIO *rbio)
@@ -647,21 +619,18 @@ SSL_set0_rbio(SSL *s, BIO *rbio)
 	BIO_free_all(s->rbio);
 	s->rbio = rbio;
 }
-LSSL_ALIAS(SSL_set0_rbio);
 
 BIO *
 SSL_get_wbio(const SSL *s)
 {
 	return (s->wbio);
 }
-LSSL_ALIAS(SSL_get_wbio);
 
 int
 SSL_get_fd(const SSL *s)
 {
 	return (SSL_get_rfd(s));
 }
-LSSL_ALIAS(SSL_get_fd);
 
 int
 SSL_get_rfd(const SSL *s)
@@ -675,7 +644,6 @@ SSL_get_rfd(const SSL *s)
 		BIO_get_fd(r, &ret);
 	return (ret);
 }
-LSSL_ALIAS(SSL_get_rfd);
 
 int
 SSL_get_wfd(const SSL *s)
@@ -689,7 +657,6 @@ SSL_get_wfd(const SSL *s)
 		BIO_get_fd(r, &ret);
 	return (ret);
 }
-LSSL_ALIAS(SSL_get_wfd);
 
 int
 SSL_set_fd(SSL *s, int fd)
@@ -709,7 +676,6 @@ SSL_set_fd(SSL *s, int fd)
  err:
 	return (ret);
 }
-LSSL_ALIAS(SSL_set_fd);
 
 int
 SSL_set_wfd(SSL *s, int fd)
@@ -733,7 +699,6 @@ SSL_set_wfd(SSL *s, int fd)
  err:
 	return (ret);
 }
-LSSL_ALIAS(SSL_set_wfd);
 
 int
 SSL_set_rfd(SSL *s, int fd)
@@ -757,7 +722,6 @@ SSL_set_rfd(SSL *s, int fd)
  err:
 	return (ret);
 }
-LSSL_ALIAS(SSL_set_rfd);
 
 
 /* return length of latest Finished message we sent, copy to 'buf' */
@@ -772,7 +736,6 @@ SSL_get_finished(const SSL *s, void *buf, size_t count)
 	memcpy(buf, s->s3->hs.finished, count);
 	return (ret);
 }
-LSSL_ALIAS(SSL_get_finished);
 
 /* return length of latest Finished message we expected, copy to 'buf' */
 size_t
@@ -786,7 +749,6 @@ SSL_get_peer_finished(const SSL *s, void *buf, size_t count)
 	memcpy(buf, s->s3->hs.peer_finished, count);
 	return (ret);
 }
-LSSL_ALIAS(SSL_get_peer_finished);
 
 
 int
@@ -794,35 +756,30 @@ SSL_get_verify_mode(const SSL *s)
 {
 	return (s->verify_mode);
 }
-LSSL_ALIAS(SSL_get_verify_mode);
 
 int
 SSL_get_verify_depth(const SSL *s)
 {
 	return (X509_VERIFY_PARAM_get_depth(s->param));
 }
-LSSL_ALIAS(SSL_get_verify_depth);
 
 int
 (*SSL_get_verify_callback(const SSL *s))(int, X509_STORE_CTX *)
 {
 	return (s->verify_callback);
 }
-LSSL_ALIAS(SSL_get_verify_callback);
 
 void
 SSL_CTX_set_keylog_callback(SSL_CTX *ctx, SSL_CTX_keylog_cb_func cb)
 {
 	ctx->keylog_callback = cb;
 }
-LSSL_ALIAS(SSL_CTX_set_keylog_callback);
 
 SSL_CTX_keylog_cb_func
 SSL_CTX_get_keylog_callback(const SSL_CTX *ctx)
 {
 	return (ctx->keylog_callback);
 }
-LSSL_ALIAS(SSL_CTX_get_keylog_callback);
 
 int
 SSL_set_num_tickets(SSL *s, size_t num_tickets)
@@ -831,14 +788,12 @@ SSL_set_num_tickets(SSL *s, size_t num_tickets)
 
 	return 1;
 }
-LSSL_ALIAS(SSL_set_num_tickets);
 
 size_t
 SSL_get_num_tickets(const SSL *s)
 {
 	return s->num_tickets;
 }
-LSSL_ALIAS(SSL_get_num_tickets);
 
 int
 SSL_CTX_set_num_tickets(SSL_CTX *ctx, size_t num_tickets)
@@ -847,35 +802,30 @@ SSL_CTX_set_num_tickets(SSL_CTX *ctx, size_t num_tickets)
 
 	return 1;
 }
-LSSL_ALIAS(SSL_CTX_set_num_tickets);
 
 size_t
 SSL_CTX_get_num_tickets(const SSL_CTX *ctx)
 {
 	return ctx->num_tickets;
 }
-LSSL_ALIAS(SSL_CTX_get_num_tickets);
 
 int
 SSL_CTX_get_verify_mode(const SSL_CTX *ctx)
 {
 	return (ctx->verify_mode);
 }
-LSSL_ALIAS(SSL_CTX_get_verify_mode);
 
 int
 SSL_CTX_get_verify_depth(const SSL_CTX *ctx)
 {
 	return (X509_VERIFY_PARAM_get_depth(ctx->param));
 }
-LSSL_ALIAS(SSL_CTX_get_verify_depth);
 
 int
 (*SSL_CTX_get_verify_callback(const SSL_CTX *ctx))(int, X509_STORE_CTX *)
 {
 	return (ctx->default_verify_callback);
 }
-LSSL_ALIAS(SSL_CTX_get_verify_callback);
 
 void
 SSL_set_verify(SSL *s, int mode,
@@ -885,35 +835,30 @@ SSL_set_verify(SSL *s, int mode,
 	if (callback != NULL)
 		s->verify_callback = callback;
 }
-LSSL_ALIAS(SSL_set_verify);
 
 void
 SSL_set_verify_depth(SSL *s, int depth)
 {
 	X509_VERIFY_PARAM_set_depth(s->param, depth);
 }
-LSSL_ALIAS(SSL_set_verify_depth);
 
 void
 SSL_set_read_ahead(SSL *s, int yes)
 {
 	s->read_ahead = yes;
 }
-LSSL_ALIAS(SSL_set_read_ahead);
 
 int
 SSL_get_read_ahead(const SSL *s)
 {
 	return (s->read_ahead);
 }
-LSSL_ALIAS(SSL_get_read_ahead);
 
 int
 SSL_pending(const SSL *s)
 {
 	return (s->method->ssl_pending(s));
 }
-LSSL_ALIAS(SSL_pending);
 
 X509 *
 SSL_get_peer_certificate(const SSL *s)
@@ -930,7 +875,6 @@ SSL_get_peer_certificate(const SSL *s)
 
 	return cert;
 }
-LSSL_ALIAS(SSL_get_peer_certificate);
 
 STACK_OF(X509) *
 SSL_get_peer_cert_chain(const SSL *s)
@@ -947,16 +891,12 @@ SSL_get_peer_cert_chain(const SSL *s)
 
 	return s->s3->hs.peer_certs_no_leaf;
 }
-LSSL_ALIAS(SSL_get_peer_cert_chain);
 
 STACK_OF(X509) *
 SSL_get0_verified_chain(const SSL *s)
 {
-	if (s->s3 == NULL)
-		return NULL;
-	return s->s3->hs.verified_chain;
+	return s->verified_chain;
 }
-LSSL_ALIAS(SSL_get0_verified_chain);
 
 /*
  * Now in theory, since the calling process own 't' it should be safe to
@@ -992,7 +932,6 @@ SSL_copy_session_id(SSL *t, const SSL *f)
 
 	return 1;
 }
-LSSL_ALIAS(SSL_copy_session_id);
 
 /* Fix this so it checks all the valid key/cert options */
 int
@@ -1010,7 +949,6 @@ SSL_CTX_check_private_key(const SSL_CTX *ctx)
 	return (X509_check_private_key(ctx->cert->key->x509,
 	    ctx->cert->key->privatekey));
 }
-LSSL_ALIAS(SSL_CTX_check_private_key);
 
 /* Fix this function so that it takes an optional type parameter */
 int
@@ -1035,7 +973,6 @@ SSL_check_private_key(const SSL *ssl)
 	return (X509_check_private_key(ssl->cert->key->x509,
 	    ssl->cert->key->privatekey));
 }
-LSSL_ALIAS(SSL_check_private_key);
 
 int
 SSL_accept(SSL *s)
@@ -1045,7 +982,6 @@ SSL_accept(SSL *s)
 
 	return (s->method->ssl_accept(s));
 }
-LSSL_ALIAS(SSL_accept);
 
 int
 SSL_connect(SSL *s)
@@ -1055,21 +991,18 @@ SSL_connect(SSL *s)
 
 	return (s->method->ssl_connect(s));
 }
-LSSL_ALIAS(SSL_connect);
 
 int
 SSL_is_dtls(const SSL *s)
 {
 	return s->method->dtls;
 }
-LSSL_ALIAS(SSL_is_dtls);
 
 int
 SSL_is_server(const SSL *s)
 {
 	return s->server;
 }
-LSSL_ALIAS(SSL_is_server);
 
 static long
 ssl_get_default_timeout()
@@ -1086,7 +1019,6 @@ SSL_get_default_timeout(const SSL *s)
 {
 	return (ssl_get_default_timeout());
 }
-LSSL_ALIAS(SSL_get_default_timeout);
 
 int
 SSL_read(SSL *s, void *buf, int num)
@@ -1112,7 +1044,6 @@ SSL_read(SSL *s, void *buf, int num)
 	}
 	return ssl3_read(s, buf, num);
 }
-LSSL_ALIAS(SSL_read);
 
 int
 SSL_read_ex(SSL *s, void *buf, size_t num, size_t *bytes_read)
@@ -1132,7 +1063,6 @@ SSL_read_ex(SSL *s, void *buf, size_t num, size_t *bytes_read)
 
 	return ret > 0;
 }
-LSSL_ALIAS(SSL_read_ex);
 
 int
 SSL_peek(SSL *s, void *buf, int num)
@@ -1157,7 +1087,6 @@ SSL_peek(SSL *s, void *buf, int num)
 	}
 	return ssl3_peek(s, buf, num);
 }
-LSSL_ALIAS(SSL_peek);
 
 int
 SSL_peek_ex(SSL *s, void *buf, size_t num, size_t *bytes_peeked)
@@ -1177,7 +1106,6 @@ SSL_peek_ex(SSL *s, void *buf, size_t num, size_t *bytes_peeked)
 
 	return ret > 0;
 }
-LSSL_ALIAS(SSL_peek_ex);
 
 int
 SSL_write(SSL *s, const void *buf, int num)
@@ -1204,7 +1132,6 @@ SSL_write(SSL *s, const void *buf, int num)
 	}
 	return ssl3_write(s, buf, num);
 }
-LSSL_ALIAS(SSL_write);
 
 int
 SSL_write_ex(SSL *s, const void *buf, size_t num, size_t *bytes_written)
@@ -1230,42 +1157,36 @@ SSL_write_ex(SSL *s, const void *buf, size_t num, size_t *bytes_written)
 
 	return ret > 0;
 }
-LSSL_ALIAS(SSL_write_ex);
 
 uint32_t
 SSL_CTX_get_max_early_data(const SSL_CTX *ctx)
 {
 	return 0;
 }
-LSSL_ALIAS(SSL_CTX_get_max_early_data);
 
 int
 SSL_CTX_set_max_early_data(SSL_CTX *ctx, uint32_t max_early_data)
 {
 	return 1;
 }
-LSSL_ALIAS(SSL_CTX_set_max_early_data);
 
 uint32_t
 SSL_get_max_early_data(const SSL *s)
 {
 	return 0;
 }
-LSSL_ALIAS(SSL_get_max_early_data);
 
 int
 SSL_set_max_early_data(SSL *s, uint32_t max_early_data)
 {
 	return 1;
 }
-LSSL_ALIAS(SSL_set_max_early_data);
 
 int
 SSL_get_early_data_status(const SSL *s)
 {
 	return SSL_EARLY_DATA_REJECTED;
 }
-LSSL_ALIAS(SSL_get_early_data_status);
 
 int
 SSL_read_early_data(SSL *s, void *buf, size_t num, size_t *readbytes)
@@ -1279,7 +1200,6 @@ SSL_read_early_data(SSL *s, void *buf, size_t num, size_t *readbytes)
 
 	return SSL_READ_EARLY_DATA_FINISH;
 }
-LSSL_ALIAS(SSL_read_early_data);
 
 int
 SSL_write_early_data(SSL *s, const void *buf, size_t num, size_t *written)
@@ -1288,7 +1208,6 @@ SSL_write_early_data(SSL *s, const void *buf, size_t num, size_t *written)
 	SSLerror(s, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
 	return 0;
 }
-LSSL_ALIAS(SSL_write_early_data);
 
 int
 SSL_shutdown(SSL *s)
@@ -1310,7 +1229,6 @@ SSL_shutdown(SSL *s)
 
 	return (1);
 }
-LSSL_ALIAS(SSL_shutdown);
 
 int
 SSL_renegotiate(SSL *s)
@@ -1322,7 +1240,6 @@ SSL_renegotiate(SSL *s)
 
 	return (s->method->ssl_renegotiate(s));
 }
-LSSL_ALIAS(SSL_renegotiate);
 
 int
 SSL_renegotiate_abbreviated(SSL *s)
@@ -1334,7 +1251,6 @@ SSL_renegotiate_abbreviated(SSL *s)
 
 	return (s->method->ssl_renegotiate(s));
 }
-LSSL_ALIAS(SSL_renegotiate_abbreviated);
 
 int
 SSL_renegotiate_pending(SSL *s)
@@ -1345,7 +1261,6 @@ SSL_renegotiate_pending(SSL *s)
 	 */
 	return (s->renegotiate != 0);
 }
-LSSL_ALIAS(SSL_renegotiate_pending);
 
 long
 SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
@@ -1403,7 +1318,6 @@ SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
 		return ssl3_ctrl(s, cmd, larg, parg);
 	}
 }
-LSSL_ALIAS(SSL_ctrl);
 
 long
 SSL_callback_ctrl(SSL *s, int cmd, void (*fp)(void))
@@ -1417,14 +1331,12 @@ SSL_callback_ctrl(SSL *s, int cmd, void (*fp)(void))
 		return (ssl3_callback_ctrl(s, cmd, fp));
 	}
 }
-LSSL_ALIAS(SSL_callback_ctrl);
 
 struct lhash_st_SSL_SESSION *
 SSL_CTX_sessions(SSL_CTX *ctx)
 {
 	return (ctx->sessions);
 }
-LSSL_ALIAS(SSL_CTX_sessions);
 
 long
 SSL_CTX_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)
@@ -1504,7 +1416,6 @@ SSL_CTX_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)
 		return (ssl3_ctx_ctrl(ctx, cmd, larg, parg));
 	}
 }
-LSSL_ALIAS(SSL_CTX_ctrl);
 
 long
 SSL_CTX_callback_ctrl(SSL_CTX *ctx, int cmd, void (*fp)(void))
@@ -1518,7 +1429,6 @@ SSL_CTX_callback_ctrl(SSL_CTX *ctx, int cmd, void (*fp)(void))
 		return (ssl3_ctx_callback_ctrl(ctx, cmd, fp));
 	}
 }
-LSSL_ALIAS(SSL_CTX_callback_ctrl);
 
 int
 ssl_cipher_id_cmp(const SSL_CIPHER *a, const SSL_CIPHER *b)
@@ -1542,7 +1452,6 @@ SSL_get_ciphers(const SSL *s)
 
 	return (s->ctx->cipher_list);
 }
-LSSL_ALIAS(SSL_get_ciphers);
 
 STACK_OF(SSL_CIPHER) *
 SSL_get_client_ciphers(const SSL *s)
@@ -1551,7 +1460,6 @@ SSL_get_client_ciphers(const SSL *s)
 		return NULL;
 	return s->session->ciphers;
 }
-LSSL_ALIAS(SSL_get_client_ciphers);
 
 STACK_OF(SSL_CIPHER) *
 SSL_get1_supported_ciphers(SSL *s)
@@ -1589,7 +1497,6 @@ SSL_get1_supported_ciphers(SSL *s)
 	sk_SSL_CIPHER_free(supported_ciphers);
 	return NULL;
 }
-LSSL_ALIAS(SSL_get1_supported_ciphers);
 
 /* See if we have any ECC cipher suites. */
 int
@@ -1630,7 +1537,6 @@ SSL_get_cipher_list(const SSL *s, int n)
 
 	return (cipher->name);
 }
-LSSL_ALIAS(SSL_get_cipher_list);
 
 STACK_OF(SSL_CIPHER) *
 SSL_CTX_get_ciphers(const SSL_CTX *ctx)
@@ -1639,7 +1545,6 @@ SSL_CTX_get_ciphers(const SSL_CTX *ctx)
 		return NULL;
 	return ctx->cipher_list;
 }
-LSSL_ALIAS(SSL_CTX_get_ciphers);
 
 /* Specify the ciphers to be used by default by the SSL_CTX. */
 int
@@ -1664,7 +1569,6 @@ SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str)
 	}
 	return (1);
 }
-LSSL_ALIAS(SSL_CTX_set_cipher_list);
 
 int
 SSL_CTX_set_ciphersuites(SSL_CTX *ctx, const char *str)
@@ -1679,7 +1583,6 @@ SSL_CTX_set_ciphersuites(SSL_CTX *ctx, const char *str)
 
 	return 1;
 }
-LSSL_ALIAS(SSL_CTX_set_ciphersuites);
 
 /* Specify the ciphers to be used by the SSL. */
 int
@@ -1701,7 +1604,6 @@ SSL_set_cipher_list(SSL *s, const char *str)
 	}
 	return (1);
 }
-LSSL_ALIAS(SSL_set_cipher_list);
 
 int
 SSL_set_ciphersuites(SSL *s, const char *str)
@@ -1721,7 +1623,6 @@ SSL_set_ciphersuites(SSL *s, const char *str)
 
 	return 1;
 }
-LSSL_ALIAS(SSL_set_ciphersuites);
 
 char *
 SSL_get_shared_ciphers(const SSL *s, char *buf, int len)
@@ -1763,7 +1664,6 @@ SSL_get_shared_ciphers(const SSL *s, char *buf, int len)
 		*end = '\0';
 	return buf;
 }
-LSSL_ALIAS(SSL_get_shared_ciphers);
 
 /*
  * Return a servername extension value if provided in Client Hello, or NULL.
@@ -1779,7 +1679,6 @@ SSL_get_servername(const SSL *s, const int type)
 	    s->session->tlsext_hostname :
 	    s->tlsext_hostname);
 }
-LSSL_ALIAS(SSL_get_servername);
 
 int
 SSL_get_servername_type(const SSL *s)
@@ -1790,7 +1689,6 @@ SSL_get_servername_type(const SSL *s)
 		return (TLSEXT_NAMETYPE_host_name);
 	return (-1);
 }
-LSSL_ALIAS(SSL_get_servername_type);
 
 /*
  * SSL_select_next_proto implements standard protocol selection. It is
@@ -1844,7 +1742,6 @@ SSL_select_next_proto(unsigned char **out, unsigned char *outlen,
 	*outlen = result[0];
 	return (status);
 }
-LSSL_ALIAS(SSL_select_next_proto);
 
 /* SSL_get0_next_proto_negotiated is deprecated. */
 void
@@ -1854,7 +1751,6 @@ SSL_get0_next_proto_negotiated(const SSL *s, const unsigned char **data,
 	*data = NULL;
 	*len = 0;
 }
-LSSL_ALIAS(SSL_get0_next_proto_negotiated);
 
 /* SSL_CTX_set_next_protos_advertised_cb is deprecated. */
 void
@@ -1862,7 +1758,6 @@ SSL_CTX_set_next_protos_advertised_cb(SSL_CTX *ctx, int (*cb) (SSL *ssl,
     const unsigned char **out, unsigned int *outlen, void *arg), void *arg)
 {
 }
-LSSL_ALIAS(SSL_CTX_set_next_protos_advertised_cb);
 
 /* SSL_CTX_set_next_proto_select_cb is deprecated. */
 void
@@ -1871,7 +1766,6 @@ SSL_CTX_set_next_proto_select_cb(SSL_CTX *ctx, int (*cb) (SSL *s,
     unsigned int inlen, void *arg), void *arg)
 {
 }
-LSSL_ALIAS(SSL_CTX_set_next_proto_select_cb);
 
 /*
  * SSL_CTX_set_alpn_protos sets the ALPN protocol list to the specified
@@ -1905,7 +1799,6 @@ SSL_CTX_set_alpn_protos(SSL_CTX *ctx, const unsigned char *protos,
 	/* NOTE: Return values are the reverse of what you expect. */
 	return failed;
 }
-LSSL_ALIAS(SSL_CTX_set_alpn_protos);
 
 /*
  * SSL_set_alpn_protos sets the ALPN protocol list to the specified
@@ -1939,7 +1832,6 @@ SSL_set_alpn_protos(SSL *ssl, const unsigned char *protos,
 	/* NOTE: Return values are the reverse of what you expect. */
 	return failed;
 }
-LSSL_ALIAS(SSL_set_alpn_protos);
 
 /*
  * SSL_CTX_set_alpn_select_cb sets a callback function that is called during
@@ -1954,7 +1846,6 @@ SSL_CTX_set_alpn_select_cb(SSL_CTX* ctx,
 	ctx->alpn_select_cb = cb;
 	ctx->alpn_select_cb_arg = arg;
 }
-LSSL_ALIAS(SSL_CTX_set_alpn_select_cb);
 
 /*
  * SSL_get0_alpn_selected gets the selected ALPN protocol (if any). On return
@@ -1969,14 +1860,12 @@ SSL_get0_alpn_selected(const SSL *ssl, const unsigned char **data,
 	*data = ssl->s3->alpn_selected;
 	*len = ssl->s3->alpn_selected_len;
 }
-LSSL_ALIAS(SSL_get0_alpn_selected);
 
 void
 SSL_set_psk_use_session_callback(SSL *s, SSL_psk_use_session_cb_func cb)
 {
 	return;
 }
-LSSL_ALIAS(SSL_set_psk_use_session_callback);
 
 int
 SSL_export_keying_material(SSL *s, unsigned char *out, size_t out_len,
@@ -1995,7 +1884,6 @@ SSL_export_keying_material(SSL *s, unsigned char *out, size_t out_len,
 	return tls12_exporter(s, label, label_len, context, context_len,
 	    use_context, out, out_len);
 }
-LSSL_ALIAS(SSL_export_keying_material);
 
 static unsigned long
 ssl_session_hash(const SSL_SESSION *a)
@@ -2093,10 +1981,10 @@ SSL_CTX_new(const SSL_METHOD *meth)
 	/* We take the system default */
 	ret->session_timeout = ssl_get_default_timeout();
 
-	ret->new_session_cb = NULL;
-	ret->remove_session_cb = NULL;
-	ret->get_session_cb = NULL;
-	ret->generate_session_id = NULL;
+	ret->new_session_cb = 0;
+	ret->remove_session_cb = 0;
+	ret->get_session_cb = 0;
+	ret->generate_session_id = 0;
 
 	memset((char *)&ret->stats, 0, sizeof(ret->stats));
 
@@ -2105,12 +1993,12 @@ SSL_CTX_new(const SSL_METHOD *meth)
 
 	ret->info_callback = NULL;
 
-	ret->app_verify_callback = NULL;
+	ret->app_verify_callback = 0;
 	ret->app_verify_arg = NULL;
 
 	ret->max_cert_list = SSL_MAX_CERT_LIST_DEFAULT;
 	ret->read_ahead = 0;
-	ret->msg_callback = NULL;
+	ret->msg_callback = 0;
 	ret->msg_callback_arg = NULL;
 	ret->verify_mode = SSL_VERIFY_NONE;
 	ret->sid_ctx_length = 0;
@@ -2119,11 +2007,11 @@ SSL_CTX_new(const SSL_METHOD *meth)
 	if ((ret->cert = ssl_cert_new()) == NULL)
 		goto err;
 
-	ret->default_passwd_callback = NULL;
+	ret->default_passwd_callback = 0;
 	ret->default_passwd_callback_userdata = NULL;
-	ret->client_cert_cb = NULL;
-	ret->app_gen_cookie_cb = NULL;
-	ret->app_verify_cookie_cb = NULL;
+	ret->client_cert_cb = 0;
+	ret->app_gen_cookie_cb = 0;
+	ret->app_verify_cookie_cb = 0;
 
 	ret->sessions = lh_SSL_SESSION_new();
 	if (ret->sessions == NULL)
@@ -2197,7 +2085,6 @@ SSL_CTX_new(const SSL_METHOD *meth)
 	SSL_CTX_free(ret);
 	return (NULL);
 }
-LSSL_ALIAS(SSL_CTX_new);
 
 void
 SSL_CTX_free(SSL_CTX *ctx)
@@ -2252,7 +2139,6 @@ SSL_CTX_free(SSL_CTX *ctx)
 
 	free(ctx);
 }
-LSSL_ALIAS(SSL_CTX_free);
 
 int
 SSL_CTX_up_ref(SSL_CTX *ctx)
@@ -2260,35 +2146,30 @@ SSL_CTX_up_ref(SSL_CTX *ctx)
 	int refs = CRYPTO_add(&ctx->references, 1, CRYPTO_LOCK_SSL_CTX);
 	return ((refs > 1) ? 1 : 0);
 }
-LSSL_ALIAS(SSL_CTX_up_ref);
 
 pem_password_cb *
 SSL_CTX_get_default_passwd_cb(SSL_CTX *ctx)
 {
 	return (ctx->default_passwd_callback);
 }
-LSSL_ALIAS(SSL_CTX_get_default_passwd_cb);
 
 void
 SSL_CTX_set_default_passwd_cb(SSL_CTX *ctx, pem_password_cb *cb)
 {
 	ctx->default_passwd_callback = cb;
 }
-LSSL_ALIAS(SSL_CTX_set_default_passwd_cb);
 
 void *
 SSL_CTX_get_default_passwd_cb_userdata(SSL_CTX *ctx)
 {
 	return ctx->default_passwd_callback_userdata;
 }
-LSSL_ALIAS(SSL_CTX_get_default_passwd_cb_userdata);
 
 void
 SSL_CTX_set_default_passwd_cb_userdata(SSL_CTX *ctx, void *u)
 {
 	ctx->default_passwd_callback_userdata = u;
 }
-LSSL_ALIAS(SSL_CTX_set_default_passwd_cb_userdata);
 
 void
 SSL_CTX_set_cert_verify_callback(SSL_CTX *ctx,
@@ -2297,7 +2178,6 @@ SSL_CTX_set_cert_verify_callback(SSL_CTX *ctx,
 	ctx->app_verify_callback = cb;
 	ctx->app_verify_arg = arg;
 }
-LSSL_ALIAS(SSL_CTX_set_cert_verify_callback);
 
 void
 SSL_CTX_set_verify(SSL_CTX *ctx, int mode, int (*cb)(int, X509_STORE_CTX *))
@@ -2305,14 +2185,12 @@ SSL_CTX_set_verify(SSL_CTX *ctx, int mode, int (*cb)(int, X509_STORE_CTX *))
 	ctx->verify_mode = mode;
 	ctx->default_verify_callback = cb;
 }
-LSSL_ALIAS(SSL_CTX_set_verify);
 
 void
 SSL_CTX_set_verify_depth(SSL_CTX *ctx, int depth)
 {
 	X509_VERIFY_PARAM_set_depth(ctx->param, depth);
 }
-LSSL_ALIAS(SSL_CTX_set_verify_depth);
 
 void
 ssl_set_cert_masks(SSL_CERT *c, const SSL_CIPHER *cipher)
@@ -2593,7 +2471,6 @@ SSL_get_ssl_method(SSL *s)
 {
 	return (s->method);
 }
-LSSL_ALIAS(SSL_get_ssl_method);
 
 int
 SSL_set_ssl_method(SSL *s, const SSL_METHOD *method)
@@ -2620,7 +2497,6 @@ SSL_set_ssl_method(SSL *s, const SSL_METHOD *method)
 
 	return (ret);
 }
-LSSL_ALIAS(SSL_set_ssl_method);
 
 int
 SSL_get_error(const SSL *s, int i)
@@ -2700,7 +2576,6 @@ SSL_get_error(const SSL *s, int i)
 
 	return (SSL_ERROR_SYSCALL);
 }
-LSSL_ALIAS(SSL_get_error);
 
 int
 SSL_CTX_set_quic_method(SSL_CTX *ctx, const SSL_QUIC_METHOD *quic_method)
@@ -2712,7 +2587,6 @@ SSL_CTX_set_quic_method(SSL_CTX *ctx, const SSL_QUIC_METHOD *quic_method)
 
 	return 1;
 }
-LSSL_ALIAS(SSL_CTX_set_quic_method);
 
 int
 SSL_set_quic_method(SSL *ssl, const SSL_QUIC_METHOD *quic_method)
@@ -2724,7 +2598,6 @@ SSL_set_quic_method(SSL *ssl, const SSL_QUIC_METHOD *quic_method)
 
 	return 1;
 }
-LSSL_ALIAS(SSL_set_quic_method);
 
 size_t
 SSL_quic_max_handshake_flight_len(const SSL *ssl,
@@ -2772,21 +2645,18 @@ SSL_quic_max_handshake_flight_len(const SSL *ssl,
 
 	return 0;
 }
-LSSL_ALIAS(SSL_quic_max_handshake_flight_len);
 
 enum ssl_encryption_level_t
 SSL_quic_read_level(const SSL *ssl)
 {
 	return ssl->s3->hs.tls13.quic_read_level;
 }
-LSSL_ALIAS(SSL_quic_read_level);
 
 enum ssl_encryption_level_t
 SSL_quic_write_level(const SSL *ssl)
 {
 	return ssl->s3->hs.tls13.quic_write_level;
 }
-LSSL_ALIAS(SSL_quic_write_level);
 
 int
 SSL_provide_quic_data(SSL *ssl, enum ssl_encryption_level_t level,
@@ -2820,7 +2690,6 @@ SSL_provide_quic_data(SSL *ssl, enum ssl_encryption_level_t level,
 	 */
 	return tls_buffer_append(ssl->s3->hs.tls13.quic_read_buffer, data, len);
 }
-LSSL_ALIAS(SSL_provide_quic_data);
 
 int
 SSL_process_quic_post_handshake(SSL *ssl)
@@ -2828,7 +2697,6 @@ SSL_process_quic_post_handshake(SSL *ssl)
 	/* XXX - this needs to run PHH received. */
 	return 1;
 }
-LSSL_ALIAS(SSL_process_quic_post_handshake);
 
 int
 SSL_do_handshake(SSL *s)
@@ -2845,7 +2713,6 @@ SSL_do_handshake(SSL *s)
 
 	return s->handshake_func(s);
 }
-LSSL_ALIAS(SSL_do_handshake);
 
 /*
  * For the next 2 functions, SSL_clear() sets shutdown and so
@@ -2860,7 +2727,6 @@ SSL_set_accept_state(SSL *s)
 	s->handshake_func = s->method->ssl_accept;
 	ssl_clear_cipher_state(s);
 }
-LSSL_ALIAS(SSL_set_accept_state);
 
 void
 SSL_set_connect_state(SSL *s)
@@ -2871,7 +2737,6 @@ SSL_set_connect_state(SSL *s)
 	s->handshake_func = s->method->ssl_connect;
 	ssl_clear_cipher_state(s);
 }
-LSSL_ALIAS(SSL_set_connect_state);
 
 int
 ssl_undefined_function(SSL *s)
@@ -2920,7 +2785,6 @@ SSL_get_version(const SSL *s)
 {
 	return ssl_version_string(s->version);
 }
-LSSL_ALIAS(SSL_get_version);
 
 SSL *
 SSL_dup(SSL *s)
@@ -3044,7 +2908,6 @@ SSL_dup(SSL *s)
 	SSL_free(ret);
 	return NULL;
 }
-LSSL_ALIAS(SSL_dup);
 
 void
 ssl_clear_cipher_state(SSL *s)
@@ -3087,7 +2950,6 @@ SSL_get_certificate(const SSL *s)
 {
 	return (s->cert->key->x509);
 }
-LSSL_ALIAS(SSL_get_certificate);
 
 /* Fix this function so that it takes an optional type parameter */
 EVP_PKEY *
@@ -3095,7 +2957,6 @@ SSL_get_privatekey(const SSL *s)
 {
 	return (s->cert->key->privatekey);
 }
-LSSL_ALIAS(SSL_get_privatekey);
 
 const SSL_CIPHER *
 SSL_get_current_cipher(const SSL *s)
@@ -3104,20 +2965,17 @@ SSL_get_current_cipher(const SSL *s)
 		return (s->session->cipher);
 	return (NULL);
 }
-LSSL_ALIAS(SSL_get_current_cipher);
 const void *
 SSL_get_current_compression(SSL *s)
 {
 	return (NULL);
 }
-LSSL_ALIAS(SSL_get_current_compression);
 
 const void *
 SSL_get_current_expansion(SSL *s)
 {
 	return (NULL);
 }
-LSSL_ALIAS(SSL_get_current_expansion);
 
 size_t
 SSL_get_client_random(const SSL *s, unsigned char *out, size_t max_out)
@@ -3134,7 +2992,6 @@ SSL_get_client_random(const SSL *s, unsigned char *out, size_t max_out)
 
 	return len;
 }
-LSSL_ALIAS(SSL_get_client_random);
 
 size_t
 SSL_get_server_random(const SSL *s, unsigned char *out, size_t max_out)
@@ -3151,7 +3008,6 @@ SSL_get_server_random(const SSL *s, unsigned char *out, size_t max_out)
 
 	return len;
 }
-LSSL_ALIAS(SSL_get_server_random);
 
 int
 ssl_init_wbio_buffer(SSL *s, int push)
@@ -3206,56 +3062,48 @@ SSL_CTX_set_quiet_shutdown(SSL_CTX *ctx, int mode)
 {
 	ctx->quiet_shutdown = mode;
 }
-LSSL_ALIAS(SSL_CTX_set_quiet_shutdown);
 
 int
 SSL_CTX_get_quiet_shutdown(const SSL_CTX *ctx)
 {
 	return (ctx->quiet_shutdown);
 }
-LSSL_ALIAS(SSL_CTX_get_quiet_shutdown);
 
 void
 SSL_set_quiet_shutdown(SSL *s, int mode)
 {
 	s->quiet_shutdown = mode;
 }
-LSSL_ALIAS(SSL_set_quiet_shutdown);
 
 int
 SSL_get_quiet_shutdown(const SSL *s)
 {
 	return (s->quiet_shutdown);
 }
-LSSL_ALIAS(SSL_get_quiet_shutdown);
 
 void
 SSL_set_shutdown(SSL *s, int mode)
 {
 	s->shutdown = mode;
 }
-LSSL_ALIAS(SSL_set_shutdown);
 
 int
 SSL_get_shutdown(const SSL *s)
 {
 	return (s->shutdown);
 }
-LSSL_ALIAS(SSL_get_shutdown);
 
 int
 SSL_version(const SSL *s)
 {
 	return (s->version);
 }
-LSSL_ALIAS(SSL_version);
 
 SSL_CTX *
 SSL_get_SSL_CTX(const SSL *ssl)
 {
 	return (ssl->ctx);
 }
-LSSL_ALIAS(SSL_get_SSL_CTX);
 
 SSL_CTX *
 SSL_set_SSL_CTX(SSL *ssl, SSL_CTX* ctx)
@@ -3278,14 +3126,12 @@ SSL_set_SSL_CTX(SSL *ssl, SSL_CTX* ctx)
 
 	return (ssl->ctx);
 }
-LSSL_ALIAS(SSL_set_SSL_CTX);
 
 int
 SSL_CTX_set_default_verify_paths(SSL_CTX *ctx)
 {
 	return (X509_STORE_set_default_paths(ctx->cert_store));
 }
-LSSL_ALIAS(SSL_CTX_set_default_verify_paths);
 
 int
 SSL_CTX_load_verify_locations(SSL_CTX *ctx, const char *CAfile,
@@ -3293,76 +3139,65 @@ SSL_CTX_load_verify_locations(SSL_CTX *ctx, const char *CAfile,
 {
 	return (X509_STORE_load_locations(ctx->cert_store, CAfile, CApath));
 }
-LSSL_ALIAS(SSL_CTX_load_verify_locations);
 
 int
 SSL_CTX_load_verify_mem(SSL_CTX *ctx, void *buf, int len)
 {
 	return (X509_STORE_load_mem(ctx->cert_store, buf, len));
 }
-LSSL_ALIAS(SSL_CTX_load_verify_mem);
 
 void
 SSL_set_info_callback(SSL *ssl, void (*cb)(const SSL *ssl, int type, int val))
 {
 	ssl->info_callback = cb;
 }
-LSSL_ALIAS(SSL_set_info_callback);
 
 void (*SSL_get_info_callback(const SSL *ssl))(const SSL *ssl, int type, int val)
 {
 	return (ssl->info_callback);
 }
-LSSL_ALIAS(SSL_get_info_callback);
 
 int
 SSL_state(const SSL *ssl)
 {
 	return (ssl->s3->hs.state);
 }
-LSSL_ALIAS(SSL_state);
 
 void
 SSL_set_state(SSL *ssl, int state)
 {
 	ssl->s3->hs.state = state;
 }
-LSSL_ALIAS(SSL_set_state);
 
 void
 SSL_set_verify_result(SSL *ssl, long arg)
 {
 	ssl->verify_result = arg;
 }
-LSSL_ALIAS(SSL_set_verify_result);
 
 long
 SSL_get_verify_result(const SSL *ssl)
 {
 	return (ssl->verify_result);
 }
-LSSL_ALIAS(SSL_get_verify_result);
 
 int
 SSL_verify_client_post_handshake(SSL *ssl)
 {
 	return 0;
 }
-LSSL_ALIAS(SSL_verify_client_post_handshake);
 
 void
 SSL_CTX_set_post_handshake_auth(SSL_CTX *ctx, int val)
 {
 	return;
 }
-LSSL_ALIAS(SSL_CTX_set_post_handshake_auth);
 
 void
 SSL_set_post_handshake_auth(SSL *ssl, int val)
 {
 	return;
 }
-LSSL_ALIAS(SSL_set_post_handshake_auth);
 
 int
 SSL_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
@@ -3371,21 +3206,18 @@ SSL_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
 	return (CRYPTO_get_ex_new_index(CRYPTO_EX_INDEX_SSL, argl, argp,
 	    new_func, dup_func, free_func));
 }
-LSSL_ALIAS(SSL_get_ex_new_index);
 
 int
 SSL_set_ex_data(SSL *s, int idx, void *arg)
 {
 	return (CRYPTO_set_ex_data(&s->ex_data, idx, arg));
 }
-LSSL_ALIAS(SSL_set_ex_data);
 
 void *
 SSL_get_ex_data(const SSL *s, int idx)
 {
 	return (CRYPTO_get_ex_data(&s->ex_data, idx));
 }
-LSSL_ALIAS(SSL_get_ex_data);
 
 int
 SSL_CTX_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
@@ -3394,21 +3226,18 @@ SSL_CTX_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
 	return (CRYPTO_get_ex_new_index(CRYPTO_EX_INDEX_SSL_CTX, argl, argp,
 	    new_func, dup_func, free_func));
 }
-LSSL_ALIAS(SSL_CTX_get_ex_new_index);
 
 int
 SSL_CTX_set_ex_data(SSL_CTX *s, int idx, void *arg)
 {
 	return (CRYPTO_set_ex_data(&s->ex_data, idx, arg));
 }
-LSSL_ALIAS(SSL_CTX_set_ex_data);
 
 void *
 SSL_CTX_get_ex_data(const SSL_CTX *s, int idx)
 {
 	return (CRYPTO_get_ex_data(&s->ex_data, idx));
 }
-LSSL_ALIAS(SSL_CTX_get_ex_data);
 
 int
 ssl_ok(SSL *s)
@@ -3421,7 +3250,6 @@ SSL_CTX_get_cert_store(const SSL_CTX *ctx)
 {
 	return (ctx->cert_store);
 }
-LSSL_ALIAS(SSL_CTX_get_cert_store);
 
 void
 SSL_CTX_set_cert_store(SSL_CTX *ctx, X509_STORE *store)
@@ -3429,7 +3257,6 @@ SSL_CTX_set_cert_store(SSL_CTX *ctx, X509_STORE *store)
 	X509_STORE_free(ctx->cert_store);
 	ctx->cert_store = store;
 }
-LSSL_ALIAS(SSL_CTX_set_cert_store);
 
 X509 *
 SSL_CTX_get0_certificate(const SSL_CTX *ctx)
@@ -3439,7 +3266,6 @@ SSL_CTX_get0_certificate(const SSL_CTX *ctx)
 
 	return ctx->cert->key->x509;
 }
-LSSL_ALIAS(SSL_CTX_get0_certificate);
 
 EVP_PKEY *
 SSL_CTX_get0_privatekey(const SSL_CTX *ctx)
@@ -3449,14 +3275,12 @@ SSL_CTX_get0_privatekey(const SSL_CTX *ctx)
 
 	return ctx->cert->key->privatekey;
 }
-LSSL_ALIAS(SSL_CTX_get0_privatekey);
 
 int
 SSL_want(const SSL *s)
 {
 	return (s->rwstate);
 }
-LSSL_ALIAS(SSL_want);
 
 void
 SSL_CTX_set_tmp_rsa_callback(SSL_CTX *ctx, RSA *(*cb)(SSL *ssl, int is_export,
@@ -3464,7 +3288,6 @@ SSL_CTX_set_tmp_rsa_callback(SSL_CTX *ctx, RSA *(*cb)(SSL *ssl, int is_export,
 {
 	SSL_CTX_callback_ctrl(ctx, SSL_CTRL_SET_TMP_RSA_CB,(void (*)(void))cb);
 }
-LSSL_ALIAS(SSL_CTX_set_tmp_rsa_callback);
 
 void
 SSL_set_tmp_rsa_callback(SSL *ssl, RSA *(*cb)(SSL *ssl, int is_export,
@@ -3472,7 +3295,6 @@ SSL_set_tmp_rsa_callback(SSL *ssl, RSA *(*cb)(SSL *ssl, int is_export,
 {
 	SSL_callback_ctrl(ssl, SSL_CTRL_SET_TMP_RSA_CB,(void (*)(void))cb);
 }
-LSSL_ALIAS(SSL_set_tmp_rsa_callback);
 
 void
 SSL_CTX_set_tmp_dh_callback(SSL_CTX *ctx, DH *(*dh)(SSL *ssl, int is_export,
@@ -3480,7 +3302,6 @@ SSL_CTX_set_tmp_dh_callback(SSL_CTX *ctx, DH *(*dh)(SSL *ssl, int is_export,
 {
 	SSL_CTX_callback_ctrl(ctx, SSL_CTRL_SET_TMP_DH_CB,(void (*)(void))dh);
 }
-LSSL_ALIAS(SSL_CTX_set_tmp_dh_callback);
 
 void
 SSL_set_tmp_dh_callback(SSL *ssl, DH *(*dh)(SSL *ssl, int is_export,
@@ -3488,7 +3309,6 @@ SSL_set_tmp_dh_callback(SSL *ssl, DH *(*dh)(SSL *ssl, int is_export,
 {
 	SSL_callback_ctrl(ssl, SSL_CTRL_SET_TMP_DH_CB,(void (*)(void))dh);
 }
-LSSL_ALIAS(SSL_set_tmp_dh_callback);
 
 void
 SSL_CTX_set_tmp_ecdh_callback(SSL_CTX *ctx, EC_KEY *(*ecdh)(SSL *ssl,
@@ -3497,7 +3317,6 @@ SSL_CTX_set_tmp_ecdh_callback(SSL_CTX *ctx, EC_KEY *(*ecdh)(SSL *ssl,
 	SSL_CTX_callback_ctrl(ctx, SSL_CTRL_SET_TMP_ECDH_CB,
 	    (void (*)(void))ecdh);
 }
-LSSL_ALIAS(SSL_CTX_set_tmp_ecdh_callback);
 
 void
 SSL_set_tmp_ecdh_callback(SSL *ssl, EC_KEY *(*ecdh)(SSL *ssl, int is_export,
@@ -3505,7 +3324,6 @@ SSL_set_tmp_ecdh_callback(SSL *ssl, EC_KEY *(*ecdh)(SSL *ssl, int is_export,
 {
 	SSL_callback_ctrl(ssl, SSL_CTRL_SET_TMP_ECDH_CB,(void (*)(void))ecdh);
 }
-LSSL_ALIAS(SSL_set_tmp_ecdh_callback);
 
 
 void
@@ -3515,7 +3333,6 @@ SSL_CTX_set_msg_callback(SSL_CTX *ctx, void (*cb)(int write_p, int version,
 	SSL_CTX_callback_ctrl(ctx, SSL_CTRL_SET_MSG_CALLBACK,
 	    (void (*)(void))cb);
 }
-LSSL_ALIAS(SSL_CTX_set_msg_callback);
 
 void
 SSL_set_msg_callback(SSL *ssl, void (*cb)(int write_p, int version,
@@ -3523,28 +3340,24 @@ SSL_set_msg_callback(SSL *ssl, void (*cb)(int write_p, int version,
 {
 	SSL_callback_ctrl(ssl, SSL_CTRL_SET_MSG_CALLBACK, (void (*)(void))cb);
 }
-LSSL_ALIAS(SSL_set_msg_callback);
 
 void
 SSL_set_debug(SSL *s, int debug)
 {
 	s->debug = debug;
 }
-LSSL_ALIAS(SSL_set_debug);
 
 int
 SSL_cache_hit(SSL *s)
 {
 	return (s->hit);
 }
-LSSL_ALIAS(SSL_cache_hit);
 
 int
 SSL_CTX_get_min_proto_version(SSL_CTX *ctx)
 {
 	return ctx->min_proto_version;
 }
-LSSL_ALIAS(SSL_CTX_get_min_proto_version);
 
 int
 SSL_CTX_set_min_proto_version(SSL_CTX *ctx, uint16_t version)
@@ -3553,14 +3366,12 @@ SSL_CTX_set_min_proto_version(SSL_CTX *ctx, uint16_t version)
 	    ctx->max_tls_version, &ctx->min_tls_version,
 	    &ctx->min_proto_version);
 }
-LSSL_ALIAS(SSL_CTX_set_min_proto_version);
 
 int
 SSL_CTX_get_max_proto_version(SSL_CTX *ctx)
 {
 	return ctx->max_proto_version;
 }
-LSSL_ALIAS(SSL_CTX_get_max_proto_version);
 
 int
 SSL_CTX_set_max_proto_version(SSL_CTX *ctx, uint16_t version)
@@ -3569,14 +3380,12 @@ SSL_CTX_set_max_proto_version(SSL_CTX *ctx, uint16_t version)
 	    ctx->min_tls_version, &ctx->max_tls_version,
 	    &ctx->max_proto_version);
 }
-LSSL_ALIAS(SSL_CTX_set_max_proto_version);
 
 int
 SSL_get_min_proto_version(SSL *ssl)
 {
 	return ssl->min_proto_version;
 }
-LSSL_ALIAS(SSL_get_min_proto_version);
 
 int
 SSL_set_min_proto_version(SSL *ssl, uint16_t version)
@@ -3585,13 +3394,11 @@ SSL_set_min_proto_version(SSL *ssl, uint16_t version)
 	    ssl->max_tls_version, &ssl->min_tls_version,
 	    &ssl->min_proto_version);
 }
-LSSL_ALIAS(SSL_set_min_proto_version);
 int
 SSL_get_max_proto_version(SSL *ssl)
 {
 	return ssl->max_proto_version;
 }
-LSSL_ALIAS(SSL_get_max_proto_version);
 
 int
 SSL_set_max_proto_version(SSL *ssl, uint16_t version)
@@ -3600,49 +3407,42 @@ SSL_set_max_proto_version(SSL *ssl, uint16_t version)
 	    ssl->min_tls_version, &ssl->max_tls_version,
 	    &ssl->max_proto_version);
 }
-LSSL_ALIAS(SSL_set_max_proto_version);
 
 const SSL_METHOD *
 SSL_CTX_get_ssl_method(const SSL_CTX *ctx)
 {
 	return ctx->method;
 }
-LSSL_ALIAS(SSL_CTX_get_ssl_method);
 
 int
 SSL_CTX_get_security_level(const SSL_CTX *ctx)
 {
 	return ctx->cert->security_level;
 }
-LSSL_ALIAS(SSL_CTX_get_security_level);
 
 void
 SSL_CTX_set_security_level(SSL_CTX *ctx, int level)
 {
 	ctx->cert->security_level = level;
 }
-LSSL_ALIAS(SSL_CTX_set_security_level);
 
 int
 SSL_get_security_level(const SSL *ssl)
 {
 	return ssl->cert->security_level;
 }
-LSSL_ALIAS(SSL_get_security_level);
 
 void
 SSL_set_security_level(SSL *ssl, int level)
 {
 	ssl->cert->security_level = level;
 }
-LSSL_ALIAS(SSL_set_security_level);
 
 int
 SSL_is_quic(const SSL *ssl)
 {
 	return ssl->quic_method != NULL;
 }
-LSSL_ALIAS(SSL_is_quic);
 
 int
 SSL_set_quic_transport_params(SSL *ssl, const uint8_t *params,
@@ -3661,7 +3461,6 @@ SSL_set_quic_transport_params(SSL *ssl, const uint8_t *params,
 
 	return 1;
 }
-LSSL_ALIAS(SSL_set_quic_transport_params);
 
 void
 SSL_get_peer_quic_transport_params(const SSL *ssl, const uint8_t **out_params,
@@ -3670,14 +3469,12 @@ SSL_get_peer_quic_transport_params(const SSL *ssl, const uint8_t **out_params,
 	*out_params = ssl->s3->peer_quic_transport_params;
 	*out_params_len = ssl->s3->peer_quic_transport_params_len;
 }
-LSSL_ALIAS(SSL_get_peer_quic_transport_params);
 
 void
 SSL_set_quic_use_legacy_codepoint(SSL *ssl, int use_legacy)
 {
 	/* Not supported. */
 }
-LSSL_ALIAS(SSL_set_quic_use_legacy_codepoint);
 
 static int
 ssl_cipher_id_cmp_BSEARCH_CMP_FN(const void *a_, const void *b_)

@@ -668,6 +668,8 @@ $L$epilogue::
 $L$SEH_end_whirlpool_block::
 whirlpool_block	ENDP
 
+.text$	ENDS
+.rdata	SEGMENT READONLY ALIGN(8)
 ALIGN	64
 
 $L$table::
@@ -938,6 +940,6 @@ DB	228,39,65,139,167,125,149,216
 DB	251,238,124,102,221,23,71,158
 DB	202,45,191,7,173,90,131,51
 
-.text$	ENDS
+.rdata	ENDS
 END
 

@@ -1,4 +1,4 @@
-/* $OpenBSD: p_lib.c,v 1.37 2023/09/10 17:32:17 tb Exp $ */
+/* $OpenBSD: p_lib.c,v 1.32 2022/11/26 16:08:53 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -439,24 +439,22 @@ EVP_PKEY_get0_hmac(const EVP_PKEY *pkey, size_t *len)
 RSA *
 EVP_PKEY_get0_RSA(EVP_PKEY *pkey)
 {
-	if (pkey->type == EVP_PKEY_RSA || pkey->type == EVP_PKEY_RSA_PSS)
-		return pkey->pkey.rsa;
-
-	EVPerror(EVP_R_EXPECTING_AN_RSA_KEY);
-	return NULL;
+	if (pkey->type != EVP_PKEY_RSA) {
+		EVPerror(EVP_R_EXPECTING_AN_RSA_KEY);
+		return NULL;
+	}
+	return pkey->pkey.rsa;
 }
 
 RSA *
 EVP_PKEY_get1_RSA(EVP_PKEY *pkey)
 {
-	RSA *rsa;
-
-	if ((rsa = EVP_PKEY_get0_RSA(pkey)) == NULL)
+	if (pkey->type != EVP_PKEY_RSA) {
+		EVPerror(EVP_R_EXPECTING_AN_RSA_KEY);
 		return NULL;
-
-	RSA_up_ref(rsa);
-
-	return rsa;
+	}
+	RSA_up_ref(pkey->pkey.rsa);
+	return pkey->pkey.rsa;
 }
 
 int
@@ -483,14 +481,12 @@ EVP_PKEY_get0_DSA(EVP_PKEY *pkey)
 DSA *
 EVP_PKEY_get1_DSA(EVP_PKEY *pkey)
 {
-	DSA *dsa;
-
-	if ((dsa = EVP_PKEY_get0_DSA(pkey)) == NULL)
+	if (pkey->type != EVP_PKEY_DSA) {
+		EVPerror(EVP_R_EXPECTING_A_DSA_KEY);
 		return NULL;
-
-	DSA_up_ref(dsa);
-
-	return dsa;
+	}
+	DSA_up_ref(pkey->pkey.dsa);
+	return pkey->pkey.dsa;
 }
 
 int
@@ -517,14 +513,12 @@ EVP_PKEY_get0_EC_KEY(EVP_PKEY *pkey)
 EC_KEY *
 EVP_PKEY_get1_EC_KEY(EVP_PKEY *pkey)
 {
-	EC_KEY *key;
-
-	if ((key = EVP_PKEY_get0_EC_KEY(pkey)) == NULL)
+	if (pkey->type != EVP_PKEY_EC) {
+		EVPerror(EVP_R_EXPECTING_A_EC_KEY);
 		return NULL;
-
-	EC_KEY_up_ref(key);
-
-	return key;
+	}
+	EC_KEY_up_ref(pkey->pkey.ec);
+	return pkey->pkey.ec;
 }
 
 int
@@ -552,14 +546,12 @@ EVP_PKEY_get0_DH(EVP_PKEY *pkey)
 DH *
 EVP_PKEY_get1_DH(EVP_PKEY *pkey)
 {
-	DH *dh;
-
-	if ((dh = EVP_PKEY_get0_DH(pkey)) == NULL)
+	if (pkey->type != EVP_PKEY_DH) {
+		EVPerror(EVP_R_EXPECTING_A_DH_KEY);
 		return NULL;
-
-	DH_up_ref(dh);
-
-	return dh;
+	}
+	DH_up_ref(pkey->pkey.dh);
+	return pkey->pkey.dh;
 }
 
 int

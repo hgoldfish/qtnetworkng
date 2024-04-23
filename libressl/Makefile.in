@@ -373,8 +373,8 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libtls.pc $(am__append_2)
 EXTRA_DIST = README.md README.windows VERSION config scripts \
 	CMakeLists.txt cmake_export_symbol.cmake \
-	cmake_uninstall.cmake.in FindLibreSSL.cmake \
-	LibreSSLConfig.cmake.in cert.pem openssl.cnf x509v3.cnf
+	cmake_uninstall.cmake.in FindLibreSSL.cmake cert.pem \
+	openssl.cnf x509v3.cnf
 all: all-recursive
 
 .SUFFIXES:

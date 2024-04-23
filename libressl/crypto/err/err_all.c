@@ -1,4 +1,4 @@
-/* $OpenBSD: err_all.c,v 1.32 2023/07/28 09:46:36 tb Exp $ */
+/* $OpenBSD: err_all.c,v 1.27 2022/05/07 17:20:41 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -69,6 +69,7 @@
 #include <openssl/comp.h>
 #include <openssl/conf.h>
 #include <openssl/ct.h>
+#include <openssl/dso.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
@@ -90,6 +91,12 @@
 #endif
 #ifndef OPENSSL_NO_EC
 #include <openssl/ec.h>
+#endif
+#ifndef OPENSSL_NO_ECDH
+#include <openssl/ecdh.h>
+#endif
+#ifndef OPENSSL_NO_ECDSA
+#include <openssl/ecdsa.h>
 #endif
 #ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>
@@ -116,6 +123,9 @@ ERR_load_crypto_strings_internal(void)
 #ifndef OPENSSL_NO_CMS
 	ERR_load_CMS_strings();
 #endif
+#ifdef ZLIB
+	ERR_load_COMP_strings();
+#endif
 	ERR_load_CONF_strings();
 	ERR_load_CRYPTO_strings();
 #ifndef OPENSSL_NO_CT
@@ -126,6 +136,13 @@ ERR_load_crypto_strings_internal(void)
 #endif
 #ifndef OPENSSL_NO_DSA
 	ERR_load_DSA_strings();
+#endif
+	ERR_load_DSO_strings();
+#ifndef OPENSSL_NO_ECDH
+	ERR_load_ECDH_strings();
+#endif
+#ifndef OPENSSL_NO_ECDSA
+	ERR_load_ECDSA_strings();
 #endif
 #ifndef OPENSSL_NO_EC
 	ERR_load_EC_strings();
@@ -160,4 +177,3 @@ ERR_load_crypto_strings(void)
 	static pthread_once_t loaded = PTHREAD_ONCE_INIT;
 	(void) pthread_once(&loaded, ERR_load_crypto_strings_internal);
 }
-LCRYPTO_ALIAS(ERR_load_crypto_strings);

@@ -1,4 +1,4 @@
-/* $OpenBSD: asn1time.c,v 1.20 2023/10/02 11:14:15 tb Exp $ */
+/* $OpenBSD: asn1time.c,v 1.16 2022/09/05 21:06:31 tb Exp $ */
 /*
  * Copyright (c) 2015 Joel Sing <jsing@openbsd.org>
  *
@@ -28,7 +28,7 @@ struct asn1_time_test {
 	time_t time;
 };
 
-static const struct asn1_time_test asn1_invtime_tests[] = {
+struct asn1_time_test asn1_invtime_tests[] = {
 	{
 		.str = "",
 	},
@@ -72,7 +72,7 @@ static const struct asn1_time_test asn1_invtime_tests[] = {
 	},
 };
 
-static const struct asn1_time_test asn1_invgentime_tests[] = {
+struct asn1_time_test asn1_invgentime_tests[] = {
 	/* Generalized time with omitted seconds, should fail */
 	{
 		.str = "201612081934Z",
@@ -83,7 +83,22 @@ static const struct asn1_time_test asn1_invgentime_tests[] = {
 	},
 };
 
-static const struct asn1_time_test asn1_gentime_tests[] = {
+struct asn1_time_test asn1_goodtime_tests[] = {
+	{
+		.str = "99990908234339Z",
+		.time = 1,
+	},
+	{
+		.str = "201612081934Z",
+		.time = 1,
+	},
+	{
+		.str = "1609082343Z",
+		.time = 0,
+	},
+};
+
+struct asn1_time_test asn1_gentime_tests[] = {
 	{
 		.str = "20161208193400Z",
 		.data = "20161208193400Z",
@@ -116,7 +131,7 @@ static const struct asn1_time_test asn1_gentime_tests[] = {
 	},
 };
 
-static const struct asn1_time_test asn1_utctime_tests[] = {
+struct asn1_time_test asn1_utctime_tests[] = {
 	{
 		.str = "700101000000Z",
 		.data = "700101000000Z",
@@ -196,8 +211,7 @@ asn1_compare_bytes(int test_no, const unsigned char *d1,
 }
 
 static int
-asn1_compare_str(int test_no, const struct asn1_string_st *asn1str,
-    const char *str)
+asn1_compare_str(int test_no, struct asn1_string_st *asn1str, const char *str)
 {
 	int length = strlen(str);
 
@@ -216,7 +230,7 @@ asn1_compare_str(int test_no, const struct asn1_string_st *asn1str,
 }
 
 static int
-asn1_invtime_test(int test_no, const struct asn1_time_test *att, int gen)
+asn1_invtime_test(int test_no, struct asn1_time_test *att, int gen)
 {
 	ASN1_GENERALIZEDTIME *gt = NULL;
 	ASN1_UTCTIME *ut = NULL;
@@ -268,7 +282,7 @@ asn1_invtime_test(int test_no, const struct asn1_time_test *att, int gen)
 }
 
 static int
-asn1_gentime_test(int test_no, const struct asn1_time_test *att)
+asn1_gentime_test(int test_no, struct asn1_time_test *att)
 {
 	const unsigned char *der;
 	unsigned char *p = NULL;
@@ -347,7 +361,7 @@ asn1_gentime_test(int test_no, const struct asn1_time_test *att)
 }
 
 static int
-asn1_utctime_test(int test_no, const struct asn1_time_test *att)
+asn1_utctime_test(int test_no, struct asn1_time_test *att)
 {
 	const unsigned char *der;
 	unsigned char *p = NULL;
@@ -410,7 +424,7 @@ asn1_utctime_test(int test_no, const struct asn1_time_test *att)
 }
 
 static int
-asn1_time_test(int test_no, const struct asn1_time_test *att, int type)
+asn1_time_test(int test_no, struct asn1_time_test *att, int type)
 {
 	ASN1_TIME *t = NULL, *tx509 = NULL;
 	int failure = 1;
@@ -473,97 +487,10 @@ asn1_time_test(int test_no, const struct asn1_time_test *att, int type)
 	return (failure);
 }
 
-static int
-time_t_cmp(time_t t1, time_t t2)
-{
-	if (t1 < t2)
-		return -1;
-	if (t2 < t1)
-		return 1;
-	return 0;
-}
-
-static int
-asn1_time_compare_families(const struct asn1_time_test *fam1, size_t fam1_size,
-    const struct asn1_time_test *fam2, size_t fam2_size)
-{
-	const struct asn1_time_test *att1, *att2;
-	ASN1_TIME *t1 = NULL, *t2 = NULL;
-	size_t i, j;
-	int asn1_cmp, time_cmp;
-	int comparison_failure = 0;
-	int failure = 1;
-
-	if ((t1 = ASN1_TIME_new()) == NULL)
-		goto done;
-	if ((t2 = ASN1_TIME_new()) == NULL)
-		goto done;
-
-	for (i = 0; i < fam1_size; i++) {
-		att1 = &fam1[i];
-
-		if (!ASN1_TIME_set_string(t1, att1->str))
-			goto done;
-		for (j = 0; j < fam2_size; j++) {
-			att2 = &fam2[j];
-
-			if (!ASN1_TIME_set_string(t2, att2->str))
-				goto done;
-
-			time_cmp = time_t_cmp(att1->time, att2->time);
-			asn1_cmp = ASN1_TIME_compare(t1, t2);
-
-			if (time_cmp != asn1_cmp) {
-				fprintf(stderr, "%s vs. %s: want %d, got %d\n",
-				    att1->str, att2->str, time_cmp, asn1_cmp);
-				comparison_failure |= 1;
-			}
-
-			time_cmp = ASN1_TIME_cmp_time_t(t1, att2->time);
-			if (time_cmp != asn1_cmp) {
-				fprintf(stderr, "%s vs. %lld: want %d, got %d\n",
-				    att1->str, (long long)att2->time,
-				    asn1_cmp, time_cmp);
-				comparison_failure |= 1;
-			}
-
-			/*
-			 * XXX - add ASN1_UTCTIME_cmp_time_t later. Don't want
-			 * to mess with LIBRESSL_INTERNAL right before lock.
-			 */
-		}
-	}
-
-	failure = comparison_failure;
-
- done:
-	ASN1_TIME_free(t1);
-	ASN1_TIME_free(t2);
-
-	return failure;
-}
-
-static int
-asn1_time_compare_test(void)
-{
-	const struct asn1_time_test *gen = asn1_gentime_tests;
-	size_t gen_size = N_GENTIME_TESTS;
-	const struct asn1_time_test *utc = asn1_utctime_tests;
-	size_t utc_size = N_UTCTIME_TESTS;
-	int failed = 0;
-
-	failed |= asn1_time_compare_families(gen, gen_size, gen, gen_size);
-	failed |= asn1_time_compare_families(gen, gen_size, utc, utc_size);
-	failed |= asn1_time_compare_families(utc, utc_size, gen, gen_size);
-	failed |= asn1_time_compare_families(utc, utc_size, utc, utc_size);
-
-	return failed;
-}
-
 int
 main(int argc, char **argv)
 {
-	const struct asn1_time_test *att;
+	struct asn1_time_test *att;
 	int failed = 0;
 	size_t i;
 
@@ -600,12 +527,6 @@ main(int argc, char **argv)
 		att = &asn1_gentime_tests[i];
 		failed |= asn1_time_test(i, att, V_ASN1_GENERALIZEDTIME);
 	}
-
-	fprintf(stderr, "ASN1_TIME_compare tests...\n");
-	failed |= asn1_time_compare_test();
-
-	/* Check for a leak in ASN1_TIME_normalize(). */
-	failed |= ASN1_TIME_normalize(NULL) != 0;
 
 	return (failed);
 }

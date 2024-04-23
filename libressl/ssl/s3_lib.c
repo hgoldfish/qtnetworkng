@@ -1,4 +1,4 @@
-/* $OpenBSD: s3_lib.c,v 1.246 2023/07/08 16:40:13 beck Exp $ */
+/* $OpenBSD: s3_lib.c,v 1.242.4.1 2023/05/26 08:49:20 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -1570,7 +1570,6 @@ ssl3_free(SSL *s)
 	freezero(s->s3->hs.sigalgs, s->s3->hs.sigalgs_len);
 	sk_X509_pop_free(s->s3->hs.peer_certs, X509_free);
 	sk_X509_pop_free(s->s3->hs.peer_certs_no_leaf, X509_free);
-	sk_X509_pop_free(s->s3->hs.verified_chain, X509_free);
 	tls_key_share_free(s->s3->hs.key_share);
 
 	tls13_secrets_destroy(s->s3->hs.tls13.secrets);
@@ -1580,6 +1579,8 @@ ssl3_free(SSL *s)
 	tls_buffer_free(s->s3->hs.tls13.quic_read_buffer);
 
 	sk_X509_NAME_pop_free(s->s3->hs.tls12.ca_names, X509_NAME_free);
+	sk_X509_pop_free(s->verified_chain, X509_free);
+	s->verified_chain = NULL;
 
 	tls1_transcript_free(s);
 	tls1_transcript_hash_free(s);
@@ -1602,6 +1603,8 @@ ssl3_clear(SSL *s)
 
 	tls1_cleanup_key_block(s);
 	sk_X509_NAME_pop_free(s->s3->hs.tls12.ca_names, X509_NAME_free);
+	sk_X509_pop_free(s->verified_chain, X509_free);
+	s->verified_chain = NULL;
 
 	tls_buffer_free(s->s3->alert_fragment);
 	s->s3->alert_fragment = NULL;
@@ -1616,8 +1619,6 @@ ssl3_clear(SSL *s)
 	s->s3->hs.peer_certs = NULL;
 	sk_X509_pop_free(s->s3->hs.peer_certs_no_leaf, X509_free);
 	s->s3->hs.peer_certs_no_leaf = NULL;
-	sk_X509_pop_free(s->s3->hs.verified_chain, X509_free);
-	s->s3->hs.verified_chain = NULL;
 
 	tls_key_share_free(s->s3->hs.key_share);
 	s->s3->hs.key_share = NULL;
@@ -1672,7 +1673,7 @@ ssl3_clear(SSL *s)
 	s->s3->in_read_app_data = 0;
 
 	s->packet_length = 0;
-	s->version = TLS1_2_VERSION;
+	s->version = TLS1_VERSION;
 
 	s->s3->hs.state = SSL_ST_BEFORE|((s->server) ? SSL_ST_ACCEPT : SSL_ST_CONNECT);
 }
@@ -1931,28 +1932,24 @@ SSL_set0_chain(SSL *ssl, STACK_OF(X509) *chain)
 {
 	return ssl_cert_set0_chain(NULL, ssl, chain);
 }
-LSSL_ALIAS(SSL_set0_chain);
 
 int
 SSL_set1_chain(SSL *ssl, STACK_OF(X509) *chain)
 {
 	return ssl_cert_set1_chain(NULL, ssl, chain);
 }
-LSSL_ALIAS(SSL_set1_chain);
 
 int
 SSL_add0_chain_cert(SSL *ssl, X509 *x509)
 {
 	return ssl_cert_add0_chain_cert(NULL, ssl, x509);
 }
-LSSL_ALIAS(SSL_add0_chain_cert);
 
 int
 SSL_add1_chain_cert(SSL *ssl, X509 *x509)
 {
 	return ssl_cert_add1_chain_cert(NULL, ssl, x509);
 }
-LSSL_ALIAS(SSL_add1_chain_cert);
 
 int
 SSL_get0_chain_certs(const SSL *ssl, STACK_OF(X509) **out_chain)
@@ -1964,14 +1961,12 @@ SSL_get0_chain_certs(const SSL *ssl, STACK_OF(X509) **out_chain)
 
 	return 1;
 }
-LSSL_ALIAS(SSL_get0_chain_certs);
 
 int
 SSL_clear_chain_certs(SSL *ssl)
 {
 	return ssl_cert_set0_chain(NULL, ssl, NULL);
 }
-LSSL_ALIAS(SSL_clear_chain_certs);
 
 int
 SSL_set1_groups(SSL *s, const int *groups, size_t groups_len)
@@ -1979,7 +1974,6 @@ SSL_set1_groups(SSL *s, const int *groups, size_t groups_len)
 	return tls1_set_groups(&s->tlsext_supportedgroups,
 	    &s->tlsext_supportedgroups_length, groups, groups_len);
 }
-LSSL_ALIAS(SSL_set1_groups);
 
 int
 SSL_set1_groups_list(SSL *s, const char *groups)
@@ -1987,7 +1981,6 @@ SSL_set1_groups_list(SSL *s, const char *groups)
 	return tls1_set_group_list(&s->tlsext_supportedgroups,
 	    &s->tlsext_supportedgroups_length, groups);
 }
-LSSL_ALIAS(SSL_set1_groups_list);
 
 static int
 _SSL_get_signature_nid(SSL *s, int *nid)
@@ -2330,28 +2323,24 @@ SSL_CTX_set0_chain(SSL_CTX *ctx, STACK_OF(X509) *chain)
 {
 	return ssl_cert_set0_chain(ctx, NULL, chain);
 }
-LSSL_ALIAS(SSL_CTX_set0_chain);
 
 int
 SSL_CTX_set1_chain(SSL_CTX *ctx, STACK_OF(X509) *chain)
 {
 	return ssl_cert_set1_chain(ctx, NULL, chain);
 }
-LSSL_ALIAS(SSL_CTX_set1_chain);
 
 int
 SSL_CTX_add0_chain_cert(SSL_CTX *ctx, X509 *x509)
 {
 	return ssl_cert_add0_chain_cert(ctx, NULL, x509);
 }
-LSSL_ALIAS(SSL_CTX_add0_chain_cert);
 
 int
 SSL_CTX_add1_chain_cert(SSL_CTX *ctx, X509 *x509)
 {
 	return ssl_cert_add1_chain_cert(ctx, NULL, x509);
 }
-LSSL_ALIAS(SSL_CTX_add1_chain_cert);
 
 int
 SSL_CTX_get0_chain_certs(const SSL_CTX *ctx, STACK_OF(X509) **out_chain)
@@ -2363,14 +2352,12 @@ SSL_CTX_get0_chain_certs(const SSL_CTX *ctx, STACK_OF(X509) **out_chain)
 
 	return 1;
 }
-LSSL_ALIAS(SSL_CTX_get0_chain_certs);
 
 int
 SSL_CTX_clear_chain_certs(SSL_CTX *ctx)
 {
 	return ssl_cert_set0_chain(ctx, NULL, NULL);
 }
-LSSL_ALIAS(SSL_CTX_clear_chain_certs);
 
 static int
 _SSL_CTX_add_extra_chain_cert(SSL_CTX *ctx, X509 *cert)
@@ -2416,7 +2403,6 @@ SSL_CTX_set1_groups(SSL_CTX *ctx, const int *groups, size_t groups_len)
 	return tls1_set_groups(&ctx->tlsext_supportedgroups,
 	    &ctx->tlsext_supportedgroups_length, groups, groups_len);
 }
-LSSL_ALIAS(SSL_CTX_set1_groups);
 
 int
 SSL_CTX_set1_groups_list(SSL_CTX *ctx, const char *groups)
@@ -2424,7 +2410,6 @@ SSL_CTX_set1_groups_list(SSL_CTX *ctx, const char *groups)
 	return tls1_set_group_list(&ctx->tlsext_supportedgroups,
 	    &ctx->tlsext_supportedgroups_length, groups);
 }
-LSSL_ALIAS(SSL_CTX_set1_groups_list);
 
 long
 ssl3_ctx_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)

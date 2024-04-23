@@ -1,4 +1,4 @@
-/* $OpenBSD: digest.c,v 1.38 2023/07/07 19:37:53 beck Exp $ */
+/* $OpenBSD: digest.c,v 1.36 2022/12/26 07:18:52 jmc Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

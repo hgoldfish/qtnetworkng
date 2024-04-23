@@ -1,4 +1,4 @@
-/*	$OpenBSD: bn_internal.h,v 1.15 2023/06/25 11:42:26 jsing Exp $ */
+/*	$OpenBSD: bn_internal.h,v 1.11 2023/03/07 09:35:55 jsing Exp $ */
 /*
  * Copyright (c) 2023 Joel Sing <jsing@openbsd.org>
  *
@@ -21,10 +21,6 @@
 
 #ifndef HEADER_BN_INTERNAL_H
 #define HEADER_BN_INTERNAL_H
-
-int bn_word_clz(BN_ULONG w);
-
-int bn_bitsize(const BIGNUM *bn);
 
 #ifndef HAVE_BN_CT_NE_ZERO
 static inline int
@@ -58,14 +54,6 @@ bn_ct_eq_zero_mask(BN_ULONG w)
 }
 #endif
 
-#ifndef HAVE_BN_CLZW
-static inline int
-bn_clzw(BN_ULONG w)
-{
-	return bn_word_clz(w);
-}
-#endif
-
 /*
  * Big number primitives are named as the operation followed by a suffix
  * that indicates the number of words that it operates on, where 'w' means
@@ -80,18 +68,12 @@ bn_clzw(BN_ULONG w)
  */
 
 /*
- * Default implementations for BN_ULLONG architectures.
- *
- * On these platforms the C compiler is generally better at optimising without
- * the use of inline assembly primitives. However, it can be difficult for the
- * compiler to see through primitives in order to combine operations, due to
- * type changes/narrowing. For this reason compound primitives are usually
- * explicitly provided.
+ * bn_addw() computes (r1:r0) = a + b, where both inputs are single words,
+ * producing a double word result. The value of r1 is the carry from the
+ * addition.
  */
-#ifdef BN_ULLONG
-
 #ifndef HAVE_BN_ADDW
-#define HAVE_BN_ADDW
+#ifdef BN_LLONG
 static inline void
 bn_addw(BN_ULONG a, BN_ULONG b, BN_ULONG *out_r1, BN_ULONG *out_r0)
 {
@@ -102,75 +84,8 @@ bn_addw(BN_ULONG a, BN_ULONG b, BN_ULONG *out_r1, BN_ULONG *out_r0)
 	*out_r1 = r >> BN_BITS2;
 	*out_r0 = r & BN_MASK2;
 }
-#endif
+#else
 
-#ifndef HAVE_BN_ADDW_ADDW
-#define HAVE_BN_ADDW_ADDW
-static inline void
-bn_addw_addw(BN_ULONG a, BN_ULONG b, BN_ULONG c, BN_ULONG *out_r1,
-    BN_ULONG *out_r0)
-{
-	BN_ULLONG r;
-
-	r = (BN_ULLONG)a + (BN_ULLONG)b + (BN_ULLONG)c;
-
-	*out_r1 = r >> BN_BITS2;
-	*out_r0 = r & BN_MASK2;
-}
-#endif
-
-#ifndef HAVE_BN_MULW
-#define HAVE_BN_MULW
-static inline void
-bn_mulw(BN_ULONG a, BN_ULONG b, BN_ULONG *out_r1, BN_ULONG *out_r0)
-{
-	BN_ULLONG r;
-
-	r = (BN_ULLONG)a * (BN_ULLONG)b;
-
-	*out_r1 = r >> BN_BITS2;
-	*out_r0 = r & BN_MASK2;
-}
-#endif
-
-#ifndef HAVE_BN_MULW_ADDW
-#define HAVE_BN_MULW_ADDW
-static inline void
-bn_mulw_addw(BN_ULONG a, BN_ULONG b, BN_ULONG c, BN_ULONG *out_r1,
-    BN_ULONG *out_r0)
-{
-	BN_ULLONG r;
-
-	r = (BN_ULLONG)a * (BN_ULLONG)b + (BN_ULLONG)c;
-
-	*out_r1 = r >> BN_BITS2;
-	*out_r0 = r & BN_MASK2;
-}
-#endif
-
-#ifndef HAVE_BN_MULW_ADDW_ADDW
-#define HAVE_BN_MULW_ADDW_ADDW
-static inline void
-bn_mulw_addw_addw(BN_ULONG a, BN_ULONG b, BN_ULONG c, BN_ULONG d,
-    BN_ULONG *out_r1, BN_ULONG *out_r0)
-{
-	BN_ULLONG r;
-
-	r = (BN_ULLONG)a * (BN_ULLONG)b + (BN_ULLONG)c + (BN_ULLONG)d;
-
-	*out_r1 = r >> BN_BITS2;
-	*out_r0 = r & BN_MASK2;
-}
-#endif
-
-#endif /* !BN_ULLONG */
-
-/*
- * bn_addw() computes (r1:r0) = a + b, where both inputs are single words,
- * producing a double word result. The value of r1 is the carry from the
- * addition.
- */
-#ifndef HAVE_BN_ADDW
 static inline void
 bn_addw(BN_ULONG a, BN_ULONG b, BN_ULONG *out_r1, BN_ULONG *out_r0)
 {
@@ -184,6 +99,7 @@ bn_addw(BN_ULONG a, BN_ULONG b, BN_ULONG *out_r1, BN_ULONG *out_r0)
 	*out_r1 = r1;
 	*out_r0 = r0;
 }
+#endif
 #endif
 
 /*
@@ -201,33 +117,6 @@ bn_addw_addw(BN_ULONG a, BN_ULONG b, BN_ULONG c, BN_ULONG *out_r1,
 	bn_addw(r0, c, &carry, &r0);
 	r1 += carry;
 
-	*out_r1 = r1;
-	*out_r0 = r0;
-}
-#endif
-
-/*
- * bn_qwaddqw() computes
- * (r4:r3:r2:r1:r0) = (a3:a2:a1:a0) + (b3:b2:b1:b0) + carry, where a is a quad word,
- * b is a quad word, and carry is a single word with value 0 or 1, producing a four
- * word result and carry.
- */
-#ifndef HAVE_BN_QWADDQW
-static inline void
-bn_qwaddqw(BN_ULONG a3, BN_ULONG a2, BN_ULONG a1, BN_ULONG a0, BN_ULONG b3,
-    BN_ULONG b2, BN_ULONG b1, BN_ULONG b0, BN_ULONG carry, BN_ULONG *out_carry,
-    BN_ULONG *out_r3, BN_ULONG *out_r2, BN_ULONG *out_r1, BN_ULONG *out_r0)
-{
-	BN_ULONG r3, r2, r1, r0;
-
-	bn_addw_addw(a0, b0, carry, &carry, &r0);
-	bn_addw_addw(a1, b1, carry, &carry, &r1);
-	bn_addw_addw(a2, b2, carry, &carry, &r2);
-	bn_addw_addw(a3, b3, carry, &carry, &r3);
-
-	*out_carry = carry;
-	*out_r3 = r3;
-	*out_r2 = r2;
 	*out_r1 = r1;
 	*out_r0 = r0;
 }
@@ -271,37 +160,23 @@ bn_subw_subw(BN_ULONG a, BN_ULONG b, BN_ULONG c, BN_ULONG *out_borrow,
 #endif
 
 /*
- * bn_qwsubqw() computes
- * (r3:r2:r1:r0) = (a3:a2:a1:a0) - (b3:b2:b1:b0) - borrow, where a is a quad word,
- * b is a quad word, and borrow is a single word with value 0 or 1, producing a
- * four word result and borrow.
- */
-#ifndef HAVE_BN_QWSUBQW
-static inline void
-bn_qwsubqw(BN_ULONG a3, BN_ULONG a2, BN_ULONG a1, BN_ULONG a0, BN_ULONG b3,
-    BN_ULONG b2, BN_ULONG b1, BN_ULONG b0, BN_ULONG borrow, BN_ULONG *out_borrow,
-    BN_ULONG *out_r3, BN_ULONG *out_r2, BN_ULONG *out_r1, BN_ULONG *out_r0)
-{
-	BN_ULONG r3, r2, r1, r0;
-
-	bn_subw_subw(a0, b0, borrow, &borrow, &r0);
-	bn_subw_subw(a1, b1, borrow, &borrow, &r1);
-	bn_subw_subw(a2, b2, borrow, &borrow, &r2);
-	bn_subw_subw(a3, b3, borrow, &borrow, &r3);
-
-	*out_borrow = borrow;
-	*out_r3 = r3;
-	*out_r2 = r2;
-	*out_r1 = r1;
-	*out_r0 = r0;
-}
-#endif
-
-/*
  * bn_mulw() computes (r1:r0) = a * b, where both inputs are single words,
  * producing a double word result.
  */
 #ifndef HAVE_BN_MULW
+#ifdef BN_LLONG
+static inline void
+bn_mulw(BN_ULONG a, BN_ULONG b, BN_ULONG *out_r1, BN_ULONG *out_r0)
+{
+	BN_ULLONG r;
+
+	r = (BN_ULLONG)a * (BN_ULLONG)b;
+
+	*out_r1 = r >> BN_BITS2;
+	*out_r0 = r & BN_MASK2;
+}
+
+#else /* !BN_LLONG */
 /*
  * Multiply two words (a * b) producing a double word result (h:l).
  *
@@ -398,6 +273,7 @@ bn_mulw(BN_ULONG a, BN_ULONG b, BN_ULONG *out_r1, BN_ULONG *out_r0)
 	*out_r0 = (acc1 << BN_BITS4) | acc0;
 }
 #endif
+#endif /* !BN_LLONG */
 #endif
 
 #ifndef HAVE_BN_MULW_LO
@@ -505,60 +381,6 @@ bn_mul2_mulw_addtw(BN_ULONG a, BN_ULONG b, BN_ULONG c2, BN_ULONG c1, BN_ULONG c0
 	bn_addw(r1, x1 + carry, &carry, &r1);
 	r2 += carry;
 
-	*out_r2 = r2;
-	*out_r1 = r1;
-	*out_r0 = r0;
-}
-#endif
-
-/*
- * bn_qwmulw_addw() computes (r4:r3:r2:r1:r0) = (a3:a2:a1:a0) * b + c, where a
- * is a quad word, b is a single word and c is a single word, producing a five
- * word result.
- */
-#ifndef HAVE_BN_QWMULW_ADDW
-static inline void
-bn_qwmulw_addw(BN_ULONG a3, BN_ULONG a2, BN_ULONG a1, BN_ULONG a0, BN_ULONG b,
-    BN_ULONG c, BN_ULONG *out_r4, BN_ULONG *out_r3, BN_ULONG *out_r2,
-    BN_ULONG *out_r1, BN_ULONG *out_r0)
-{
-	BN_ULONG r3, r2, r1, r0;
-
-	bn_mulw_addw(a0, b, c, &c, &r0);
-	bn_mulw_addw(a1, b, c, &c, &r1);
-	bn_mulw_addw(a2, b, c, &c, &r2);
-	bn_mulw_addw(a3, b, c, &c, &r3);
-
-	*out_r4 = c;
-	*out_r3 = r3;
-	*out_r2 = r2;
-	*out_r1 = r1;
-	*out_r0 = r0;
-}
-#endif
-
-/*
- * bn_qwmulw_addqw_addw() computes
- * (r4:r3:r2:r1:r0) = (a3:a2:a1:a0) * b + (c3:c2:c1:c0) + d, where a
- * is a quad word, b is a single word, c is a quad word, and d is a single word,
- * producing a five word result.
- */
-#ifndef HAVE_BN_QWMULW_ADDQW_ADDW
-static inline void
-bn_qwmulw_addqw_addw(BN_ULONG a3, BN_ULONG a2, BN_ULONG a1, BN_ULONG a0,
-    BN_ULONG b, BN_ULONG c3, BN_ULONG c2, BN_ULONG c1, BN_ULONG c0, BN_ULONG d,
-    BN_ULONG *out_r4, BN_ULONG *out_r3, BN_ULONG *out_r2, BN_ULONG *out_r1,
-    BN_ULONG *out_r0)
-{
-	BN_ULONG r3, r2, r1, r0;
-
-	bn_mulw_addw_addw(a0, b, c0, d, &d, &r0);
-	bn_mulw_addw_addw(a1, b, c1, d, &d, &r1);
-	bn_mulw_addw_addw(a2, b, c2, d, &d, &r2);
-	bn_mulw_addw_addw(a3, b, c3, d, &d, &r3);
-
-	*out_r4 = d;
-	*out_r3 = r3;
 	*out_r2 = r2;
 	*out_r1 = r1;
 	*out_r0 = r0;

@@ -1839,6 +1839,8 @@ $L$epilogue::
 	DB	0F3h,0C3h		;repret
 $L$SEH_end_sha256_block_data_order::
 sha256_block_data_order	ENDP
+.text$	ENDS
+.rdata	SEGMENT READONLY ALIGN(8)
 ALIGN	64
 
 K256::
@@ -1858,6 +1860,8 @@ K256::
 	DD	0391c0cb3h,04ed8aa4ah,05b9cca4fh,0682e6ff3h
 	DD	0748f82eeh,078a5636fh,084c87814h,08cc70208h
 	DD	090befffah,0a4506cebh,0bef9a3f7h,0c67178f2h
+.rdata	ENDS
+.text$	SEGMENT ALIGN(64) 'CODE'
 
 .text$	ENDS
 END

@@ -1,4 +1,4 @@
-/* $OpenBSD: p_dec.c,v 1.15 2023/07/07 19:37:54 beck Exp $ */
+/* $OpenBSD: p_dec.c,v 1.13 2022/11/26 16:08:52 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

@@ -62,12 +62,12 @@
  * [including the GNU Public Licence.]
  */
 
-#define NUM_NID 1053
-#define NUM_SN 1046
-#define NUM_LN 1046
-#define NUM_OBJ 975
+#define NUM_NID 1025
+#define NUM_SN 1018
+#define NUM_LN 1018
+#define NUM_OBJ 947
 
-static const unsigned char lvalues[6949]={
+static const unsigned char lvalues[6699]={
 0x2A,0x86,0x48,0x86,0xF7,0x0D,               /* [  0] OBJ_rsadsi */
 0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,          /* [  6] OBJ_pkcs */
 0x2A,0x86,0x48,0x86,0xF7,0x0D,0x02,0x02,     /* [ 13] OBJ_md2 */
@@ -1009,34 +1009,6 @@ static const unsigned char lvalues[6949]={
 0x2B,0x06,0x01,0x04,0x01,0xD6,0x79,0x02,0x04,0x05,/* [6666] OBJ_ct_cert_scts */
 0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,0x09,0x10,0x02,0x2F,/* [6676] OBJ_id_smime_aa_signingCertificateV2 */
 0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,0x09,0x10,0x01,0x32,/* [6687] OBJ_id_ct_signedTAL */
-0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,0x01,0x0F,/* [6698] OBJ_sha512_224WithRSAEncryption */
-0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,0x01,0x10,/* [6707] OBJ_sha512_256WithRSAEncryption */
-0x2A,0x86,0x48,0x86,0xF7,0x0D,0x02,0x0C,     /* [6716] OBJ_hmacWithSHA512_224 */
-0x2A,0x86,0x48,0x86,0xF7,0x0D,0x02,0x0D,     /* [6724] OBJ_hmacWithSHA512_256 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x05,/* [6732] OBJ_sha512_224 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x06,/* [6741] OBJ_sha512_256 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x07,/* [6750] OBJ_sha3_224 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x08,/* [6759] OBJ_sha3_256 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x09,/* [6768] OBJ_sha3_384 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x0A,/* [6777] OBJ_sha3_512 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x0D,/* [6786] OBJ_hmac_sha3_224 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x0E,/* [6795] OBJ_hmac_sha3_256 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x0F,/* [6804] OBJ_hmac_sha3_384 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x10,/* [6813] OBJ_hmac_sha3_512 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x03,/* [6822] OBJ_dsa_with_SHA384 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x04,/* [6831] OBJ_dsa_with_SHA512 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x05,/* [6840] OBJ_dsa_with_SHA3_224 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x06,/* [6849] OBJ_dsa_with_SHA3_256 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x07,/* [6858] OBJ_dsa_with_SHA3_384 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x08,/* [6867] OBJ_dsa_with_SHA3_512 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x09,/* [6876] OBJ_ecdsa_with_SHA3_224 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x0A,/* [6885] OBJ_ecdsa_with_SHA3_256 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x0B,/* [6894] OBJ_ecdsa_with_SHA3_384 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x0C,/* [6903] OBJ_ecdsa_with_SHA3_512 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x0D,/* [6912] OBJ_RSA_SHA3_224 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x0E,/* [6921] OBJ_RSA_SHA3_256 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x0F,/* [6930] OBJ_RSA_SHA3_384 */
-0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x03,0x10,/* [6939] OBJ_RSA_SHA3_512 */
 };
 
 static const ASN1_OBJECT nid_objs[NUM_NID]={
@@ -2288,9 +2260,9 @@ static const ASN1_OBJECT nid_objs[NUM_NID]={
 	&(lvalues[5321]),0},
 {"hmacWithSHA512","hmacWithSHA512",NID_hmacWithSHA512,8,
 	&(lvalues[5329]),0},
-{"id-dsa-with-sha224","dsa_with_SHA224",NID_dsa_with_SHA224,9,
+{"dsa_with_SHA224","dsa_with_SHA224",NID_dsa_with_SHA224,9,
 	&(lvalues[5337]),0},
-{"id-dsa-with-sha256","dsa_with_SHA256",NID_dsa_with_SHA256,9,
+{"dsa_with_SHA256","dsa_with_SHA256",NID_dsa_with_SHA256,9,
 	&(lvalues[5346]),0},
 {"whirlpool","whirlpool",NID_whirlpool,6,&(lvalues[5355]),0},
 {"cryptopro","cryptopro",NID_cryptopro,5,&(lvalues[5361]),0},
@@ -2705,56 +2677,6 @@ static const ASN1_OBJECT nid_objs[NUM_NID]={
 	NID_id_smime_aa_signingCertificateV2,11,&(lvalues[6676]),0},
 {"id-ct-signedTAL","id-ct-signedTAL",NID_id_ct_signedTAL,11,
 	&(lvalues[6687]),0},
-{"RSA-SHA512/224","sha512-224WithRSAEncryption",
-	NID_sha512_224WithRSAEncryption,9,&(lvalues[6698]),0},
-{"RSA-SHA512/256","sha512-256WithRSAEncryption",
-	NID_sha512_256WithRSAEncryption,9,&(lvalues[6707]),0},
-{"hmacWithSHA512-224","hmacWithSHA512-224",NID_hmacWithSHA512_224,8,
-	&(lvalues[6716]),0},
-{"hmacWithSHA512-256","hmacWithSHA512-256",NID_hmacWithSHA512_256,8,
-	&(lvalues[6724]),0},
-{"SHA512-224","sha512-224",NID_sha512_224,9,&(lvalues[6732]),0},
-{"SHA512-256","sha512-256",NID_sha512_256,9,&(lvalues[6741]),0},
-{"SHA3-224","sha3-224",NID_sha3_224,9,&(lvalues[6750]),0},
-{"SHA3-256","sha3-256",NID_sha3_256,9,&(lvalues[6759]),0},
-{"SHA3-384","sha3-384",NID_sha3_384,9,&(lvalues[6768]),0},
-{"SHA3-512","sha3-512",NID_sha3_512,9,&(lvalues[6777]),0},
-{"id-hmacWithSHA3-224","hmac-sha3-224",NID_hmac_sha3_224,9,
-	&(lvalues[6786]),0},
-{"id-hmacWithSHA3-256","hmac-sha3-256",NID_hmac_sha3_256,9,
-	&(lvalues[6795]),0},
-{"id-hmacWithSHA3-384","hmac-sha3-384",NID_hmac_sha3_384,9,
-	&(lvalues[6804]),0},
-{"id-hmacWithSHA3-512","hmac-sha3-512",NID_hmac_sha3_512,9,
-	&(lvalues[6813]),0},
-{"id-dsa-with-sha384","dsa_with_SHA384",NID_dsa_with_SHA384,9,
-	&(lvalues[6822]),0},
-{"id-dsa-with-sha512","dsa_with_SHA512",NID_dsa_with_SHA512,9,
-	&(lvalues[6831]),0},
-{"id-dsa-with-sha3-224","dsa_with_SHA3-224",NID_dsa_with_SHA3_224,9,
-	&(lvalues[6840]),0},
-{"id-dsa-with-sha3-256","dsa_with_SHA3-256",NID_dsa_with_SHA3_256,9,
-	&(lvalues[6849]),0},
-{"id-dsa-with-sha3-384","dsa_with_SHA3-384",NID_dsa_with_SHA3_384,9,
-	&(lvalues[6858]),0},
-{"id-dsa-with-sha3-512","dsa_with_SHA3-512",NID_dsa_with_SHA3_512,9,
-	&(lvalues[6867]),0},
-{"id-ecdsa-with-sha3-224","ecdsa_with_SHA3-224",
-	NID_ecdsa_with_SHA3_224,9,&(lvalues[6876]),0},
-{"id-ecdsa-with-sha3-256","ecdsa_with_SHA3-256",
-	NID_ecdsa_with_SHA3_256,9,&(lvalues[6885]),0},
-{"id-ecdsa-with-sha3-384","ecdsa_with_SHA3-384",
-	NID_ecdsa_with_SHA3_384,9,&(lvalues[6894]),0},
-{"id-ecdsa-with-sha3-512","ecdsa_with_SHA3-512",
-	NID_ecdsa_with_SHA3_512,9,&(lvalues[6903]),0},
-{"id-rsassa-pkcs1-v1_5-with-sha3-224","RSA-SHA3-224",NID_RSA_SHA3_224,
-	9,&(lvalues[6912]),0},
-{"id-rsassa-pkcs1-v1_5-with-sha3-256","RSA-SHA3-256",NID_RSA_SHA3_256,
-	9,&(lvalues[6921]),0},
-{"id-rsassa-pkcs1-v1_5-with-sha3-384","RSA-SHA3-384",NID_RSA_SHA3_384,
-	9,&(lvalues[6930]),0},
-{"id-rsassa-pkcs1-v1_5-with-sha3-512","RSA-SHA3-512",NID_RSA_SHA3_512,
-	9,&(lvalues[6939]),0},
 };
 
 static const unsigned int sn_objs[NUM_SN]={
@@ -2940,8 +2862,6 @@ static const unsigned int sn_objs[NUM_SN]={
 668,	/* "RSA-SHA256" */
 669,	/* "RSA-SHA384" */
 670,	/* "RSA-SHA512" */
-1025,	/* "RSA-SHA512/224" */
-1026,	/* "RSA-SHA512/256" */
 969,	/* "RSA-SM3" */
 919,	/* "RSAES-OAEP" */
 912,	/* "RSASSA-PSS" */
@@ -2953,14 +2873,8 @@ static const unsigned int sn_objs[NUM_SN]={
 64,	/* "SHA1" */
 675,	/* "SHA224" */
 672,	/* "SHA256" */
-1031,	/* "SHA3-224" */
-1032,	/* "SHA3-256" */
-1033,	/* "SHA3-384" */
-1034,	/* "SHA3-512" */
 673,	/* "SHA384" */
 674,	/* "SHA512" */
-1029,	/* "SHA512-224" */
-1030,	/* "SHA512-256" */
 968,	/* "SM3" */
 974,	/* "SM4-CBC" */
 976,	/* "SM4-CFB" */
@@ -3106,6 +3020,8 @@ static const unsigned int sn_objs[NUM_SN]={
 470,	/* "documentVersion" */
 392,	/* "domain" */
 452,	/* "domainRelatedObject" */
+802,	/* "dsa_with_SHA224" */
+803,	/* "dsa_with_SHA256" */
 791,	/* "ecdsa-with-Recommended" */
 416,	/* "ecdsa-with-SHA1" */
 793,	/* "ecdsa-with-SHA224" */
@@ -3144,8 +3060,6 @@ static const unsigned int sn_objs[NUM_SN]={
 799,	/* "hmacWithSHA256" */
 800,	/* "hmacWithSHA384" */
 801,	/* "hmacWithSHA512" */
-1027,	/* "hmacWithSHA512-224" */
-1028,	/* "hmacWithSHA512-256" */
 432,	/* "holdInstructionCallIssuer" */
 430,	/* "holdInstructionCode" */
 431,	/* "holdInstructionNone" */
@@ -3262,25 +3176,9 @@ static const unsigned int sn_objs[NUM_SN]={
 1002,	/* "id-ct-rpkiManifest" */
 1014,	/* "id-ct-signedChecklist" */
 1024,	/* "id-ct-signedTAL" */
-802,	/* "id-dsa-with-sha224" */
-803,	/* "id-dsa-with-sha256" */
-1041,	/* "id-dsa-with-sha3-224" */
-1042,	/* "id-dsa-with-sha3-256" */
-1043,	/* "id-dsa-with-sha3-384" */
-1044,	/* "id-dsa-with-sha3-512" */
-1039,	/* "id-dsa-with-sha384" */
-1040,	/* "id-dsa-with-sha512" */
 408,	/* "id-ecPublicKey" */
-1045,	/* "id-ecdsa-with-sha3-224" */
-1046,	/* "id-ecdsa-with-sha3-256" */
-1047,	/* "id-ecdsa-with-sha3-384" */
-1048,	/* "id-ecdsa-with-sha3-512" */
 508,	/* "id-hex-multipart-message" */
 507,	/* "id-hex-partial-message" */
-1035,	/* "id-hmacWithSHA3-224" */
-1036,	/* "id-hmacWithSHA3-256" */
-1037,	/* "id-hmacWithSHA3-384" */
-1038,	/* "id-hmacWithSHA3-512" */
 260,	/* "id-it" */
 302,	/* "id-it-caKeyUpdateInfo" */
 298,	/* "id-it-caProtEncCert" */
@@ -3347,10 +3245,6 @@ static const unsigned int sn_objs[NUM_SN]={
 314,	/* "id-regInfo" */
 322,	/* "id-regInfo-certReq" */
 321,	/* "id-regInfo-utf8Pairs" */
-1049,	/* "id-rsassa-pkcs1-v1_5-with-sha3-224" */
-1050,	/* "id-rsassa-pkcs1-v1_5-with-sha3-256" */
-1051,	/* "id-rsassa-pkcs1-v1_5-with-sha3-384" */
-1052,	/* "id-rsassa-pkcs1-v1_5-with-sha3-512" */
 512,	/* "id-set" */
 191,	/* "id-smime-aa" */
 215,	/* "id-smime-aa-contentHint" */
@@ -3932,10 +3826,6 @@ static const unsigned int ln_objs[NUM_LN]={
 1012,	/* "RPKI Notify" */
  1,	/* "RSA Data Security, Inc." */
  2,	/* "RSA Data Security, Inc. PKCS" */
-1049,	/* "RSA-SHA3-224" */
-1050,	/* "RSA-SHA3-256" */
-1051,	/* "RSA-SHA3-384" */
-1052,	/* "RSA-SHA3-512" */
 188,	/* "S/MIME" */
 167,	/* "S/MIME Capabilities" */
 387,	/* "SNMPv2" */
@@ -4176,12 +4066,6 @@ static const unsigned int ln_objs[NUM_LN]={
 70,	/* "dsaWithSHA1-old" */
 802,	/* "dsa_with_SHA224" */
 803,	/* "dsa_with_SHA256" */
-1041,	/* "dsa_with_SHA3-224" */
-1042,	/* "dsa_with_SHA3-256" */
-1043,	/* "dsa_with_SHA3-384" */
-1044,	/* "dsa_with_SHA3-512" */
-1039,	/* "dsa_with_SHA384" */
-1040,	/* "dsa_with_SHA512" */
 297,	/* "dvcs" */
 791,	/* "ecdsa-with-Recommended" */
 416,	/* "ecdsa-with-SHA1" */
@@ -4190,10 +4074,6 @@ static const unsigned int ln_objs[NUM_LN]={
 795,	/* "ecdsa-with-SHA384" */
 796,	/* "ecdsa-with-SHA512" */
 792,	/* "ecdsa-with-Specified" */
-1045,	/* "ecdsa_with_SHA3-224" */
-1046,	/* "ecdsa_with_SHA3-256" */
-1047,	/* "ecdsa_with_SHA3-384" */
-1048,	/* "ecdsa_with_SHA3-512" */
 48,	/* "emailAddress" */
 632,	/* "encrypted track 2" */
 885,	/* "enhancedSearchGuide" */
@@ -4214,18 +4094,12 @@ static const unsigned int ln_objs[NUM_LN]={
 855,	/* "hmac" */
 780,	/* "hmac-md5" */
 781,	/* "hmac-sha1" */
-1035,	/* "hmac-sha3-224" */
-1036,	/* "hmac-sha3-256" */
-1037,	/* "hmac-sha3-384" */
-1038,	/* "hmac-sha3-512" */
 797,	/* "hmacWithMD5" */
 163,	/* "hmacWithSHA1" */
 798,	/* "hmacWithSHA224" */
 799,	/* "hmacWithSHA256" */
 800,	/* "hmacWithSHA384" */
 801,	/* "hmacWithSHA512" */
-1027,	/* "hmacWithSHA512-224" */
-1028,	/* "hmacWithSHA512-256" */
 486,	/* "homePostalAddress" */
 473,	/* "homeTelephoneNumber" */
 466,	/* "host" */
@@ -4782,17 +4656,9 @@ static const unsigned int ln_objs[NUM_LN]={
 671,	/* "sha224WithRSAEncryption" */
 672,	/* "sha256" */
 668,	/* "sha256WithRSAEncryption" */
-1031,	/* "sha3-224" */
-1032,	/* "sha3-256" */
-1033,	/* "sha3-384" */
-1034,	/* "sha3-512" */
 673,	/* "sha384" */
 669,	/* "sha384WithRSAEncryption" */
 674,	/* "sha512" */
-1029,	/* "sha512-224" */
-1025,	/* "sha512-224WithRSAEncryption" */
-1030,	/* "sha512-256" */
-1026,	/* "sha512-256WithRSAEncryption" */
 670,	/* "sha512WithRSAEncryption" */
 42,	/* "shaWithRSAEncryption" */
 52,	/* "signingTime" */
@@ -5320,8 +5186,6 @@ static const unsigned int obj_objs[NUM_OBJ]={
 799,	/* OBJ_hmacWithSHA256               1 2 840 113549 2 9 */
 800,	/* OBJ_hmacWithSHA384               1 2 840 113549 2 10 */
 801,	/* OBJ_hmacWithSHA512               1 2 840 113549 2 11 */
-1027,	/* OBJ_hmacWithSHA512_224           1 2 840 113549 2 12 */
-1028,	/* OBJ_hmacWithSHA512_256           1 2 840 113549 2 13 */
 37,	/* OBJ_rc2_cbc                      1 2 840 113549 3 2 */
  5,	/* OBJ_rc4                          1 2 840 113549 3 4 */
 44,	/* OBJ_des_ede3_cbc                 1 2 840 113549 3 7 */
@@ -5511,8 +5375,6 @@ static const unsigned int obj_objs[NUM_OBJ]={
 669,	/* OBJ_sha384WithRSAEncryption      1 2 840 113549 1 1 12 */
 670,	/* OBJ_sha512WithRSAEncryption      1 2 840 113549 1 1 13 */
 671,	/* OBJ_sha224WithRSAEncryption      1 2 840 113549 1 1 14 */
-1025,	/* OBJ_sha512_224WithRSAEncryption  1 2 840 113549 1 1 15 */
-1026,	/* OBJ_sha512_256WithRSAEncryption  1 2 840 113549 1 1 16 */
 28,	/* OBJ_dhKeyAgreement               1 2 840 113549 1 3 1 */
  9,	/* OBJ_pbeWithMD2AndDES_CBC         1 2 840 113549 1 5 1 */
 10,	/* OBJ_pbeWithMD5AndDES_CBC         1 2 840 113549 1 5 3 */
@@ -5613,32 +5475,8 @@ static const unsigned int obj_objs[NUM_OBJ]={
 673,	/* OBJ_sha384                       2 16 840 1 101 3 4 2 2 */
 674,	/* OBJ_sha512                       2 16 840 1 101 3 4 2 3 */
 675,	/* OBJ_sha224                       2 16 840 1 101 3 4 2 4 */
-1029,	/* OBJ_sha512_224                   2 16 840 1 101 3 4 2 5 */
-1030,	/* OBJ_sha512_256                   2 16 840 1 101 3 4 2 6 */
-1031,	/* OBJ_sha3_224                     2 16 840 1 101 3 4 2 7 */
-1032,	/* OBJ_sha3_256                     2 16 840 1 101 3 4 2 8 */
-1033,	/* OBJ_sha3_384                     2 16 840 1 101 3 4 2 9 */
-1034,	/* OBJ_sha3_512                     2 16 840 1 101 3 4 2 10 */
-1035,	/* OBJ_hmac_sha3_224                2 16 840 1 101 3 4 2 13 */
-1036,	/* OBJ_hmac_sha3_256                2 16 840 1 101 3 4 2 14 */
-1037,	/* OBJ_hmac_sha3_384                2 16 840 1 101 3 4 2 15 */
-1038,	/* OBJ_hmac_sha3_512                2 16 840 1 101 3 4 2 16 */
 802,	/* OBJ_dsa_with_SHA224              2 16 840 1 101 3 4 3 1 */
 803,	/* OBJ_dsa_with_SHA256              2 16 840 1 101 3 4 3 2 */
-1039,	/* OBJ_dsa_with_SHA384              2 16 840 1 101 3 4 3 3 */
-1040,	/* OBJ_dsa_with_SHA512              2 16 840 1 101 3 4 3 4 */
-1041,	/* OBJ_dsa_with_SHA3_224            2 16 840 1 101 3 4 3 5 */
-1042,	/* OBJ_dsa_with_SHA3_256            2 16 840 1 101 3 4 3 6 */
-1043,	/* OBJ_dsa_with_SHA3_384            2 16 840 1 101 3 4 3 7 */
-1044,	/* OBJ_dsa_with_SHA3_512            2 16 840 1 101 3 4 3 8 */
-1045,	/* OBJ_ecdsa_with_SHA3_224          2 16 840 1 101 3 4 3 9 */
-1046,	/* OBJ_ecdsa_with_SHA3_256          2 16 840 1 101 3 4 3 10 */
-1047,	/* OBJ_ecdsa_with_SHA3_384          2 16 840 1 101 3 4 3 11 */
-1048,	/* OBJ_ecdsa_with_SHA3_512          2 16 840 1 101 3 4 3 12 */
-1049,	/* OBJ_RSA_SHA3_224                 2 16 840 1 101 3 4 3 13 */
-1050,	/* OBJ_RSA_SHA3_256                 2 16 840 1 101 3 4 3 14 */
-1051,	/* OBJ_RSA_SHA3_384                 2 16 840 1 101 3 4 3 15 */
-1052,	/* OBJ_RSA_SHA3_512                 2 16 840 1 101 3 4 3 16 */
 71,	/* OBJ_netscape_cert_type           2 16 840 1 113730 1 1 */
 72,	/* OBJ_netscape_base_url            2 16 840 1 113730 1 2 */
 73,	/* OBJ_netscape_revocation_url      2 16 840 1 113730 1 3 */

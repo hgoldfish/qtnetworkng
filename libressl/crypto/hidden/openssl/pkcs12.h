@@ -1,4 +1,4 @@
-/* $OpenBSD: pkcs12.h,v 1.2 2023/07/05 21:14:54 bcook Exp $ */
+/* $OpenBSD: pkcs12.h,v 1.1 2022/11/12 13:03:28 beck Exp $ */
 /*
  * Copyright (c) 2022 Bob Beck <beck@openbsd.org>
  *
@@ -18,10 +18,10 @@
 #ifndef _LIBCRYPTO_PKCS12_H
 #define _LIBCRYPTO_PKCS12_H
 
-#ifndef _MSC_VER
-#include_next <openssl/pkcs12.h>
+#ifdef _MSC_VER
+#include <../include/openssl/pkcs12.h>
 #else
-#include "../include/openssl/pkcs12.h"
+#include_next <openssl/pkcs12.h>
 #endif
 #include "crypto_namespace.h"
 

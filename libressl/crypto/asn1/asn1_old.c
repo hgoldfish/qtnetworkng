@@ -1,4 +1,4 @@
-/* $OpenBSD: asn1_old.c,v 1.5 2023/07/07 19:37:52 beck Exp $ */
+/* $OpenBSD: asn1_old.c,v 1.3 2022/11/26 16:08:50 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -107,7 +107,6 @@ ASN1_d2i_fp(void *(*xnew)(void), d2i_of_void *d2i, FILE *in, void **x)
 	BIO_free(b);
 	return (ret);
 }
-LCRYPTO_ALIAS(ASN1_d2i_fp);
 
 void *
 ASN1_d2i_bio(void *(*xnew)(void), d2i_of_void *d2i, BIO *in, void **x)
@@ -129,7 +128,6 @@ ASN1_d2i_bio(void *(*xnew)(void), d2i_of_void *d2i, BIO *in, void **x)
 		BUF_MEM_free(b);
 	return (ret);
 }
-LCRYPTO_ALIAS(ASN1_d2i_bio);
 
 int
 ASN1_i2d_fp(i2d_of_void *i2d, FILE *out, void *x)
@@ -146,7 +144,6 @@ ASN1_i2d_fp(i2d_of_void *i2d, FILE *out, void *x)
 	BIO_free(b);
 	return (ret);
 }
-LCRYPTO_ALIAS(ASN1_i2d_fp);
 
 int
 ASN1_i2d_bio(i2d_of_void *i2d, BIO *out, unsigned char *x)
@@ -179,6 +176,5 @@ ASN1_i2d_bio(i2d_of_void *i2d, BIO *out, unsigned char *x)
 	free(b);
 	return (ret);
 }
-LCRYPTO_ALIAS(ASN1_i2d_bio);
 
 #endif

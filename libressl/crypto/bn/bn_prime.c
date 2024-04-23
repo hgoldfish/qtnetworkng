@@ -1,4 +1,4 @@
-/* $OpenBSD: bn_prime.c,v 1.34 2023/07/20 06:26:27 tb Exp $ */
+/* $OpenBSD: bn_prime.c,v 1.30 2023/01/28 17:13:26 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -150,7 +150,35 @@ BN_GENCB_call(BN_GENCB *cb, int a, int b)
 	/* Unrecognised callback type */
 	return 0;
 }
-LCRYPTO_ALIAS(BN_GENCB_call);
+
+#ifndef OPENSSL_NO_DEPRECATED
+BIGNUM *
+BN_generate_prime(BIGNUM *ret, int bits, int safe, const BIGNUM *add,
+    const BIGNUM *rem, void (*callback)(int, int, void *), void *cb_arg)
+{
+	BN_GENCB cb;
+	BIGNUM *rnd = NULL;
+	int found = 0;
+
+	BN_GENCB_set_old(&cb, callback, cb_arg);
+
+	if (ret == NULL) {
+		if ((rnd = BN_new()) == NULL)
+			goto err;
+	} else
+		rnd = ret;
+	if (!BN_generate_prime_ex(rnd, bits, safe, add, rem, &cb))
+		goto err;
+
+	/* we have a prime :-) */
+	found = 1;
+
+err:
+	if (!found && (ret == NULL) && (rnd != NULL))
+		BN_free(rnd);
+	return (found ? rnd : NULL);
+}
+#endif
 
 int
 BN_generate_prime_ex(BIGNUM *ret, int bits, int safe, const BIGNUM *add,
@@ -196,12 +224,12 @@ BN_generate_prime_ex(BIGNUM *ret, int bits, int safe, const BIGNUM *add,
 		goto err;
 
 	if (!safe) {
-		if (!bn_is_prime_bpsw(&is_prime, ret, ctx, 1))
+		if (!bn_is_prime_bpsw(&is_prime, ret, ctx))
 			goto err;
 		if (!is_prime)
 			goto loop;
 	} else {
-		if (!bn_is_prime_bpsw(&is_prime, ret, ctx, 1))
+		if (!bn_is_prime_bpsw(&is_prime, ret, ctx))
 			goto err;
 		if (!is_prime)
 			goto loop;
@@ -214,7 +242,7 @@ BN_generate_prime_ex(BIGNUM *ret, int bits, int safe, const BIGNUM *add,
 		if (!BN_rshift1(p, ret))
 			goto err;
 
-		if (!bn_is_prime_bpsw(&is_prime, p, ctx, 1))
+		if (!bn_is_prime_bpsw(&is_prime, p, ctx))
 			goto err;
 		if (!is_prime)
 			goto loop;
@@ -231,16 +259,38 @@ BN_generate_prime_ex(BIGNUM *ret, int bits, int safe, const BIGNUM *add,
 
 	return found;
 }
-LCRYPTO_ALIAS(BN_generate_prime_ex);
+
+#ifndef OPENSSL_NO_DEPRECATED
+int
+BN_is_prime(const BIGNUM *a, int checks, void (*callback)(int, int, void *),
+    BN_CTX *ctx_passed, void *cb_arg)
+{
+	BN_GENCB cb;
+
+	BN_GENCB_set_old(&cb, callback, cb_arg);
+	return BN_is_prime_ex(a, checks, ctx_passed, &cb);
+}
+#endif
 
 int
 BN_is_prime_ex(const BIGNUM *a, int checks, BN_CTX *ctx_passed, BN_GENCB *cb)
 {
 	return BN_is_prime_fasttest_ex(a, checks, ctx_passed, 0, cb);
 }
-LCRYPTO_ALIAS(BN_is_prime_ex);
 
-#define BN_PRIME_MAXIMUM_BITS (32 * 1024)
+#ifndef OPENSSL_NO_DEPRECATED
+int
+BN_is_prime_fasttest(const BIGNUM *a, int checks,
+    void (*callback)(int, int, void *), BN_CTX *ctx_passed, void *cb_arg,
+    int do_trial_division)
+{
+	BN_GENCB cb;
+
+	BN_GENCB_set_old(&cb, callback, cb_arg);
+	return BN_is_prime_fasttest_ex(a, checks, ctx_passed,
+	    do_trial_division, &cb);
+}
+#endif
 
 int
 BN_is_prime_fasttest_ex(const BIGNUM *a, int checks, BN_CTX *ctx_passed,
@@ -248,28 +298,12 @@ BN_is_prime_fasttest_ex(const BIGNUM *a, int checks, BN_CTX *ctx_passed,
 {
 	int is_prime;
 
-	if (checks < 0)
-		return -1;
-
-	/*
-	 * Prime numbers this large do not appear in everyday cryptography
-	 * and checking such numbers for primality is very expensive.
-	 */
-	if (BN_num_bits(a) > BN_PRIME_MAXIMUM_BITS) {
-		BNerror(BN_R_BIGNUM_TOO_LONG);
-		return -1;
-	}
-
-	if (checks == BN_prime_checks)
-		checks = BN_prime_checks_for_size(BN_num_bits(a));
-
 	/* XXX - tickle BN_GENCB in bn_is_prime_bpsw(). */
-	if (!bn_is_prime_bpsw(&is_prime, a, ctx_passed, checks))
+	if (!bn_is_prime_bpsw(&is_prime, a, ctx_passed))
 		return -1;
 
 	return is_prime;
 }
-LCRYPTO_ALIAS(BN_is_prime_fasttest_ex);
 
 static int
 probable_prime(BIGNUM *rnd, int bits)

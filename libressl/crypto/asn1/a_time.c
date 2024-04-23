@@ -1,4 +1,4 @@
-/* $OpenBSD: a_time.c,v 1.37 2023/07/05 21:23:36 beck Exp $ */
+/* $OpenBSD: a_time.c,v 1.36 2022/11/26 16:08:50 tb Exp $ */
 /* ====================================================================
  * Copyright (c) 1999 The OpenSSL Project.  All rights reserved.
  *
@@ -84,14 +84,12 @@ ASN1_TIME_new(void)
 {
 	return (ASN1_TIME *)ASN1_item_new(&ASN1_TIME_it);
 }
-LCRYPTO_ALIAS(ASN1_TIME_new);
 
 void
 ASN1_TIME_free(ASN1_TIME *a)
 {
 	ASN1_item_free((ASN1_VALUE *)a, &ASN1_TIME_it);
 }
-LCRYPTO_ALIAS(ASN1_TIME_free);
 
 int
 ASN1_TIME_to_tm(const ASN1_TIME *s, struct tm *tm)
@@ -106,7 +104,6 @@ ASN1_TIME_to_tm(const ASN1_TIME *s, struct tm *tm)
 
 	return asn1_time_time_t_to_tm(&now, tm);
 }
-LCRYPTO_ALIAS(ASN1_TIME_to_tm);
 
 int
 ASN1_TIME_diff(int *pday, int *psec, const ASN1_TIME *from, const ASN1_TIME *to)
@@ -120,7 +117,6 @@ ASN1_TIME_diff(int *pday, int *psec, const ASN1_TIME *from, const ASN1_TIME *to)
 
 	return OPENSSL_gmtime_diff(pday, psec, &tm_from, &tm_to);
 }
-LCRYPTO_ALIAS(ASN1_TIME_diff);
 
 ASN1_TIME *
 d2i_ASN1_TIME(ASN1_TIME **a, const unsigned char **in, long len)
@@ -128,11 +124,9 @@ d2i_ASN1_TIME(ASN1_TIME **a, const unsigned char **in, long len)
 	return (ASN1_TIME *)ASN1_item_d2i((ASN1_VALUE **)a, in, len,
 	    &ASN1_TIME_it);
 }
-LCRYPTO_ALIAS(d2i_ASN1_TIME);
 
 int
 i2d_ASN1_TIME(ASN1_TIME *a, unsigned char **out)
 {
 	return ASN1_item_i2d((ASN1_VALUE *)a, out, &ASN1_TIME_it);
 }
-LCRYPTO_ALIAS(i2d_ASN1_TIME);

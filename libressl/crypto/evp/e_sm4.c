@@ -1,4 +1,4 @@
-/*	$OpenBSD: e_sm4.c,v 1.9 2023/07/07 19:37:53 beck Exp $	*/
+/*	$OpenBSD: e_sm4.c,v 1.7 2022/11/26 16:08:52 tb Exp $	*/
 /*
  * Copyright (c) 2017, 2019 Ribose Inc
  *

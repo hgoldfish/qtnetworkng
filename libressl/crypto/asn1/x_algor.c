@@ -1,4 +1,4 @@
-/* $OpenBSD: x_algor.c,v 1.25 2023/07/07 19:37:52 beck Exp $ */
+/* $OpenBSD: x_algor.c,v 1.23 2021/12/12 14:27:20 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */

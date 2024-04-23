@@ -1,4 +1,4 @@
-/* $OpenBSD: x509_err.c,v 1.22 2023/05/14 17:20:26 tb Exp $ */
+/* $OpenBSD: x509_err.c,v 1.19 2023/02/16 08:38:17 tb Exp $ */
 /* ====================================================================
  * Copyright (c) 1999-2006 The OpenSSL Project.  All rights reserved.
  *
@@ -71,6 +71,11 @@ static ERR_STRING_DATA X509_str_functs[] = {
 	{0, NULL}
 };
 
+static ERR_STRING_DATA X509V3_str_functs[] = {
+	{ERR_FUNC(0xfff), "CRYPTO_internal"},
+	{0, NULL}
+};
+
 static ERR_STRING_DATA X509_str_reasons[] = {
 	{ERR_REASON(X509_R_BAD_X509_FILETYPE)    , "bad x509 filetype"},
 	{ERR_REASON(X509_R_BASE64_DECODE_ERROR)  , "base64 decode error"},
@@ -80,7 +85,6 @@ static ERR_STRING_DATA X509_str_reasons[] = {
 	{ERR_REASON(X509_R_INVALID_DIRECTORY)    , "invalid directory"},
 	{ERR_REASON(X509_R_INVALID_FIELD_NAME)   , "invalid field name"},
 	{ERR_REASON(X509_R_INVALID_TRUST)        , "invalid trust"},
-	{ERR_REASON(X509_R_INVALID_VERSION)      , "invalid x509 version"},
 	{ERR_REASON(X509_R_KEY_TYPE_MISMATCH)    , "key type mismatch"},
 	{ERR_REASON(X509_R_KEY_VALUES_MISMATCH)  , "key values mismatch"},
 	{ERR_REASON(X509_R_LOADING_CERT_DIR)     , "loading cert dir"},
@@ -100,16 +104,6 @@ static ERR_STRING_DATA X509_str_reasons[] = {
 	{ERR_REASON(X509_R_UNSUPPORTED_ALGORITHM), "unsupported algorithm"},
 	{ERR_REASON(X509_R_WRONG_LOOKUP_TYPE)    , "wrong lookup type"},
 	{ERR_REASON(X509_R_WRONG_TYPE)           , "wrong type"},
-	{0, NULL}
-};
-
-#undef ERR_FUNC
-#undef ERR_REASON
-#define ERR_FUNC(func) ERR_PACK(ERR_LIB_X509V3,func,0)
-#define ERR_REASON(reason) ERR_PACK(ERR_LIB_X509V3,0,reason)
-
-static ERR_STRING_DATA X509V3_str_functs[] = {
-	{ERR_FUNC(0xfff), "CRYPTO_internal"},
 	{0, NULL}
 };
 

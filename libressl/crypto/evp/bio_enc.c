@@ -1,4 +1,4 @@
-/* $OpenBSD: bio_enc.c,v 1.29 2023/07/07 19:37:53 beck Exp $ */
+/* $OpenBSD: bio_enc.c,v 1.27 2022/11/26 16:08:52 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

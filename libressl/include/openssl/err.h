@@ -1,4 +1,4 @@
-/* $OpenBSD: err.h,v 1.31 2023/07/28 10:23:19 tb Exp $ */
+/* $OpenBSD: err.h,v 1.28 2022/08/29 06:49:24 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -395,14 +395,30 @@ void ERR_load_crypto_strings(void);
 void ERR_free_strings(void);
 
 void ERR_remove_thread_state(const CRYPTO_THREADID *tid);
-/* Wrapped in OPENSSL_NO_DEPRECATED in 0.9.8. Still used in 2023. */
-void ERR_remove_state(unsigned long pid);
+#ifndef OPENSSL_NO_DEPRECATED
+void ERR_remove_state(unsigned long pid); /* if zero we look it up */
+#endif
 ERR_STATE *ERR_get_state(void);
+
+#ifndef OPENSSL_NO_LHASH
+LHASH_OF(ERR_STRING_DATA) *ERR_get_string_table(void);
+LHASH_OF(ERR_STATE) *ERR_get_err_state_table(void);
+void ERR_release_err_state_table(LHASH_OF(ERR_STATE) **hash);
+#endif
 
 int ERR_get_next_error_library(void);
 
 int ERR_set_mark(void);
 int ERR_pop_to_mark(void);
+
+/* Already defined in ossl_typ.h */
+/* typedef struct st_ERR_FNS ERR_FNS; */
+/* An application can use this function and provide the return value to loaded
+ * modules that should use the application's ERR state/functionality */
+const ERR_FNS *ERR_get_implementation(void);
+/* A loaded module should call this function prior to any ERR operations using
+ * the application's "ERR_FNS". */
+int ERR_set_implementation(const ERR_FNS *fns);
 
 #ifdef	__cplusplus
 }

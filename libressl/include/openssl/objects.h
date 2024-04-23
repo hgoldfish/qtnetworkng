@@ -1,4 +1,4 @@
-/* $OpenBSD: objects.h,v 1.23 2023/07/28 10:25:05 tb Exp $ */
+/* $OpenBSD: objects.h,v 1.21 2022/11/13 14:03:13 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -139,6 +139,13 @@ const unsigned char *OBJ_get0_data(const ASN1_OBJECT *obj);
 
 int OBJ_find_sigid_algs(int signid, int *pdig_nid, int *ppkey_nid);
 int OBJ_find_sigid_by_algs(int *psignid, int dig_nid, int pkey_nid);
+int OBJ_add_sigid(int signid, int dig_id, int pkey_id);
+void OBJ_sigid_free(void);
+
+#if defined(LIBRESSL_CRYPTO_INTERNAL)
+extern int obj_cleanup_defer;
+void check_defer(int nid);
+#endif
 
 void ERR_load_OBJ_strings(void);
 

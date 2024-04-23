@@ -1,4 +1,4 @@
-/* $OpenBSD: b_print.c,v 1.27 2023/07/05 21:23:37 beck Exp $ */
+/* $OpenBSD: b_print.c,v 1.26 2019/06/28 05:47:57 deraadt Exp $ */
 
 /* Theo de Raadt places this file in the public domain. */
 
@@ -15,7 +15,6 @@ BIO_printf(BIO *bio, const char *format, ...)
 	va_end(args);
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_printf);
 
 #ifdef HAVE_FUNOPEN
 static int
@@ -40,7 +39,6 @@ BIO_vprintf(BIO *bio, const char *format, va_list args)
 fail:
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_vprintf);
 
 #else /* !HAVE_FUNOPEN */
 
@@ -57,7 +55,6 @@ BIO_vprintf(BIO *bio, const char *format, va_list args)
 	free(buf);
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_vprintf);
 
 #endif /* HAVE_FUNOPEN */
 
@@ -95,7 +92,6 @@ BIO_snprintf(char *buf, size_t n, const char *format, ...)
 		return (-1);
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_snprintf);
 
 int
 BIO_vsnprintf(char *buf, size_t n, const char *format, va_list args)
@@ -108,4 +104,3 @@ BIO_vsnprintf(char *buf, size_t n, const char *format, va_list args)
 		return (-1);
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_vsnprintf);

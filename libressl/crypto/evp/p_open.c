@@ -1,4 +1,4 @@
-/* $OpenBSD: p_open.c,v 1.23 2023/07/07 19:37:54 beck Exp $ */
+/* $OpenBSD: p_open.c,v 1.21 2022/11/26 16:08:53 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

@@ -1,4 +1,4 @@
-/*	$OpenBSD: curve25519.c,v 1.16 2023/07/08 15:12:49 beck Exp $ */
+/*	$OpenBSD: curve25519.c,v 1.14 2022/11/17 19:01:59 tb Exp $ */
 /*
  * Copyright (c) 2015, Google Inc.
  *
@@ -3495,7 +3495,7 @@ static void table_select(ge_precomp *t, int pos, signed char b) {
  *
  * Preconditions:
  *   a[31] <= 127 */
-void x25519_ge_scalarmult_base(ge_p3 *h, const uint8_t a[32]) {
+void x25519_ge_scalarmult_base(ge_p3 *h, const uint8_t *a) {
   signed char e[64];
   signed char carry;
   ge_p1p1 r;
@@ -4636,7 +4636,6 @@ void ED25519_keypair(uint8_t out_public_key[ED25519_PUBLIC_KEY_LENGTH],
 
   ED25519_public_from_private(out_public_key, out_private_key);
 }
-LCRYPTO_ALIAS(ED25519_keypair);
 
 int ED25519_sign(uint8_t *out_sig, const uint8_t *message, size_t message_len,
     const uint8_t public_key[ED25519_PUBLIC_KEY_LENGTH],
@@ -4672,7 +4671,6 @@ int ED25519_sign(uint8_t *out_sig, const uint8_t *message, size_t message_len,
 
   return 1;
 }
-LCRYPTO_ALIAS(ED25519_sign);
 
 /*
  * Little endian representation of the order of edwards25519,
@@ -4737,7 +4735,6 @@ int ED25519_verify(const uint8_t *message, size_t message_len,
 
   return timingsafe_memcmp(rcheck, rcopy, sizeof(rcheck)) == 0;
 }
-LCRYPTO_ALIAS(ED25519_verify);
 
 /* Replace (f,g) with (g,f) if b == 1;
  * replace (f,g) with (f,g) if b == 0.
@@ -4929,7 +4926,6 @@ X25519_keypair(uint8_t out_public_key[X25519_KEY_LENGTH],
 
   X25519_public_from_private(out_public_key, out_private_key);
 }
-LCRYPTO_ALIAS(X25519_keypair);
 
 int
 X25519(uint8_t out_shared_key[X25519_KEY_LENGTH],
@@ -4943,4 +4939,3 @@ X25519(uint8_t out_shared_key[X25519_KEY_LENGTH],
   /* The all-zero output results when the input is a point of small order. */
   return timingsafe_memcmp(kZeros, out_shared_key, 32) != 0;
 }
-LCRYPTO_ALIAS(X25519);

@@ -1,4 +1,4 @@
-/* $OpenBSD: x509_purp.c,v 1.29 2023/08/18 08:42:41 tb Exp $ */
+/* $OpenBSD: x509_purp.c,v 1.21 2023/02/16 10:18:59 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2001.
  */
@@ -99,72 +99,18 @@ static int xp_cmp(const X509_PURPOSE * const *a, const X509_PURPOSE * const *b);
 static void xptable_free(X509_PURPOSE *p);
 
 static X509_PURPOSE xstandard[] = {
-	{
-		.purpose = X509_PURPOSE_SSL_CLIENT,
-		.trust = X509_TRUST_SSL_CLIENT,
-		.check_purpose = check_purpose_ssl_client,
-		.name = "SSL client",
-		.sname = "sslclient",
-	},
-	{
-		.purpose = X509_PURPOSE_SSL_SERVER,
-		.trust = X509_TRUST_SSL_SERVER,
-		.check_purpose = check_purpose_ssl_server,
-		.name = "SSL server",
-		.sname = "sslserver",
-	},
-	{
-		.purpose = X509_PURPOSE_NS_SSL_SERVER,
-		.trust = X509_TRUST_SSL_SERVER,
-		.check_purpose = check_purpose_ns_ssl_server,
-		.name = "Netscape SSL server",
-		.sname = "nssslserver",
-	},
-	{
-		.purpose = X509_PURPOSE_SMIME_SIGN,
-		.trust = X509_TRUST_EMAIL,
-		.check_purpose = check_purpose_smime_sign,
-		.name = "S/MIME signing",
-		.sname = "smimesign",
-	},
-	{
-		.purpose = X509_PURPOSE_SMIME_ENCRYPT,
-		.trust = X509_TRUST_EMAIL,
-		.check_purpose = check_purpose_smime_encrypt,
-		.name = "S/MIME encryption",
-		.sname = "smimeencrypt",
-	},
-	{
-		.purpose = X509_PURPOSE_CRL_SIGN,
-		.trust = X509_TRUST_COMPAT,
-		.check_purpose = check_purpose_crl_sign,
-		.name = "CRL signing",
-		.sname = "crlsign",
-	},
-	{
-		.purpose = X509_PURPOSE_ANY,
-		.trust = X509_TRUST_DEFAULT,
-		.check_purpose = no_check,
-		.name = "Any Purpose",
-		.sname = "any",
-	},
-	{
-		.purpose = X509_PURPOSE_OCSP_HELPER,
-		.trust = X509_TRUST_COMPAT,
-		.check_purpose = ocsp_helper,
-		.name = "OCSP helper",
-		.sname = "ocsphelper",
-	},
-	{
-		.purpose = X509_PURPOSE_TIMESTAMP_SIGN,
-		.trust = X509_TRUST_TSA,
-		.check_purpose = check_purpose_timestamp_sign,
-		.name = "Time Stamp signing",
-		.sname = "timestampsign",
-	},
+	{X509_PURPOSE_SSL_CLIENT, X509_TRUST_SSL_CLIENT, 0, check_purpose_ssl_client, "SSL client", "sslclient", NULL},
+	{X509_PURPOSE_SSL_SERVER, X509_TRUST_SSL_SERVER, 0, check_purpose_ssl_server, "SSL server", "sslserver", NULL},
+	{X509_PURPOSE_NS_SSL_SERVER, X509_TRUST_SSL_SERVER, 0, check_purpose_ns_ssl_server, "Netscape SSL server", "nssslserver", NULL},
+	{X509_PURPOSE_SMIME_SIGN, X509_TRUST_EMAIL, 0, check_purpose_smime_sign, "S/MIME signing", "smimesign", NULL},
+	{X509_PURPOSE_SMIME_ENCRYPT, X509_TRUST_EMAIL, 0, check_purpose_smime_encrypt, "S/MIME encryption", "smimeencrypt", NULL},
+	{X509_PURPOSE_CRL_SIGN, X509_TRUST_COMPAT, 0, check_purpose_crl_sign, "CRL signing", "crlsign", NULL},
+	{X509_PURPOSE_ANY, X509_TRUST_DEFAULT, 0, no_check, "Any Purpose", "any", NULL},
+	{X509_PURPOSE_OCSP_HELPER, X509_TRUST_COMPAT, 0, ocsp_helper, "OCSP helper", "ocsphelper", NULL},
+	{X509_PURPOSE_TIMESTAMP_SIGN, X509_TRUST_TSA, 0, check_purpose_timestamp_sign, "Time Stamp signing", "timestampsign", NULL},
 };
 
-#define X509_PURPOSE_COUNT (sizeof(xstandard) / sizeof(xstandard[0]))
+#define X509_PURPOSE_COUNT (sizeof(xstandard)/sizeof(X509_PURPOSE))
 
 static STACK_OF(X509_PURPOSE) *xptable = NULL;
 
@@ -434,6 +380,7 @@ X509_supported_extension(X509_EXTENSION *ex)
 		NID_sbgp_autonomousSysNum, /* 291 */
 #endif
 		NID_policy_constraints,	/* 401 */
+		NID_proxyCertInfo,	/* 663 */
 		NID_name_constraints,	/* 666 */
 		NID_policy_mappings,	/* 747 */
 		NID_inhibit_any_policy	/* 748 */
@@ -495,76 +442,25 @@ setup_crldp(X509 *x)
 		setup_dp(x, sk_DIST_POINT_value(x->crldp, i));
 }
 
-static int
-x509_extension_oid_cmp(const X509_EXTENSION *const *a,
-    const X509_EXTENSION *const *b)
-{
-	return OBJ_cmp((*a)->object, (*b)->object);
-}
-
-static int
-x509_extension_oids_are_unique(X509 *x509)
-{
-	STACK_OF(X509_EXTENSION) *exts = NULL;
-	const X509_EXTENSION *prev_ext, *curr_ext;
-	int i;
-	int ret = 0;
-
-	if (X509_get_ext_count(x509) <= 1)
-		goto done;
-
-	if ((exts = sk_X509_EXTENSION_dup(x509->cert_info->extensions)) == NULL)
-		goto err;
-
-	(void)sk_X509_EXTENSION_set_cmp_func(exts, x509_extension_oid_cmp);
-	sk_X509_EXTENSION_sort(exts);
-
-	prev_ext = sk_X509_EXTENSION_value(exts, 0);
-	for (i = 1; i < sk_X509_EXTENSION_num(exts); i++) {
-		curr_ext = sk_X509_EXTENSION_value(exts, i);
-		if (x509_extension_oid_cmp(&prev_ext, &curr_ext) == 0)
-			goto err;
-		prev_ext = curr_ext;
-	}
-
- done:
-	ret = 1;
-
- err:
-	sk_X509_EXTENSION_free(exts);
-
-	return ret;
-}
-
 static void
 x509v3_cache_extensions_internal(X509 *x)
 {
 	BASIC_CONSTRAINTS *bs;
+	PROXY_CERT_INFO_EXTENSION *pci;
 	ASN1_BIT_STRING *usage;
 	ASN1_BIT_STRING *ns;
 	EXTENDED_KEY_USAGE *extusage;
 	X509_EXTENSION *ex;
-	long version;
 	int i;
 
 	if (x->ex_flags & EXFLAG_SET)
 		return;
 
-	if (!X509_digest(x, X509_CERT_HASH_EVP, x->hash, NULL))
-		x->ex_flags |= EXFLAG_INVALID;
+	X509_digest(x, X509_CERT_HASH_EVP, x->hash, NULL);
 
-	version = X509_get_version(x);
-	if (version < 0 || version > 2)
-		x->ex_flags |= EXFLAG_INVALID;
-	if (version == 0) {
+	/* V1 should mean no extensions ... */
+	if (!X509_get_version(x))
 		x->ex_flags |= EXFLAG_V1;
-		/* UIDs may only appear in v2 or v3 certs */
-		if (x->cert_info->issuerUID != NULL ||
-		    x->cert_info->subjectUID != NULL)
-			x->ex_flags |= EXFLAG_INVALID;
-	}
-	if (version != 2 && X509_get_ext_count(x) != 0)
-		x->ex_flags |= EXFLAG_INVALID;
 
 	/* Handle basic constraints */
 	if ((bs = X509_get_ext_d2i(x, NID_basic_constraints, &i, NULL))) {
@@ -581,6 +477,30 @@ x509v3_cache_extensions_internal(X509 *x)
 			x->ex_pathlen = -1;
 		BASIC_CONSTRAINTS_free(bs);
 		x->ex_flags |= EXFLAG_BCONS;
+	} else if (i != -1) {
+		x->ex_flags |= EXFLAG_INVALID;
+	}
+
+	/* Handle proxy certificates */
+	if ((pci = X509_get_ext_d2i(x, NID_proxyCertInfo, &i, NULL))) {
+		if (x->ex_flags & EXFLAG_CA ||
+		    X509_get_ext_by_NID(x, NID_subject_alt_name, -1) >= 0 ||
+		    X509_get_ext_by_NID(x, NID_issuer_alt_name, -1) >= 0) {
+			x->ex_flags |= EXFLAG_INVALID;
+		}
+		if (pci->pcPathLengthConstraint) {
+			if (pci->pcPathLengthConstraint->type ==
+			    V_ASN1_NEG_INTEGER) {
+				x->ex_flags |= EXFLAG_INVALID;
+				x->ex_pcpathlen = 0;
+			} else
+				x->ex_pcpathlen =
+				    ASN1_INTEGER_get(pci->
+				      pcPathLengthConstraint);
+		} else
+			x->ex_pcpathlen = -1;
+		PROXY_CERT_INFO_EXTENSION_free(pci);
+		x->ex_flags |= EXFLAG_PROXY;
 	} else if (i != -1) {
 		x->ex_flags |= EXFLAG_INVALID;
 	}
@@ -707,9 +627,6 @@ x509v3_cache_extensions_internal(X509 *x)
 			break;
 		}
 	}
-
-	if (!x509_extension_oids_are_unique(x))
-		x->ex_flags |= EXFLAG_INVALID;
 
 	x509_verify_cert_info_populate(x);
 
@@ -991,7 +908,10 @@ X509_check_issued(X509 *issuer, X509 *subject)
 			return ret;
 	}
 
-	if (ku_reject(issuer, KU_KEY_CERT_SIGN))
+	if (subject->ex_flags & EXFLAG_PROXY) {
+		if (ku_reject(issuer, KU_DIGITAL_SIGNATURE))
+			return X509_V_ERR_KEYUSAGE_NO_DIGITAL_SIGNATURE;
+	} else if (ku_reject(issuer, KU_KEY_CERT_SIGN))
 		return X509_V_ERR_KEYUSAGE_NO_CERTSIGN;
 	return X509_V_OK;
 }

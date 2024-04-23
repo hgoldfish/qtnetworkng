@@ -1,4 +1,4 @@
-/* $OpenBSD: ssl_init.c,v 1.4 2023/07/08 16:40:13 beck Exp $ */
+/* $OpenBSD: ssl_init.c,v 1.3 2022/11/26 16:08:55 tb Exp $ */
 /*
  * Copyright (c) 2018 Bob Beck <beck@openbsd.org>
  *
@@ -49,4 +49,3 @@ OPENSSL_init_ssl(uint64_t opts, const void *settings)
 
 	return 1;
 }
-LSSL_ALIAS(OPENSSL_init_ssl);

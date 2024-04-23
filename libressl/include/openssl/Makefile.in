@@ -128,9 +128,9 @@ am__can_run_installinfo = \
 am__opensslinclude_HEADERS_DIST = opensslconf.h aes.h asn1.h asn1t.h \
 	bio.h blowfish.h bn.h buffer.h camellia.h cast.h chacha.h \
 	cmac.h cms.h comp.h conf.h conf_api.h crypto.h ct.h \
-	curve25519.h des.h dh.h dsa.h dtls1.h ec.h ecdh.h ecdsa.h \
-	engine.h err.h evp.h gost.h hkdf.h hmac.h idea.h kdf.h lhash.h \
-	md4.h md5.h modes.h obj_mac.h objects.h ocsp.h \
+	curve25519.h des.h dh.h dsa.h dso.h dtls1.h ec.h ecdh.h \
+	ecdsa.h engine.h err.h evp.h gost.h hkdf.h hmac.h idea.h kdf.h \
+	lhash.h md4.h md5.h modes.h obj_mac.h objects.h ocsp.h \
 	opensslfeatures.h opensslv.h ossl_typ.h pem.h pem2.h pkcs12.h \
 	pkcs7.h poly1305.h rand.h rc2.h rc4.h ripemd.h rsa.h \
 	safestack.h sha.h sm3.h sm4.h srtp.h ssl.h ssl2.h ssl23.h \
@@ -323,7 +323,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/include -I$(abs_top_builddir)/include \
 @ENABLE_LIBTLS_ONLY_FALSE@	buffer.h camellia.h cast.h chacha.h \
 @ENABLE_LIBTLS_ONLY_FALSE@	cmac.h cms.h comp.h conf.h \
 @ENABLE_LIBTLS_ONLY_FALSE@	conf_api.h crypto.h ct.h \
-@ENABLE_LIBTLS_ONLY_FALSE@	curve25519.h des.h dh.h dsa.h \
+@ENABLE_LIBTLS_ONLY_FALSE@	curve25519.h des.h dh.h dsa.h dso.h \
 @ENABLE_LIBTLS_ONLY_FALSE@	dtls1.h ec.h ecdh.h ecdsa.h engine.h \
 @ENABLE_LIBTLS_ONLY_FALSE@	err.h evp.h gost.h hkdf.h hmac.h \
 @ENABLE_LIBTLS_ONLY_FALSE@	idea.h kdf.h lhash.h md4.h md5.h \

@@ -1839,6 +1839,8 @@ $L$epilogue::
 	DB	0F3h,0C3h		;repret
 $L$SEH_end_sha512_block_data_order::
 sha512_block_data_order	ENDP
+.text$	ENDS
+.rdata	SEGMENT READONLY ALIGN(8)
 ALIGN	64
 
 K512::
@@ -1882,6 +1884,8 @@ K512::
 	DQ	03c9ebe0a15c9bebch,0431d67c49c100d4ch
 	DQ	04cc5d4becb3e42b6h,0597f299cfc657e2ah
 	DQ	05fcb6fab3ad6faech,06c44198c4a475817h
+.rdata	ENDS
+.text$	SEGMENT ALIGN(64) 'CODE'
 
 .text$	ENDS
 END

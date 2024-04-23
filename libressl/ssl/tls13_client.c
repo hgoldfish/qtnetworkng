@@ -1,4 +1,4 @@
-/* $OpenBSD: tls13_client.c,v 1.102 2023/06/10 15:34:36 tb Exp $ */
+/* $OpenBSD: tls13_client.c,v 1.101 2022/11/26 16:08:56 tb Exp $ */
 /*
  * Copyright (c) 2018, 2019 Joel Sing <jsing@openbsd.org>
  *
@@ -688,8 +688,12 @@ tls13_server_certificate_verify_recv(struct tls13_ctx *ctx, CBS *cbs)
 		if (!EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, -1))
 			goto err;
 	}
-	if (EVP_DigestVerify(mdctx, CBS_data(&signature), CBS_len(&signature),
-	    sig_content, sig_content_len) <= 0) {
+	if (!EVP_DigestVerifyUpdate(mdctx, sig_content, sig_content_len)) {
+		ctx->alert = TLS13_ALERT_DECRYPT_ERROR;
+		goto err;
+	}
+	if (EVP_DigestVerifyFinal(mdctx, CBS_data(&signature),
+	    CBS_len(&signature)) <= 0) {
 		ctx->alert = TLS13_ALERT_DECRYPT_ERROR;
 		goto err;
 	}
@@ -952,11 +956,13 @@ tls13_client_certificate_verify_send(struct tls13_ctx *ctx, CBB *cbb)
 		if (!EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, -1))
 			goto err;
 	}
-	if (!EVP_DigestSign(mdctx, NULL, &sig_len, sig_content, sig_content_len))
+	if (!EVP_DigestSignUpdate(mdctx, sig_content, sig_content_len))
+		goto err;
+	if (EVP_DigestSignFinal(mdctx, NULL, &sig_len) <= 0)
 		goto err;
 	if ((sig = calloc(1, sig_len)) == NULL)
 		goto err;
-	if (!EVP_DigestSign(mdctx, sig, &sig_len, sig_content, sig_content_len))
+	if (EVP_DigestSignFinal(mdctx, sig, &sig_len) <= 0)
 		goto err;
 
 	if (!CBB_add_u16(cbb, sigalg->value))

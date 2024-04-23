@@ -141,11 +141,7 @@ am__uninstall_files_from_dir = { \
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 am__DEPENDENCIES_1 =
-@ENABLE_LIBTLS_ONLY_FALSE@libtls_la_DEPENDENCIES = $(abs_top_builddir)/crypto/libcrypto.la \
-@ENABLE_LIBTLS_ONLY_FALSE@	$(abs_top_builddir)/ssl/libssl.la \
-@ENABLE_LIBTLS_ONLY_FALSE@	$(am__DEPENDENCIES_1)
-@ENABLE_LIBTLS_ONLY_TRUE@libtls_la_DEPENDENCIES =  \
-@ENABLE_LIBTLS_ONLY_TRUE@	$(am__DEPENDENCIES_1)
+libtls_la_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am__libtls_la_SOURCES_DIST = tls.c tls_client.c tls_bio_cb.c \
 	tls_config.c tls_conninfo.c tls_keypair.c tls_server.c \
 	tls_signer.c tls_ocsp.c tls_peer.c tls_util.c tls_verify.c \
@@ -380,16 +376,9 @@ EXTRA_DIST = VERSION CMakeLists.txt tls.sym empty.c
 CLEANFILES = libtls_la_objects.mk
 EXTRA_libtls_la_DEPENDENCIES = libtls_la_objects.mk
 libtls_la_LDFLAGS = -version-info @LIBTLS_VERSION@ -no-undefined -export-symbols $(top_srcdir)/tls/tls.sym
-@ENABLE_LIBTLS_ONLY_FALSE@libtls_la_LIBADD = $(abs_top_builddir)/crypto/libcrypto.la \
-@ENABLE_LIBTLS_ONLY_FALSE@	$(abs_top_builddir)/ssl/libssl.la \
-@ENABLE_LIBTLS_ONLY_FALSE@	$(libcompat_la_objects) \
-@ENABLE_LIBTLS_ONLY_FALSE@	$(libcompatnoopt_la_objects) \
-@ENABLE_LIBTLS_ONLY_FALSE@	$(PLATFORM_LDADD)
-@ENABLE_LIBTLS_ONLY_TRUE@libtls_la_LIBADD = $(libcrypto_la_objects) \
-@ENABLE_LIBTLS_ONLY_TRUE@	$(libssl_la_objects) \
-@ENABLE_LIBTLS_ONLY_TRUE@	$(libcompat_la_objects) \
-@ENABLE_LIBTLS_ONLY_TRUE@	$(libcompatnoopt_la_objects) \
-@ENABLE_LIBTLS_ONLY_TRUE@	$(PLATFORM_LDADD)
+libtls_la_LIBADD = $(libcrypto_la_objects) $(libcompat_la_objects) \
+	$(libcompatnoopt_la_objects) $(libssl_la_objects) \
+	$(PLATFORM_LDADD)
 libtls_la_CPPFLAGS = $(AM_CPPFLAGS) $(am__append_1) $(am__append_2)
 libtls_la_SOURCES = tls.c tls_client.c tls_bio_cb.c tls_config.c \
 	tls_conninfo.c tls_keypair.c tls_server.c tls_signer.c \
@@ -893,7 +882,7 @@ uninstall-am: uninstall-libLTLIBRARIES
 
 libtls_la_objects.mk: Makefile
 	@echo "libtls_la_objects= $(libtls_la_OBJECTS)" \
-	  | sed -e 's/ *$$//' -e 's/  */ $$\(abs_top_builddir\)\/tls\//g' \
+	  | sed 's/  */ $$\(abs_top_builddir\)\/tls\//g' \
 	  > libtls_la_objects.mk
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

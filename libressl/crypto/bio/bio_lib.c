@@ -1,4 +1,4 @@
-/* $OpenBSD: bio_lib.c,v 1.48 2023/08/07 10:58:56 tb Exp $ */
+/* $OpenBSD: bio_lib.c,v 1.44 2023/03/15 06:14:02 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -129,7 +129,6 @@ BIO_get_new_index(void)
 
 	return index;
 }
-LCRYPTO_ALIAS(BIO_get_new_index);
 
 BIO *
 BIO_new(const BIO_METHOD *method)
@@ -148,7 +147,6 @@ BIO_new(const BIO_METHOD *method)
 	}
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_new);
 
 int
 BIO_set(BIO *bio, const BIO_METHOD *method)
@@ -178,7 +176,6 @@ BIO_set(BIO *bio, const BIO_METHOD *method)
 	}
 	return (1);
 }
-LCRYPTO_ALIAS(BIO_set);
 
 int
 BIO_free(BIO *a)
@@ -204,14 +201,12 @@ BIO_free(BIO *a)
 	free(a);
 	return (1);
 }
-LCRYPTO_ALIAS(BIO_free);
 
 void
 BIO_vfree(BIO *a)
 {
 	BIO_free(a);
 }
-LCRYPTO_ALIAS(BIO_vfree);
 
 int
 BIO_up_ref(BIO *bio)
@@ -219,126 +214,108 @@ BIO_up_ref(BIO *bio)
 	int refs = CRYPTO_add(&bio->references, 1, CRYPTO_LOCK_BIO);
 	return (refs > 1) ? 1 : 0;
 }
-LCRYPTO_ALIAS(BIO_up_ref);
 
 void *
 BIO_get_data(BIO *a)
 {
 	return (a->ptr);
 }
-LCRYPTO_ALIAS(BIO_get_data);
 
 void
 BIO_set_data(BIO *a, void *ptr)
 {
 	a->ptr = ptr;
 }
-LCRYPTO_ALIAS(BIO_set_data);
 
 int
 BIO_get_init(BIO *a)
 {
 	return a->init;
 }
-LCRYPTO_ALIAS(BIO_get_init);
 
 void
 BIO_set_init(BIO *a, int init)
 {
 	a->init = init;
 }
-LCRYPTO_ALIAS(BIO_set_init);
 
 int
 BIO_get_shutdown(BIO *a)
 {
 	return (a->shutdown);
 }
-LCRYPTO_ALIAS(BIO_get_shutdown);
 
 void
 BIO_set_shutdown(BIO *a, int shut)
 {
 	a->shutdown = shut;
 }
-LCRYPTO_ALIAS(BIO_set_shutdown);
 
 void
 BIO_clear_flags(BIO *b, int flags)
 {
 	b->flags &= ~flags;
 }
-LCRYPTO_ALIAS(BIO_clear_flags);
 
 int
 BIO_test_flags(const BIO *b, int flags)
 {
 	return (b->flags & flags);
 }
-LCRYPTO_ALIAS(BIO_test_flags);
 
 void
 BIO_set_flags(BIO *b, int flags)
 {
 	b->flags |= flags;
 }
-LCRYPTO_ALIAS(BIO_set_flags);
 
 BIO_callback_fn
 BIO_get_callback(const BIO *b)
 {
 	return b->callback;
 }
-LCRYPTO_ALIAS(BIO_get_callback);
 
 void
 BIO_set_callback(BIO *b, BIO_callback_fn cb)
 {
 	b->callback = cb;
 }
-LCRYPTO_ALIAS(BIO_set_callback);
 
 BIO_callback_fn_ex
 BIO_get_callback_ex(const BIO *b)
 {
 	return b->callback_ex;
 }
-LCRYPTO_ALIAS(BIO_get_callback_ex);
 
 void
 BIO_set_callback_ex(BIO *b, BIO_callback_fn_ex cb)
 {
 	b->callback_ex = cb;
 }
-LCRYPTO_ALIAS(BIO_set_callback_ex);
 
 void
 BIO_set_callback_arg(BIO *b, char *arg)
 {
 	b->cb_arg = arg;
 }
-LCRYPTO_ALIAS(BIO_set_callback_arg);
 
 char *
 BIO_get_callback_arg(const BIO *b)
 {
 	return b->cb_arg;
 }
-LCRYPTO_ALIAS(BIO_get_callback_arg);
 
 const char *
 BIO_method_name(const BIO *b)
 {
 	return b->method->name;
 }
-LCRYPTO_ALIAS(BIO_method_name);
 
 int
 BIO_method_type(const BIO *b)
 {
 	return b->method->type;
 }
-LCRYPTO_ALIAS(BIO_method_type);
 
 int
 BIO_read(BIO *b, void *out, int outl)
@@ -396,7 +373,6 @@ BIO_read(BIO *b, void *out, int outl)
 
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_read);
 
 int
 BIO_write(BIO *b, const void *in, int inl)
@@ -453,7 +429,6 @@ BIO_write(BIO *b, const void *in, int inl)
 
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_write);
 
 int
 BIO_puts(BIO *b, const char *in)
@@ -498,7 +473,6 @@ BIO_puts(BIO *b, const char *in)
 
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_puts);
 
 int
 BIO_gets(BIO *b, char *in, int inl)
@@ -541,20 +515,19 @@ BIO_gets(BIO *b, char *in, int inl)
 
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_gets);
 
 int
 BIO_indent(BIO *b, int indent, int max)
 {
 	if (indent > max)
 		indent = max;
-	if (indent <= 0)
-		return 1;
-	if (BIO_printf(b, "%*s", indent, "") <= 0)
-		return 0;
+	if (indent < 0)
+		indent = 0;
+	while (indent--)
+		if (BIO_puts(b, " ") != 1)
+			return 0;
 	return 1;
 }
-LCRYPTO_ALIAS(BIO_indent);
 
 long
 BIO_int_ctrl(BIO *b, int cmd, long larg, int iarg)
@@ -564,7 +537,6 @@ BIO_int_ctrl(BIO *b, int cmd, long larg, int iarg)
 	i = iarg;
 	return (BIO_ctrl(b, cmd, larg, (char *)&i));
 }
-LCRYPTO_ALIAS(BIO_int_ctrl);
 
 char *
 BIO_ptr_ctrl(BIO *b, int cmd, long larg)
@@ -576,7 +548,6 @@ BIO_ptr_ctrl(BIO *b, int cmd, long larg)
 	else
 		return (p);
 }
-LCRYPTO_ALIAS(BIO_ptr_ctrl);
 
 long
 BIO_ctrl(BIO *b, int cmd, long larg, void *parg)
@@ -606,7 +577,6 @@ BIO_ctrl(BIO *b, int cmd, long larg, void *parg)
 
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_ctrl);
 
 long
 BIO_callback_ctrl(BIO *b, int cmd, BIO_info_cb *fp)
@@ -637,7 +607,6 @@ BIO_callback_ctrl(BIO *b, int cmd, BIO_info_cb *fp)
 
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_callback_ctrl);
 
 /* It is unfortunate to duplicate in functions what the BIO_(w)pending macros
  * do; but those macros have inappropriate return type, and for interfacing
@@ -647,14 +616,12 @@ BIO_ctrl_pending(BIO *bio)
 {
 	return BIO_ctrl(bio, BIO_CTRL_PENDING, 0, NULL);
 }
-LCRYPTO_ALIAS(BIO_ctrl_pending);
 
 size_t
 BIO_ctrl_wpending(BIO *bio)
 {
 	return BIO_ctrl(bio, BIO_CTRL_WPENDING, 0, NULL);
 }
-LCRYPTO_ALIAS(BIO_ctrl_wpending);
 
 
 /*
@@ -682,7 +649,6 @@ BIO_push(BIO *b, BIO *bio)
 	BIO_ctrl(b, BIO_CTRL_PUSH, 0, lb);
 	return (b);
 }
-LCRYPTO_ALIAS(BIO_push);
 
 /* Remove the first and return the rest */
 BIO *
@@ -705,7 +671,6 @@ BIO_pop(BIO *b)
 	b->prev_bio = NULL;
 	return (ret);
 }
-LCRYPTO_ALIAS(BIO_pop);
 
 BIO *
 BIO_get_retry_BIO(BIO *bio, int *reason)
@@ -725,21 +690,18 @@ BIO_get_retry_BIO(BIO *bio, int *reason)
 		*reason = last->retry_reason;
 	return (last);
 }
-LCRYPTO_ALIAS(BIO_get_retry_BIO);
 
 int
 BIO_get_retry_reason(BIO *bio)
 {
 	return (bio->retry_reason);
 }
-LCRYPTO_ALIAS(BIO_get_retry_reason);
 
 void
 BIO_set_retry_reason(BIO *bio, int reason)
 {
 	bio->retry_reason = reason;
 }
-LCRYPTO_ALIAS(BIO_set_retry_reason);
 
 BIO *
 BIO_find_type(BIO *bio, int type)
@@ -762,7 +724,6 @@ BIO_find_type(BIO *bio, int type)
 	} while (bio != NULL);
 	return (NULL);
 }
-LCRYPTO_ALIAS(BIO_find_type);
 
 BIO *
 BIO_next(BIO *b)
@@ -771,7 +732,6 @@ BIO_next(BIO *b)
 		return NULL;
 	return b->next_bio;
 }
-LCRYPTO_ALIAS(BIO_next);
 
 /*
  * Two chains "bio -> oldtail" and "oldhead -> next" become
@@ -793,7 +753,6 @@ BIO_set_next(BIO *bio, BIO *next)
 	if (next != NULL)
 		next->prev_bio = bio;
 }
-LCRYPTO_ALIAS(BIO_set_next);
 
 void
 BIO_free_all(BIO *bio)
@@ -811,13 +770,11 @@ BIO_free_all(BIO *bio)
 			break;
 	}
 }
-LCRYPTO_ALIAS(BIO_free_all);
 
 BIO *
 BIO_dup_chain(BIO *in)
 {
-	BIO *new_chain = NULL, *new_bio = NULL, *tail = NULL;
-	BIO *bio;
+	BIO *ret = NULL, *eoc = NULL, *bio, *new_bio;
 
 	for (bio = in; bio != NULL; bio = bio->next_bio) {
 		if ((new_bio = BIO_new(bio->method)) == NULL)
@@ -828,32 +785,34 @@ BIO_dup_chain(BIO *in)
 		new_bio->init = bio->init;
 		new_bio->shutdown = bio->shutdown;
 		new_bio->flags = bio->flags;
+
+		/* This will let SSL_s_sock() work with stdin/stdout */
 		new_bio->num = bio->num;
 
-		if (!BIO_dup_state(bio, new_bio))
+		if (!BIO_dup_state(bio, (char *)new_bio)) {
+			BIO_free(new_bio);
 			goto err;
+		}
 
+		/* copy app data */
 		if (!CRYPTO_dup_ex_data(CRYPTO_EX_INDEX_BIO,
 		    &new_bio->ex_data, &bio->ex_data))
 			goto err;
 
-		if (BIO_push(tail, new_bio) == NULL)
-			goto err;
-
-		tail = new_bio;
-		if (new_chain == NULL)
-			new_chain = new_bio;
+		if (ret == NULL) {
+			eoc = new_bio;
+			ret = eoc;
+		} else {
+			BIO_push(eoc, new_bio);
+			eoc = new_bio;
+		}
 	}
+	return (ret);
+err:
+	BIO_free(ret);
+	return (NULL);
 
-	return new_chain;
-
- err:
-	BIO_free(new_bio);
-	BIO_free_all(new_chain);
-
-	return NULL;
 }
-LCRYPTO_ALIAS(BIO_dup_chain);
 
 void
 BIO_copy_next_retry(BIO *b)
@@ -861,7 +820,6 @@ BIO_copy_next_retry(BIO *b)
 	BIO_set_flags(b, BIO_get_retry_flags(b->next_bio));
 	b->retry_reason = b->next_bio->retry_reason;
 }
-LCRYPTO_ALIAS(BIO_copy_next_retry);
 
 int
 BIO_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
@@ -876,14 +834,12 @@ BIO_set_ex_data(BIO *bio, int idx, void *data)
 {
 	return (CRYPTO_set_ex_data(&(bio->ex_data), idx, data));
 }
-LCRYPTO_ALIAS(BIO_set_ex_data);
 
 void *
 BIO_get_ex_data(BIO *bio, int idx)
 {
 	return (CRYPTO_get_ex_data(&(bio->ex_data), idx));
 }
-LCRYPTO_ALIAS(BIO_get_ex_data);
 
 unsigned long
 BIO_number_read(BIO *bio)
@@ -892,7 +848,6 @@ BIO_number_read(BIO *bio)
 		return bio->num_read;
 	return 0;
 }
-LCRYPTO_ALIAS(BIO_number_read);
 
 unsigned long
 BIO_number_written(BIO *bio)
@@ -901,4 +856,3 @@ BIO_number_written(BIO *bio)
 		return bio->num_write;
 	return 0;
 }
-LCRYPTO_ALIAS(BIO_number_written);

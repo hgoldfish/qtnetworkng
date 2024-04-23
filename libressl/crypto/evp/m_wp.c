@@ -1,4 +1,4 @@
-/* $OpenBSD: m_wp.c,v 1.13 2023/07/07 19:37:54 beck Exp $ */
+/* $OpenBSD: m_wp.c,v 1.11 2022/11/26 16:08:52 tb Exp $ */
 
 #include <stdio.h>
 

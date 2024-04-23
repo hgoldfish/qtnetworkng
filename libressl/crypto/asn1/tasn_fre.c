@@ -1,4 +1,4 @@
-/* $OpenBSD: tasn_fre.c,v 1.23 2023/07/28 10:00:10 tb Exp $ */
+/* $OpenBSD: tasn_fre.c,v 1.21 2022/11/26 16:08:50 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */
@@ -73,14 +73,12 @@ ASN1_item_free(ASN1_VALUE *val, const ASN1_ITEM *it)
 {
 	asn1_item_free(&val, it);
 }
-LCRYPTO_ALIAS(ASN1_item_free);
 
 void
 ASN1_item_ex_free(ASN1_VALUE **pval, const ASN1_ITEM *it)
 {
 	asn1_item_free(pval, it);
 }
-LCRYPTO_ALIAS(ASN1_item_ex_free);
 
 static void
 asn1_item_free(ASN1_VALUE **pval, const ASN1_ITEM *it)

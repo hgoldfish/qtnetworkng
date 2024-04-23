@@ -1,4 +1,4 @@
-/* $OpenBSD: a_pkey.c,v 1.6 2023/07/07 19:37:52 beck Exp $ */
+/* $OpenBSD: a_pkey.c,v 1.4 2022/11/26 16:08:50 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

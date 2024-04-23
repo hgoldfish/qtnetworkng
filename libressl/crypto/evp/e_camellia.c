@@ -1,4 +1,4 @@
-/* $OpenBSD: e_camellia.c,v 1.18 2023/07/07 19:37:53 beck Exp $ */
+/* $OpenBSD: e_camellia.c,v 1.16 2022/11/26 16:08:52 tb Exp $ */
 /* ====================================================================
  * Copyright (c) 2006 The OpenSSL Project.  All rights reserved.
  *

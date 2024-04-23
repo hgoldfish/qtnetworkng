@@ -5,7 +5,6 @@
 .type	sha512_block_data_order,@function
 .align	16
 sha512_block_data_order:
-	endbr64
 	pushq	%rbx
 	pushq	%rbp
 	pushq	%r12

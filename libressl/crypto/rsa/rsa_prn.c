@@ -1,4 +1,4 @@
-/* $OpenBSD: rsa_prn.c,v 1.10 2023/07/08 12:26:45 beck Exp $ */
+/* $OpenBSD: rsa_prn.c,v 1.9 2022/11/08 19:19:08 tobhe Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2006.
  */
@@ -77,7 +77,6 @@ RSA_print_fp(FILE *fp, const RSA *x, int off)
 	BIO_free(b);
 	return ret;
 }
-LCRYPTO_ALIAS(RSA_print_fp);
 
 int
 RSA_print(BIO *bp, const RSA *x, int off)
@@ -96,4 +95,3 @@ RSA_print(BIO *bp, const RSA *x, int off)
 	EVP_PKEY_free(pk);
 	return ret;
 }
-LCRYPTO_ALIAS(RSA_print);

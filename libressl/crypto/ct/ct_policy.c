@@ -1,4 +1,4 @@
-/*	$OpenBSD: ct_policy.c,v 1.6 2023/07/08 07:22:58 beck Exp $ */
+/*	$OpenBSD: ct_policy.c,v 1.5 2021/12/18 16:34:52 tb Exp $ */
 /*
  * Implementations of Certificate Transparency SCT policies.
  * Written by Rob Percival (robpercival@google.com) for the OpenSSL project.
@@ -86,7 +86,6 @@ CT_POLICY_EVAL_CTX_new(void)
 
 	return ctx;
 }
-LCRYPTO_ALIAS(CT_POLICY_EVAL_CTX_new);
 
 void
 CT_POLICY_EVAL_CTX_free(CT_POLICY_EVAL_CTX *ctx)
@@ -97,7 +96,6 @@ CT_POLICY_EVAL_CTX_free(CT_POLICY_EVAL_CTX *ctx)
 	X509_free(ctx->issuer);
 	free(ctx);
 }
-LCRYPTO_ALIAS(CT_POLICY_EVAL_CTX_free);
 
 int
 CT_POLICY_EVAL_CTX_set1_cert(CT_POLICY_EVAL_CTX *ctx, X509 *cert)
@@ -107,7 +105,6 @@ CT_POLICY_EVAL_CTX_set1_cert(CT_POLICY_EVAL_CTX *ctx, X509 *cert)
 	ctx->cert = cert;
 	return 1;
 }
-LCRYPTO_ALIAS(CT_POLICY_EVAL_CTX_set1_cert);
 
 int
 CT_POLICY_EVAL_CTX_set1_issuer(CT_POLICY_EVAL_CTX *ctx, X509 *issuer)
@@ -117,7 +114,6 @@ CT_POLICY_EVAL_CTX_set1_issuer(CT_POLICY_EVAL_CTX *ctx, X509 *issuer)
 	ctx->issuer = issuer;
 	return 1;
 }
-LCRYPTO_ALIAS(CT_POLICY_EVAL_CTX_set1_issuer);
 
 void
 CT_POLICY_EVAL_CTX_set_shared_CTLOG_STORE(CT_POLICY_EVAL_CTX *ctx,
@@ -125,39 +121,33 @@ CT_POLICY_EVAL_CTX_set_shared_CTLOG_STORE(CT_POLICY_EVAL_CTX *ctx,
 {
 	ctx->log_store = log_store;
 }
-LCRYPTO_ALIAS(CT_POLICY_EVAL_CTX_set_shared_CTLOG_STORE);
 
 void
 CT_POLICY_EVAL_CTX_set_time(CT_POLICY_EVAL_CTX *ctx, uint64_t time_in_ms)
 {
 	ctx->epoch_time_in_ms = time_in_ms;
 }
-LCRYPTO_ALIAS(CT_POLICY_EVAL_CTX_set_time);
 
 X509 *
 CT_POLICY_EVAL_CTX_get0_cert(const CT_POLICY_EVAL_CTX *ctx)
 {
 	return ctx->cert;
 }
-LCRYPTO_ALIAS(CT_POLICY_EVAL_CTX_get0_cert);
 
 X509 *
 CT_POLICY_EVAL_CTX_get0_issuer(const CT_POLICY_EVAL_CTX *ctx)
 {
 	return ctx->issuer;
 }
-LCRYPTO_ALIAS(CT_POLICY_EVAL_CTX_get0_issuer);
 
 const CTLOG_STORE *
 CT_POLICY_EVAL_CTX_get0_log_store(const CT_POLICY_EVAL_CTX *ctx)
 {
 	return ctx->log_store;
 }
-LCRYPTO_ALIAS(CT_POLICY_EVAL_CTX_get0_log_store);
 
 uint64_t
 CT_POLICY_EVAL_CTX_get_time(const CT_POLICY_EVAL_CTX *ctx)
 {
 	return ctx->epoch_time_in_ms;
 }
-LCRYPTO_ALIAS(CT_POLICY_EVAL_CTX_get_time);

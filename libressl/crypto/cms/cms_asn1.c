@@ -1,4 +1,4 @@
-/* $OpenBSD: cms_asn1.c,v 1.23 2023/07/08 08:26:26 beck Exp $ */
+/* $OpenBSD: cms_asn1.c,v 1.21 2023/03/12 17:29:02 tb Exp $ */
 /*
  * Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project.
@@ -1250,6 +1250,7 @@ static const ASN1_ADB_TABLE CMS_ContentInfo_adbtbl[] = {
 			.field_name = "d.data",
 			.item = &ASN1_OCTET_STRING_NDEF_it,
 		},
+	
 	},
 	{
 		.value = NID_pkcs7_signed,
@@ -1260,6 +1261,7 @@ static const ASN1_ADB_TABLE CMS_ContentInfo_adbtbl[] = {
 			.field_name = "d.signedData",
 			.item = &CMS_SignedData_it,
 		},
+	
 	},
 	{
 		.value = NID_pkcs7_enveloped,
@@ -1270,6 +1272,7 @@ static const ASN1_ADB_TABLE CMS_ContentInfo_adbtbl[] = {
 			.field_name = "d.envelopedData",
 			.item = &CMS_EnvelopedData_it,
 		},
+	
 	},
 	{
 		.value = NID_pkcs7_digest,
@@ -1280,6 +1283,7 @@ static const ASN1_ADB_TABLE CMS_ContentInfo_adbtbl[] = {
 			.field_name = "d.digestedData",
 			.item = &CMS_DigestedData_it,
 		},
+	
 	},
 	{
 		.value = NID_pkcs7_encrypted,
@@ -1290,6 +1294,7 @@ static const ASN1_ADB_TABLE CMS_ContentInfo_adbtbl[] = {
 			.field_name = "d.encryptedData",
 			.item = &CMS_EncryptedData_it,
 		},
+	
 	},
 	{
 		.value = NID_id_smime_ct_authData,
@@ -1300,6 +1305,7 @@ static const ASN1_ADB_TABLE CMS_ContentInfo_adbtbl[] = {
 			.field_name = "d.authenticatedData",
 			.item = &CMS_AuthenticatedData_it,
 		},
+	
 	},
 	{
 		.value = NID_id_smime_ct_compressedData,
@@ -1310,6 +1316,7 @@ static const ASN1_ADB_TABLE CMS_ContentInfo_adbtbl[] = {
 			.field_name = "d.compressedData",
 			.item = &CMS_CompressedData_it,
 		},
+	
 	},
 };
 
@@ -1619,4 +1626,3 @@ CMS_SharedInfo_encode(unsigned char **pder, X509_ALGOR *kekalg,
 
 	return ASN1_item_i2d(intsi.a, pder, &CMS_SharedInfo_it);
 }
-LCRYPTO_ALIAS(CMS_SharedInfo_encode);

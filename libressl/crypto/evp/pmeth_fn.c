@@ -1,4 +1,4 @@
-/* $OpenBSD: pmeth_fn.c,v 1.9 2023/07/07 19:37:54 beck Exp $ */
+/* $OpenBSD: pmeth_fn.c,v 1.7 2022/11/26 16:08:53 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2006.
  */

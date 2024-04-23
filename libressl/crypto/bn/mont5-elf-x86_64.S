@@ -5,7 +5,6 @@
 .type	bn_mul_mont_gather5,@function
 .align	64
 bn_mul_mont_gather5:
-	endbr64
 	testl	$3,%r9d
 	jnz	.Lmul_enter
 	cmpl	$8,%r9d
@@ -401,7 +400,6 @@ bn_mul_mont_gather5:
 .type	bn_mul4x_mont_gather5,@function
 .align	16
 bn_mul4x_mont_gather5:
-	endbr64
 .Lmul4x_enter:
 	movl	%r9d,%r9d
 	movd	8(%rsp),%xmm5
@@ -992,7 +990,6 @@ bn_mul4x_mont_gather5:
 .type	bn_scatter5,@function
 .align	16
 bn_scatter5:
-	endbr64
 	cmpq	$0,%rsi
 	jz	.Lscatter_epilogue
 	leaq	(%rdx,%rcx,8),%rdx
@@ -1011,7 +1008,6 @@ bn_scatter5:
 .type	bn_gather5,@function
 .align	16
 bn_gather5:
-	endbr64
 .LSEH_begin_bn_gather5:
 
 .byte	0x4c,0x8d,0x14,0x24			

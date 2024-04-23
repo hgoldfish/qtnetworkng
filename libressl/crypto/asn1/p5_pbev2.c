@@ -1,4 +1,4 @@
-/* $OpenBSD: p5_pbev2.c,v 1.30 2023/07/07 19:37:52 beck Exp $ */
+/* $OpenBSD: p5_pbev2.c,v 1.28 2022/11/26 16:08:50 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999-2004.
  */

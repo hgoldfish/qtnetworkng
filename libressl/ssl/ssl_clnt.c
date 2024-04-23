@@ -1,4 +1,4 @@
-/* $OpenBSD: ssl_clnt.c,v 1.161 2023/07/08 16:40:13 beck Exp $ */
+/* $OpenBSD: ssl_clnt.c,v 1.158 2022/12/26 07:31:44 jmc Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -1299,16 +1299,12 @@ ssl3_get_server_kex_ecdhe(SSL *s, CBS *cbs)
 static int
 ssl3_get_server_key_exchange(SSL *s)
 {
-	CBB cbb;
-	CBS cbs, params, signature;
+	CBS cbs, signature;
 	EVP_MD_CTX *md_ctx;
-	unsigned char *signed_params = NULL;
-	size_t signed_params_len;
-	size_t params_len;
+	const unsigned char *param;
+	size_t param_len;
 	long alg_k, alg_a;
 	int al, ret;
-
-	memset(&cbb, 0, sizeof(cbb));
 
 	alg_k = s->s3->hs.cipher->algorithm_mkey;
 	alg_a = s->s3->hs.cipher->algorithm_auth;
@@ -1345,14 +1341,8 @@ ssl3_get_server_key_exchange(SSL *s)
 		return (1);
 	}
 
-	if (!CBB_init(&cbb, 0))
-		goto err;
-	if (!CBB_add_bytes(&cbb, s->s3->client_random, SSL3_RANDOM_SIZE))
-		goto err;
-	if (!CBB_add_bytes(&cbb, s->s3->server_random, SSL3_RANDOM_SIZE))
-		goto err;
-
-	CBS_dup(&cbs, &params);
+	param = CBS_data(&cbs);
+	param_len = CBS_len(&cbs);
 
 	if (alg_k & SSL_kDHE) {
 		if (!ssl3_get_server_kex_dhe(s, &cbs))
@@ -1366,12 +1356,7 @@ ssl3_get_server_key_exchange(SSL *s)
 		goto fatal_err;
 	}
 
-	if ((params_len = CBS_offset(&cbs)) > CBS_len(&params))
-		goto err;
-	if (!CBB_add_bytes(&cbb, CBS_data(&params), params_len))
-		goto err;
-	if (!CBB_finish(&cbb, &signed_params, &signed_params_len))
-		goto err;
+	param_len -= CBS_len(&cbs);
 
 	/* if it was signed, check the signature */
 	if ((alg_a & SSL_aNULL) == 0) {
@@ -1415,13 +1400,21 @@ ssl3_get_server_key_exchange(SSL *s)
 		if (!EVP_DigestVerifyInit(md_ctx, &pctx, sigalg->md(),
 		    NULL, pkey))
 			goto err;
+		if (!EVP_DigestVerifyUpdate(md_ctx, s->s3->client_random,
+		    SSL3_RANDOM_SIZE))
+			goto err;
 		if ((sigalg->flags & SIGALG_FLAG_RSA_PSS) &&
 		    (!EVP_PKEY_CTX_set_rsa_padding(pctx,
 		    RSA_PKCS1_PSS_PADDING) ||
 		    !EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, -1)))
 			goto err;
-		if (EVP_DigestVerify(md_ctx, CBS_data(&signature),
-		    CBS_len(&signature), signed_params, signed_params_len) <= 0) {
+		if (!EVP_DigestVerifyUpdate(md_ctx, s->s3->server_random,
+		    SSL3_RANDOM_SIZE))
+			goto err;
+		if (!EVP_DigestVerifyUpdate(md_ctx, param, param_len))
+			goto err;
+		if (EVP_DigestVerifyFinal(md_ctx, CBS_data(&signature),
+		    CBS_len(&signature)) <= 0) {
 			al = SSL_AD_DECRYPT_ERROR;
 			SSLerror(s, SSL_R_BAD_SIGNATURE);
 			goto fatal_err;
@@ -1435,7 +1428,6 @@ ssl3_get_server_key_exchange(SSL *s)
 	}
 
 	EVP_MD_CTX_free(md_ctx);
-	free(signed_params);
 
 	return (1);
 
@@ -1447,9 +1439,7 @@ ssl3_get_server_key_exchange(SSL *s)
 	ssl3_send_alert(s, SSL3_AL_FATAL, al);
 
  err:
-	CBB_cleanup(&cbb);
 	EVP_MD_CTX_free(md_ctx);
-	free(signed_params);
 
 	return (-1);
 }
@@ -2123,21 +2113,24 @@ ssl3_send_client_verify_sigalgs(SSL *s, EVP_PKEY *pkey,
 		SSLerror(s, ERR_R_EVP_LIB);
 		goto err;
 	}
-#ifndef OPENSSL_NO_GOST
 	if (sigalg->key_type == EVP_PKEY_GOSTR01 &&
 	    EVP_PKEY_CTX_ctrl(pctx, -1, EVP_PKEY_OP_SIGN,
 	    EVP_PKEY_CTRL_GOST_SIG_FORMAT, GOST_SIG_FORMAT_RS_LE, NULL) <= 0) {
 		SSLerror(s, ERR_R_EVP_LIB);
 		goto err;
 	}
-#endif
 	if ((sigalg->flags & SIGALG_FLAG_RSA_PSS) &&
 	    (!EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PSS_PADDING) ||
 	    !EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, -1))) {
 		SSLerror(s, ERR_R_EVP_LIB);
 		goto err;
 	}
-	if (!EVP_DigestSign(mctx, NULL, &signature_len, hdata, hdata_len)) {
+	if (!EVP_DigestSignUpdate(mctx, hdata, hdata_len)) {
+		SSLerror(s, ERR_R_EVP_LIB);
+		goto err;
+	}
+	if (!EVP_DigestSignFinal(mctx, NULL, &signature_len) ||
+	    signature_len == 0) {
 		SSLerror(s, ERR_R_EVP_LIB);
 		goto err;
 	}
@@ -2145,7 +2138,7 @@ ssl3_send_client_verify_sigalgs(SSL *s, EVP_PKEY *pkey,
 		SSLerror(s, ERR_R_MALLOC_FAILURE);
 		goto err;
 	}
-	if (!EVP_DigestSign(mctx, signature, &signature_len, hdata, hdata_len)) {
+	if (!EVP_DigestSignFinal(mctx, signature, &signature_len)) {
 		SSLerror(s, ERR_R_EVP_LIB);
 		goto err;
 	}
@@ -2269,14 +2262,17 @@ ssl3_send_client_verify_gost(SSL *s, EVP_PKEY *pkey, CBB *cert_verify)
 		SSLerror(s, ERR_R_EVP_LIB);
 		goto err;
 	}
-#ifndef OPENSSL_NO_GOST
 	if (EVP_PKEY_CTX_ctrl(pctx, -1, EVP_PKEY_OP_SIGN,
 	    EVP_PKEY_CTRL_GOST_SIG_FORMAT, GOST_SIG_FORMAT_RS_LE, NULL) <= 0) {
 		SSLerror(s, ERR_R_EVP_LIB);
 		goto err;
 	}
-#endif
-	if (!EVP_DigestSign(mctx, NULL, &signature_len, hdata, hdata_len)) {
+	if (!EVP_DigestSignUpdate(mctx, hdata, hdata_len)) {
+		SSLerror(s, ERR_R_EVP_LIB);
+		goto err;
+	}
+	if (!EVP_DigestSignFinal(mctx, NULL, &signature_len) ||
+	    signature_len == 0) {
 		SSLerror(s, ERR_R_EVP_LIB);
 		goto err;
 	}
@@ -2284,7 +2280,7 @@ ssl3_send_client_verify_gost(SSL *s, EVP_PKEY *pkey, CBB *cert_verify)
 		SSLerror(s, ERR_R_MALLOC_FAILURE);
 		goto err;
 	}
-	if (!EVP_DigestSign(mctx, signature, &signature_len, hdata, hdata_len)) {
+	if (!EVP_DigestSignFinal(mctx, signature, &signature_len)) {
 		SSLerror(s, ERR_R_EVP_LIB);
 		goto err;
 	}

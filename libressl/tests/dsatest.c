@@ -1,4 +1,4 @@
-/*	$OpenBSD: dsatest.c,v 1.9 2023/08/20 22:22:55 tb Exp $	*/
+/*	$OpenBSD: dsatest.c,v 1.7 2022/01/12 08:59:56 tb Exp $	*/
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -55,6 +55,12 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.]
  */
+
+/* Until the key-gen callbacks are modified to use newer prototypes, we allow
+ * deprecated functions for openssl-internal code */
+#ifdef OPENSSL_NO_DEPRECATED
+#undef OPENSSL_NO_DEPRECATED
+#endif
 
 #include <err.h>
 #include <stdio.h>
@@ -136,13 +142,6 @@ main(int argc, char **argv)
 	BN_GENCB_set(cb, dsa_cb, bio_err);
 	if ((dsa = DSA_new()) == NULL)
 		goto end;
-
-#ifdef OPENSSL_NO_ENGINE
-	if (DSA_get0_engine(dsa) != NULL) {
-		BIO_printf(bio_err, "ENGINE was not NULL\n");
-		goto end;
-	}
-#endif
 
 	if (!DSA_generate_parameters_ex(dsa, 512, seed, 20, &counter, &h, cb))
 		goto end;

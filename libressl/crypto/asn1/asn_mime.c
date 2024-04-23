@@ -1,4 +1,4 @@
-/* $OpenBSD: asn_mime.c,v 1.32 2023/07/05 21:23:36 beck Exp $ */
+/* $OpenBSD: asn_mime.c,v 1.30 2022/11/26 16:08:50 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project.
  */
@@ -565,7 +565,6 @@ SMIME_crlf_copy(BIO *in, BIO *out, int flags)
 	BIO_free(bf);
 	return 1;
 }
-LCRYPTO_ALIAS(SMIME_crlf_copy);
 
 /* Strip off headers if they are text/plain */
 int
@@ -598,7 +597,6 @@ SMIME_text(BIO *in, BIO *out)
 		return 0;
 	return 1;
 }
-LCRYPTO_ALIAS(SMIME_text);
 
 /*
  * Split a multipart/XXX message body into component parts: result is
@@ -665,8 +663,9 @@ multi_split(BIO *bio, char *bound, STACK_OF(BIO) **ret)
 #define MIME_QUOTE	5
 #define MIME_COMMENT	6
 
-static STACK_OF(MIME_HEADER) *
-mime_parse_hdr(BIO *bio)
+
+static
+STACK_OF(MIME_HEADER) *mime_parse_hdr(BIO *bio)
 {
 	char *p, *q, c;
 	char *ntmp;

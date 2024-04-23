@@ -1,4 +1,4 @@
-/* $OpenBSD: t_req.c,v 1.26 2023/07/07 19:37:52 beck Exp $ */
+/* $OpenBSD: t_req.c,v 1.24 2022/11/26 16:08:50 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

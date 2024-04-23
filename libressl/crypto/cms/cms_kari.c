@@ -1,4 +1,4 @@
-/* $OpenBSD: cms_kari.c,v 1.15 2023/07/08 08:26:26 beck Exp $ */
+/* $OpenBSD: cms_kari.c,v 1.14 2022/11/26 16:08:51 tb Exp $ */
 /*
  * Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project.
@@ -81,7 +81,6 @@ CMS_RecipientInfo_kari_get0_alg(CMS_RecipientInfo *ri, X509_ALGOR **palg,
 
 	return 1;
 }
-LCRYPTO_ALIAS(CMS_RecipientInfo_kari_get0_alg);
 
 /* Retrieve recipient encrypted keys from a kari */
 
@@ -94,7 +93,6 @@ CMS_RecipientInfo_kari_get0_reks(CMS_RecipientInfo *ri)
 	}
 	return ri->d.kari->recipientEncryptedKeys;
 }
-LCRYPTO_ALIAS(CMS_RecipientInfo_kari_get0_reks);
 
 int
 CMS_RecipientInfo_kari_get0_orig_id(CMS_RecipientInfo *ri, X509_ALGOR **pubalg,
@@ -136,7 +134,6 @@ CMS_RecipientInfo_kari_get0_orig_id(CMS_RecipientInfo *ri, X509_ALGOR **pubalg,
 
 	return 1;
 }
-LCRYPTO_ALIAS(CMS_RecipientInfo_kari_get0_orig_id);
 
 int
 CMS_RecipientInfo_kari_orig_id_cmp(CMS_RecipientInfo *ri, X509 *cert)
@@ -155,7 +152,6 @@ CMS_RecipientInfo_kari_orig_id_cmp(CMS_RecipientInfo *ri, X509 *cert)
 
 	return -1;
 }
-LCRYPTO_ALIAS(CMS_RecipientInfo_kari_orig_id_cmp);
 
 int
 CMS_RecipientEncryptedKey_get0_id(CMS_RecipientEncryptedKey *rek,
@@ -191,7 +187,6 @@ CMS_RecipientEncryptedKey_get0_id(CMS_RecipientEncryptedKey *rek,
 
 	return 1;
 }
-LCRYPTO_ALIAS(CMS_RecipientEncryptedKey_get0_id);
 
 int
 CMS_RecipientEncryptedKey_cert_cmp(CMS_RecipientEncryptedKey *rek, X509 *cert)
@@ -205,7 +200,6 @@ CMS_RecipientEncryptedKey_cert_cmp(CMS_RecipientEncryptedKey *rek, X509 *cert)
 	else
 		return -1;
 }
-LCRYPTO_ALIAS(CMS_RecipientEncryptedKey_cert_cmp);
 
 int
 CMS_RecipientInfo_kari_set0_pkey(CMS_RecipientInfo *ri, EVP_PKEY *pk)
@@ -227,7 +221,6 @@ CMS_RecipientInfo_kari_set0_pkey(CMS_RecipientInfo *ri, EVP_PKEY *pk)
 	EVP_PKEY_CTX_free(pctx);
 	return 0;
 }
-LCRYPTO_ALIAS(CMS_RecipientInfo_kari_set0_pkey);
 
 EVP_CIPHER_CTX *
 CMS_RecipientInfo_kari_get0_ctx(CMS_RecipientInfo *ri)
@@ -236,7 +229,6 @@ CMS_RecipientInfo_kari_get0_ctx(CMS_RecipientInfo *ri)
 		return ri->d.kari->ctx;
 	return NULL;
 }
-LCRYPTO_ALIAS(CMS_RecipientInfo_kari_get0_ctx);
 
 /*
  * Derive KEK and decrypt/encrypt with it to produce either the original CEK
@@ -317,7 +309,6 @@ CMS_RecipientInfo_kari_decrypt(CMS_ContentInfo *cms, CMS_RecipientInfo *ri,
 
 	return rv;
 }
-LCRYPTO_ALIAS(CMS_RecipientInfo_kari_decrypt);
 
 /* Create ephemeral key and initialise context based on it */
 static int

@@ -1,4 +1,4 @@
-/* $OpenBSD: ec_ameth.c,v 1.45 2023/09/24 08:08:54 tb Exp $ */
+/* $OpenBSD: ec_ameth.c,v 1.38 2023/03/07 07:01:35 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2006.
  */
@@ -75,181 +75,119 @@ static int ecdh_cms_decrypt(CMS_RecipientInfo *ri);
 static int ecdh_cms_encrypt(CMS_RecipientInfo *ri);
 #endif
 
-static void
-eckey_param_free(int ptype, void *pval)
-{
-	if (pval == NULL)
-		return;
-	if (ptype == V_ASN1_OBJECT)
-		ASN1_OBJECT_free(pval);		/* XXX - really necessary? */
-	else
-		ASN1_STRING_free(pval);
-}
-
 static int
-eckey_get_curve_name(const EC_KEY *eckey, int *nid)
+eckey_param2type(int *pptype, void **ppval, EC_KEY *ec_key)
 {
 	const EC_GROUP *group;
-
-	*nid = NID_undef;
-
-	if ((group = EC_KEY_get0_group(eckey)) == NULL) {
+	int nid;
+	if (ec_key == NULL || (group = EC_KEY_get0_group(ec_key)) == NULL) {
 		ECerror(EC_R_MISSING_PARAMETERS);
 		return 0;
 	}
-	if (EC_GROUP_get_asn1_flag(group) != 0)
-		*nid = EC_GROUP_get_curve_name(group);
-
-	return 1;
-}
-
-static int
-eckey_to_explicit_params(EC_KEY *eckey, void **out_val)
-{
-	ASN1_STRING *astr = NULL;
-	unsigned char *params = NULL;
-	int params_len = 0;
-	int ret = 0;
-
-	*out_val = NULL;
-
-	if ((params_len = i2d_ECParameters(eckey, &params)) <= 0) {
-		ECerror(ERR_R_EC_LIB);
-		params_len = 0;
-		goto err;
-	}
-
-	if ((astr = ASN1_STRING_new()) == NULL)
-		goto err;
-	ASN1_STRING_set0(astr, params, params_len);
-	params = NULL;
-	params_len = 0;
-
-	*out_val = astr;
-	astr = NULL;
-
-	ret = 1;
-
- err:
-	freezero(params, params_len);
-	ASN1_STRING_free(astr);
-
-	return ret;
-}
-
-static int
-eckey_from_explicit_params(const ASN1_STRING *astr, EC_KEY **out_eckey)
-{
-	const unsigned char *params = astr->data;
-	int params_len = astr->length;
-
-	EC_KEY_free(*out_eckey);
-	if ((*out_eckey = d2i_ECParameters(NULL, &params, params_len)) == NULL) {
-		ECerror(EC_R_DECODE_ERROR);
-		return 0;
-	}
-
-	return 1;
-}
-
-static int
-eckey_to_object(const EC_KEY *eckey, void **out_val)
-{
-	int nid = NID_undef;
-
-	*out_val = NULL;
-
-	if (!eckey_get_curve_name(eckey, &nid))
-		return 0;
-	if ((*out_val = OBJ_nid2obj(nid)) == NULL)
-		return 0;
-
-	return 1;
-}
-
-static int
-eckey_from_object(const ASN1_OBJECT *aobj, EC_KEY **out_eckey)
-{
-	int nid;
-
-	*out_eckey = NULL;
-
-	if ((nid = OBJ_obj2nid(aobj)) == NID_undef)
-		return 0;
-	if ((*out_eckey = EC_KEY_new_by_curve_name(nid)) == NULL)
-		return 0;
-
-	return 1;
-}
-
-static int
-eckey_to_params(EC_KEY *eckey, int *out_type, void **out_val)
-{
-	int nid;
-
-	*out_type = NID_undef;
-	*out_val = NULL;
-
-	if (!eckey_get_curve_name(eckey, &nid))
-		return 0;
-
-	if (nid == NID_undef) {
-		*out_type = V_ASN1_SEQUENCE;
-		return eckey_to_explicit_params(eckey, out_val);
+	if (EC_GROUP_get_asn1_flag(group) &&
+	    (nid = EC_GROUP_get_curve_name(group))) {
+		/* we have a 'named curve' => just set the OID */
+		*ppval = OBJ_nid2obj(nid);
+		*pptype = V_ASN1_OBJECT;
 	} else {
-		*out_type = V_ASN1_OBJECT;
-		return eckey_to_object(eckey, out_val);
+		/* explicit parameters */
+		ASN1_STRING *pstr = NULL;
+		pstr = ASN1_STRING_new();
+		if (!pstr)
+			return 0;
+		pstr->length = i2d_ECParameters(ec_key, &pstr->data);
+		if (pstr->length <= 0) {
+			ASN1_STRING_free(pstr);
+			ECerror(ERR_R_EC_LIB);
+			return 0;
+		}
+		*ppval = pstr;
+		*pptype = V_ASN1_SEQUENCE;
 	}
-}
-
-static int
-eckey_from_params(int ptype, const void *pval, EC_KEY **out_eckey)
-{
-	*out_eckey = NULL;
-
-	if (ptype == V_ASN1_SEQUENCE)
-		return eckey_from_explicit_params(pval, out_eckey);
-	if (ptype == V_ASN1_OBJECT)
-		return eckey_from_object(pval, out_eckey);
-
-	ECerror(EC_R_DECODE_ERROR);
-	return 0;
+	return 1;
 }
 
 static int
 eckey_pub_encode(X509_PUBKEY *pk, const EVP_PKEY *pkey)
 {
-	EC_KEY *eckey = pkey->pkey.ec;
-	int ptype = V_ASN1_UNDEF;
+	EC_KEY *ec_key = pkey->pkey.ec;
 	void *pval = NULL;
-	ASN1_OBJECT *aobj;
-	unsigned char *key = NULL;
-	int key_len = 0;
-	int ret = 0;
+	int ptype;
+	unsigned char *penc = NULL, *p;
+	int penclen;
 
-	if (!eckey_to_params(eckey, &ptype, &pval)) {
+	if (!eckey_param2type(&ptype, &pval, ec_key)) {
 		ECerror(ERR_R_EC_LIB);
-		goto err;
+		return 0;
 	}
-	if ((key_len = i2o_ECPublicKey(eckey, &key)) <= 0) {
-		key_len = 0;
+	penclen = i2o_ECPublicKey(ec_key, NULL);
+	if (penclen <= 0)
 		goto err;
-	}
-	if ((aobj = OBJ_nid2obj(EVP_PKEY_EC)) == NULL)
+	penc = malloc(penclen);
+	if (!penc)
 		goto err;
-	if (!X509_PUBKEY_set0_param(pk, aobj, ptype, pval, key, key_len))
+	p = penc;
+	penclen = i2o_ECPublicKey(ec_key, &p);
+	if (penclen <= 0)
 		goto err;
-	pval = NULL;
-	key = NULL;
-	key_len = 0;
-
-	ret = 1;
-
+	if (X509_PUBKEY_set0_param(pk, OBJ_nid2obj(EVP_PKEY_EC),
+		ptype, pval, penc, penclen))
+		return 1;
  err:
-	eckey_param_free(ptype, pval);
-	freezero(key, key_len);
+	if (ptype == V_ASN1_OBJECT)
+		ASN1_OBJECT_free(pval);
+	else
+		ASN1_STRING_free(pval);
+	free(penc);
+	return 0;
+}
 
-	return ret;
+static EC_KEY *
+eckey_type2param(int ptype, const void *pval)
+{
+	EC_GROUP *group = NULL;
+	EC_KEY *eckey = NULL;
+
+	if (ptype == V_ASN1_SEQUENCE) {
+		const ASN1_STRING *pstr = pval;
+		const unsigned char *pm = NULL;
+		int pmlen;
+
+		pm = pstr->data;
+		pmlen = pstr->length;
+		if (!(eckey = d2i_ECParameters(NULL, &pm, pmlen))) {
+			ECerror(EC_R_DECODE_ERROR);
+			goto ecerr;
+		}
+	} else if (ptype == V_ASN1_OBJECT) {
+		const ASN1_OBJECT *poid = pval;
+
+		/*
+		 * type == V_ASN1_OBJECT => the parameters are given by an
+		 * asn1 OID
+		 */
+		if ((eckey = EC_KEY_new()) == NULL) {
+			ECerror(ERR_R_MALLOC_FAILURE);
+			goto ecerr;
+		}
+		group = EC_GROUP_new_by_curve_name(OBJ_obj2nid(poid));
+		if (group == NULL)
+			goto ecerr;
+		EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE);
+		if (EC_KEY_set_group(eckey, group) == 0)
+			goto ecerr;
+	} else {
+		ECerror(EC_R_DECODE_ERROR);
+		goto ecerr;
+	}
+
+	EC_GROUP_free(group);
+	return eckey;
+
+ ecerr:
+	EC_KEY_free(eckey);
+	EC_GROUP_free(group);
+	return NULL;
 }
 
 static int
@@ -260,38 +198,37 @@ eckey_pub_decode(EVP_PKEY *pkey, X509_PUBKEY *pubkey)
 	int ptype, pklen;
 	EC_KEY *eckey = NULL;
 	X509_ALGOR *palg;
-	int ret = 0;
 
 	if (!X509_PUBKEY_get0_param(NULL, &p, &pklen, &palg, pubkey))
-		goto err;
+		return 0;
 	X509_ALGOR_get0(NULL, &ptype, &pval, palg);
 
-	if (!eckey_from_params(ptype, pval, &eckey))
-		goto err;
+	eckey = eckey_type2param(ptype, pval);
 
+	if (!eckey) {
+		ECerror(ERR_R_EC_LIB);
+		return 0;
+	}
+	/* We have parameters now set public key */
 	if (!o2i_ECPublicKey(&eckey, &p, pklen)) {
 		ECerror(EC_R_DECODE_ERROR);
-		goto err;
+		goto ecerr;
 	}
-	if (!EVP_PKEY_assign_EC_KEY(pkey, eckey))
-		goto err;
-	eckey = NULL;
+	EVP_PKEY_assign_EC_KEY(pkey, eckey);
+	return 1;
 
-	ret = 1;
-
- err:
-	EC_KEY_free(eckey);
-
-	return ret;
+ ecerr:
+	if (eckey)
+		EC_KEY_free(eckey);
+	return 0;
 }
 
 static int
 eckey_pub_cmp(const EVP_PKEY *a, const EVP_PKEY *b)
 {
-	const EC_GROUP *group = EC_KEY_get0_group(b->pkey.ec);
-	const EC_POINT *pa = EC_KEY_get0_public_key(a->pkey.ec);
-	const EC_POINT *pb = EC_KEY_get0_public_key(b->pkey.ec);
 	int r;
+	const EC_GROUP *group = EC_KEY_get0_group(b->pkey.ec);
+	const EC_POINT *pa = EC_KEY_get0_public_key(a->pkey.ec), *pb = EC_KEY_get0_public_key(b->pkey.ec);
 
 	r = EC_POINT_cmp(group, pa, pb, NULL);
 	if (r == 0)
@@ -314,7 +251,9 @@ eckey_priv_decode(EVP_PKEY *pkey, const PKCS8_PRIV_KEY_INFO *p8)
 		return 0;
 	X509_ALGOR_get0(NULL, &ptype, &pval, palg);
 
-	if (!eckey_from_params(ptype, pval, &eckey))
+	eckey = eckey_type2param(ptype, pval);
+
+	if (!eckey)
 		goto ecliberr;
 
 	/* We have parameters now set private key */
@@ -369,51 +308,58 @@ eckey_priv_decode(EVP_PKEY *pkey, const PKCS8_PRIV_KEY_INFO *p8)
 static int
 eckey_priv_encode(PKCS8_PRIV_KEY_INFO *p8, const EVP_PKEY *pkey)
 {
-	EC_KEY *eckey = pkey->pkey.ec;
-	void *pval = NULL;
-	int ptype = V_ASN1_UNDEF;
-	ASN1_OBJECT *aobj;
-	unsigned char *key = NULL;
-	int key_len = 0;
-	unsigned int flags;
-	int ret = 0;
+	EC_KEY *ec_key;
+	unsigned char *ep, *p;
+	int eplen, ptype;
+	void *pval;
+	unsigned int tmp_flags, old_flags;
 
-	flags = EC_KEY_get_enc_flags(eckey);
+	ec_key = pkey->pkey.ec;
 
-	if (!eckey_to_params(eckey, &ptype, &pval)) {
+	if (!eckey_param2type(&ptype, &pval, ec_key)) {
 		ECerror(EC_R_DECODE_ERROR);
-		goto err;
+		return 0;
 	}
+	/* set the private key */
 
-	/* PKCS#11 12.11: don't include parameters in the SEC1 private key. */
-	EC_KEY_set_enc_flags(eckey, flags | EC_PKEY_NO_PARAMETERS);
-
-	if ((key_len = i2d_ECPrivateKey(eckey, &key)) <= 0) {
+	/*
+	 * do not include the parameters in the SEC1 private key see PKCS#11
+	 * 12.11
+	 */
+	old_flags = EC_KEY_get_enc_flags(ec_key);
+	tmp_flags = old_flags | EC_PKEY_NO_PARAMETERS;
+	EC_KEY_set_enc_flags(ec_key, tmp_flags);
+	eplen = i2d_ECPrivateKey(ec_key, NULL);
+	if (!eplen) {
+		EC_KEY_set_enc_flags(ec_key, old_flags);
 		ECerror(ERR_R_EC_LIB);
-		key_len = 0;
-		goto err;
+		return 0;
 	}
-	if ((aobj = OBJ_nid2obj(NID_X9_62_id_ecPublicKey)) == NULL)
-		goto err;
-	if (!PKCS8_pkey_set0(p8, aobj, 0, ptype, pval, key, key_len))
-		goto err;
-	pval = NULL;
-	key = NULL;
-	key_len = 0;
+	ep = malloc(eplen);
+	if (!ep) {
+		EC_KEY_set_enc_flags(ec_key, old_flags);
+		ECerror(ERR_R_MALLOC_FAILURE);
+		return 0;
+	}
+	p = ep;
+	if (!i2d_ECPrivateKey(ec_key, &p)) {
+		EC_KEY_set_enc_flags(ec_key, old_flags);
+		free(ep);
+		ECerror(ERR_R_EC_LIB);
+		return 0;
+	}
+	/* restore old encoding flags */
+	EC_KEY_set_enc_flags(ec_key, old_flags);
 
-	ret = 1;
+	if (!PKCS8_pkey_set0(p8, OBJ_nid2obj(NID_X9_62_id_ecPublicKey), 0,
+		ptype, pval, ep, eplen))
+		return 0;
 
- err:
-	eckey_param_free(ptype, pval);
-	freezero(key, key_len);
-
-	EC_KEY_set_enc_flags(eckey, flags);
-
-	return ret;
+	return 1;
 }
 
 static int
-ec_size(const EVP_PKEY *pkey)
+int_ec_size(const EVP_PKEY *pkey)
 {
 	return ECDSA_size(pkey->pkey.ec);
 }
@@ -421,12 +367,23 @@ ec_size(const EVP_PKEY *pkey)
 static int
 ec_bits(const EVP_PKEY *pkey)
 {
+	BIGNUM *order = BN_new();
 	const EC_GROUP *group;
+	int ret;
 
-	if ((group = EC_KEY_get0_group(pkey->pkey.ec)) == NULL)
+	if (!order) {
+		ERR_clear_error();
 		return 0;
-
-	return EC_GROUP_order_bits(group);
+	}
+	group = EC_KEY_get0_group(pkey->pkey.ec);
+	if (!EC_GROUP_get_order(group, order, NULL)) {
+		BN_free(order);
+		ERR_clear_error();
+		return 0;
+	}
+	ret = BN_num_bits(order);
+	BN_free(order);
+	return ret;
 }
 
 static int
@@ -465,9 +422,7 @@ ec_copy_parameters(EVP_PKEY *to, const EVP_PKEY *from)
 static int
 ec_cmp_parameters(const EVP_PKEY *a, const EVP_PKEY *b)
 {
-	const EC_GROUP *group_a = EC_KEY_get0_group(a->pkey.ec);
-	const EC_GROUP *group_b = EC_KEY_get0_group(b->pkey.ec);
-
+	const EC_GROUP *group_a = EC_KEY_get0_group(a->pkey.ec), *group_b = EC_KEY_get0_group(b->pkey.ec);
 	if (EC_GROUP_cmp(group_a, group_b, NULL))
 		return 0;
 	else
@@ -475,7 +430,7 @@ ec_cmp_parameters(const EVP_PKEY *a, const EVP_PKEY *b)
 }
 
 static void
-ec_free(EVP_PKEY *pkey)
+int_ec_free(EVP_PKEY *pkey)
 {
 	EC_KEY_free(pkey->pkey.ec);
 }
@@ -483,9 +438,11 @@ ec_free(EVP_PKEY *pkey)
 static int
 do_EC_KEY_print(BIO *bp, const EC_KEY *x, int off, int ktype)
 {
+	unsigned char *buffer = NULL;
 	const char *ecstr;
+	size_t buf_len = 0, i;
 	int ret = 0, reason = ERR_R_BIO_LIB;
-	BIGNUM *pub_key = NULL;
+	BIGNUM *pub_key = NULL, *order = NULL;
 	BN_CTX *ctx = NULL;
 	const EC_GROUP *group;
 	const EC_POINT *public_key;
@@ -508,13 +465,24 @@ do_EC_KEY_print(BIO *bp, const EC_KEY *x, int off, int ktype)
 				reason = ERR_R_EC_LIB;
 				goto err;
 			}
+			if (pub_key)
+				buf_len = (size_t) BN_num_bytes(pub_key);
 		}
 	}
 	if (ktype == 2) {
 		priv_key = EC_KEY_get0_private_key(x);
+		if (priv_key && (i = (size_t) BN_num_bytes(priv_key)) > buf_len)
+			buf_len = i;
 	} else
 		priv_key = NULL;
 
+	if (ktype > 0) {
+		buf_len += 10;
+		if ((buffer = malloc(buf_len)) == NULL) {
+			reason = ERR_R_MALLOC_FAILURE;
+			goto err;
+		}
+	}
 	if (ktype == 2)
 		ecstr = "Private-Key";
 	else if (ktype == 1)
@@ -524,25 +492,30 @@ do_EC_KEY_print(BIO *bp, const EC_KEY *x, int off, int ktype)
 
 	if (!BIO_indent(bp, off, 128))
 		goto err;
+	if ((order = BN_new()) == NULL)
+		goto err;
+	if (!EC_GROUP_get_order(group, order, NULL))
+		goto err;
 	if (BIO_printf(bp, "%s: (%d bit)\n", ecstr,
-	    EC_GROUP_order_bits(group)) <= 0)
+		BN_num_bits(order)) <= 0)
 		goto err;
 
-	if (!bn_printf(bp, priv_key, off, "priv:"))
+	if ((priv_key != NULL) && !ASN1_bn_print(bp, "priv:", priv_key,
+		buffer, off))
 		goto err;
-	if (!bn_printf(bp, pub_key, off, "pub: "))
+	if ((pub_key != NULL) && !ASN1_bn_print(bp, "pub: ", pub_key,
+		buffer, off))
 		goto err;
 	if (!ECPKParameters_print(bp, group, off))
 		goto err;
-
 	ret = 1;
-
  err:
 	if (!ret)
 		ECerror(reason);
 	BN_free(pub_key);
+	BN_free(order);
 	BN_CTX_free(ctx);
-
+	free(buffer);
 	return (ret);
 }
 
@@ -736,7 +709,8 @@ ecdh_cms_set_peerkey(EVP_PKEY_CTX *pctx, X509_ALGOR *alg,
 		if (!EC_KEY_set_group(ecpeer, grp))
 			goto err;
 	} else {
-		if (!eckey_from_params(atype, aval, &ecpeer))
+		ecpeer = eckey_type2param(atype, aval);
+		if (!ecpeer)
 			goto err;
 	}
 
@@ -1049,7 +1023,7 @@ const EVP_PKEY_ASN1_METHOD eckey_asn1_meth = {
 	.priv_encode = eckey_priv_encode,
 	.priv_print = eckey_priv_print,
 
-	.pkey_size = ec_size,
+	.pkey_size = int_ec_size,
 	.pkey_bits = ec_bits,
 	.pkey_security_bits = ec_security_bits,
 
@@ -1060,7 +1034,7 @@ const EVP_PKEY_ASN1_METHOD eckey_asn1_meth = {
 	.param_cmp = ec_cmp_parameters,
 	.param_print = eckey_param_print,
 
-	.pkey_free = ec_free,
+	.pkey_free = int_ec_free,
 	.pkey_ctrl = ec_pkey_ctrl,
 	.old_priv_decode = old_ec_priv_decode,
 	.old_priv_encode = old_ec_priv_encode,

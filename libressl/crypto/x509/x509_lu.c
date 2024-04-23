@@ -1,4 +1,4 @@
-/* $OpenBSD: x509_lu.c,v 1.60 2023/04/25 18:32:42 tb Exp $ */
+/* $OpenBSD: x509_lu.c,v 1.58 2023/02/16 08:38:17 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -594,7 +594,7 @@ X509_get1_certs_from_cache(X509_STORE *store, X509_NAME *name)
 }
 
 STACK_OF(X509) *
-X509_STORE_CTX_get1_certs(X509_STORE_CTX *ctx, X509_NAME *name)
+X509_STORE_get1_certs(X509_STORE_CTX *ctx, X509_NAME *name)
 {
 	X509_STORE *store = ctx->store;
 	STACK_OF(X509) *sk;
@@ -614,10 +614,10 @@ X509_STORE_CTX_get1_certs(X509_STORE_CTX *ctx, X509_NAME *name)
 
 	return X509_get1_certs_from_cache(store, name);
 }
-LCRYPTO_ALIAS(X509_STORE_CTX_get1_certs);
+LCRYPTO_ALIAS(X509_STORE_get1_certs);
 
 STACK_OF(X509_CRL) *
-X509_STORE_CTX_get1_crls(X509_STORE_CTX *ctx, X509_NAME *name)
+X509_STORE_get1_crls(X509_STORE_CTX *ctx, X509_NAME *name)
 {
 	X509_STORE *store = ctx->store;
 	STACK_OF(X509_CRL) *sk = NULL;
@@ -665,7 +665,7 @@ X509_STORE_CTX_get1_crls(X509_STORE_CTX *ctx, X509_NAME *name)
 	sk_X509_CRL_pop_free(sk, X509_CRL_free);
 	return NULL;
 }
-LCRYPTO_ALIAS(X509_STORE_CTX_get1_crls);
+LCRYPTO_ALIAS(X509_STORE_get1_crls);
 
 X509_OBJECT *
 X509_OBJECT_retrieve_match(STACK_OF(X509_OBJECT) *h, X509_OBJECT *x)

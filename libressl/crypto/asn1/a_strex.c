@@ -1,4 +1,4 @@
-/* $OpenBSD: a_strex.c,v 1.34 2023/07/07 19:37:52 beck Exp $ */
+/* $OpenBSD: a_strex.c,v 1.32 2022/11/26 16:08:50 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */
@@ -593,11 +593,9 @@ ASN1_STRING_print_ex(BIO *out, const ASN1_STRING *str, unsigned long flags)
 {
 	return do_print_ex(send_bio_chars, out, flags, str);
 }
-LCRYPTO_ALIAS(ASN1_STRING_print_ex);
 
 int
 ASN1_STRING_print_ex_fp(FILE *fp, const ASN1_STRING *str, unsigned long flags)
 {
 	return do_print_ex(send_fp_chars, fp, flags, str);
 }
-LCRYPTO_ALIAS(ASN1_STRING_print_ex_fp);

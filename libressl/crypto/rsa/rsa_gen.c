@@ -1,4 +1,4 @@
-/* $OpenBSD: rsa_gen.c,v 1.30 2023/07/08 12:26:45 beck Exp $ */
+/* $OpenBSD: rsa_gen.c,v 1.26 2022/11/26 16:08:54 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -56,6 +56,12 @@
  * [including the GNU Public Licence.]
  */
 
+
+/* NB: these functions have been "upgraded", the deprecated versions (which are
+ * compatibility wrappers using these functions) are in rsa_depr.c.
+ * - Geoff
+ */
+
 #include <stdio.h>
 #include <time.h>
 
@@ -68,6 +74,13 @@
 
 static int rsa_builtin_keygen(RSA *rsa, int bits, BIGNUM *e_value, BN_GENCB *cb);
 
+/*
+ * NB: this wrapper would normally be placed in rsa_lib.c and the static
+ * implementation would probably be in rsa_eay.c. Nonetheless, is kept here so
+ * that we don't introduce a new linker dependency. Eg. any application that
+ * wasn't previously linking object code related to key-generation won't have to
+ * now just because key-generation is part of RSA_METHOD.
+ */
 int
 RSA_generate_key_ex(RSA *rsa, int bits, BIGNUM *e_value, BN_GENCB *cb)
 {
@@ -75,7 +88,6 @@ RSA_generate_key_ex(RSA *rsa, int bits, BIGNUM *e_value, BN_GENCB *cb)
 		return rsa->meth->rsa_keygen(rsa, bits, e_value, cb);
 	return rsa_builtin_keygen(rsa, bits, e_value, cb);
 }
-LCRYPTO_ALIAS(RSA_generate_key_ex);
 
 static int
 rsa_builtin_keygen(RSA *rsa, int bits, BIGNUM *e_value, BN_GENCB *cb)
@@ -119,8 +131,7 @@ rsa_builtin_keygen(RSA *rsa, int bits, BIGNUM *e_value, BN_GENCB *cb)
 	if (!rsa->iqmp && ((rsa->iqmp = BN_new()) == NULL))
 		goto err;
 
-	if (!bn_copy(rsa->e, e_value))
-		goto err;
+	BN_copy(rsa->e, e_value);
 
 	/* generate p and q */
 	for (;;) {
@@ -221,37 +232,3 @@ err:
 
 	return ok;
 }
-
-RSA *
-RSA_generate_key(int bits, unsigned long e_value,
-    void (*callback)(int, int, void *), void *cb_arg)
-{
-	BN_GENCB cb;
-	int i;
-	RSA *rsa = RSA_new();
-	BIGNUM *e = BN_new();
-
-	if (!rsa || !e)
-		goto err;
-
-	/* The problem is when building with 8, 16, or 32 BN_ULONG,
-	 * unsigned long can be larger */
-	for (i = 0; i < (int)sizeof(unsigned long) * 8; i++) {
-		if (e_value & (1UL << i))
-			if (BN_set_bit(e, i) == 0)
-				goto err;
-	}
-
-	BN_GENCB_set_old(&cb, callback, cb_arg);
-
-	if (RSA_generate_key_ex(rsa, bits, e, &cb)) {
-		BN_free(e);
-		return rsa;
-	}
-err:
-	BN_free(e);
-	RSA_free(rsa);
-
-	return 0;
-}
-LCRYPTO_ALIAS(RSA_generate_key);

@@ -1,4 +1,4 @@
-/* $OpenBSD: dsa_asn1.c,v 1.31 2023/07/08 14:28:15 beck Exp $ */
+/* $OpenBSD: dsa_asn1.c,v 1.29 2023/03/07 09:27:10 jsing Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */
@@ -61,7 +61,6 @@
 
 #include <openssl/asn1.h>
 #include <openssl/asn1t.h>
-#include <openssl/bn.h>
 #include <openssl/dsa.h>
 #include <openssl/err.h>
 
@@ -126,14 +125,12 @@ d2i_DSA_SIG(DSA_SIG **a, const unsigned char **in, long len)
 	return (DSA_SIG *)ASN1_item_d2i((ASN1_VALUE **)a, in, len,
 	    &DSA_SIG_it);
 }
-LCRYPTO_ALIAS(d2i_DSA_SIG);
 
 int
 i2d_DSA_SIG(const DSA_SIG *a, unsigned char **out)
 {
 	return ASN1_item_i2d((ASN1_VALUE *)a, out, &DSA_SIG_it);
 }
-LCRYPTO_ALIAS(i2d_DSA_SIG);
 
 void
 DSA_SIG_get0(const DSA_SIG *sig, const BIGNUM **pr, const BIGNUM **ps)
@@ -143,7 +140,6 @@ DSA_SIG_get0(const DSA_SIG *sig, const BIGNUM **pr, const BIGNUM **ps)
 	if (ps != NULL)
 		*ps = sig->s;
 }
-LCRYPTO_ALIAS(DSA_SIG_get0);
 
 int
 DSA_SIG_set0(DSA_SIG *sig, BIGNUM *r, BIGNUM *s)
@@ -158,7 +154,6 @@ DSA_SIG_set0(DSA_SIG *sig, BIGNUM *r, BIGNUM *s)
 
 	return 1;
 }
-LCRYPTO_ALIAS(DSA_SIG_set0);
 
 /* Override the default free and new methods */
 static int
@@ -247,14 +242,12 @@ d2i_DSAPrivateKey(DSA **a, const unsigned char **in, long len)
 	return (DSA *)ASN1_item_d2i((ASN1_VALUE **)a, in, len,
 	    &DSAPrivateKey_it);
 }
-LCRYPTO_ALIAS(d2i_DSAPrivateKey);
 
 int
 i2d_DSAPrivateKey(const DSA *a, unsigned char **out)
 {
 	return ASN1_item_i2d((ASN1_VALUE *)a, out, &DSAPrivateKey_it);
 }
-LCRYPTO_ALIAS(i2d_DSAPrivateKey);
 
 static const ASN1_AUX DSAparams_aux = {
 	.app_data = NULL,
@@ -305,42 +298,36 @@ d2i_DSAparams(DSA **a, const unsigned char **in, long len)
 	return (DSA *)ASN1_item_d2i((ASN1_VALUE **)a, in, len,
 	    &DSAparams_it);
 }
-LCRYPTO_ALIAS(d2i_DSAparams);
 
 int
 i2d_DSAparams(const DSA *a, unsigned char **out)
 {
 	return ASN1_item_i2d((ASN1_VALUE *)a, out, &DSAparams_it);
 }
-LCRYPTO_ALIAS(i2d_DSAparams);
 
 DSA *
 d2i_DSAparams_bio(BIO *bp, DSA **a)
 {
 	return ASN1_item_d2i_bio(&DSAparams_it, bp, a);
 }
-LCRYPTO_ALIAS(d2i_DSAparams_bio);
 
 int
 i2d_DSAparams_bio(BIO *bp, DSA *a)
 {
 	return ASN1_item_i2d_bio(&DSAparams_it, bp, a);
 }
-LCRYPTO_ALIAS(i2d_DSAparams_bio);
 
 DSA *
 d2i_DSAparams_fp(FILE *fp, DSA **a)
 {
 	return ASN1_item_d2i_fp(&DSAparams_it, fp, a);
 }
-LCRYPTO_ALIAS(d2i_DSAparams_fp);
 
 int
 i2d_DSAparams_fp(FILE *fp, DSA *a)
 {
 	return ASN1_item_i2d_fp(&DSAparams_it, fp, a);
 }
-LCRYPTO_ALIAS(i2d_DSAparams_fp);
 
 static const ASN1_AUX DSAPublicKey_aux = {
 	.app_data = NULL,
@@ -397,21 +384,18 @@ d2i_DSAPublicKey(DSA **a, const unsigned char **in, long len)
 	return (DSA *)ASN1_item_d2i((ASN1_VALUE **)a, in, len,
 	    &DSAPublicKey_it);
 }
-LCRYPTO_ALIAS(d2i_DSAPublicKey);
 
 int
 i2d_DSAPublicKey(const DSA *a, unsigned char **out)
 {
 	return ASN1_item_i2d((ASN1_VALUE *)a, out, &DSAPublicKey_it);
 }
-LCRYPTO_ALIAS(i2d_DSAPublicKey);
 
 DSA *
 DSAparams_dup(DSA *dsa)
 {
 	return ASN1_item_dup(&DSAparams_it, dsa);
 }
-LCRYPTO_ALIAS(DSAparams_dup);
 
 int
 DSA_sign(int type, const unsigned char *dgst, int dlen, unsigned char *sig,
@@ -437,7 +421,6 @@ DSA_sign(int type, const unsigned char *dgst, int dlen, unsigned char *sig,
 
 	return ret;
 }
-LCRYPTO_ALIAS(DSA_sign);
 
 /*
  * data has already been hashed (probably with SHA or SHA-1).
@@ -473,4 +456,3 @@ DSA_verify(int type, const unsigned char *dgst, int dgst_len,
 
 	return ret;
 }
-LCRYPTO_ALIAS(DSA_verify);

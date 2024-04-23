@@ -1,4 +1,4 @@
-/* $OpenBSD: x509_alt.c,v 1.16 2023/08/30 00:49:32 tb Exp $ */
+/* $OpenBSD: x509_alt.c,v 1.15 2023/02/16 08:38:17 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project.
  */
@@ -354,11 +354,10 @@ err:
 static int
 copy_issuer(X509V3_CTX *ctx, GENERAL_NAMES *gens)
 {
-	GENERAL_NAMES *ialt = NULL;
-	GENERAL_NAME *gen = NULL;
+	GENERAL_NAMES *ialt;
+	GENERAL_NAME *gen;
 	X509_EXTENSION *ext;
 	int i;
-	int ret = 0;
 
 	if (ctx && (ctx->flags == CTX_TEST))
 		return 1;
@@ -376,24 +375,19 @@ copy_issuer(X509V3_CTX *ctx, GENERAL_NAMES *gens)
 	}
 
 	for (i = 0; i < sk_GENERAL_NAME_num(ialt); i++) {
-		GENERAL_NAME *val = sk_GENERAL_NAME_value(ialt, i);
-
-		if ((gen = GENERAL_NAME_dup(val)) == NULL)
-			goto err;
+		gen = sk_GENERAL_NAME_value(ialt, i);
 		if (!sk_GENERAL_NAME_push(gens, gen)) {
 			X509V3error(ERR_R_MALLOC_FAILURE);
 			goto err;
 		}
-		gen = NULL;
 	}
+	sk_GENERAL_NAME_free(ialt);
 
-	ret = 1;
+	return 1;
 
- err:
-	sk_GENERAL_NAME_pop_free(ialt, GENERAL_NAME_free);
-	GENERAL_NAME_free(gen);
+err:
+	return 0;
 
-	return ret;
 }
 
 static GENERAL_NAMES *

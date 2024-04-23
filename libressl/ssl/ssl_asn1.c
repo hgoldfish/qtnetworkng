@@ -1,4 +1,4 @@
-/* $OpenBSD: ssl_asn1.c,v 1.67 2023/07/08 16:40:13 beck Exp $ */
+/* $OpenBSD: ssl_asn1.c,v 1.66 2022/11/26 16:08:55 tb Exp $ */
 /*
  * Copyright (c) 2016 Joel Sing <jsing@openbsd.org>
  *
@@ -238,7 +238,6 @@ i2d_SSL_SESSION(SSL_SESSION *ss, unsigned char **pp)
 
 	return rv;
 }
-LSSL_ALIAS(i2d_SSL_SESSION);
 
 SSL_SESSION *
 d2i_SSL_SESSION(SSL_SESSION **a, const unsigned char **pp, long length)
@@ -417,4 +416,3 @@ d2i_SSL_SESSION(SSL_SESSION **a, const unsigned char **pp, long length)
 
 	return (NULL);
 }
-LSSL_ALIAS(d2i_SSL_SESSION);

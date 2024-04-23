@@ -2,7 +2,6 @@
 
 .hidden	OPENSSL_cpuid_setup
 .section	.init
-	endbr64
 	call	OPENSSL_cpuid_setup
 
 
@@ -14,7 +13,6 @@
 .type	OPENSSL_ia32_cpuid,@function
 .align	16
 OPENSSL_ia32_cpuid:
-	endbr64
 	movq	%rbx,%r8
 
 	xorl	%eax,%eax
@@ -52,7 +50,6 @@ OPENSSL_ia32_cpuid:
 	movl	%eax,%r10d
 	movl	$2147483649,%eax
 	cpuid
-	orl	%ecx,%r9d
 	andl	$IA32CAP_MASK1_AMD_XOP,%r9d
 	orl	$1,%r9d
 

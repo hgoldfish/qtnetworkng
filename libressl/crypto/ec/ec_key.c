@@ -1,4 +1,4 @@
-/* $OpenBSD: ec_key.c,v 1.37 2023/08/03 18:53:56 tb Exp $ */
+/* $OpenBSD: ec_key.c,v 1.31 2023/03/07 09:27:10 jsing Exp $ */
 /*
  * Written by Nils Larsch for the OpenSSL project.
  */
@@ -78,7 +78,6 @@ EC_KEY_new(void)
 {
 	return EC_KEY_new_method(NULL);
 }
-LCRYPTO_ALIAS(EC_KEY_new);
 
 EC_KEY *
 EC_KEY_new_by_curve_name(int nid)
@@ -98,7 +97,6 @@ EC_KEY_new_by_curve_name(int nid)
 	}
 	return ret;
 }
-LCRYPTO_ALIAS(EC_KEY_new_by_curve_name);
 
 void
 EC_KEY_free(EC_KEY *r)
@@ -124,13 +122,16 @@ EC_KEY_free(EC_KEY *r)
 	EC_POINT_free(r->pub_key);
 	BN_free(r->priv_key);
 
+	EC_EX_DATA_free_all_data(&r->method_data);
+
 	freezero(r, sizeof(EC_KEY));
 }
-LCRYPTO_ALIAS(EC_KEY_free);
 
 EC_KEY *
 EC_KEY_copy(EC_KEY *dest, const EC_KEY *src)
 {
+	EC_EXTRA_DATA *d;
+
 	if (dest == NULL || src == NULL) {
 		ECerror(ERR_R_PASSED_NULL_PARAMETER);
 		return NULL;
@@ -171,8 +172,20 @@ EC_KEY_copy(EC_KEY *dest, const EC_KEY *src)
 			if (dest->priv_key == NULL)
 				return NULL;
 		}
-		if (!bn_copy(dest->priv_key, src->priv_key))
+		if (!BN_copy(dest->priv_key, src->priv_key))
 			return NULL;
+	}
+	/* copy method/extra data */
+	EC_EX_DATA_free_all_data(&dest->method_data);
+
+	for (d = src->method_data; d != NULL; d = d->next) {
+		void *t = d->dup_func(d->data);
+
+		if (t == NULL)
+			return 0;
+		if (!EC_EX_DATA_set_data(&dest->method_data, t, d->dup_func,
+		    d->free_func, d->clear_free_func))
+			return 0;
 	}
 
 	/* copy the rest */
@@ -200,7 +213,6 @@ EC_KEY_copy(EC_KEY *dest, const EC_KEY *src)
 
 	return dest;
 }
-LCRYPTO_ALIAS(EC_KEY_copy);
 
 EC_KEY *
 EC_KEY_dup(const EC_KEY *ec_key)
@@ -215,7 +227,6 @@ EC_KEY_dup(const EC_KEY *ec_key)
 	}
 	return ret;
 }
-LCRYPTO_ALIAS(EC_KEY_dup);
 
 int
 EC_KEY_up_ref(EC_KEY *r)
@@ -223,21 +234,18 @@ EC_KEY_up_ref(EC_KEY *r)
 	int i = CRYPTO_add(&r->references, 1, CRYPTO_LOCK_EC);
 	return ((i > 1) ? 1 : 0);
 }
-LCRYPTO_ALIAS(EC_KEY_up_ref);
 
 int
 EC_KEY_set_ex_data(EC_KEY *r, int idx, void *arg)
 {
 	return CRYPTO_set_ex_data(&r->ex_data, idx, arg);
 }
-LCRYPTO_ALIAS(EC_KEY_set_ex_data);
 
 void *
 EC_KEY_get_ex_data(const EC_KEY *r, int idx)
 {
 	return CRYPTO_get_ex_data(&r->ex_data, idx);
 }
-LCRYPTO_ALIAS(EC_KEY_get_ex_data);
 
 int
 EC_KEY_generate_key(EC_KEY *eckey)
@@ -247,14 +255,14 @@ EC_KEY_generate_key(EC_KEY *eckey)
 	ECerror(EC_R_NOT_IMPLEMENTED);
 	return 0;
 }
-LCRYPTO_ALIAS(EC_KEY_generate_key);
 
 int
-ec_key_gen(EC_KEY *eckey)
+ossl_ec_key_gen(EC_KEY *eckey)
 {
+	BN_CTX *ctx = NULL;
 	BIGNUM *priv_key = NULL;
 	EC_POINT *pub_key = NULL;
-	const BIGNUM *order;
+	BIGNUM *order;
 	int ret = 0;
 
 	if (eckey == NULL || eckey->group == NULL) {
@@ -267,11 +275,19 @@ ec_key_gen(EC_KEY *eckey)
 	if ((pub_key = EC_POINT_new(eckey->group)) == NULL)
 		goto err;
 
-	if ((order = EC_GROUP_get0_order(eckey->group)) == NULL)
+	if ((ctx = BN_CTX_new()) == NULL)
 		goto err;
-	if (!bn_rand_interval(priv_key, 1, order))
+
+	BN_CTX_start(ctx);
+
+	if ((order = BN_CTX_get(ctx)) == NULL)
 		goto err;
-	if (!EC_POINT_mul(eckey->group, pub_key, priv_key, NULL, NULL, NULL))
+
+	if (!EC_GROUP_get_order(eckey->group, order, ctx))
+		goto err;
+	if (!bn_rand_interval(priv_key, BN_value_one(), order))
+		goto err;
+	if (!EC_POINT_mul(eckey->group, pub_key, priv_key, NULL, NULL, ctx))
 		goto err;
 
 	BN_free(eckey->priv_key);
@@ -287,6 +303,8 @@ ec_key_gen(EC_KEY *eckey)
  err:
 	EC_POINT_free(pub_key);
 	BN_free(priv_key);
+	BN_CTX_end(ctx);
+	BN_CTX_free(ctx);
 
 	return ret;
 }
@@ -296,7 +314,7 @@ EC_KEY_check_key(const EC_KEY *eckey)
 {
 	BN_CTX *ctx = NULL;
 	EC_POINT *point = NULL;
-	const BIGNUM *order;
+	BIGNUM *order;
 	int ret = 0;
 
 	if (eckey == NULL || eckey->group == NULL || eckey->pub_key == NULL) {
@@ -312,6 +330,11 @@ EC_KEY_check_key(const EC_KEY *eckey)
 	if ((ctx = BN_CTX_new()) == NULL)
 		goto err;
 
+	BN_CTX_start(ctx);
+
+	if ((order = BN_CTX_get(ctx)) == NULL)
+		goto err;
+
 	if ((point = EC_POINT_new(eckey->group)) == NULL)
 		goto err;
 
@@ -322,7 +345,7 @@ EC_KEY_check_key(const EC_KEY *eckey)
 	}
 
 	/* Ensure public key multiplied by the order is the point at infinity. */
-	if ((order = EC_GROUP_get0_order(eckey->group)) == NULL) {
+	if (!EC_GROUP_get_order(eckey->group, order, ctx)) {
 		ECerror(EC_R_INVALID_GROUP_ORDER);
 		goto err;
 	}
@@ -359,12 +382,12 @@ EC_KEY_check_key(const EC_KEY *eckey)
 	ret = 1;
 
  err:
+	BN_CTX_end(ctx);
 	BN_CTX_free(ctx);
 	EC_POINT_free(point);
 
 	return ret;
 }
-LCRYPTO_ALIAS(EC_KEY_check_key);
 
 int
 EC_KEY_set_public_key_affine_coordinates(EC_KEY *key, BIGNUM *x, BIGNUM *y)
@@ -419,14 +442,12 @@ EC_KEY_set_public_key_affine_coordinates(EC_KEY *key, BIGNUM *x, BIGNUM *y)
 
 	return ret;
 }
-LCRYPTO_ALIAS(EC_KEY_set_public_key_affine_coordinates);
 
 const EC_GROUP *
 EC_KEY_get0_group(const EC_KEY *key)
 {
 	return key->group;
 }
-LCRYPTO_ALIAS(EC_KEY_get0_group);
 
 int
 EC_KEY_set_group(EC_KEY *key, const EC_GROUP *group)
@@ -438,14 +459,12 @@ EC_KEY_set_group(EC_KEY *key, const EC_GROUP *group)
 	key->group = EC_GROUP_dup(group);
 	return (key->group == NULL) ? 0 : 1;
 }
-LCRYPTO_ALIAS(EC_KEY_set_group);
 
 const BIGNUM *
 EC_KEY_get0_private_key(const EC_KEY *key)
 {
 	return key->priv_key;
 }
-LCRYPTO_ALIAS(EC_KEY_get0_private_key);
 
 int
 EC_KEY_set_private_key(EC_KEY *key, const BIGNUM *priv_key)
@@ -460,14 +479,12 @@ EC_KEY_set_private_key(EC_KEY *key, const BIGNUM *priv_key)
 
 	return 1;
 }
-LCRYPTO_ALIAS(EC_KEY_set_private_key);
 
 const EC_POINT *
 EC_KEY_get0_public_key(const EC_KEY *key)
 {
 	return key->pub_key;
 }
-LCRYPTO_ALIAS(EC_KEY_get0_public_key);
 
 int
 EC_KEY_set_public_key(EC_KEY *key, const EC_POINT *pub_key)
@@ -482,28 +499,24 @@ EC_KEY_set_public_key(EC_KEY *key, const EC_POINT *pub_key)
 
 	return 1;
 }
-LCRYPTO_ALIAS(EC_KEY_set_public_key);
 
 unsigned int
 EC_KEY_get_enc_flags(const EC_KEY *key)
 {
 	return key->enc_flag;
 }
-LCRYPTO_ALIAS(EC_KEY_get_enc_flags);
 
 void
 EC_KEY_set_enc_flags(EC_KEY *key, unsigned int flags)
 {
 	key->enc_flag = flags;
 }
-LCRYPTO_ALIAS(EC_KEY_set_enc_flags);
 
 point_conversion_form_t
 EC_KEY_get_conv_form(const EC_KEY *key)
 {
 	return key->conv_form;
 }
-LCRYPTO_ALIAS(EC_KEY_get_conv_form);
 
 void
 EC_KEY_set_conv_form(EC_KEY *key, point_conversion_form_t cform)
@@ -512,7 +525,38 @@ EC_KEY_set_conv_form(EC_KEY *key, point_conversion_form_t cform)
 	if (key->group != NULL)
 		EC_GROUP_set_point_conversion_form(key->group, cform);
 }
-LCRYPTO_ALIAS(EC_KEY_set_conv_form);
+
+void *
+EC_KEY_get_key_method_data(EC_KEY *key,
+    void *(*dup_func) (void *),
+    void (*free_func) (void *),
+    void (*clear_free_func) (void *))
+{
+	void *ret;
+
+	CRYPTO_r_lock(CRYPTO_LOCK_EC);
+	ret = EC_EX_DATA_get_data(key->method_data, dup_func, free_func, clear_free_func);
+	CRYPTO_r_unlock(CRYPTO_LOCK_EC);
+
+	return ret;
+}
+
+void *
+EC_KEY_insert_key_method_data(EC_KEY *key, void *data,
+    void *(*dup_func) (void *),
+    void (*free_func) (void *),
+    void (*clear_free_func) (void *))
+{
+	EC_EXTRA_DATA *ex_data;
+
+	CRYPTO_w_lock(CRYPTO_LOCK_EC);
+	ex_data = EC_EX_DATA_get_data(key->method_data, dup_func, free_func, clear_free_func);
+	if (ex_data == NULL)
+		EC_EX_DATA_set_data(&key->method_data, data, dup_func, free_func, clear_free_func);
+	CRYPTO_w_unlock(CRYPTO_LOCK_EC);
+
+	return ex_data;
+}
 
 void
 EC_KEY_set_asn1_flag(EC_KEY *key, int flag)
@@ -520,7 +564,6 @@ EC_KEY_set_asn1_flag(EC_KEY *key, int flag)
 	if (key->group != NULL)
 		EC_GROUP_set_asn1_flag(key->group, flag);
 }
-LCRYPTO_ALIAS(EC_KEY_set_asn1_flag);
 
 int
 EC_KEY_precompute_mult(EC_KEY *key, BN_CTX *ctx)
@@ -529,25 +572,21 @@ EC_KEY_precompute_mult(EC_KEY *key, BN_CTX *ctx)
 		return 0;
 	return EC_GROUP_precompute_mult(key->group, ctx);
 }
-LCRYPTO_ALIAS(EC_KEY_precompute_mult);
 
 int
 EC_KEY_get_flags(const EC_KEY *key)
 {
 	return key->flags;
 }
-LCRYPTO_ALIAS(EC_KEY_get_flags);
 
 void
 EC_KEY_set_flags(EC_KEY *key, int flags)
 {
 	key->flags |= flags;
 }
-LCRYPTO_ALIAS(EC_KEY_set_flags);
 
 void
 EC_KEY_clear_flags(EC_KEY *key, int flags)
 {
 	key->flags &= ~flags;
 }
-LCRYPTO_ALIAS(EC_KEY_clear_flags);

@@ -51,7 +51,6 @@ _OPENSSL_ia32_cpuid:
 	movl	%eax,%r10d
 	movl	$2147483649,%eax
 	cpuid
-	orl	%ecx,%r9d
 	andl	$IA32CAP_MASK1_AMD_XOP,%r9d
 	orl	$1,%r9d
 

@@ -1,4 +1,4 @@
-/* $OpenBSD: lh_stats.c,v 1.13 2023/07/07 13:40:44 beck Exp $ */
+/* $OpenBSD: lh_stats.c,v 1.12 2014/07/11 08:44:48 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -96,7 +96,6 @@ lh_stats(LHASH *lh, FILE *out)
 	fprintf(out, "down_load             = %lu\n", lh->down_load);
 #endif
 }
-LCRYPTO_ALIAS(lh_stats);
 
 void
 lh_node_stats(LHASH *lh, FILE *out)
@@ -110,7 +109,6 @@ lh_node_stats(LHASH *lh, FILE *out)
 		fprintf(out, "node %6u -> %3u\n", i, num);
 	}
 }
-LCRYPTO_ALIAS(lh_node_stats);
 
 void
 lh_node_usage_stats(LHASH *lh, FILE *out)
@@ -138,7 +136,6 @@ lh_node_usage_stats(LHASH *lh, FILE *out)
 	    (int)(total / n_used),
 	    (int)((total % n_used) * 100 / n_used));
 }
-LCRYPTO_ALIAS(lh_node_usage_stats);
 
 #else
 
@@ -155,7 +152,6 @@ lh_stats(const _LHASH *lh, FILE *fp)
 	BIO_free(bp);
 end:;
 }
-LCRYPTO_ALIAS(lh_stats);
 
 void
 lh_node_stats(const _LHASH *lh, FILE *fp)
@@ -170,7 +166,6 @@ lh_node_stats(const _LHASH *lh, FILE *fp)
 	BIO_free(bp);
 end:;
 }
-LCRYPTO_ALIAS(lh_node_stats);
 
 void
 lh_node_usage_stats(const _LHASH *lh, FILE *fp)
@@ -185,7 +180,6 @@ lh_node_usage_stats(const _LHASH *lh, FILE *fp)
 	BIO_free(bp);
 end:;
 }
-LCRYPTO_ALIAS(lh_node_usage_stats);
 
 
 void
@@ -216,7 +210,6 @@ lh_stats_bio(const _LHASH *lh, BIO *out)
 	BIO_printf(out, "down_load             = %lu\n", lh->down_load);
 #endif
 }
-LCRYPTO_ALIAS(lh_stats_bio);
 
 void
 lh_node_stats_bio(const _LHASH *lh, BIO *out)
@@ -230,7 +223,6 @@ lh_node_stats_bio(const _LHASH *lh, BIO *out)
 		BIO_printf(out, "node %6u -> %3u\n", i, num);
 	}
 }
-LCRYPTO_ALIAS(lh_node_stats_bio);
 
 void
 lh_node_usage_stats_bio(const _LHASH *lh, BIO *out)
@@ -258,6 +250,5 @@ lh_node_usage_stats_bio(const _LHASH *lh, BIO *out)
 	    (int)(total / n_used),
 	    (int)((total % n_used) * 100 / n_used));
 }
-LCRYPTO_ALIAS(lh_node_usage_stats_bio);
 
 #endif

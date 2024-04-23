@@ -1,4 +1,4 @@
-/* $OpenBSD: dsa_ossl.c,v 1.53 2023/08/03 18:53:55 tb Exp $ */
+/* $OpenBSD: dsa_ossl.c,v 1.50 2023/03/04 21:30:23 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -91,7 +91,6 @@ DSA_OpenSSL(void)
 {
 	return &openssl_dsa_meth;
 }
-LCRYPTO_ALIAS(DSA_OpenSSL);
 
 /*
  * Since DSA parameters are entirely arbitrary and checking them to be
@@ -172,7 +171,7 @@ dsa_do_sign(const unsigned char *dgst, int dlen, DSA *dsa)
 	 *
 	 * Where b is a random value in the range [1, q).
 	 */
-	if (!bn_rand_interval(b, 1, dsa->q))
+	if (!bn_rand_interval(b, BN_value_one(), dsa->q))
 		goto err;
 	if (BN_mod_inverse_ct(binv, b, dsa->q, ctx) == NULL)
 		goto err;
@@ -261,7 +260,7 @@ dsa_sign_setup(DSA *dsa, BN_CTX *ctx_in, BIGNUM **kinvp, BIGNUM **rp)
 	    !BN_set_bit(m, q_bits))
 		goto err;
 
-	if (!bn_rand_interval(k, 1, dsa->q))
+	if (!bn_rand_interval(k, BN_value_one(), dsa->q))
 		goto err;
 
 	BN_set_flags(k, BN_FLG_CONSTTIME);
@@ -283,13 +282,13 @@ dsa_sign_setup(DSA *dsa, BN_CTX *ctx_in, BIGNUM **kinvp, BIGNUM **rp)
 	 * small timing information leakage.  We then choose the sum that is
 	 * one bit longer than the modulus.
 	 *
-	 * TODO: revisit the bn_copy aiming for a memory access agnostic
+	 * TODO: revisit the BN_copy aiming for a memory access agnostic
 	 * conditional copy.
 	 */
 
 	if (!BN_add(l, k, dsa->q) ||
 	    !BN_add(m, l, dsa->q) ||
-	    !bn_copy(k, BN_num_bits(l) > q_bits ? l : m))
+	    !BN_copy(k, BN_num_bits(l) > q_bits ? l : m))
 		goto err;
 
 	if (dsa->meth->bn_mod_exp != NULL) {
@@ -441,7 +440,6 @@ DSA_SIG_new(void)
 {
 	return calloc(1, sizeof(DSA_SIG));
 }
-LCRYPTO_ALIAS(DSA_SIG_new);
 
 void
 DSA_SIG_free(DSA_SIG *sig)
@@ -453,25 +451,21 @@ DSA_SIG_free(DSA_SIG *sig)
 	BN_free(sig->s);
 	free(sig);
 }
-LCRYPTO_ALIAS(DSA_SIG_free);
 
 int
 DSA_sign_setup(DSA *dsa, BN_CTX *ctx_in, BIGNUM **kinvp, BIGNUM **rp)
 {
 	return dsa->meth->dsa_sign_setup(dsa, ctx_in, kinvp, rp);
 }
-LCRYPTO_ALIAS(DSA_sign_setup);
 
 DSA_SIG *
 DSA_do_sign(const unsigned char *dgst, int dlen, DSA *dsa)
 {
 	return dsa->meth->dsa_do_sign(dgst, dlen, dsa);
 }
-LCRYPTO_ALIAS(DSA_do_sign);
 
 int
 DSA_do_verify(const unsigned char *dgst, int dgst_len, DSA_SIG *sig, DSA *dsa)
 {
 	return dsa->meth->dsa_do_verify(dgst, dgst_len, sig, dsa);
 }
-LCRYPTO_ALIAS(DSA_do_verify);

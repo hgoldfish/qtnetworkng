@@ -1,4 +1,4 @@
-/* $OpenBSD: s_server.c,v 1.58 2023/07/03 08:03:56 beck Exp $ */
+/* $OpenBSD: s_server.c,v 1.56 2023/03/06 14:32:06 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -341,6 +341,18 @@ s_server_opt_protocol_version_dtls(void)
 }
 #endif
 
+#ifndef OPENSSL_NO_DTLS1
+static int
+s_server_opt_protocol_version_dtls1(void)
+{
+	cfg.meth = DTLS_server_method();
+	cfg.min_version = DTLS1_VERSION;
+	cfg.max_version = DTLS1_VERSION;
+	cfg.socket_type = SOCK_DGRAM;
+	return (0);
+}
+#endif
+
 #ifndef OPENSSL_NO_DTLS1_2
 static int
 s_server_opt_protocol_version_dtls1_2(void)
@@ -352,6 +364,22 @@ s_server_opt_protocol_version_dtls1_2(void)
 	return (0);
 }
 #endif
+
+static int
+s_server_opt_protocol_version_tls1(void)
+{
+	cfg.min_version = TLS1_VERSION;
+	cfg.max_version = TLS1_VERSION;
+	return (0);
+}
+
+static int
+s_server_opt_protocol_version_tls1_1(void)
+{
+	cfg.min_version = TLS1_1_VERSION;
+	cfg.max_version = TLS1_1_VERSION;
+	return (0);
+}
 
 static int
 s_server_opt_protocol_version_tls1_2(void)
@@ -620,6 +648,14 @@ static const struct option s_server_options[] = {
 		.opt.func = s_server_opt_protocol_version_dtls,
 	},
 #endif
+#ifndef OPENSSL_NO_DTLS1
+	{
+		.name = "dtls1",
+		.desc = "Just use DTLSv1",
+		.type = OPTION_FUNC,
+		.opt.func = s_server_opt_protocol_version_dtls1,
+	},
+#endif
 #ifndef OPENSSL_NO_DTLS1_2
 	{
 		.name = "dtls1_2",
@@ -770,19 +806,29 @@ static const struct option s_server_options[] = {
 	},
 	{
 		.name = "no_ssl2",
-		.type = OPTION_DISCARD,
+		.type = OPTION_VALUE_OR,
+		.opt.value = &cfg.off,
+		.value = SSL_OP_NO_SSLv2,
 	},
 	{
 		.name = "no_ssl3",
-		.type = OPTION_DISCARD,
+		.type = OPTION_VALUE_OR,
+		.opt.value = &cfg.off,
+		.value = SSL_OP_NO_SSLv3,
 	},
 	{
 		.name = "no_tls1",
-		.type = OPTION_DISCARD,
+		.desc = "Just disable TLSv1",
+		.type = OPTION_VALUE_OR,
+		.opt.value = &cfg.off,
+		.value = SSL_OP_NO_TLSv1,
 	},
 	{
 		.name = "no_tls1_1",
-		.type = OPTION_DISCARD,
+		.desc = "Just disable TLSv1.1",
+		.type = OPTION_VALUE_OR,
+		.opt.value = &cfg.off,
+		.value = SSL_OP_NO_TLSv1_1,
 	},
 	{
 		.name = "no_tls1_2",
@@ -889,6 +935,18 @@ static const struct option s_server_options[] = {
 	},
 #endif
 	{
+		.name = "tls1",
+		.desc = "Just talk TLSv1",
+		.type = OPTION_FUNC,
+		.opt.func = s_server_opt_protocol_version_tls1,
+	},
+	{
+		.name = "tls1_1",
+		.desc = "Just talk TLSv1.1",
+		.type = OPTION_FUNC,
+		.opt.func = s_server_opt_protocol_version_tls1_1,
+	},
+	{
 		.name = "tls1_2",
 		.desc = "Just talk TLSv1.2",
 		.type = OPTION_FUNC,
@@ -992,17 +1050,17 @@ sv_usage(void)
 	    "    [-context id] [-crl_check] [-crl_check_all] [-crlf]\n"
 	    "    [-dcert file] [-dcertform der | pem] [-debug]\n"
 	    "    [-dhparam file] [-dkey file] [-dkeyform der | pem]\n"
-	    "    [-dpass arg] [-dtls] [-dtls1_2] [-groups list] [-HTTP]\n"
+	    "    [-dpass arg] [-dtls] [-dtls1] [-dtls1_2] [-groups list] [-HTTP]\n"
 	    "    [-id_prefix arg] [-key keyfile] [-key2 keyfile]\n"
 	    "    [-keyform der | pem] [-keymatexport label]\n"
 	    "    [-keymatexportlen len] [-msg] [-mtu mtu] [-naccept num]\n"
 	    "    [-named_curve arg] [-nbio] [-nbio_test] [-no_cache]\n"
-	    "    [-no_dhe] [-no_ecdhe] [-no_ticket] \n"
-	    "    [-no_tls1_2] [-no_tls1_3] [-no_tmp_rsa]\n"
+	    "    [-no_dhe] [-no_ecdhe] [-no_ticket] [-no_tls1]\n"
+	    "    [-no_tls1_1] [-no_tls1_2] [-no_tls1_3] [-no_tmp_rsa]\n"
 	    "    [-nocert] [-pass arg] [-quiet] [-servername name]\n"
 	    "    [-servername_fatal] [-serverpref] [-state] [-status]\n"
 	    "    [-status_timeout nsec] [-status_url url]\n"
-	    "    [-status_verbose] [-timeout] \n"
+	    "    [-status_verbose] [-timeout] [-tls1] [-tls1_1]\n"
 	    "    [-tls1_2] [-tls1_3] [-tlsextdebug] [-use_srtp profiles]\n"
 	    "    [-Verify depth] [-verify depth] [-verify_return_error]\n"
 	    "    [-WWW] [-www]\n");

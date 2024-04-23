@@ -1,4 +1,4 @@
-/* $OpenBSD: ec_pmeth.c,v 1.19 2023/07/28 15:50:33 tb Exp $ */
+/* $OpenBSD: ec_pmeth.c,v 1.16 2022/11/26 16:08:52 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2006.
  */
@@ -61,12 +61,14 @@
 
 #include <openssl/asn1t.h>
 #include <openssl/ec.h>
+#include <openssl/ecdsa.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/x509.h>
 
 #include "bn_local.h"
 #include "ec_local.h"
+#include "ech_local.h"
 #include "evp_local.h"
 
 /* EC pkey context structure */
@@ -379,17 +381,12 @@ pkey_ec_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 		return dctx->kdf_ukmlen;
 
 	case EVP_PKEY_CTRL_MD:
-		/* RFC 3279, RFC 5758 and NIST CSOR. */
 		if (EVP_MD_type((const EVP_MD *) p2) != NID_sha1 &&
 		    EVP_MD_type((const EVP_MD *) p2) != NID_ecdsa_with_SHA1 &&
 		    EVP_MD_type((const EVP_MD *) p2) != NID_sha224 &&
 		    EVP_MD_type((const EVP_MD *) p2) != NID_sha256 &&
 		    EVP_MD_type((const EVP_MD *) p2) != NID_sha384 &&
-		    EVP_MD_type((const EVP_MD *) p2) != NID_sha512 &&
-		    EVP_MD_type((const EVP_MD *) p2) != NID_sha3_224 &&
-		    EVP_MD_type((const EVP_MD *) p2) != NID_sha3_256 &&
-		    EVP_MD_type((const EVP_MD *) p2) != NID_sha3_384 &&
-		    EVP_MD_type((const EVP_MD *) p2) != NID_sha3_512) {
+		    EVP_MD_type((const EVP_MD *) p2) != NID_sha512) {
 			ECerror(EC_R_INVALID_DIGEST_TYPE);
 			return 0;
 		}

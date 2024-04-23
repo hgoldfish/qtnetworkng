@@ -349,8 +349,8 @@ AM_CPPFLAGS = -I$(top_srcdir)/include -I$(abs_top_builddir)/include \
 EXTRA_DIST = CMakeLists.txt
 SUBDIRS = openssl
 noinst_HEADERS = pqueue.h compat/dirent.h compat/dirent_msvc.h \
-	compat/endian.h compat/err.h compat/fcntl.h compat/getopt.h \
-	compat/limits.h compat/netdb.h compat/poll.h compat/pthread.h \
+	compat/endian.h compat/err.h compat/fcntl.h compat/limits.h \
+	compat/netdb.h compat/poll.h compat/pthread.h \
 	compat/readpassphrase.h compat/resolv.h compat/stdio.h \
 	compat/stdlib.h compat/string.h compat/syslog.h compat/time.h \
 	compat/unistd.h compat/win32netcompat.h compat/arpa/inet.h \

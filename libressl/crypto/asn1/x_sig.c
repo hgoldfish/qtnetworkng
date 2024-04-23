@@ -1,4 +1,4 @@
-/* $OpenBSD: x_sig.c,v 1.16 2023/07/07 19:37:53 beck Exp $ */
+/* $OpenBSD: x_sig.c,v 1.14 2022/11/26 16:08:50 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

@@ -1,4 +1,4 @@
-/* $OpenBSD: cms_smime.c,v 1.27 2023/07/08 08:26:26 beck Exp $ */
+/* $OpenBSD: cms_smime.c,v 1.25 2022/11/26 16:08:51 tb Exp $ */
 /*
  * Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project.
@@ -170,7 +170,6 @@ CMS_data(CMS_ContentInfo *cms, BIO *out, unsigned int flags)
 
 	return r;
 }
-LCRYPTO_ALIAS(CMS_data);
 
 CMS_ContentInfo *
 CMS_data_create(BIO *in, unsigned int flags)
@@ -188,7 +187,6 @@ CMS_data_create(BIO *in, unsigned int flags)
 
 	return NULL;
 }
-LCRYPTO_ALIAS(CMS_data_create);
 
 int
 CMS_digest_verify(CMS_ContentInfo *cms, BIO *dcont, BIO *out, unsigned int flags)
@@ -214,7 +212,6 @@ CMS_digest_verify(CMS_ContentInfo *cms, BIO *dcont, BIO *out, unsigned int flags
 
 	return r;
 }
-LCRYPTO_ALIAS(CMS_digest_verify);
 
 CMS_ContentInfo *
 CMS_digest_create(BIO *in, const EVP_MD *md, unsigned int flags)
@@ -237,7 +234,6 @@ CMS_digest_create(BIO *in, const EVP_MD *md, unsigned int flags)
 
 	return NULL;
 }
-LCRYPTO_ALIAS(CMS_digest_create);
 
 int
 CMS_EncryptedData_decrypt(CMS_ContentInfo *cms, const unsigned char *key,
@@ -264,7 +260,6 @@ CMS_EncryptedData_decrypt(CMS_ContentInfo *cms, const unsigned char *key,
 
 	return r;
 }
-LCRYPTO_ALIAS(CMS_EncryptedData_decrypt);
 
 CMS_ContentInfo *
 CMS_EncryptedData_encrypt(BIO *in, const EVP_CIPHER *cipher,
@@ -293,7 +288,6 @@ CMS_EncryptedData_encrypt(BIO *in, const EVP_CIPHER *cipher,
 
 	return NULL;
 }
-LCRYPTO_ALIAS(CMS_EncryptedData_encrypt);
 
 static int
 cms_signerinfo_verify_cert(CMS_SignerInfo *si, X509_STORE *store,
@@ -491,7 +485,6 @@ CMS_verify(CMS_ContentInfo *cms, STACK_OF(X509) *certs, X509_STORE *store,
 
 	return ret;
 }
-LCRYPTO_ALIAS(CMS_verify);
 
 int
 CMS_verify_receipt(CMS_ContentInfo *rcms, CMS_ContentInfo *ocms,
@@ -506,7 +499,6 @@ CMS_verify_receipt(CMS_ContentInfo *rcms, CMS_ContentInfo *ocms,
 
 	return cms_Receipt_verify(rcms, ocms);
 }
-LCRYPTO_ALIAS(CMS_verify_receipt);
 
 CMS_ContentInfo *
 CMS_sign(X509 *signcert, EVP_PKEY *pkey, STACK_OF(X509) *certs, BIO *data,
@@ -550,7 +542,6 @@ CMS_sign(X509 *signcert, EVP_PKEY *pkey, STACK_OF(X509) *certs, BIO *data,
 
 	return NULL;
 }
-LCRYPTO_ALIAS(CMS_sign);
 
 CMS_ContentInfo *
 CMS_sign_receipt(CMS_SignerInfo *si, X509 *signcert, EVP_PKEY *pkey,
@@ -618,7 +609,6 @@ CMS_sign_receipt(CMS_SignerInfo *si, X509 *signcert, EVP_PKEY *pkey,
 
 	return NULL;
 }
-LCRYPTO_ALIAS(CMS_sign_receipt);
 
 CMS_ContentInfo *
 CMS_encrypt(STACK_OF(X509) *certs, BIO *data, const EVP_CIPHER *cipher,
@@ -655,7 +645,6 @@ CMS_encrypt(STACK_OF(X509) *certs, BIO *data, const EVP_CIPHER *cipher,
 
 	return NULL;
 }
-LCRYPTO_ALIAS(CMS_encrypt);
 
 static int
 cms_kari_set1_pkey(CMS_ContentInfo *cms, CMS_RecipientInfo *ri, EVP_PKEY *pk,
@@ -754,7 +743,6 @@ CMS_decrypt_set1_pkey(CMS_ContentInfo *cms, EVP_PKEY *pk, X509 *cert)
 
 	return 0;
 }
-LCRYPTO_ALIAS(CMS_decrypt_set1_pkey);
 
 int
 CMS_decrypt_set1_key(CMS_ContentInfo *cms, unsigned char *key, size_t keylen,
@@ -792,7 +780,6 @@ CMS_decrypt_set1_key(CMS_ContentInfo *cms, unsigned char *key, size_t keylen,
 
 	return 0;
 }
-LCRYPTO_ALIAS(CMS_decrypt_set1_key);
 
 int
 CMS_decrypt_set1_password(CMS_ContentInfo *cms, unsigned char *pass,
@@ -818,7 +805,6 @@ CMS_decrypt_set1_password(CMS_ContentInfo *cms, unsigned char *pass,
 
 	return 0;
 }
-LCRYPTO_ALIAS(CMS_decrypt_set1_password);
 
 int
 CMS_decrypt(CMS_ContentInfo *cms, EVP_PKEY *pk, X509 *cert, BIO *dcont,
@@ -853,7 +839,6 @@ CMS_decrypt(CMS_ContentInfo *cms, EVP_PKEY *pk, X509 *cert, BIO *dcont,
 
 	return r;
 }
-LCRYPTO_ALIAS(CMS_decrypt);
 
 int
 CMS_final(CMS_ContentInfo *cms, BIO *data, BIO *dcont, unsigned int flags)
@@ -882,7 +867,55 @@ CMS_final(CMS_ContentInfo *cms, BIO *data, BIO *dcont, unsigned int flags)
 
 	return ret;
 }
-LCRYPTO_ALIAS(CMS_final);
+
+#ifdef ZLIB
+
+int
+CMS_uncompress(CMS_ContentInfo *cms, BIO *dcont, BIO *out, unsigned int flags)
+{
+	BIO *cont;
+	int r;
+
+	if (OBJ_obj2nid(CMS_get0_type(cms)) != NID_id_smime_ct_compressedData) {
+		CMSerror(CMS_R_TYPE_NOT_COMPRESSED_DATA);
+		return 0;
+	}
+
+	if (!dcont && !check_content(cms))
+		return 0;
+
+	cont = CMS_dataInit(cms, dcont);
+	if (!cont)
+		return 0;
+	r = cms_copy_content(out, cont, flags);
+	do_free_upto(cont, dcont);
+
+	return r;
+}
+
+CMS_ContentInfo *
+CMS_compress(BIO *in, int comp_nid, unsigned int flags)
+{
+	CMS_ContentInfo *cms;
+
+	if (comp_nid <= 0)
+		comp_nid = NID_zlib_compression;
+	cms = cms_CompressedData_create(comp_nid);
+	if (!cms)
+		return NULL;
+
+	if (!(flags & CMS_DETACHED))
+		CMS_set_detached(cms, 0);
+
+	if ((flags & CMS_STREAM) || CMS_final(cms, in, NULL, flags))
+		return cms;
+
+	CMS_ContentInfo_free(cms);
+
+	return NULL;
+}
+
+#else
 
 int
 CMS_uncompress(CMS_ContentInfo *cms, BIO *dcont, BIO *out, unsigned int flags)
@@ -890,7 +923,6 @@ CMS_uncompress(CMS_ContentInfo *cms, BIO *dcont, BIO *out, unsigned int flags)
 	CMSerror(CMS_R_UNSUPPORTED_COMPRESSION_ALGORITHM);
 	return 0;
 }
-LCRYPTO_ALIAS(CMS_uncompress);
 
 CMS_ContentInfo *
 CMS_compress(BIO *in, int comp_nid, unsigned int flags)
@@ -898,4 +930,5 @@ CMS_compress(BIO *in, int comp_nid, unsigned int flags)
 	CMSerror(CMS_R_UNSUPPORTED_COMPRESSION_ALGORITHM);
 	return NULL;
 }
-LCRYPTO_ALIAS(CMS_compress);
+
+#endif

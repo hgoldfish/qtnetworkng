@@ -590,3 +590,29 @@ L$exit_key:
 	movl	%eax,-4(%rdi)
 	retq
 
+
+.globl	_RC4_options
+
+.p2align	4
+_RC4_options:
+	leaq	L$opts(%rip),%rax
+	movl	_OPENSSL_ia32cap_P(%rip),%edx
+	btl	$IA32CAP_BIT0_INTELP4,%edx
+	jc	L$8xchar
+	btl	$IA32CAP_BIT0_INTEL,%edx
+	jnc	L$done
+	addq	$25,%rax
+	retq
+L$8xchar:
+	addq	$12,%rax
+L$done:
+	retq
+.section	__DATA,__const
+.p2align	6
+L$opts:
+.byte	114,99,52,40,56,120,44,105,110,116,41,0
+.byte	114,99,52,40,56,120,44,99,104,97,114,41,0
+.byte	114,99,52,40,49,54,120,44,105,110,116,41,0
+.p2align	6
+.text	
+

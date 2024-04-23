@@ -1,4 +1,4 @@
-.\" $OpenBSD: OBJ_NAME_add.3,v 1.5 2023/09/01 12:13:13 schwarze Exp $
+.\" $OpenBSD: OBJ_NAME_add.3,v 1.3 2022/09/10 10:22:46 jsg Exp $
 .\"
 .\" Copyright (c) 2021 Ingo Schwarze <schwarze@openbsd.org>
 .\"
@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: September 1 2023 $
+.Dd $Mdocdate: September 10 2022 $
 .Dt OBJ_NAME_ADD 3
 .Os
 .Sh NAME
@@ -33,7 +33,7 @@
 .Fo OBJ_NAME_add
 .Fa "const char *name"
 .Fa "int type"
-.Fa "const char *value"
+.Fa "const char *data"
 .Fc
 .Ft int
 .Fo OBJ_NAME_remove
@@ -315,6 +315,7 @@ representing the new type or 0 if memory allocation fails.
 .Xr EVP_get_cipherbyname 3 ,
 .Xr EVP_get_digestbyname 3 ,
 .Xr lh_new 3 ,
+.Xr OBJ_add_sigid 3 ,
 .Xr OBJ_create 3 ,
 .Xr OBJ_nid2obj 3
 .Sh BUGS

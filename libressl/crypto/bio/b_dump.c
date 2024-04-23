@@ -1,10 +1,10 @@
-/* $OpenBSD: b_dump.c,v 1.26 2023/07/29 02:32:00 tb Exp $ */
+/* $OpenBSD: b_dump.c,v 1.23 2022/10/17 18:26:41 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
  * This package is an SSL implementation written
  * by Eric Young (eay@cryptsoft.com).
- * The implementation was written so as to conform with Netscapes SSL.
+* The implementation was written so as to conform with Netscapes SSL.
  *
  * This library is free for commercial and non-commercial use as long as
  * the following conditions are aheared to.  The following conditions
@@ -160,14 +160,12 @@ BIO_dump_fp(FILE *fp, const char *s, int len)
 {
 	return BIO_dump_cb(write_fp, fp, s, len);
 }
-LCRYPTO_ALIAS(BIO_dump_fp);
 
 int
 BIO_dump_indent_fp(FILE *fp, const char *s, int len, int indent)
 {
 	return BIO_dump_indent_cb(write_fp, fp, s, len, indent);
 }
-LCRYPTO_ALIAS(BIO_dump_indent_fp);
 
 static int
 write_bio(const void *data, size_t len, void *bp)
@@ -180,11 +178,9 @@ BIO_dump(BIO *bp, const char *s, int len)
 {
 	return BIO_dump_cb(write_bio, bp, s, len);
 }
-LCRYPTO_ALIAS(BIO_dump);
 
 int
 BIO_dump_indent(BIO *bp, const char *s, int len, int indent)
 {
 	return BIO_dump_indent_cb(write_bio, bp, s, len, indent);
 }
-LCRYPTO_ALIAS(BIO_dump_indent);

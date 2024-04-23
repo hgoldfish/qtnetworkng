@@ -1,4 +1,4 @@
-/* $OpenBSD: ssl_tlsext.c,v 1.137 2023/04/28 18:14:59 tb Exp $ */
+/* $OpenBSD: ssl_tlsext.c,v 1.131 2022/11/26 16:08:56 tb Exp $ */
 /*
  * Copyright (c) 2016, 2017, 2019 Joel Sing <jsing@openbsd.org>
  * Copyright (c) 2017 Doug Hogan <doug@openbsd.org>
@@ -31,8 +31,6 @@
 #include "ssl_local.h"
 #include "ssl_sigalgs.h"
 #include "ssl_tlsext.h"
-
-#define TLSEXT_TYPE_alpn TLSEXT_TYPE_application_layer_protocol_negotiation
 
 /*
  * Supported Application-Layer Protocol Negotiation - RFC 7301
@@ -2112,7 +2110,7 @@ static const struct tls_extension tls_extensions[] = {
 		},
 	},
 	{
-		.type = TLSEXT_TYPE_alpn,
+		.type = TLSEXT_TYPE_application_layer_protocol_negotiation,
 		.messages = SSL_TLSEXT_MSG_CH | SSL_TLSEXT_MSG_EE,
 		.client = {
 			.needs = tlsext_alpn_client_needs,
@@ -2207,12 +2205,6 @@ static const struct tls_extension tls_extensions[] = {
 /* Ensure that extensions fit in a uint32_t bitmask. */
 CTASSERT(N_TLS_EXTENSIONS <= (sizeof(uint32_t) * 8));
 
-uint16_t
-tls_extension_type(const struct tls_extension *extension)
-{
-	return extension->type;
-}
-
 const struct tls_extension *
 tls_extension_find(uint16_t type, size_t *tls_extensions_idx)
 {
@@ -2247,75 +2239,6 @@ tlsext_funcs(const struct tls_extension *tlsext, int is_server)
 	return &tlsext->client;
 }
 
-int
-tlsext_randomize_build_order(SSL *s)
-{
-	size_t idx, new_idx, psk_idx;
-	size_t alpn_idx = 0, sni_idx = 0;
-
-	free(s->tlsext_build_order);
-	s->tlsext_build_order_len = 0;
-
-	if ((s->tlsext_build_order = calloc(sizeof(*s->tlsext_build_order),
-	    N_TLS_EXTENSIONS)) == NULL)
-		return 0;
-	s->tlsext_build_order_len = N_TLS_EXTENSIONS;
-
-	/* RFC 8446, section 4.2: PSK must be the last extension in the CH. */
-	psk_idx = N_TLS_EXTENSIONS - 1;
-	s->tlsext_build_order[psk_idx] = &tls_extensions[psk_idx];
-
-	/* Fisher-Yates shuffle with PSK fixed. */
-	for (idx = 0; idx < psk_idx; idx++) {
-		new_idx = arc4random_uniform(idx + 1);
-		s->tlsext_build_order[idx] = s->tlsext_build_order[new_idx];
-		s->tlsext_build_order[new_idx] = &tls_extensions[idx];
-	}
-
-	/*
-	 * XXX - Apache2 special until year 2025: ensure that SNI precedes ALPN
-	 * for clients so that virtual host setups work correctly.
-	 */
-
-	if (s->server)
-		return 1;
-
-	for (idx = 0; idx < N_TLS_EXTENSIONS; idx++) {
-		if (s->tlsext_build_order[idx]->type == TLSEXT_TYPE_alpn)
-			alpn_idx = idx;
-		if (s->tlsext_build_order[idx]->type == TLSEXT_TYPE_server_name)
-			sni_idx = idx;
-	}
-	if (alpn_idx < sni_idx) {
-		const struct tls_extension *tmp;
-
-		tmp = s->tlsext_build_order[alpn_idx];
-		s->tlsext_build_order[alpn_idx] = s->tlsext_build_order[sni_idx];
-		s->tlsext_build_order[sni_idx] = tmp;
-	}
-
-	return 1;
-}
-
-int
-tlsext_linearize_build_order(SSL *s)
-{
-	size_t idx;
-
-	free(s->tlsext_build_order);
-	s->tlsext_build_order_len = 0;
-
-	if ((s->tlsext_build_order = calloc(sizeof(*s->tlsext_build_order),
-	    N_TLS_EXTENSIONS)) == NULL)
-		return 0;
-	s->tlsext_build_order_len = N_TLS_EXTENSIONS;
-
-	for (idx = 0; idx < N_TLS_EXTENSIONS; idx++)
-		s->tlsext_build_order[idx] = &tls_extensions[idx];
-
-	return 1;
-}
-
 static int
 tlsext_build(SSL *s, int is_server, uint16_t msg_type, CBB *cbb)
 {
@@ -2332,7 +2255,7 @@ tlsext_build(SSL *s, int is_server, uint16_t msg_type, CBB *cbb)
 		return 0;
 
 	for (i = 0; i < N_TLS_EXTENSIONS; i++) {
-		tlsext = s->tlsext_build_order[i];
+		tlsext = &tls_extensions[i];
 		ext = tlsext_funcs(tlsext, is_server);
 
 		/* RFC 8446 Section 4.2 */

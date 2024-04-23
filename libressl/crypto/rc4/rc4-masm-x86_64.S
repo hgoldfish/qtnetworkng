@@ -686,6 +686,34 @@ $L$exit_key::
 $L$SEH_end_RC4_set_key::
 RC4_set_key	ENDP
 
+PUBLIC	RC4_options
+
+ALIGN	16
+RC4_options	PROC PUBLIC
+	lea	rax,QWORD PTR[$L$opts]
+	mov	edx,DWORD PTR[OPENSSL_ia32cap_P]
+	bt	edx,20
+	jc	$L$8xchar
+	bt	edx,30
+	jnc	$L$done
+	add	rax,25
+	DB	0F3h,0C3h		;repret
+$L$8xchar::
+	add	rax,12
+$L$done::
+	DB	0F3h,0C3h		;repret
+.text$	ENDS
+.rdata	SEGMENT READONLY ALIGN(8)
+ALIGN	64
+$L$opts::
+DB	114,99,52,40,56,120,44,105,110,116,41,0
+DB	114,99,52,40,56,120,44,99,104,97,114,41,0
+DB	114,99,52,40,49,54,120,44,105,110,116,41,0
+ALIGN	64
+.rdata	ENDS
+.text$	SEGMENT ALIGN(64) 'CODE'
+RC4_options	ENDP
+
 .text$	ENDS
 END
 

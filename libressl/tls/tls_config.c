@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_config.c,v 1.67 2023/07/02 06:37:27 beck Exp $ */
+/* $OpenBSD: tls_config.c,v 1.65 2022/01/25 21:51:24 eric Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -22,7 +22,6 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <tls.h>
@@ -251,9 +250,9 @@ tls_config_parse_protocols(uint32_t *protocols, const char *protostr)
 		if (strcasecmp(p, "tlsv1") == 0)
 			proto = TLS_PROTOCOL_TLSv1;
 		else if (strcasecmp(p, "tlsv1.0") == 0)
-			proto = TLS_PROTOCOL_TLSv1_2;
+			proto = TLS_PROTOCOL_TLSv1_0;
 		else if (strcasecmp(p, "tlsv1.1") == 0)
-			proto = TLS_PROTOCOL_TLSv1_2;
+			proto = TLS_PROTOCOL_TLSv1_1;
 		else if (strcasecmp(p, "tlsv1.2") == 0)
 			proto = TLS_PROTOCOL_TLSv1_2;
 		else if (strcasecmp(p, "tlsv1.3") == 0)

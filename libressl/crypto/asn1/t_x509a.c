@@ -1,4 +1,4 @@
-/* $OpenBSD: t_x509a.c,v 1.13 2023/07/07 19:37:52 beck Exp $ */
+/* $OpenBSD: t_x509a.c,v 1.11 2022/11/26 16:08:50 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */

@@ -1,4 +1,3 @@
-/* $OpenBSD: opensslfeatures.h,v 1.41 2023/07/28 09:53:55 tb Exp $ */
 /*
  * Feature flags for LibreSSL... so you can actually tell when things
  * are enabled, rather than not being able to tell when things are
@@ -18,8 +17,6 @@
 #define OPENSSL_THREADS
 
 #define OPENSSL_NO_BUF_FREELISTS
-#define OPENSSL_NO_DEPRECATED
-#define OPENSSL_NO_EC2M
 #define OPENSSL_NO_GMP
 #define OPENSSL_NO_JPAKE
 #define OPENSSL_NO_KRB5
@@ -58,19 +55,18 @@
 /* #define OPENSSL_NO_DGRAM */
 /* #define OPENSSL_NO_DH */
 /* #define OPENSSL_NO_DSA */
-#define OPENSSL_NO_DSO
+/* #define OPENSSL_NO_DSO */
 /* #define OPENSSL_NO_DTLS */
-#define OPENSSL_NO_DTLS1
-#ifndef LIBRESSL_HAS_DTLS1_2
-#define OPENSSL_NO_DTLS1_2
-#endif
+/* #define OPENSSL_NO_DTLS1 */
+/* #define OPENSSL_NO_DTLS1_2 */
 /* #define OPENSSL_NO_DTLS1_2_METHOD */
 /* #define OPENSSL_NO_DTLS1_METHOD */
 #define OPENSSL_NO_DYNAMIC_ENGINE
 /* #define OPENSSL_NO_EC */
+/* #define OPENSSL_NO_EC2M */
 #define OPENSSL_NO_EC_NISTP_64_GCC_128
 #define OPENSSL_NO_EGD
-#define OPENSSL_NO_ENGINE
+/* #define OPENSSL_NO_ENGINE */
 /* #define OPENSSL_NO_ERR */
 /* #define OPENSSL_NO_FUZZ_AFL */
 /* #define OPENSSL_NO_FUZZ_LIBFUZZER */
@@ -116,10 +112,9 @@
 /* #define OPENSSL_NO_STATIC_ENGINE */
 /* #define OPENSSL_NO_STDIO */
 /* #define OPENSSL_NO_TLS */
-#define OPENSSL_NO_TLS1
-#define OPENSSL_NO_TLS1_1
-#define OPENSSL_NO_TLS1_METHOD
-#define OPENSSL_NO_TLS1_1_METHOD
+/* #define OPENSSL_NO_TLS1 */
+/* #define OPENSSL_NO_TLS1_1 */
+/* #define OPENSSL_NO_TLS1_1_METHOD */
 /* #define OPENSSL_NO_TLS1_2 */
 /* #define OPENSSL_NO_TLS1_2_METHOD */
 #ifndef LIBRESSL_HAS_TLS1_3

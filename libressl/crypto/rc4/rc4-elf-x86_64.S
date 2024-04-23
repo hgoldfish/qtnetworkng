@@ -6,9 +6,7 @@
 .globl	RC4
 .type	RC4,@function
 .align	16
-RC4:
-	endbr64
-	orq	%rsi,%rsi
+RC4:	orq	%rsi,%rsi
 	jne	.Lentry
 	retq
 .Lentry:
@@ -525,7 +523,6 @@ RC4:
 .type	RC4_set_key,@function
 .align	16
 RC4_set_key:
-	endbr64
 	leaq	8(%rdi),%rdi
 	leaq	(%rdx,%rsi,1),%rdx
 	negq	%rsi
@@ -593,6 +590,32 @@ RC4_set_key:
 	movl	%eax,-4(%rdi)
 	retq
 .size	RC4_set_key,.-RC4_set_key
+
+.globl	RC4_options
+.type	RC4_options,@function
+.align	16
+RC4_options:
+	leaq	.Lopts(%rip),%rax
+	movl	OPENSSL_ia32cap_P(%rip),%edx
+	btl	$IA32CAP_BIT0_INTELP4,%edx
+	jc	.L8xchar
+	btl	$IA32CAP_BIT0_INTEL,%edx
+	jnc	.Ldone
+	addq	$25,%rax
+	retq
+.L8xchar:
+	addq	$12,%rax
+.Ldone:
+	retq
+.section	.rodata
+.align	64
+.Lopts:
+.byte	114,99,52,40,56,120,44,105,110,116,41,0
+.byte	114,99,52,40,56,120,44,99,104,97,114,41,0
+.byte	114,99,52,40,49,54,120,44,105,110,116,41,0
+.align	64
+.text	
+.size	RC4_options,.-RC4_options
 #if defined(HAVE_GNU_STACK)
 .section .note.GNU-stack,"",%progbits
 #endif

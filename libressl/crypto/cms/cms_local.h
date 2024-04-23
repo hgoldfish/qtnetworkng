@@ -1,4 +1,4 @@
-/* $OpenBSD: cms_local.h,v 1.5 2023/08/24 04:56:36 tb Exp $ */
+/* $OpenBSD: cms_local.h,v 1.2 2022/11/26 17:23:17 tb Exp $ */
 /*
  * Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project.
@@ -170,7 +170,7 @@ struct CMS_EncryptedContentInfo_st {
 	size_t keylen;
 	/* Set to 1 if we are debugging decrypt and don't fake keys for MMA */
 	int debug;
-	/* Set to 1 if we have no cert and need extra safety measures for MMA */
+	/* Set to 1 if we have no cert and need exta safety measures for MMA */
 	int havenocert;
 };
 
@@ -388,6 +388,11 @@ struct CMS_Receipt_st {
 	ASN1_OCTET_STRING *originatorSignatureValue;
 };
 
+CMS_ContentInfo *CMS_ContentInfo_new(void);
+void CMS_ContentInfo_free(CMS_ContentInfo *a);
+CMS_ContentInfo *d2i_CMS_ContentInfo(CMS_ContentInfo **a, const unsigned char **in, long len);
+int i2d_CMS_ContentInfo(CMS_ContentInfo *a, unsigned char **out);
+extern const ASN1_ITEM CMS_ContentInfo_it;
 extern const ASN1_ITEM CMS_SignerInfo_it;
 extern const ASN1_ITEM CMS_IssuerAndSerialNumber_it;
 extern const ASN1_ITEM CMS_Attributes_Sign_it;
@@ -409,6 +414,8 @@ void CMS_IssuerAndSerialNumber_free(CMS_IssuerAndSerialNumber *a);
 #define CMS_OIK_ISSUER_SERIAL           0
 #define CMS_OIK_KEYIDENTIFIER           1
 #define CMS_OIK_PUBKEY                  2
+
+BIO *cms_content_bio(CMS_ContentInfo *cms);
 
 CMS_ContentInfo *cms_Data_create(void);
 

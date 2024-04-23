@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_signer.c,v 1.9 2023/06/18 19:12:58 tb Exp $ */
+/* $OpenBSD: tls_signer.c,v 1.4 2022/02/01 17:18:38 jsing Exp $ */
 /*
  * Copyright (c) 2021 Eric Faurot <eric@openbsd.org>
  *
@@ -193,6 +193,8 @@ tls_sign_rsa(struct tls_signer *signer, struct tls_signer_key *skey,
 		rsa_padding = RSA_NO_PADDING;
 	} else if (padding_type == TLS_PADDING_RSA_PKCS1) {
 		rsa_padding = RSA_PKCS1_PADDING;
+	} else if (padding_type == TLS_PADDING_RSA_X9_31) {
+		rsa_padding = RSA_X931_PADDING;
 	} else {
 		tls_error_setx(&signer->error, "invalid RSA padding type (%d)",
 		    padding_type);
@@ -329,6 +331,8 @@ tls_rsa_priv_enc(int from_len, const unsigned char *from, unsigned char *to,
 		padding_type = TLS_PADDING_NONE;
 	} else if (rsa_padding == RSA_PKCS1_PADDING) {
 		padding_type = TLS_PADDING_RSA_PKCS1;
+	} else if (rsa_padding == RSA_X931_PADDING) {
+		padding_type = TLS_PADDING_RSA_X9_31;
 	} else {
 		goto err;
 	}
@@ -392,8 +396,8 @@ tls_ecdsa_do_sign(const unsigned char *dgst, int dgst_len, const BIGNUM *inv,
 	 * to its calling convention/signature.
 	 */
 
-	pubkey_hash = EC_KEY_get_ex_data(eckey, 0);
-	config = EC_KEY_get_ex_data(eckey, 1);
+	pubkey_hash = ECDSA_get_ex_data(eckey, 0);
+	config = ECDSA_get_ex_data(eckey, 1);
 
 	if (pubkey_hash == NULL || config == NULL)
 		goto err;
@@ -419,30 +423,26 @@ tls_ecdsa_do_sign(const unsigned char *dgst, int dgst_len, const BIGNUM *inv,
 	return (NULL);
 }
 
-EC_KEY_METHOD *
+ECDSA_METHOD *
 tls_signer_ecdsa_method(void)
 {
-	static EC_KEY_METHOD *ecdsa_method = NULL;
-	const EC_KEY_METHOD *default_method;
-	int (*sign)(int type, const unsigned char *dgst, int dlen,
-	    unsigned char *sig, unsigned int *siglen,
-	    const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey);
-	int (*sign_setup)(EC_KEY *eckey, BN_CTX *ctx_in,
-	    BIGNUM **kinvp, BIGNUM **rp);
+	static ECDSA_METHOD *ecdsa_method = NULL;
 
 	pthread_mutex_lock(&signer_method_lock);
 
 	if (ecdsa_method != NULL)
 		goto out;
 
-	default_method = EC_KEY_get_default_method();
-	ecdsa_method = EC_KEY_METHOD_new(default_method);
+	ecdsa_method = calloc(1, sizeof(*ecdsa_method));
 	if (ecdsa_method == NULL)
 		goto out;
 
-	EC_KEY_METHOD_get_sign(default_method, &sign, &sign_setup, NULL);
-	EC_KEY_METHOD_set_sign(ecdsa_method, sign, sign_setup,
-	    tls_ecdsa_do_sign);
+	ecdsa_method->ecdsa_do_sign = tls_ecdsa_do_sign;
+	ecdsa_method->name = strdup("libtls ECDSA method");
+	if (ecdsa_method->name == NULL) {
+		free(ecdsa_method);
+		ecdsa_method = NULL;
+	}
 
  out:
 	pthread_mutex_unlock(&signer_method_lock);

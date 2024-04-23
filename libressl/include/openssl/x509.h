@@ -1,4 +1,4 @@
-/* $OpenBSD: x509.h,v 1.101 2023/07/28 15:50:33 tb Exp $ */
+/* $OpenBSD: x509.h,v 1.94 2023/03/10 16:43:02 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -66,34 +66,46 @@
 
 #include <openssl/opensslconf.h>
 
-#include <openssl/asn1.h>
-#ifndef OPENSSL_NO_BIO
-#include <openssl/bio.h>
-#endif
 #ifndef OPENSSL_NO_BUFFER
 #include <openssl/buffer.h>
-#endif
-#ifndef OPENSSL_NO_DH
-#include <openssl/dh.h>
-#endif
-#ifndef OPENSSL_NO_DSA
-#include <openssl/dsa.h>
-#endif
-#ifndef OPENSSL_NO_EC
-#include <openssl/ec.h>
 #endif
 #ifndef OPENSSL_NO_EVP
 #include <openssl/evp.h>
 #endif
+#ifndef OPENSSL_NO_BIO
+#include <openssl/bio.h>
+#endif
+#include <openssl/stack.h>
+#include <openssl/asn1.h>
+#include <openssl/safestack.h>
+
+#ifndef OPENSSL_NO_EC
+#include <openssl/ec.h>
+#endif
+
+#ifndef OPENSSL_NO_ECDSA
+#include <openssl/ecdsa.h>
+#endif
+
+#ifndef OPENSSL_NO_ECDH
+#include <openssl/ecdh.h>
+#endif
+
+#ifndef OPENSSL_NO_DEPRECATED
 #ifndef OPENSSL_NO_RSA
 #include <openssl/rsa.h>
 #endif
+#ifndef OPENSSL_NO_DSA
+#include <openssl/dsa.h>
+#endif
+#ifndef OPENSSL_NO_DH
+#include <openssl/dh.h>
+#endif
+#endif
+
 #ifndef OPENSSL_NO_SHA
 #include <openssl/sha.h>
 #endif
-#include <openssl/stack.h>
-#include <openssl/safestack.h>
-
 #include <openssl/ossl_typ.h>
 
 #ifdef  __cplusplus
@@ -101,7 +113,7 @@ extern "C" {
 #endif
 
 #if defined(_WIN32) && defined(__WINCRYPT_H__)
-#if !defined(LIBRESSL_INTERNAL) && !defined(LIBRESSL_DISABLE_OVERRIDE_WINCRYPT_DEFINES_WARNING)
+#ifndef LIBRESSL_INTERNAL
 #ifdef _MSC_VER
 #pragma message("Warning, overriding WinCrypt defines")
 #else
@@ -340,6 +352,13 @@ typedef struct Netscape_spki_st {
 	X509_ALGOR *sig_algor;
 	ASN1_BIT_STRING *signature;
 } NETSCAPE_SPKI;
+
+/* Netscape certificate sequence structure */
+typedef struct Netscape_certificate_sequence {
+	ASN1_OBJECT *type;
+	STACK_OF(X509) *certs;
+} NETSCAPE_CERT_SEQUENCE;
+
 
 /* Password based encryption structure */
 
@@ -737,6 +756,11 @@ void NETSCAPE_SPKAC_free(NETSCAPE_SPKAC *a);
 NETSCAPE_SPKAC *d2i_NETSCAPE_SPKAC(NETSCAPE_SPKAC **a, const unsigned char **in, long len);
 int i2d_NETSCAPE_SPKAC(NETSCAPE_SPKAC *a, unsigned char **out);
 extern const ASN1_ITEM NETSCAPE_SPKAC_it;
+NETSCAPE_CERT_SEQUENCE *NETSCAPE_CERT_SEQUENCE_new(void);
+void NETSCAPE_CERT_SEQUENCE_free(NETSCAPE_CERT_SEQUENCE *a);
+NETSCAPE_CERT_SEQUENCE *d2i_NETSCAPE_CERT_SEQUENCE(NETSCAPE_CERT_SEQUENCE **a, const unsigned char **in, long len);
+int i2d_NETSCAPE_CERT_SEQUENCE(NETSCAPE_CERT_SEQUENCE *a, unsigned char **out);
+extern const ASN1_ITEM NETSCAPE_CERT_SEQUENCE_it;
 
 #ifndef OPENSSL_NO_EVP
 X509_INFO *	X509_INFO_new(void);
@@ -1176,7 +1200,6 @@ void ERR_load_X509_strings(void);
 #define X509_R_INVALID_DIRECTORY			 113
 #define X509_R_INVALID_FIELD_NAME			 119
 #define X509_R_INVALID_TRUST				 123
-#define X509_R_INVALID_VERSION				 137
 #define X509_R_KEY_TYPE_MISMATCH			 115
 #define X509_R_KEY_VALUES_MISMATCH			 116
 #define X509_R_LOADING_CERT_DIR				 103

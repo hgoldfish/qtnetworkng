@@ -1010,6 +1010,7 @@ gcm_ghash_clmul:
 	retq
 .LSEH_end_gcm_ghash_clmul:
 
+.section	.rodata
 .p2align	6
 .Lbswap_mask:
 .byte	15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0
@@ -1056,9 +1057,8 @@ gcm_ghash_clmul:
 .value	0xA7D0,0xA612,0xA454,0xA596,0xA0D8,0xA11A,0xA35C,0xA29E
 .value	0xB5E0,0xB422,0xB664,0xB7A6,0xB2E8,0xB32A,0xB16C,0xB0AE
 .value	0xBBF0,0xBA32,0xB874,0xB9B6,0xBCF8,0xBD3A,0xBF7C,0xBEBE
-
-.byte	71,72,65,83,72,32,102,111,114,32,120,56,54,95,54,52,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32,60,97,112,112,114,111,64,111,112,101,110,115,115,108,46,111,114,103,62,0
 .p2align	6
+.text	
 
 .def	se_handler;	.scl 3;	.type 32;	.endef
 .p2align	4

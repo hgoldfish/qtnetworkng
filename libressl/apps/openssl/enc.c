@@ -1,4 +1,4 @@
-/* $OpenBSD: enc.c,v 1.31 2023/07/29 17:15:45 tb Exp $ */
+/* $OpenBSD: enc.c,v 1.27 2023/03/06 14:32:06 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -59,14 +59,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "apps.h"
 
 #include <openssl/bio.h>
+#include <openssl/comp.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/objects.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
 
 int set_hex(char *in, unsigned char *out, int size);
 
@@ -78,6 +80,9 @@ static struct {
 	char *bufsize;
 	const EVP_CIPHER *cipher;
 	int debug;
+#ifdef ZLIB
+	int do_zlib;
+#endif
 	int enc;
 	char *hiv;
 	char *hkey;
@@ -282,6 +287,14 @@ static const struct option enc_options[] = {
 		.type = OPTION_FLAG,
 		.opt.flag = &cfg.verbose,
 	},
+#ifdef ZLIB
+	{
+		.name = "z",
+		.desc = "Perform zlib compression/decompression",
+		.type = OPTION_FLAG,
+		.opt.flag = &cfg.do_zlib,
+	},
+#endif
 	{
 		.name = NULL,
 		.type = OPTION_ARGV_FUNC,
@@ -336,6 +349,9 @@ enc_main(int argc, char **argv)
 	int ret = 1, inl;
 	unsigned char key[EVP_MAX_KEY_LENGTH], iv[EVP_MAX_IV_LENGTH];
 	unsigned char salt[PKCS5_SALT_LEN];
+#ifdef ZLIB
+	BIO *bzl = NULL;
+#endif
 	EVP_CIPHER_CTX *ctx = NULL;
 	const EVP_MD *dgst = NULL;
 	BIO *in = NULL, *out = NULL, *b64 = NULL, *benc = NULL;
@@ -358,9 +374,21 @@ enc_main(int argc, char **argv)
 	if (strcmp(pname, "base64") == 0)
 		cfg.base64 = 1;
 
+#ifdef ZLIB
+	if (strcmp(pname, "zlib") == 0)
+		cfg.do_zlib = 1;
+#endif
+
 	cfg.cipher = EVP_get_cipherbyname(pname);
 
-	if (!cfg.base64 && cfg.cipher == NULL && strcmp(pname, "enc") != 0) {
+#ifdef ZLIB
+	if (!cfg.do_zlib && !cfg.base64 &&
+	    cfg.cipher == NULL && strcmp(pname, "enc") != 0)
+#else
+	if (!cfg.base64 && cfg.cipher == NULL &&
+	    strcmp(pname, "enc") != 0)
+#endif
+	{
 		BIO_printf(bio_err, "%s is an unknown cipher\n", pname);
 		goto end;
 	}
@@ -389,9 +417,9 @@ enc_main(int argc, char **argv)
 		}
 		fclose(infile);
 		i = strlen(buf);
-		if (i > 0 && (buf[i - 1] == '\n' || buf[i - 1] == '\r'))
+		if ((i > 0) && ((buf[i - 1] == '\n') || (buf[i - 1] == '\r')))
 			buf[--i] = '\0';
-		if (i > 0 && (buf[i - 1] == '\n' || buf[i - 1] == '\r'))
+		if ((i > 0) && ((buf[i - 1] == '\n') || (buf[i - 1] == '\r')))
 			buf[--i] = '\0';
 		if (i < 1) {
 			BIO_printf(bio_err, "zero length password\n");
@@ -419,8 +447,9 @@ enc_main(int argc, char **argv)
 		    cfg.md);
 		goto end;
 	}
-	if (dgst == NULL)
+	if (dgst == NULL) {
 		dgst = EVP_sha256();
+	}
 
 	if (cfg.bufsize != NULL) {
 		char *p = cfg.bufsize;
@@ -451,13 +480,13 @@ enc_main(int argc, char **argv)
 	}
 	strbuf = malloc(SIZE);
 	buff = malloc(EVP_ENCODE_LENGTH(bsize));
-	if (buff == NULL || strbuf == NULL) {
+	if ((buff == NULL) || (strbuf == NULL)) {
 		BIO_printf(bio_err, "malloc failure %ld\n", (long) EVP_ENCODE_LENGTH(bsize));
 		goto end;
 	}
 	in = BIO_new(BIO_s_file());
 	out = BIO_new(BIO_s_file());
-	if (in == NULL || out == NULL) {
+	if ((in == NULL) || (out == NULL)) {
 		ERR_print_errors(bio_err);
 		goto end;
 	}
@@ -479,13 +508,15 @@ enc_main(int argc, char **argv)
 	}
 
 	if (!cfg.keystr && cfg.passarg) {
-		if (!app_passwd(bio_err, cfg.passarg, NULL, &pass, NULL)) {
+		if (!app_passwd(bio_err, cfg.passarg, NULL,
+		    &pass, NULL)) {
 			BIO_printf(bio_err, "Error getting password\n");
 			goto end;
 		}
 		cfg.keystr = pass;
 	}
-	if (cfg.keystr == NULL && cfg.cipher != NULL && cfg.hkey == NULL) {
+	if (cfg.keystr == NULL && cfg.cipher != NULL &&
+	    cfg.hkey == NULL) {
 		for (;;) {
 			char buf[200];
 			int retval;
@@ -529,6 +560,17 @@ enc_main(int argc, char **argv)
 
 	rbio = in;
 	wbio = out;
+
+#ifdef ZLIB
+	if (do_zlib) {
+		if ((bzl = BIO_new(BIO_f_zlib())) == NULL)
+			goto end;
+		if (enc)
+			wbio = BIO_push(bzl, wbio);
+		else
+			rbio = BIO_push(bzl, rbio);
+	}
+#endif
 
 	if (cfg.base64) {
 		if ((b64 = BIO_new(BIO_f_base64())) == NULL)
@@ -635,7 +677,8 @@ enc_main(int argc, char **argv)
 				explicit_bzero(cfg.keystr,
 				    strlen(cfg.keystr));
 		}
-		if (cfg.hiv != NULL && !set_hex(cfg.hiv, iv, sizeof iv)) {
+		if (cfg.hiv != NULL &&
+		    !set_hex(cfg.hiv, iv, sizeof iv)) {
 			BIO_printf(bio_err, "invalid hex iv value\n");
 			goto end;
 		}
@@ -649,7 +692,8 @@ enc_main(int argc, char **argv)
 			BIO_printf(bio_err, "iv undefined\n");
 			goto end;
 		}
-		if (cfg.hkey != NULL && !set_hex(cfg.hkey, key, sizeof key)) {
+		if (cfg.hkey != NULL &&
+		    !set_hex(cfg.hkey, key, sizeof key)) {
 			BIO_printf(bio_err, "invalid hex key value\n");
 			goto end;
 		}
@@ -673,7 +717,8 @@ enc_main(int argc, char **argv)
 		if (cfg.nopad)
 			EVP_CIPHER_CTX_set_padding(ctx, 0);
 
-		if (!EVP_CipherInit_ex(ctx, NULL, NULL, key, iv, cfg.enc)) {
+		if (!EVP_CipherInit_ex(ctx, NULL, NULL, key, iv,
+		    cfg.enc)) {
 			BIO_printf(bio_err, "Error setting cipher %s\n",
 			    EVP_CIPHER_name(cfg.cipher));
 			ERR_print_errors(bio_err);
@@ -742,6 +787,9 @@ enc_main(int argc, char **argv)
 	BIO_free_all(out);
 	BIO_free(benc);
 	BIO_free(b64);
+#ifdef ZLIB
+	BIO_free(bzl);
+#endif
 	free(pass);
 
 	return (ret);
@@ -764,11 +812,11 @@ set_hex(char *in, unsigned char *out, int size)
 		*(in++) = '\0';
 		if (j == 0)
 			break;
-		if (j >= '0' && j <= '9')
+		if ((j >= '0') && (j <= '9'))
 			j -= '0';
-		else if (j >= 'A' && j <= 'F')
+		else if ((j >= 'A') && (j <= 'F'))
 			j = j - 'A' + 10;
-		else if (j >= 'a' && j <= 'f')
+		else if ((j >= 'a') && (j <= 'f'))
 			j = j - 'a' + 10;
 		else {
 			BIO_printf(bio_err, "non-hex digit\n");

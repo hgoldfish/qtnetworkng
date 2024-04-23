@@ -1,4 +1,4 @@
-/* $OpenBSD: ec_check.c,v 1.15 2023/07/07 13:54:45 beck Exp $ */
+/* $OpenBSD: ec_check.c,v 1.12 2022/11/26 16:08:52 tb Exp $ */
 /* ====================================================================
  * Copyright (c) 1998-2002 The OpenSSL Project.  All rights reserved.
  *
@@ -57,16 +57,22 @@
 #include <openssl/err.h>
 
 int
-EC_GROUP_check(const EC_GROUP *group, BN_CTX *ctx_in)
+EC_GROUP_check(const EC_GROUP *group, BN_CTX *ctx)
 {
-	BN_CTX *ctx;
-	EC_POINT *point = NULL;
-	const BIGNUM *order;
 	int ret = 0;
+	BIGNUM *order;
+	BN_CTX *new_ctx = NULL;
+	EC_POINT *point = NULL;
 
-	if ((ctx = ctx_in) == NULL)
-		ctx = BN_CTX_new();
-	if (ctx == NULL)
+	if (ctx == NULL) {
+		ctx = new_ctx = BN_CTX_new();
+		if (ctx == NULL) {
+			ECerror(ERR_R_MALLOC_FAILURE);
+			goto err;
+		}
+	}
+	BN_CTX_start(ctx);
+	if ((order = BN_CTX_get(ctx)) == NULL)
 		goto err;
 
 	/* check the discriminant */
@@ -86,7 +92,7 @@ EC_GROUP_check(const EC_GROUP *group, BN_CTX *ctx_in)
 	/* check the order of the generator */
 	if ((point = EC_POINT_new(group)) == NULL)
 		goto err;
-	if ((order = EC_GROUP_get0_order(group)) == NULL)
+	if (!EC_GROUP_get_order(group, order, ctx))
 		goto err;
 	if (BN_is_zero(order)) {
 		ECerror(EC_R_UNDEFINED_ORDER);
@@ -98,15 +104,12 @@ EC_GROUP_check(const EC_GROUP *group, BN_CTX *ctx_in)
 		ECerror(EC_R_INVALID_GROUP_ORDER);
 		goto err;
 	}
-
 	ret = 1;
 
  err:
-	if (ctx != ctx_in)
-		BN_CTX_free(ctx);
-
+	if (ctx != NULL)
+		BN_CTX_end(ctx);
+	BN_CTX_free(new_ctx);
 	EC_POINT_free(point);
-
 	return ret;
 }
-LCRYPTO_ALIAS(EC_GROUP_check);

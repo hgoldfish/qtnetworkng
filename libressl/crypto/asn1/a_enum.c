@@ -1,4 +1,4 @@
-/* $OpenBSD: a_enum.c,v 1.29 2023/07/05 21:23:36 beck Exp $ */
+/* $OpenBSD: a_enum.c,v 1.28 2022/11/26 16:08:50 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -84,7 +84,6 @@ ASN1_ENUMERATED_new(void)
 {
 	return (ASN1_ENUMERATED *)ASN1_item_new(&ASN1_ENUMERATED_it);
 }
-LCRYPTO_ALIAS(ASN1_ENUMERATED_new);
 
 static void
 asn1_aenum_clear(ASN1_ENUMERATED *aenum)
@@ -101,7 +100,6 @@ ASN1_ENUMERATED_free(ASN1_ENUMERATED *a)
 {
 	ASN1_item_free((ASN1_VALUE *)a, &ASN1_ENUMERATED_it);
 }
-LCRYPTO_ALIAS(ASN1_ENUMERATED_free);
 
 int
 ASN1_ENUMERATED_get_int64(int64_t *out_val, const ASN1_ENUMERATED *aenum)
@@ -124,7 +122,6 @@ ASN1_ENUMERATED_get_int64(int64_t *out_val, const ASN1_ENUMERATED *aenum)
 	return asn1_aint_get_int64(&cbs, (aenum->type == V_ASN1_NEG_ENUMERATED),
 	    out_val);
 }
-LCRYPTO_ALIAS(ASN1_ENUMERATED_get_int64);
 
 int
 ASN1_ENUMERATED_set_int64(ASN1_ENUMERATED *aenum, int64_t val)
@@ -142,7 +139,6 @@ ASN1_ENUMERATED_set_int64(ASN1_ENUMERATED *aenum, int64_t val)
 
 	return asn1_aint_set_uint64(uval, &aenum->data, &aenum->length);
 }
-LCRYPTO_ALIAS(ASN1_ENUMERATED_set_int64);
 
 long
 ASN1_ENUMERATED_get(const ASN1_ENUMERATED *aenum)
@@ -160,14 +156,12 @@ ASN1_ENUMERATED_get(const ASN1_ENUMERATED *aenum)
 
 	return (long)val;
 }
-LCRYPTO_ALIAS(ASN1_ENUMERATED_get);
 
 int
 ASN1_ENUMERATED_set(ASN1_ENUMERATED *aenum, long val)
 {
 	return ASN1_ENUMERATED_set_int64(aenum, val);
 }
-LCRYPTO_ALIAS(ASN1_ENUMERATED_set);
 
 ASN1_ENUMERATED *
 BN_to_ASN1_ENUMERATED(const BIGNUM *bn, ASN1_ENUMERATED *ai)
@@ -211,7 +205,6 @@ BN_to_ASN1_ENUMERATED(const BIGNUM *bn, ASN1_ENUMERATED *ai)
 		ASN1_ENUMERATED_free(ret);
 	return (NULL);
 }
-LCRYPTO_ALIAS(BN_to_ASN1_ENUMERATED);
 
 BIGNUM *
 ASN1_ENUMERATED_to_BN(const ASN1_ENUMERATED *ai, BIGNUM *bn)
@@ -224,7 +217,6 @@ ASN1_ENUMERATED_to_BN(const ASN1_ENUMERATED *ai, BIGNUM *bn)
 		BN_set_negative(ret, 1);
 	return (ret);
 }
-LCRYPTO_ALIAS(ASN1_ENUMERATED_to_BN);
 
 /* Based on a_int.c: equivalent ENUMERATED functions */
 
@@ -261,7 +253,6 @@ i2a_ASN1_ENUMERATED(BIO *bp, const ASN1_ENUMERATED *a)
  err:
 	return (-1);
 }
-LCRYPTO_ALIAS(i2a_ASN1_ENUMERATED);
 
 int
 a2i_ASN1_ENUMERATED(BIO *bp, ASN1_ENUMERATED *bs, char *buf, int size)
@@ -353,7 +344,6 @@ a2i_ASN1_ENUMERATED(BIO *bp, ASN1_ENUMERATED *bs, char *buf, int size)
 	free(s);
 	return (ret);
 }
-LCRYPTO_ALIAS(a2i_ASN1_ENUMERATED);
 
 int
 c2i_ASN1_ENUMERATED_cbs(ASN1_ENUMERATED **out_aenum, CBS *cbs)
@@ -382,7 +372,6 @@ i2d_ASN1_ENUMERATED(ASN1_ENUMERATED *a, unsigned char **out)
 {
 	return ASN1_item_i2d((ASN1_VALUE *)a, out, &ASN1_ENUMERATED_it);
 }
-LCRYPTO_ALIAS(i2d_ASN1_ENUMERATED);
 
 ASN1_ENUMERATED *
 d2i_ASN1_ENUMERATED(ASN1_ENUMERATED **a, const unsigned char **in, long len)
@@ -390,4 +379,3 @@ d2i_ASN1_ENUMERATED(ASN1_ENUMERATED **a, const unsigned char **in, long len)
 	return (ASN1_ENUMERATED *)ASN1_item_d2i((ASN1_VALUE **)a, in, len,
 	    &ASN1_ENUMERATED_it);
 }
-LCRYPTO_ALIAS(d2i_ASN1_ENUMERATED);

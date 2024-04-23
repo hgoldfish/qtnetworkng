@@ -1,4 +1,4 @@
-/*	$OpenBSD: constant_time.h,v 1.3 2023/04/06 18:43:47 tb Exp $ */
+/* crypto/constant_time_locl.h */
 /*-
  * Utilities for constant-time cryptography.
  *

@@ -1,4 +1,4 @@
-/* $OpenBSD: o_names.c,v 1.24 2023/07/08 12:27:51 beck Exp $ */
+/* $OpenBSD: o_names.c,v 1.23 2022/11/08 23:19:09 mbuhl Exp $ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,7 +47,6 @@ OBJ_NAME_init(void)
 	names_lh = lh_OBJ_NAME_new();
 	return (names_lh != NULL);
 }
-LCRYPTO_ALIAS(OBJ_NAME_init);
 
 int
 OBJ_NAME_new_index(unsigned long (*hash_func)(const char *),
@@ -89,7 +88,6 @@ OBJ_NAME_new_index(unsigned long (*hash_func)(const char *),
 		name_funcs->free_func = free_func;
 	return (ret);
 }
-LCRYPTO_ALIAS(OBJ_NAME_new_index);
 
 /* static int obj_name_cmp(OBJ_NAME *a, OBJ_NAME *b) */
 static int
@@ -159,7 +157,6 @@ OBJ_NAME_get(const char *name, int type)
 		}
 	}
 }
-LCRYPTO_ALIAS(OBJ_NAME_get);
 
 int
 OBJ_NAME_add(const char *name, int type, const char *data)
@@ -207,7 +204,6 @@ OBJ_NAME_add(const char *name, int type, const char *data)
 	}
 	return (1);
 }
-LCRYPTO_ALIAS(OBJ_NAME_add);
 
 int
 OBJ_NAME_remove(const char *name, int type)
@@ -238,7 +234,6 @@ OBJ_NAME_remove(const char *name, int type)
 	} else
 		return (0);
 }
-LCRYPTO_ALIAS(OBJ_NAME_remove);
 
 struct doall {
 	int type;
@@ -267,7 +262,6 @@ OBJ_NAME_do_all(int type, void (*fn)(const OBJ_NAME *, void *arg), void *arg)
 	lh_OBJ_NAME_doall_arg(names_lh, LHASH_DOALL_ARG_FN(do_all_fn),
 	    struct doall, &d);
 }
-LCRYPTO_ALIAS(OBJ_NAME_do_all);
 
 struct doall_sorted {
 	int type;
@@ -317,7 +311,6 @@ OBJ_NAME_do_all_sorted(int type, void (*fn)(const OBJ_NAME *, void *arg),
 		free(d.names);
 	}
 }
-LCRYPTO_ALIAS(OBJ_NAME_do_all_sorted);
 
 static int free_type;
 
@@ -360,4 +353,3 @@ OBJ_NAME_cleanup(int type)
 	} else
 		lh_OBJ_NAME_down_load(names_lh) = down_load;
 }
-LCRYPTO_ALIAS(OBJ_NAME_cleanup);

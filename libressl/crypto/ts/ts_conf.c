@@ -1,4 +1,4 @@
-/* $OpenBSD: ts_conf.c,v 1.12 2023/07/07 07:25:21 beck Exp $ */
+/* $OpenBSD: ts_conf.c,v 1.11 2018/04/14 07:18:37 tb Exp $ */
 /* Written by Zoltan Glozik (zglozik@stones.com) for the OpenSSL
  * project 2002.
  */
@@ -110,7 +110,6 @@ end:
 	BIO_free(cert);
 	return x;
 }
-LCRYPTO_ALIAS(TS_CONF_load_cert);
 
 STACK_OF(X509) *
 TS_CONF_load_certs(const char *file)
@@ -145,7 +144,6 @@ end:
 	BIO_free(certs);
 	return othercerts;
 }
-LCRYPTO_ALIAS(TS_CONF_load_certs);
 
 EVP_PKEY *
 TS_CONF_load_key(const char *file, const char *pass)
@@ -163,7 +161,6 @@ end:
 	BIO_free(key);
 	return pkey;
 }
-LCRYPTO_ALIAS(TS_CONF_load_key);
 
 /* Function definitions for handling configuration options. */
 
@@ -189,7 +186,6 @@ TS_CONF_get_tsa_section(CONF *conf, const char *section)
 	}
 	return section;
 }
-LCRYPTO_ALIAS(TS_CONF_get_tsa_section);
 
 int
 TS_CONF_set_serial(CONF *conf, const char *section, TS_serial_cb cb,
@@ -209,7 +205,6 @@ TS_CONF_set_serial(CONF *conf, const char *section, TS_serial_cb cb,
 err:
 	return ret;
 }
-LCRYPTO_ALIAS(TS_CONF_set_serial);
 
 #ifndef OPENSSL_NO_ENGINE
 
@@ -230,7 +225,6 @@ TS_CONF_set_crypto_device(CONF *conf, const char *section, const char *device)
 err:
 	return ret;
 }
-LCRYPTO_ALIAS(TS_CONF_set_crypto_device);
 
 int
 TS_CONF_set_default_engine(const char *name)
@@ -257,7 +251,6 @@ err:
 	ENGINE_free(e);
 	return ret;
 }
-LCRYPTO_ALIAS(TS_CONF_set_default_engine);
 
 #endif
 
@@ -285,7 +278,6 @@ err:
 	X509_free(cert_obj);
 	return ret;
 }
-LCRYPTO_ALIAS(TS_CONF_set_signer_cert);
 
 int
 TS_CONF_set_certs(CONF *conf, const char *section, const char *certs,
@@ -310,7 +302,6 @@ err:
 	sk_X509_pop_free(certs_obj, X509_free);
 	return ret;
 }
-LCRYPTO_ALIAS(TS_CONF_set_certs);
 
 int
 TS_CONF_set_signer_key(CONF *conf, const char *section, const char *key,
@@ -336,7 +327,6 @@ err:
 	EVP_PKEY_free(key_obj);
 	return ret;
 }
-LCRYPTO_ALIAS(TS_CONF_set_signer_key);
 
 int
 TS_CONF_set_def_policy(CONF *conf, const char *section, const char *policy,
@@ -364,7 +354,6 @@ err:
 	ASN1_OBJECT_free(policy_obj);
 	return ret;
 }
-LCRYPTO_ALIAS(TS_CONF_set_def_policy);
 
 int
 TS_CONF_set_policies(CONF *conf, const char *section, TS_RESP_CTX *ctx)
@@ -398,7 +387,6 @@ err:
 	sk_CONF_VALUE_pop_free(list, X509V3_conf_free);
 	return ret;
 }
-LCRYPTO_ALIAS(TS_CONF_set_policies);
 
 int
 TS_CONF_set_digests(CONF *conf, const char *section, TS_RESP_CTX *ctx)
@@ -438,7 +426,6 @@ err:
 	sk_CONF_VALUE_pop_free(list, X509V3_conf_free);
 	return ret;
 }
-LCRYPTO_ALIAS(TS_CONF_set_digests);
 
 int
 TS_CONF_set_accuracy(CONF *conf, const char *section, TS_RESP_CTX *ctx)
@@ -478,7 +465,6 @@ err:
 	sk_CONF_VALUE_pop_free(list, X509V3_conf_free);
 	return ret;
 }
-LCRYPTO_ALIAS(TS_CONF_set_accuracy);
 
 int
 TS_CONF_set_clock_precision_digits(CONF *conf, const char *section,
@@ -504,7 +490,6 @@ TS_CONF_set_clock_precision_digits(CONF *conf, const char *section,
 err:
 	return ret;
 }
-LCRYPTO_ALIAS(TS_CONF_set_clock_precision_digits);
 
 static int
 TS_CONF_add_flag(CONF *conf, const char *section, const char *field, int flag,
@@ -530,14 +515,12 @@ TS_CONF_set_ordering(CONF *conf, const char *section, TS_RESP_CTX *ctx)
 {
 	return TS_CONF_add_flag(conf, section, ENV_ORDERING, TS_ORDERING, ctx);
 }
-LCRYPTO_ALIAS(TS_CONF_set_ordering);
 
 int
 TS_CONF_set_tsa_name(CONF *conf, const char *section, TS_RESP_CTX *ctx)
 {
 	return TS_CONF_add_flag(conf, section, ENV_TSA_NAME, TS_TSA_NAME, ctx);
 }
-LCRYPTO_ALIAS(TS_CONF_set_tsa_name);
 
 int
 TS_CONF_set_ess_cert_id_chain(CONF *conf, const char *section, TS_RESP_CTX *ctx)
@@ -545,4 +528,3 @@ TS_CONF_set_ess_cert_id_chain(CONF *conf, const char *section, TS_RESP_CTX *ctx)
 	return TS_CONF_add_flag(conf, section, ENV_ESS_CERT_ID_CHAIN,
 	    TS_ESS_CERT_ID_CHAIN, ctx);
 }
-LCRYPTO_ALIAS(TS_CONF_set_ess_cert_id_chain);

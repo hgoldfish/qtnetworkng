@@ -1,4 +1,4 @@
-/* $OpenBSD: evp.h,v 1.119 2023/08/25 12:37:33 schwarze Exp $ */
+/* $OpenBSD: evp.h,v 1.114 2023/03/10 16:41:07 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -183,6 +183,7 @@ extern "C" {
  */
 #define EVP_MD_CTX_FLAG_PAD_MASK	0xF0	/* RSA mode to use */
 #define EVP_MD_CTX_FLAG_PAD_PKCS1	0x00	/* PKCS#1 v1.5 mode */
+#define EVP_MD_CTX_FLAG_PAD_X931	0x10	/* X9.31 mode */
 #define EVP_MD_CTX_FLAG_PAD_PSS		0x20	/* PSS mode */
 
 #define EVP_MD_CTX_FLAG_NO_INIT		0x0100 /* Don't initialize md_data */
@@ -310,7 +311,7 @@ typedef struct evp_cipher_info_st {
 } EVP_CIPHER_INFO;
 
 /* Password based encryption function */
-typedef int EVP_PBE_KEYGEN(EVP_CIPHER_CTX *ctx, const char *pass, int passlen,
+typedef int (EVP_PBE_KEYGEN)(EVP_CIPHER_CTX *ctx, const char *pass, int passlen,
     ASN1_TYPE *param, const EVP_CIPHER *cipher, const EVP_MD *md, int en_de);
 
 #ifndef OPENSSL_NO_RSA
@@ -620,14 +621,6 @@ const EVP_MD *EVP_sha256(void);
 #ifndef OPENSSL_NO_SHA512
 const EVP_MD *EVP_sha384(void);
 const EVP_MD *EVP_sha512(void);
-const EVP_MD *EVP_sha512_224(void);
-const EVP_MD *EVP_sha512_256(void);
-#endif
-#ifndef OPENSSL_NO_SHA3
-const EVP_MD *EVP_sha3_224(void);
-const EVP_MD *EVP_sha3_256(void);
-const EVP_MD *EVP_sha3_384(void);
-const EVP_MD *EVP_sha3_512(void);
 #endif
 #ifndef OPENSSL_NO_SM3
 const EVP_MD *EVP_sm3(void);
@@ -925,7 +918,7 @@ int PKCS5_v2_PBE_keyivgen(EVP_CIPHER_CTX *ctx, const char *pass, int passlen,
 
 void PKCS5_PBE_add(void);
 
-int EVP_PBE_CipherInit(ASN1_OBJECT *pbe_obj, const char *pass, int passlen,
+int EVP_PBE_CipherInit (ASN1_OBJECT *pbe_obj, const char *pass, int passlen,
     ASN1_TYPE *param, EVP_CIPHER_CTX *ctx, int en_de);
 
 /* PBE type */
@@ -965,8 +958,8 @@ int EVP_PKEY_asn1_get0_info(int *ppkey_id, int *pkey_base_id, int *ppkey_flags,
     const char **pinfo, const char **ppem_str,
     const EVP_PKEY_ASN1_METHOD *ameth);
 
-const EVP_PKEY_ASN1_METHOD *EVP_PKEY_get0_asn1(const EVP_PKEY *pkey);
-EVP_PKEY_ASN1_METHOD *EVP_PKEY_asn1_new(int id, int flags, const char *pem_str,
+const EVP_PKEY_ASN1_METHOD* EVP_PKEY_get0_asn1(const EVP_PKEY *pkey);
+EVP_PKEY_ASN1_METHOD* EVP_PKEY_asn1_new(int id, int flags, const char *pem_str,
     const char *info);
 void EVP_PKEY_asn1_copy(EVP_PKEY_ASN1_METHOD *dst,
     const EVP_PKEY_ASN1_METHOD *src);
@@ -1073,7 +1066,7 @@ void EVP_PKEY_asn1_set_param_check(EVP_PKEY_ASN1_METHOD *ameth,
 #define EVP_PKEY_FLAG_SIGCTX_CUSTOM	4
 
 const EVP_PKEY_METHOD *EVP_PKEY_meth_find(int type);
-EVP_PKEY_METHOD *EVP_PKEY_meth_new(int id, int flags);
+EVP_PKEY_METHOD* EVP_PKEY_meth_new(int id, int flags);
 void EVP_PKEY_meth_get0_info(int *ppkey_id, int *pflags,
     const EVP_PKEY_METHOD *meth);
 void EVP_PKEY_meth_copy(EVP_PKEY_METHOD *dst, const EVP_PKEY_METHOD *src);

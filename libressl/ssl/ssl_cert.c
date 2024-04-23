@@ -1,4 +1,4 @@
-/* $OpenBSD: ssl_cert.c,v 1.107 2023/07/08 16:40:13 beck Exp $ */
+/* $OpenBSD: ssl_cert.c,v 1.105 2022/11/26 16:08:55 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -157,7 +157,6 @@ SSL_get_ex_data_X509_STORE_CTX_idx(void)
 
 	return ssl_x509_store_ctx_idx;
 }
-LSSL_ALIAS(SSL_get_ex_data_X509_STORE_CTX_idx);
 
 SSL_CERT *
 ssl_cert_new(void)
@@ -441,11 +440,11 @@ ssl_verify_cert_chain(SSL *s, STACK_OF(X509) *certs)
 		ret = X509_verify_cert(ctx);
 
 	s->verify_result = X509_STORE_CTX_get_error(ctx);
-	sk_X509_pop_free(s->s3->hs.verified_chain, X509_free);
-	s->s3->hs.verified_chain = NULL;
+	sk_X509_pop_free(s->verified_chain, X509_free);
+	s->verified_chain = NULL;
 	if (X509_STORE_CTX_get0_chain(ctx) != NULL) {
-		s->s3->hs.verified_chain = X509_STORE_CTX_get1_chain(ctx);
-		if (s->s3->hs.verified_chain == NULL) {
+		s->verified_chain = X509_STORE_CTX_get1_chain(ctx);
+		if (s->verified_chain == NULL) {
 			SSLerrorx(ERR_R_MALLOC_FAILURE);
 			ret = 0;
 		}
@@ -488,28 +487,24 @@ SSL_dup_CA_list(const STACK_OF(X509_NAME) *sk)
 	sk_X509_NAME_pop_free(ret, X509_NAME_free);
 	return NULL;
 }
-LSSL_ALIAS(SSL_dup_CA_list);
 
 void
 SSL_set_client_CA_list(SSL *s, STACK_OF(X509_NAME) *name_list)
 {
 	set_client_CA_list(&(s->client_CA), name_list);
 }
-LSSL_ALIAS(SSL_set_client_CA_list);
 
 void
 SSL_CTX_set_client_CA_list(SSL_CTX *ctx, STACK_OF(X509_NAME) *name_list)
 {
 	set_client_CA_list(&(ctx->client_CA), name_list);
 }
-LSSL_ALIAS(SSL_CTX_set_client_CA_list);
 
 STACK_OF(X509_NAME) *
 SSL_CTX_get_client_CA_list(const SSL_CTX *ctx)
 {
 	return (ctx->client_CA);
 }
-LSSL_ALIAS(SSL_CTX_get_client_CA_list);
 
 STACK_OF(X509_NAME) *
 SSL_get_client_CA_list(const SSL *s)
@@ -527,7 +522,6 @@ SSL_get_client_CA_list(const SSL *s)
 			return (s->ctx->client_CA);
 	}
 }
-LSSL_ALIAS(SSL_get_client_CA_list);
 
 static int
 add_client_CA(STACK_OF(X509_NAME) **sk, X509 *x)
@@ -554,14 +548,12 @@ SSL_add_client_CA(SSL *ssl, X509 *x)
 {
 	return (add_client_CA(&(ssl->client_CA), x));
 }
-LSSL_ALIAS(SSL_add_client_CA);
 
 int
 SSL_CTX_add_client_CA(SSL_CTX *ctx, X509 *x)
 {
 	return (add_client_CA(&(ctx->client_CA), x));
 }
-LSSL_ALIAS(SSL_CTX_add_client_CA);
 
 static int
 xname_cmp(const X509_NAME * const *a, const X509_NAME * const *b)
@@ -636,7 +628,6 @@ SSL_load_client_CA_file(const char *file)
 
 	return (ret);
 }
-LSSL_ALIAS(SSL_load_client_CA_file);
 
 /*!
  * Add a file of certs to a stack.
@@ -697,7 +688,6 @@ SSL_add_file_cert_subjects_to_stack(STACK_OF(X509_NAME) *stack,
 
 	return ret;
 }
-LSSL_ALIAS(SSL_add_file_cert_subjects_to_stack);
 
 /*!
  * Add a directory of certs to a stack.
@@ -738,4 +728,3 @@ SSL_add_dir_cert_subjects_to_stack(STACK_OF(X509_NAME) *stack, const char *dir)
 	}
 	return ret;
 }
-LSSL_ALIAS(SSL_add_dir_cert_subjects_to_stack);

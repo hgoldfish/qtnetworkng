@@ -1,4 +1,4 @@
-/* $OpenBSD: ssl_stat.c,v 1.21 2023/07/08 16:40:13 beck Exp $ */
+/* $OpenBSD: ssl_stat.c,v 1.20 2022/11/26 16:08:56 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -319,7 +319,6 @@ SSL_state_string_long(const SSL *s)
 	}
 	return (str);
 }
-LSSL_ALIAS(SSL_state_string_long);
 
 const char *
 SSL_rstate_string_long(const SSL *s)
@@ -342,7 +341,6 @@ SSL_rstate_string_long(const SSL *s)
 	}
 	return (str);
 }
-LSSL_ALIAS(SSL_rstate_string_long);
 
 const char *
 SSL_state_string(const SSL *s)
@@ -549,7 +547,6 @@ SSL_state_string(const SSL *s)
 	}
 	return (str);
 }
-LSSL_ALIAS(SSL_state_string);
 
 const char *
 SSL_alert_type_string_long(int value)
@@ -562,7 +559,6 @@ SSL_alert_type_string_long(int value)
 	else
 		return ("unknown");
 }
-LSSL_ALIAS(SSL_alert_type_string_long);
 
 const char *
 SSL_alert_type_string(int value)
@@ -575,7 +571,6 @@ SSL_alert_type_string(int value)
 	else
 		return ("U");
 }
-LSSL_ALIAS(SSL_alert_type_string);
 
 const char *
 SSL_alert_desc_string(int value)
@@ -673,7 +668,6 @@ SSL_alert_desc_string(int value)
 	}
 	return (str);
 }
-LSSL_ALIAS(SSL_alert_desc_string);
 
 const char *
 SSL_alert_desc_string_long(int value)
@@ -771,7 +765,6 @@ SSL_alert_desc_string_long(int value)
 	}
 	return (str);
 }
-LSSL_ALIAS(SSL_alert_desc_string_long);
 
 const char *
 SSL_rstate_string(const SSL *s)
@@ -794,4 +787,3 @@ SSL_rstate_string(const SSL *s)
 	}
 	return (str);
 }
-LSSL_ALIAS(SSL_rstate_string);

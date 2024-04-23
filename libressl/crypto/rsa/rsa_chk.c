@@ -1,4 +1,4 @@
-/* $OpenBSD: rsa_chk.c,v 1.18 2023/07/08 12:26:45 beck Exp $ */
+/* $OpenBSD: rsa_chk.c,v 1.17 2022/11/26 16:08:54 tb Exp $ */
 /* ====================================================================
  * Copyright (c) 1999 The OpenSSL Project.  All rights reserved.
  *
@@ -220,4 +220,3 @@ err:
 
 	return (ret);
 }
-LCRYPTO_ALIAS(RSA_check_key);

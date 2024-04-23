@@ -1,4 +1,4 @@
-/* $OpenBSD: d1_srtp.c,v 1.33 2023/07/08 16:40:13 beck Exp $ */
+/* $OpenBSD: d1_srtp.c,v 1.32 2022/11/26 16:08:55 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -229,14 +229,12 @@ SSL_CTX_set_tlsext_use_srtp(SSL_CTX *ctx, const char *profiles)
 {
 	return ssl_ctx_make_profiles(profiles, &ctx->srtp_profiles);
 }
-LSSL_ALIAS(SSL_CTX_set_tlsext_use_srtp);
 
 int
 SSL_set_tlsext_use_srtp(SSL *s, const char *profiles)
 {
 	return ssl_ctx_make_profiles(profiles, &s->srtp_profiles);
 }
-LSSL_ALIAS(SSL_set_tlsext_use_srtp);
 
 
 STACK_OF(SRTP_PROTECTION_PROFILE) *
@@ -253,7 +251,6 @@ SSL_get_srtp_profiles(SSL *s)
 
 	return NULL;
 }
-LSSL_ALIAS(SSL_get_srtp_profiles);
 
 SRTP_PROTECTION_PROFILE *
 SSL_get_selected_srtp_profile(SSL *s)
@@ -261,6 +258,5 @@ SSL_get_selected_srtp_profile(SSL *s)
 	/* XXX cast away the const */
 	return (SRTP_PROTECTION_PROFILE *)s->srtp_profile;
 }
-LSSL_ALIAS(SSL_get_selected_srtp_profile);
 
 #endif

@@ -1,4 +1,4 @@
-/* $OpenBSD: x509_verify.c,v 1.66 2023/05/07 07:11:50 tb Exp $ */
+/* $OpenBSD: x509_verify.c,v 1.63 2023/01/20 22:00:47 job Exp $ */
 /*
  * Copyright (c) 2020-2021 Bob Beck <beck@openbsd.org>
  *
@@ -275,6 +275,7 @@ x509_verify_ctx_cert_is_root(struct x509_verify_ctx *ctx, X509 *cert,
 		    cert)) != NULL) {
 			X509_free(match);
 			return x509_verify_check_chain_end(cert, full_chain);
+
 		}
 	} else {
 		/* Check the provided roots */
@@ -438,7 +439,8 @@ x509_verify_ctx_validate_legacy_chain(struct x509_verify_ctx *ctx,
 	if (!x509_vfy_check_revocation(ctx->xsc))
 		goto err;
 
-	if (!x509_vfy_check_policy(ctx->xsc))
+	if (ctx->xsc->param->flags & X509_V_FLAG_POLICY_CHECK &&
+	    !x509_vfy_check_policy(ctx->xsc))
 		goto err;
 
 	ret = 1;
@@ -902,6 +904,12 @@ x509_verify_cert_extensions(struct x509_verify_ctx *ctx, X509 *cert, int need_ca
 	}
 	if (ctx->purpose > 0 && X509_check_purpose(cert, ctx->purpose, need_ca)) {
 		ctx->error = X509_V_ERR_INVALID_PURPOSE;
+		return 0;
+	}
+
+	/* XXX support proxy certs later in new api */
+	if (ctx->xsc == NULL && cert->ex_flags & EXFLAG_PROXY) {
+		ctx->error = X509_V_ERR_PROXY_CERTIFICATES_NOT_ALLOWED;
 		return 0;
 	}
 

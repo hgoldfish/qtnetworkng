@@ -61,6 +61,7 @@ opensslinclude_HEADERS += curve25519.h
 opensslinclude_HEADERS += des.h
 opensslinclude_HEADERS += dh.h
 opensslinclude_HEADERS += dsa.h
+opensslinclude_HEADERS += dso.h
 opensslinclude_HEADERS += dtls1.h
 opensslinclude_HEADERS += ec.h
 opensslinclude_HEADERS += ecdh.h

@@ -120,11 +120,11 @@ PROGRAMS = $(bin_PROGRAMS) $(noinst_PROGRAMS)
 am__openssl_SOURCES_DIST = apps.c asn1pars.c ca.c ciphers.c crl.c \
 	crl2p7.c cms.c dgst.c dh.c dhparam.c dsa.c dsaparam.c ec.c \
 	ecparam.c enc.c errstr.c gendh.c gendsa.c genpkey.c genrsa.c \
-	ocsp.c openssl.c passwd.c pkcs12.c pkcs7.c pkcs8.c pkey.c \
-	pkeyparam.c pkeyutl.c prime.c rand.c req.c rsa.c rsautl.c \
-	s_cb.c s_client.c s_server.c s_socket.c s_time.c sess_id.c \
-	smime.c speed.c spkac.c ts.c verify.c version.c x509.c \
-	certhash.c certhash_win.c apps_win.c apps_posix.c \
+	nseq.c ocsp.c openssl.c passwd.c pkcs12.c pkcs7.c pkcs8.c \
+	pkey.c pkeyparam.c pkeyutl.c prime.c rand.c req.c rsa.c \
+	rsautl.c s_cb.c s_client.c s_server.c s_socket.c s_time.c \
+	sess_id.c smime.c speed.c spkac.c ts.c verify.c version.c \
+	x509.c certhash.c certhash_win.c apps_win.c apps_posix.c \
 	compat/poll_win.c compat/clock_gettime_osx.c
 @BUILD_CERTHASH_TRUE@am__objects_1 = certhash.$(OBJEXT)
 @BUILD_CERTHASH_FALSE@am__objects_2 = certhash_win.$(OBJEXT)
@@ -140,20 +140,22 @@ am_openssl_OBJECTS = apps.$(OBJEXT) asn1pars.$(OBJEXT) ca.$(OBJEXT) \
 	dsaparam.$(OBJEXT) ec.$(OBJEXT) ecparam.$(OBJEXT) \
 	enc.$(OBJEXT) errstr.$(OBJEXT) gendh.$(OBJEXT) \
 	gendsa.$(OBJEXT) genpkey.$(OBJEXT) genrsa.$(OBJEXT) \
-	ocsp.$(OBJEXT) openssl.$(OBJEXT) passwd.$(OBJEXT) \
-	pkcs12.$(OBJEXT) pkcs7.$(OBJEXT) pkcs8.$(OBJEXT) \
-	pkey.$(OBJEXT) pkeyparam.$(OBJEXT) pkeyutl.$(OBJEXT) \
-	prime.$(OBJEXT) rand.$(OBJEXT) req.$(OBJEXT) rsa.$(OBJEXT) \
-	rsautl.$(OBJEXT) s_cb.$(OBJEXT) s_client.$(OBJEXT) \
-	s_server.$(OBJEXT) s_socket.$(OBJEXT) s_time.$(OBJEXT) \
-	sess_id.$(OBJEXT) smime.$(OBJEXT) speed.$(OBJEXT) \
-	spkac.$(OBJEXT) ts.$(OBJEXT) verify.$(OBJEXT) \
+	nseq.$(OBJEXT) ocsp.$(OBJEXT) openssl.$(OBJEXT) \
+	passwd.$(OBJEXT) pkcs12.$(OBJEXT) pkcs7.$(OBJEXT) \
+	pkcs8.$(OBJEXT) pkey.$(OBJEXT) pkeyparam.$(OBJEXT) \
+	pkeyutl.$(OBJEXT) prime.$(OBJEXT) rand.$(OBJEXT) req.$(OBJEXT) \
+	rsa.$(OBJEXT) rsautl.$(OBJEXT) s_cb.$(OBJEXT) \
+	s_client.$(OBJEXT) s_server.$(OBJEXT) s_socket.$(OBJEXT) \
+	s_time.$(OBJEXT) sess_id.$(OBJEXT) smime.$(OBJEXT) \
+	speed.$(OBJEXT) spkac.$(OBJEXT) ts.$(OBJEXT) verify.$(OBJEXT) \
 	version.$(OBJEXT) x509.$(OBJEXT) $(am__objects_1) \
 	$(am__objects_2) $(am__objects_3) $(am__objects_4) \
 	$(am__objects_5) $(am__objects_6)
 openssl_OBJECTS = $(am_openssl_OBJECTS)
 am__DEPENDENCIES_1 =
-openssl_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+openssl_DEPENDENCIES = $(abs_top_builddir)/ssl/libssl.la \
+	$(abs_top_builddir)/crypto/libcrypto.la $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -183,7 +185,7 @@ am__depfiles_remade = ./$(DEPDIR)/apps.Po ./$(DEPDIR)/apps_posix.Po \
 	./$(DEPDIR)/ecparam.Po ./$(DEPDIR)/enc.Po \
 	./$(DEPDIR)/errstr.Po ./$(DEPDIR)/gendh.Po \
 	./$(DEPDIR)/gendsa.Po ./$(DEPDIR)/genpkey.Po \
-	./$(DEPDIR)/genrsa.Po ./$(DEPDIR)/ocsp.Po \
+	./$(DEPDIR)/genrsa.Po ./$(DEPDIR)/nseq.Po ./$(DEPDIR)/ocsp.Po \
 	./$(DEPDIR)/openssl.Po ./$(DEPDIR)/passwd.Po \
 	./$(DEPDIR)/pkcs12.Po ./$(DEPDIR)/pkcs7.Po \
 	./$(DEPDIR)/pkcs8.Po ./$(DEPDIR)/pkey.Po \
@@ -405,18 +407,18 @@ AM_CPPFLAGS = -I$(top_srcdir)/include -I$(abs_top_builddir)/include \
 	-I$(top_srcdir)/include/compat -DLIBRESSL_INTERNAL \
 	-D__BEGIN_HIDDEN_DECLS= -D__END_HIDDEN_DECLS=
 @ENABLE_LIBTLS_ONLY_FALSE@dist_man_MANS = openssl.1
-openssl_LDADD = $(libcrypto_la_objects) $(libcompat_la_objects) \
-	$(libcompatnoopt_la_objects) $(libssl_la_objects) \
-	$(PLATFORM_LDADD) $(PROG_LDADD)
+openssl_LDADD = $(abs_top_builddir)/ssl/libssl.la \
+	$(abs_top_builddir)/crypto/libcrypto.la $(PLATFORM_LDADD) \
+	$(PROG_LDADD)
 openssl_SOURCES = apps.c asn1pars.c ca.c ciphers.c crl.c crl2p7.c \
 	cms.c dgst.c dh.c dhparam.c dsa.c dsaparam.c ec.c ecparam.c \
-	enc.c errstr.c gendh.c gendsa.c genpkey.c genrsa.c ocsp.c \
-	openssl.c passwd.c pkcs12.c pkcs7.c pkcs8.c pkey.c pkeyparam.c \
-	pkeyutl.c prime.c rand.c req.c rsa.c rsautl.c s_cb.c \
-	s_client.c s_server.c s_socket.c s_time.c sess_id.c smime.c \
-	speed.c spkac.c ts.c verify.c version.c x509.c $(am__append_1) \
-	$(am__append_2) $(am__append_3) $(am__append_4) \
-	$(am__append_5) $(am__append_6)
+	enc.c errstr.c gendh.c gendsa.c genpkey.c genrsa.c nseq.c \
+	ocsp.c openssl.c passwd.c pkcs12.c pkcs7.c pkcs8.c pkey.c \
+	pkeyparam.c pkeyutl.c prime.c rand.c req.c rsa.c rsautl.c \
+	s_cb.c s_client.c s_server.c s_socket.c s_time.c sess_id.c \
+	smime.c speed.c spkac.c ts.c verify.c version.c x509.c \
+	$(am__append_1) $(am__append_2) $(am__append_3) \
+	$(am__append_4) $(am__append_5) $(am__append_6)
 noinst_HEADERS = apps.h progs.h s_apps.h testdsa.h testrsa.h \
 	timeouts.h
 EXTRA_DIST = CMakeLists.txt
@@ -558,6 +560,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gendsa.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/genpkey.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/genrsa.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nseq.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ocsp.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/openssl.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/passwd.Po@am__quote@ # am--include-marker
@@ -820,6 +823,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/gendsa.Po
 	-rm -f ./$(DEPDIR)/genpkey.Po
 	-rm -f ./$(DEPDIR)/genrsa.Po
+	-rm -f ./$(DEPDIR)/nseq.Po
 	-rm -f ./$(DEPDIR)/ocsp.Po
 	-rm -f ./$(DEPDIR)/openssl.Po
 	-rm -f ./$(DEPDIR)/passwd.Po
@@ -918,6 +922,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/gendsa.Po
 	-rm -f ./$(DEPDIR)/genpkey.Po
 	-rm -f ./$(DEPDIR)/genrsa.Po
+	-rm -f ./$(DEPDIR)/nseq.Po
 	-rm -f ./$(DEPDIR)/ocsp.Po
 	-rm -f ./$(DEPDIR)/openssl.Po
 	-rm -f ./$(DEPDIR)/passwd.Po
@@ -987,9 +992,6 @@ uninstall-man: uninstall-man1
 
 .PRECIOUS: Makefile
 
-
--include $(abs_top_builddir)/crypto/libcrypto_la_objects.mk
--include $(abs_top_builddir)/ssl/libssl_la_objects.mk
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

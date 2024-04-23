@@ -1,4 +1,4 @@
-/* $OpenBSD: names.c,v 1.21 2023/08/26 02:59:13 tb Exp $ */
+/* $OpenBSD: names.c,v 1.16 2022/11/26 16:08:52 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -64,9 +64,6 @@
 
 #include "evp_local.h"
 
-extern int obj_cleanup_defer;
-void check_defer(int nid);
-
 int
 EVP_add_cipher(const EVP_CIPHER *c)
 {
@@ -116,19 +113,25 @@ EVP_add_digest(const EVP_MD *md)
 const EVP_CIPHER *
 EVP_get_cipherbyname(const char *name)
 {
+	const EVP_CIPHER *cp;
+
 	if (!OPENSSL_init_crypto(0, NULL))
 		return NULL;
 
-	return (const EVP_CIPHER *)OBJ_NAME_get(name, OBJ_NAME_TYPE_CIPHER_METH);
+	cp = (const EVP_CIPHER *)OBJ_NAME_get(name, OBJ_NAME_TYPE_CIPHER_METH);
+	return (cp);
 }
 
 const EVP_MD *
 EVP_get_digestbyname(const char *name)
 {
+	const EVP_MD *cp;
+
 	if (!OPENSSL_init_crypto(0, NULL))
 		return NULL;
 
-	return (const EVP_MD *)OBJ_NAME_get(name, OBJ_NAME_TYPE_MD_METH);
+	cp = (const EVP_MD *)OBJ_NAME_get(name, OBJ_NAME_TYPE_MD_METH);
+	return (cp);
 }
 
 void
@@ -146,6 +149,7 @@ EVP_cleanup(void)
 		obj_cleanup_defer = 0;
 		OBJ_cleanup();
 	}
+	OBJ_sigid_free();
 }
 
 struct doall_cipher {

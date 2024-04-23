@@ -1,4 +1,4 @@
-/* $OpenBSD: x509_utl.c,v 1.17 2023/05/12 19:02:10 tb Exp $ */
+/* $OpenBSD: x509_utl.c,v 1.6 2023/02/16 08:38:17 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project.
  */
@@ -55,21 +55,18 @@
  * Hudson (tjh@cryptsoft.com).
  *
  */
+/* X509 v3 extension utilities */
 
 #include <ctype.h>
-#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
-#include <openssl/asn1.h>
 #include <openssl/bn.h>
 #include <openssl/conf.h>
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
 
-#include "bytestring.h"
-
-static char *bn_to_string(const BIGNUM *bn);
+char *bn_to_string(const BIGNUM *bn);
 static char *strip_spaces(char *name);
 static int sk_strcmp(const char * const *a, const char * const *b);
 static STACK_OF(OPENSSL_STRING) *get_email(X509_NAME *name,
@@ -164,7 +161,7 @@ X509V3_add_value_bool_nf(const char *name, int asn1_bool,
 }
 LCRYPTO_ALIAS(X509V3_add_value_bool_nf);
 
-static char *
+char *
 bn_to_string(const BIGNUM *bn)
 {
 	const char *sign = "";
@@ -208,21 +205,6 @@ i2s_ASN1_ENUMERATED(X509V3_EXT_METHOD *method, const ASN1_ENUMERATED *a)
 LCRYPTO_ALIAS(i2s_ASN1_ENUMERATED);
 
 char *
-i2s_ASN1_ENUMERATED_TABLE(X509V3_EXT_METHOD *method, const ASN1_ENUMERATED *e)
-{
-	BIT_STRING_BITNAME *enam;
-	long strval;
-
-	strval = ASN1_ENUMERATED_get(e);
-	for (enam = method->usr_data; enam->lname; enam++) {
-		if (strval == enam->bitnum)
-			return strdup(enam->lname);
-	}
-	return i2s_ASN1_ENUMERATED(method, e);
-}
-LCRYPTO_ALIAS(i2s_ASN1_ENUMERATED_TABLE);
-
-char *
 i2s_ASN1_INTEGER(X509V3_EXT_METHOD *method, const ASN1_INTEGER *a)
 {
 	BIGNUM *bntmp;
@@ -243,26 +225,25 @@ s2i_ASN1_INTEGER(X509V3_EXT_METHOD *method, const char *value)
 {
 	BIGNUM *bn = NULL;
 	ASN1_INTEGER *aint;
-	int isneg = 0, ishex = 0;
+	int isneg, ishex;
 	int ret;
 
 	if (!value) {
 		X509V3error(X509V3_R_INVALID_NULL_VALUE);
-		return NULL;
+		return 0;
 	}
-	if ((bn = BN_new()) == NULL) {
-		X509V3error(ERR_R_MALLOC_FAILURE);
-		return NULL;
-	}
+	bn = BN_new();
 	if (value[0] == '-') {
 		value++;
 		isneg = 1;
-	}
+	} else
+		isneg = 0;
 
-	if (value[0] == '0' && (value[1] == 'x' || value[1] == 'X')) {
+	if (value[0] == '0' && ((value[1] == 'x') || (value[1] == 'X'))) {
 		value += 2;
 		ishex = 1;
-	}
+	} else
+		ishex = 0;
 
 	if (ishex)
 		ret = BN_hex2bn(&bn, value);
@@ -272,17 +253,17 @@ s2i_ASN1_INTEGER(X509V3_EXT_METHOD *method, const char *value)
 	if (!ret || value[ret]) {
 		BN_free(bn);
 		X509V3error(X509V3_R_BN_DEC2BN_ERROR);
-		return NULL;
+		return 0;
 	}
 
-	if (BN_is_zero(bn))
+	if (isneg && BN_is_zero(bn))
 		isneg = 0;
 
 	aint = BN_to_ASN1_INTEGER(bn, NULL);
 	BN_free(bn);
 	if (!aint) {
 		X509V3error(X509V3_R_BN_TO_ASN1_INTEGER_ERROR);
-		return NULL;
+		return 0;
 	}
 	if (isneg)
 		aint->type |= V_ASN1_NEG;
@@ -461,148 +442,95 @@ strip_spaces(char *name)
 	return p;
 }
 
-static const char hex_digits[] = "0123456789ABCDEF";
+/* hex string utilities */
 
+/* Given a buffer of length 'len' return a malloc'ed string with its
+ * hex representation
+ */
 char *
 hex_to_string(const unsigned char *buffer, long len)
 {
-	CBB cbb;
-	CBS cbs;
-	uint8_t *out = NULL;
-	uint8_t c;
-	size_t out_len;
+	char *tmp, *q;
+	const unsigned char *p;
+	int i;
+	static const char hexdig[] = "0123456789ABCDEF";
 
-	if (!CBB_init(&cbb, 0))
-		goto err;
-
-	if (len < 0)
-		goto err;
-
-	CBS_init(&cbs, buffer, len);
-	while (CBS_len(&cbs) > 0) {
-		if (!CBS_get_u8(&cbs, &c))
-			goto err;
-		if (!CBB_add_u8(&cbb, hex_digits[c >> 4]))
-			goto err;
-		if (!CBB_add_u8(&cbb, hex_digits[c & 0xf]))
-			goto err;
-		if (CBS_len(&cbs) > 0) {
-			if (!CBB_add_u8(&cbb, ':'))
-				goto err;
-		}
+	if (!buffer || !len)
+		return NULL;
+	if (!(tmp = malloc(len * 3 + 1))) {
+		X509V3error(ERR_R_MALLOC_FAILURE);
+		return NULL;
 	}
-
-	if (!CBB_add_u8(&cbb, '\0'))
-		goto err;
-
-	if (!CBB_finish(&cbb, &out, &out_len))
-		goto err;
-
- err:
-	CBB_cleanup(&cbb);
-
-	return out;
+	q = tmp;
+	for (i = 0, p = buffer; i < len; i++, p++) {
+		*q++ = hexdig[(*p >> 4) & 0xf];
+		*q++ = hexdig[*p & 0xf];
+		*q++ = ':';
+	}
+	q[-1] = 0;
+	return tmp;
 }
 LCRYPTO_ALIAS(hex_to_string);
 
-static int
-x509_skip_colons_cbs(CBS *cbs)
-{
-	uint8_t c;
-
-	while (CBS_len(cbs) > 0) {
-		if (!CBS_peek_u8(cbs, &c))
-			return 0;
-		if (c != ':')
-			return 1;
-		if (!CBS_get_u8(cbs, &c))
-			return 0;
-	}
-
-	return 1;
-}
-
-static int
-x509_get_xdigit_nibble_cbs(CBS *cbs, uint8_t *out_nibble)
-{
-	uint8_t c;
-
-	if (!CBS_get_u8(cbs, &c))
-		return 0;
-
-	if (c >= '0' && c <= '9') {
-		*out_nibble = c - '0';
-		return 1;
-	}
-	if (c >= 'a' && c <= 'f') {
-		*out_nibble = c - 'a' + 10;
-		return 1;
-	}
-	if (c >= 'A' && c <= 'F') {
-		*out_nibble = c - 'A' + 10;
-		return 1;
-	}
-
-	X509V3error(X509V3_R_ILLEGAL_HEX_DIGIT);
-	return 0;
-}
+/* Give a string of hex digits convert to
+ * a buffer
+ */
 
 unsigned char *
 string_to_hex(const char *str, long *len)
 {
-	CBB cbb;
-	CBS cbs;
-	uint8_t *out = NULL;
-	size_t out_len;
-	uint8_t hi, lo;
-
-	*len = 0;
-
-	if (!CBB_init(&cbb, 0))
-		goto err;
-
-	if (str == NULL) {
+	unsigned char *hexbuf, *q;
+	unsigned char ch, cl, *p;
+	if (!str) {
 		X509V3error(X509V3_R_INVALID_NULL_ARGUMENT);
-		goto err;
+		return NULL;
 	}
-
-	CBS_init(&cbs, str, strlen(str));
-	while (CBS_len(&cbs) > 0) {
-		/*
-		 * Skipping only a single colon between two pairs of digits
-		 * would make more sense - history...
-		 */
-		if (!x509_skip_colons_cbs(&cbs))
-			goto err;
-		/* Another historic idiocy. */
-		if (CBS_len(&cbs) == 0)
-			break;
-		if (!x509_get_xdigit_nibble_cbs(&cbs, &hi))
-			goto err;
-		if (CBS_len(&cbs) == 0) {
+	if (!(hexbuf = malloc(strlen(str) >> 1)))
+		goto err;
+	for (p = (unsigned char *)str, q = hexbuf; *p; ) {
+		ch = *p++;
+		if (ch == ':')
+			continue;
+		cl = *p++;
+		if (!cl) {
 			X509V3error(X509V3_R_ODD_NUMBER_OF_DIGITS);
-			goto err;
+			free(hexbuf);
+			return NULL;
 		}
-		if (!x509_get_xdigit_nibble_cbs(&cbs, &lo))
-			goto err;
-		if (!CBB_add_u8(&cbb, hi << 4 | lo))
-			goto err;
+		ch = tolower(ch);
+		cl = tolower(cl);
+
+		if ((ch >= '0') && (ch <= '9'))
+			ch -= '0';
+		else if ((ch >= 'a') && (ch <= 'f'))
+			ch -= 'a' - 10;
+		else
+			goto badhex;
+
+		if ((cl >= '0') && (cl <= '9'))
+			cl -= '0';
+		else if ((cl >= 'a') && (cl <= 'f'))
+			cl -= 'a' - 10;
+		else
+			goto badhex;
+
+		*q++ = (ch << 4) | cl;
 	}
 
-	if (!CBB_finish(&cbb, &out, &out_len))
-		goto err;
-	if (out_len > LONG_MAX) {
-		freezero(out, out_len);
-		out = NULL;
-		goto err;
-	}
+	if (len)
+		*len = q - hexbuf;
 
-	*len = out_len;
+	return hexbuf;
 
  err:
-	CBB_cleanup(&cbb);
+	free(hexbuf);
+	X509V3error(ERR_R_MALLOC_FAILURE);
+	return NULL;
 
-	return out;
+ badhex:
+	free(hexbuf);
+	X509V3error(X509V3_R_ILLEGAL_HEX_DIGIT);
+	return NULL;
 }
 LCRYPTO_ALIAS(string_to_hex);
 

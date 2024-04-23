@@ -4,7 +4,6 @@
 .type	MULADD_128x512,@function
 .align	16
 MULADD_128x512:
-	endbr64
 	movq	0(%rsi),%rax
 	mulq	%rbp
 	addq	%rax,%r8
@@ -135,7 +134,6 @@ MULADD_128x512:
 .type	mont_reduce,@function
 .align	16
 mont_reduce:
-	endbr64
 	leaq	192(%rsp),%rdi
 	movq	32(%rsp),%rsi
 	addq	$576,%rsi
@@ -579,7 +577,6 @@ mont_reduce:
 .type	mont_mul_a3b,@function
 .align	16
 mont_mul_a3b:
-	endbr64
 
 
 
@@ -1086,7 +1083,6 @@ mont_mul_a3b:
 .type	sqr_reduce,@function
 .align	16
 sqr_reduce:
-	endbr64
 	movq	16(%rsp),%rcx
 
 
@@ -1470,7 +1466,6 @@ sqr_reduce:
 .globl	mod_exp_512
 .type	mod_exp_512,@function
 mod_exp_512:
-	endbr64
 	pushq	%rbp
 	pushq	%rbx
 	pushq	%r12

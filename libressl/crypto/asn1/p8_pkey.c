@@ -1,4 +1,4 @@
-/* $OpenBSD: p8_pkey.c,v 1.23 2023/07/07 19:37:52 beck Exp $ */
+/* $OpenBSD: p8_pkey.c,v 1.21 2022/11/26 16:08:50 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */
@@ -185,3 +185,4 @@ PKCS8_pkey_add1_attr_by_NID(PKCS8_PRIV_KEY_INFO *p8, int nid, int type,
 		return 1;
 	return 0;
 }
+

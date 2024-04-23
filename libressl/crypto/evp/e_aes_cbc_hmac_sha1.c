@@ -1,4 +1,4 @@
-/* $OpenBSD: e_aes_cbc_hmac_sha1.c,v 1.19 2023/07/07 19:37:53 beck Exp $ */
+/* $OpenBSD: e_aes_cbc_hmac_sha1.c,v 1.17 2022/11/26 16:08:52 tb Exp $ */
 /* ====================================================================
  * Copyright (c) 2011-2013 The OpenSSL Project.  All rights reserved.
  *

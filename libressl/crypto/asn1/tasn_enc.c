@@ -1,4 +1,4 @@
-/* $OpenBSD: tasn_enc.c,v 1.33 2023/07/28 10:00:10 tb Exp $ */
+/* $OpenBSD: tasn_enc.c,v 1.29 2023/03/06 12:00:27 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */
@@ -92,7 +92,6 @@ ASN1_item_i2d(ASN1_VALUE *val, unsigned char **out, const ASN1_ITEM *it)
 {
 	return asn1_item_flags_i2d(val, out, it, 0);
 }
-LCRYPTO_ALIAS(ASN1_item_i2d);
 
 /* Encode an ASN1 item, this is use by the
  * standard 'i2d' function. 'out' points to
@@ -269,7 +268,13 @@ ASN1_item_ex_i2d(ASN1_VALUE **pval, unsigned char **out, const ASN1_ITEM *it,
 	}
 	return 0;
 }
-LCRYPTO_ALIAS(ASN1_item_ex_i2d);
+
+int
+ASN1_template_i2d(ASN1_VALUE **pval, unsigned char **out,
+    const ASN1_TEMPLATE *tt)
+{
+	return asn1_template_ex_i2d(pval, out, tt, -1, 0);
+}
 
 static int
 asn1_template_ex_i2d(ASN1_VALUE **pval, unsigned char **out,

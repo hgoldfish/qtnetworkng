@@ -1,4 +1,4 @@
-/* $OpenBSD: x_exten.c,v 1.20 2023/07/07 19:37:52 beck Exp $ */
+/* $OpenBSD: x_exten.c,v 1.18 2022/11/26 16:08:50 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */

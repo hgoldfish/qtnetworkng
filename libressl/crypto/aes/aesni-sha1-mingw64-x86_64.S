@@ -1420,6 +1420,7 @@ aesni_cbc_sha1_enc_ssse3:
 	movq	16(%rsp),%rsi
 	retq
 .LSEH_end_aesni_cbc_sha1_enc_ssse3:
+.section	.rodata
 .p2align	6
 K_XX_XX:
 .long	0x5a827999,0x5a827999,0x5a827999,0x5a827999	
@@ -1427,9 +1428,8 @@ K_XX_XX:
 .long	0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc	
 .long	0xca62c1d6,0xca62c1d6,0xca62c1d6,0xca62c1d6	
 .long	0x00010203,0x04050607,0x08090a0b,0x0c0d0e0f	
-
-.byte	65,69,83,78,73,45,67,66,67,43,83,72,65,49,32,115,116,105,116,99,104,32,102,111,114,32,120,56,54,95,54,52,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32,60,97,112,112,114,111,64,111,112,101,110,115,115,108,46,111,114,103,62,0
 .p2align	6
+.text	
 
 .def	ssse3_handler;	.scl 3;	.type 32;	.endef
 .p2align	4

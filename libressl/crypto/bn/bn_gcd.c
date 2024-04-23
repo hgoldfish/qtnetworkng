@@ -1,4 +1,4 @@
-/* $OpenBSD: bn_gcd.c,v 1.28 2023/06/02 17:15:30 tb Exp $ */
+/* $OpenBSD: bn_gcd.c,v 1.21 2023/01/21 09:21:11 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -119,87 +119,65 @@ euclid(BIGNUM *a, BIGNUM *b)
 	BIGNUM *t;
 	int shifts = 0;
 
-	/* Loop invariant: 0 <= b <= a. */
-	while (!BN_is_zero(b)) {
-		if (BN_is_odd(a) && BN_is_odd(b)) {
-			if (!BN_sub(a, a, b))
-				goto err;
-			if (!BN_rshift1(a, a))
-				goto err;
-		} else if (BN_is_odd(a) && !BN_is_odd(b)) {
-			if (!BN_rshift1(b, b))
-				goto err;
-		} else if (!BN_is_odd(a) && BN_is_odd(b)) {
-			if (!BN_rshift1(a, a))
-				goto err;
-		} else {
-			if (!BN_rshift1(a, a))
-				goto err;
-			if (!BN_rshift1(b, b))
-				goto err;
-			shifts++;
-			continue;
-		}
 
-		if (BN_cmp(a, b) < 0) {
-			t = a;
-			a = b;
-			b = t;
+	/* 0 <= b <= a */
+	while (!BN_is_zero(b)) {
+		/* 0 < b <= a */
+
+		if (BN_is_odd(a)) {
+			if (BN_is_odd(b)) {
+				if (!BN_sub(a, a, b))
+					goto err;
+				if (!BN_rshift1(a, a))
+					goto err;
+				if (BN_cmp(a, b) < 0) {
+					t = a;
+					a = b;
+					b = t;
+				}
+			}
+			else		/* a odd - b even */
+			{
+				if (!BN_rshift1(b, b))
+					goto err;
+				if (BN_cmp(a, b) < 0) {
+					t = a;
+					a = b;
+					b = t;
+				}
+			}
 		}
+		else			/* a is even */
+		{
+			if (BN_is_odd(b)) {
+				if (!BN_rshift1(a, a))
+					goto err;
+				if (BN_cmp(a, b) < 0) {
+					t = a;
+					a = b;
+					b = t;
+				}
+			}
+			else		/* a even - b even */
+			{
+				if (!BN_rshift1(a, a))
+					goto err;
+				if (!BN_rshift1(b, b))
+					goto err;
+				shifts++;
+			}
+		}
+		/* 0 <= b <= a */
 	}
 
 	if (shifts) {
 		if (!BN_lshift(a, a, shifts))
 			goto err;
 	}
+	return (a);
 
-	return a;
-
- err:
-	return NULL;
-}
-
-int
-BN_gcd(BIGNUM *r, const BIGNUM *in_a, const BIGNUM *in_b, BN_CTX *ctx)
-{
-	BIGNUM *a, *b, *t;
-	int ret = 0;
-
-	BN_CTX_start(ctx);
-	if ((a = BN_CTX_get(ctx)) == NULL)
-		goto err;
-	if ((b = BN_CTX_get(ctx)) == NULL)
-		goto err;
-
-	if (!bn_copy(a, in_a))
-		goto err;
-	if (!bn_copy(b, in_b))
-		goto err;
-	a->neg = 0;
-	b->neg = 0;
-
-	if (BN_cmp(a, b) < 0) {
-		t = a;
-		a = b;
-		b = t;
-	}
-	t = euclid(a, b);
-	if (t == NULL)
-		goto err;
-
-	if (!bn_copy(r, t))
-		goto err;
-	ret = 1;
-
- err:
-	BN_CTX_end(ctx);
-	return (ret);
-}
-
-int
-BN_gcd_nonct(BIGNUM *r, const BIGNUM *in_a, const BIGNUM *in_b, BN_CTX *ctx)
-{
-	return BN_gcd(r, in_a, in_b, ctx);
+err:
+	return (NULL);
 }
 
 /*
@@ -223,6 +201,7 @@ BN_gcd_no_branch(BIGNUM *in, const BIGNUM *a, const BIGNUM *n,
 	BN_init(&local_A);
 	BN_init(&local_B);
 
+
 	BN_CTX_start(ctx);
 	if ((A = BN_CTX_get(ctx)) == NULL)
 		goto err;
@@ -242,9 +221,9 @@ BN_gcd_no_branch(BIGNUM *in, const BIGNUM *a, const BIGNUM *n,
 	if (!BN_one(X))
 		goto err;
 	BN_zero(Y);
-	if (!bn_copy(B, a))
+	if (BN_copy(B, a) == NULL)
 		goto err;
-	if (!bn_copy(A, n))
+	if (BN_copy(A, n) == NULL)
 		goto err;
 	A->neg = 0;
 
@@ -335,12 +314,50 @@ BN_gcd_no_branch(BIGNUM *in, const BIGNUM *a, const BIGNUM *n,
 	 *      A == gcd(a,n);
 	 */
 
-	if (!bn_copy(R, A))
+	if (!BN_copy(R, A))
 		goto err;
 	ret = R;
- err:
+err:
 	if ((ret == NULL) && (in == NULL))
 		BN_free(R);
+	BN_CTX_end(ctx);
+	return (ret);
+}
+
+int
+BN_gcd(BIGNUM *r, const BIGNUM *in_a, const BIGNUM *in_b, BN_CTX *ctx)
+{
+	BIGNUM *a, *b, *t;
+	int ret = 0;
+
+
+	BN_CTX_start(ctx);
+	if ((a = BN_CTX_get(ctx)) == NULL)
+		goto err;
+	if ((b = BN_CTX_get(ctx)) == NULL)
+		goto err;
+
+	if (BN_copy(a, in_a) == NULL)
+		goto err;
+	if (BN_copy(b, in_b) == NULL)
+		goto err;
+	a->neg = 0;
+	b->neg = 0;
+
+	if (BN_cmp(a, b) < 0) {
+		t = a;
+		a = b;
+		b = t;
+	}
+	t = euclid(a, b);
+	if (t == NULL)
+		goto err;
+
+	if (BN_copy(r, t) == NULL)
+		goto err;
+	ret = 1;
+
+err:
 	BN_CTX_end(ctx);
 	return (ret);
 }
@@ -351,6 +368,12 @@ BN_gcd_ct(BIGNUM *r, const BIGNUM *in_a, const BIGNUM *in_b, BN_CTX *ctx)
 	if (BN_gcd_no_branch(r, in_a, in_b, ctx) == NULL)
 		return 0;
 	return 1;
+}
+
+int
+BN_gcd_nonct(BIGNUM *r, const BIGNUM *in_a, const BIGNUM *in_b, BN_CTX *ctx)
+{
+	return BN_gcd(r, in_a, in_b, ctx);
 }
 
 /* BN_mod_inverse_no_branch is a special version of BN_mod_inverse.
@@ -365,6 +388,7 @@ BN_mod_inverse_no_branch(BIGNUM *in, const BIGNUM *a, const BIGNUM *n,
 	BIGNUM *pA, *pB;
 	BIGNUM *ret = NULL;
 	int sign;
+
 
 	BN_init(&local_A);
 	BN_init(&local_B);
@@ -395,9 +419,9 @@ BN_mod_inverse_no_branch(BIGNUM *in, const BIGNUM *a, const BIGNUM *n,
 	if (!BN_one(X))
 		goto err;
 	BN_zero(Y);
-	if (!bn_copy(B, a))
+	if (BN_copy(B, a) == NULL)
 		goto err;
-	if (!bn_copy(A, n))
+	if (BN_copy(A, n) == NULL)
 		goto err;
 	A->neg = 0;
 
@@ -497,19 +521,22 @@ BN_mod_inverse_no_branch(BIGNUM *in, const BIGNUM *a, const BIGNUM *n,
 	}
 	/* Now  Y*a  ==  A  (mod |n|).  */
 
-	if (!BN_is_one(A)) {
+	if (BN_is_one(A)) {
+		/* Y*a == 1  (mod |n|) */
+		if (!Y->neg && BN_ucmp(Y, n) < 0) {
+			if (!BN_copy(R, Y))
+				goto err;
+		} else {
+			if (!BN_nnmod(R, Y, n, ctx))
+				goto err;
+		}
+	} else {
 		BNerror(BN_R_NO_INVERSE);
 		goto err;
 	}
-
-	if (!BN_nnmod(Y, Y, n, ctx))
-		goto err;
-	if (!bn_copy(R, Y))
-		goto err;
-
 	ret = R;
 
- err:
+err:
 	if ((ret == NULL) && (in == NULL))
 		BN_free(R);
 	BN_CTX_end(ctx);
@@ -527,6 +554,7 @@ BN_mod_inverse_internal(BIGNUM *in, const BIGNUM *a, const BIGNUM *n, BN_CTX *ct
 
 	if (ct)
 		return BN_mod_inverse_no_branch(in, a, n, ctx);
+
 
 	BN_CTX_start(ctx);
 	if ((A = BN_CTX_get(ctx)) == NULL)
@@ -554,9 +582,9 @@ BN_mod_inverse_internal(BIGNUM *in, const BIGNUM *a, const BIGNUM *n, BN_CTX *ct
 	if (!BN_one(X))
 		goto err;
 	BN_zero(Y);
-	if (!bn_copy(B, a))
+	if (BN_copy(B, a) == NULL)
 		goto err;
-	if (!bn_copy(A, n))
+	if (BN_copy(A, n) == NULL)
 		goto err;
 	A->neg = 0;
 	if (B->neg || (BN_ucmp(B, A) >= 0)) {
@@ -607,6 +635,7 @@ BN_mod_inverse_internal(BIGNUM *in, const BIGNUM *a, const BIGNUM *n, BN_CTX *ct
 					goto err;
 			}
 
+
 			/* Same for  A  and  Y.  Afterwards, (2) still holds. */
 			shift = 0;
 			while (!BN_is_bit_set(A, shift)) /* note that 0 < A */
@@ -625,6 +654,7 @@ BN_mod_inverse_internal(BIGNUM *in, const BIGNUM *a, const BIGNUM *n, BN_CTX *ct
 				if (!BN_rshift(A, A, shift))
 					goto err;
 			}
+
 
 			/* We still have (1) and (2).
 			 * Both  A  and  B  are odd.
@@ -749,7 +779,7 @@ BN_mod_inverse_internal(BIGNUM *in, const BIGNUM *a, const BIGNUM *n, BN_CTX *ct
 					if (!BN_lshift(tmp, X, 2))
 						goto err;
 				} else if (D->top == 1) {
-					if (!bn_copy(tmp, X))
+					if (!BN_copy(tmp, X))
 						goto err;
 					if (!BN_mul_word(tmp, D->d[0]))
 						goto err;
@@ -782,19 +812,22 @@ BN_mod_inverse_internal(BIGNUM *in, const BIGNUM *a, const BIGNUM *n, BN_CTX *ct
 	}
 	/* Now  Y*a  ==  A  (mod |n|).  */
 
-	if (!BN_is_one(A)) {
+	if (BN_is_one(A)) {
+		/* Y*a == 1  (mod |n|) */
+		if (!Y->neg && BN_ucmp(Y, n) < 0) {
+			if (!BN_copy(R, Y))
+				goto err;
+		} else {
+			if (!BN_nnmod(R, Y,n, ctx))
+				goto err;
+		}
+	} else {
 		BNerror(BN_R_NO_INVERSE);
 		goto err;
 	}
-
-	if (!BN_nnmod(Y, Y, n, ctx))
-		goto err;
-	if (!bn_copy(R, Y))
-		goto err;
-
 	ret = R;
 
- err:
+err:
 	if ((ret == NULL) && (in == NULL))
 		BN_free(R);
 	BN_CTX_end(ctx);

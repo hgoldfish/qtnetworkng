@@ -1,4 +1,4 @@
-/*	$OpenBSD: x509_local.h,v 1.9 2023/05/28 05:25:24 tb Exp $ */
+/*	$OpenBSD: x509_local.h,v 1.2 2022/11/26 17:23:18 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2013.
  */
@@ -165,12 +165,14 @@ struct x509_st {
 	CRYPTO_EX_DATA ex_data;
 	/* These contain copies of various extension values */
 	long ex_pathlen;
+	long ex_pcpathlen;
 	unsigned long ex_flags;
 	unsigned long ex_kusage;
 	unsigned long ex_xkusage;
 	unsigned long ex_nscert;
 	ASN1_OCTET_STRING *skid;
 	AUTHORITY_KEYID *akid;
+	X509_POLICY_CACHE *policy_cache;
 	STACK_OF(DIST_POINT) *crldp;
 	STACK_OF(GENERAL_NAME) *altname;
 	NAME_CONSTRAINTS *nc;
@@ -272,14 +274,7 @@ struct X509_VERIFY_PARAM_st {
 	int depth;		/* Verify depth */
 	int security_level;	/* 'Security level', see SP800-57. */
 	STACK_OF(ASN1_OBJECT) *policies;	/* Permissible policies */
-	STACK_OF(OPENSSL_STRING) *hosts; /* Set of acceptable names */
-	unsigned int hostflags;     /* Flags to control matching features */
-	char *peername;             /* Matching hostname in peer certificate */
-	char *email;                /* If not NULL email address to match */
-	size_t emaillen;
-	unsigned char *ip;          /* If not NULL IP address to match */
-	size_t iplen;               /* Length of IP address */
-	int poisoned;
+	X509_VERIFY_PARAM_ID *id;	/* opaque ID data */
 } /* X509_VERIFY_PARAM */;
 
 /*
@@ -334,10 +329,10 @@ struct x509_store_ctx_st {
 	/* The following are set by the caller */
 	X509 *cert;		/* The cert to check */
 	STACK_OF(X509) *untrusted;	/* chain of X509s - untrusted - passed in */
-	STACK_OF(X509) *trusted;	/* trusted stack for use with get_issuer() */
 	STACK_OF(X509_CRL) *crls;	/* set of CRLs passed in */
 
 	X509_VERIFY_PARAM *param;
+	void *other_ctx;	/* Other info for use with get_issuer() */
 
 	/* Callbacks for various operations */
 	int (*verify)(X509_STORE_CTX *ctx);	/* called to verify a certificate */
@@ -357,6 +352,7 @@ struct x509_store_ctx_st {
 	int valid;		/* if 0, rebuild chain */
 	int num_untrusted;	/* number of untrusted certs in chain */
 	STACK_OF(X509) *chain;		/* chain of X509s - built up and trusted */
+	X509_POLICY_TREE *tree;	/* Valid policy tree */
 
 	int explicit_policy;	/* Require explicit policy value */
 
@@ -378,10 +374,6 @@ struct x509_store_ctx_st {
 int x509_check_cert_time(X509_STORE_CTX *ctx, X509 *x, int quiet);
 
 int name_cmp(const char *name, const char *cmp);
-
-int X509_policy_check(const STACK_OF(X509) *certs,
-    const STACK_OF(ASN1_OBJECT) *user_policies, unsigned long flags,
-    X509 **out_current_cert);
 
 __END_HIDDEN_DECLS
 

@@ -1,4 +1,4 @@
-/* $OpenBSD: p_sign.c,v 1.19 2023/07/07 19:37:54 beck Exp $ */
+/* $OpenBSD: p_sign.c,v 1.17 2022/11/26 16:08:53 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

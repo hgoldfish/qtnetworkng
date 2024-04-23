@@ -1,4 +1,4 @@
-/* $OpenBSD: t_x509.c,v 1.43 2023/07/07 19:37:52 beck Exp $ */
+/* $OpenBSD: t_x509.c,v 1.41 2022/11/26 16:08:50 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -363,7 +363,6 @@ ASN1_TIME_print(BIO *bp, const ASN1_TIME *tm)
 	BIO_write(bp, "Bad time value", 14);
 	return (0);
 }
-LCRYPTO_ALIAS(ASN1_TIME_print);
 
 static const char *mon[12] = {
 	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -423,7 +422,6 @@ ASN1_GENERALIZEDTIME_print(BIO *bp, const ASN1_GENERALIZEDTIME *tm)
 	BIO_write(bp, "Bad time value", 14);
 	return (0);
 }
-LCRYPTO_ALIAS(ASN1_GENERALIZEDTIME_print);
 
 int
 ASN1_UTCTIME_print(BIO *bp, const ASN1_UTCTIME *tm)
@@ -467,7 +465,6 @@ ASN1_UTCTIME_print(BIO *bp, const ASN1_UTCTIME *tm)
 	BIO_write(bp, "Bad time value", 14);
 	return (0);
 }
-LCRYPTO_ALIAS(ASN1_UTCTIME_print);
 
 int
 X509_NAME_print(BIO *bp, const X509_NAME *name, int obase)

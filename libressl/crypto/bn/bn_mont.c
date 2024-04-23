@@ -1,4 +1,4 @@
-/* $OpenBSD: bn_mont.c,v 1.61 2023/07/08 12:21:58 beck Exp $ */
+/* $OpenBSD: bn_mont.c,v 1.52 2023/03/07 09:42:09 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -137,7 +137,15 @@ BN_MONT_CTX_new(void)
 
 	return mctx;
 }
-LCRYPTO_ALIAS(BN_MONT_CTX_new);
+
+void
+BN_MONT_CTX_init(BN_MONT_CTX *mctx)
+{
+	memset(mctx, 0, sizeof(*mctx));
+
+	BN_init(&mctx->RR);
+	BN_init(&mctx->N);
+}
 
 void
 BN_MONT_CTX_free(BN_MONT_CTX *mctx)
@@ -151,7 +159,6 @@ BN_MONT_CTX_free(BN_MONT_CTX *mctx)
 	if (mctx->flags & BN_FLG_MALLOCED)
 		free(mctx);
 }
-LCRYPTO_ALIAS(BN_MONT_CTX_free);
 
 BN_MONT_CTX *
 BN_MONT_CTX_copy(BN_MONT_CTX *dst, BN_MONT_CTX *src)
@@ -159,9 +166,9 @@ BN_MONT_CTX_copy(BN_MONT_CTX *dst, BN_MONT_CTX *src)
 	if (dst == src)
 		return dst;
 
-	if (!bn_copy(&dst->RR, &src->RR))
+	if (!BN_copy(&dst->RR, &src->RR))
 		return NULL;
-	if (!bn_copy(&dst->N, &src->N))
+	if (!BN_copy(&dst->N, &src->N))
 		return NULL;
 
 	dst->ri = src->ri;
@@ -170,7 +177,6 @@ BN_MONT_CTX_copy(BN_MONT_CTX *dst, BN_MONT_CTX *src)
 
 	return dst;
 }
-LCRYPTO_ALIAS(BN_MONT_CTX_copy);
 
 int
 BN_MONT_CTX_set(BN_MONT_CTX *mont, const BIGNUM *mod, BN_CTX *ctx)
@@ -192,7 +198,7 @@ BN_MONT_CTX_set(BN_MONT_CTX *mont, const BIGNUM *mod, BN_CTX *ctx)
 	/* Save modulus and determine length of R. */
 	if (BN_is_zero(mod))
 		goto err;
-	if (!bn_copy(&mont->N, mod))
+	if (!BN_copy(&mont->N, mod))
 		 goto err;
 	mont->N.neg = 0;
 	mont->ri = ((BN_num_bits(mod) + BN_BITS2 - 1) / BN_BITS2) * BN_BITS2;
@@ -260,7 +266,6 @@ BN_MONT_CTX_set(BN_MONT_CTX *mont, const BIGNUM *mod, BN_CTX *ctx)
 
 	return ret;
 }
-LCRYPTO_ALIAS(BN_MONT_CTX_set);
 
 BN_MONT_CTX *
 BN_MONT_CTX_set_locked(BN_MONT_CTX **pmctx, int lock, const BIGNUM *mod,
@@ -297,7 +302,6 @@ BN_MONT_CTX_set_locked(BN_MONT_CTX **pmctx, int lock, const BIGNUM *mod,
  done:
 	return mctx;
 }
-LCRYPTO_ALIAS(BN_MONT_CTX_set_locked);
 
 static int bn_montgomery_reduce(BIGNUM *ret, BIGNUM *r, BN_MONT_CTX *mctx);
 
@@ -332,36 +336,6 @@ bn_mod_mul_montgomery_simple(BIGNUM *r, const BIGNUM *a, const BIGNUM *b,
 	return ret;
 }
 
-static void
-bn_montgomery_multiply_word(const BN_ULONG *ap, BN_ULONG b, const BN_ULONG *np,
-    BN_ULONG *tp, BN_ULONG w, BN_ULONG *carry_a, BN_ULONG *carry_n, int n_len)
-{
-	BN_ULONG x3, x2, x1, x0;
-
-	*carry_a = *carry_n = 0;
-
-	while (n_len & ~3) {
-		bn_qwmulw_addqw_addw(ap[3], ap[2], ap[1], ap[0], b,
-		    tp[3], tp[2], tp[1], tp[0], *carry_a, carry_a,
-		    &x3, &x2, &x1, &x0);
-		bn_qwmulw_addqw_addw(np[3], np[2], np[1], np[0], w,
-		    x3, x2, x1, x0, *carry_n, carry_n,
-		    &tp[3], &tp[2], &tp[1], &tp[0]);
-		ap += 4;
-		np += 4;
-		tp += 4;
-		n_len -= 4;
-	}
-	while (n_len > 0) {
-		bn_mulw_addw_addw(ap[0], b, tp[0], *carry_a, carry_a, &x0);
-		bn_mulw_addw_addw(np[0], w, x0, *carry_n, carry_n, &tp[0]);
-		ap++;
-		np++;
-		tp++;
-		n_len--;
-	}
-}
-
 /*
  * bn_montgomery_multiply_words() computes r = aR * bR * R^-1 = abR for the
  * given word arrays. The caller must ensure that rp, ap, bp and np are all
@@ -371,29 +345,25 @@ void
 bn_montgomery_multiply_words(BN_ULONG *rp, const BN_ULONG *ap, const BN_ULONG *bp,
     const BN_ULONG *np, BN_ULONG *tp, BN_ULONG n0, int n_len)
 {
-	BN_ULONG a0, b, carry_a, carry_n, carry, mask, w;
-	int i;
+	BN_ULONG carry1, carry2, mask, w, x;
+	int i, j;
 
-	carry = 0;
-
-	for (i = 0; i < n_len; i++)
+	for (i = 0; i <= n_len; i++)
 		tp[i] = 0;
 
-	a0 = ap[0];
-
 	for (i = 0; i < n_len; i++) {
-		b = bp[i];
-
-		/* Compute new t[0] * n0, as we need it for this iteration. */
-		w = (a0 * b + tp[0]) * n0;
-
-		bn_montgomery_multiply_word(ap, b, np, tp, w, &carry_a,
-		    &carry_n, n_len);
-		bn_addw_addw(carry_a, carry_n, carry, &carry, &tp[n_len]);
+		/* Compute new t[0] * n0, as we need it inside the loop. */
+		w = (ap[0] * bp[i] + tp[0]) * n0;
+	
+		carry1 = carry2 = 0;
+		for (j = 0; j < n_len; j++) {
+			bn_mulw_addw_addw(ap[j], bp[i], tp[j], carry1, &carry1, &x);
+			bn_mulw_addw_addw(np[j], w, x, carry2, &carry2, &tp[j]);
+		}
+		bn_addw_addw(carry1, carry2, tp[n_len], &tp[n_len + 1], &tp[n_len]);
 
 		tp++;
 	}
-	tp[n_len] = carry;
 
 	/*
 	 * The output is now in the range of [0, 2N). Attempt to reduce once by
@@ -502,7 +472,6 @@ BN_mod_mul_montgomery(BIGNUM *r, const BIGNUM *a, const BIGNUM *b,
 	/* Compute r = aR * bR * R^-1 mod N = abR mod N */
 	return bn_mod_mul_montgomery(r, a, b, mctx, ctx);
 }
-LCRYPTO_ALIAS(BN_mod_mul_montgomery);
 
 int
 BN_to_montgomery(BIGNUM *r, const BIGNUM *a, BN_MONT_CTX *mctx, BN_CTX *ctx)
@@ -510,7 +479,6 @@ BN_to_montgomery(BIGNUM *r, const BIGNUM *a, BN_MONT_CTX *mctx, BN_CTX *ctx)
 	/* Compute r = a * R * R * R^-1 mod N = aR mod N */
 	return bn_mod_mul_montgomery(r, a, &mctx->RR, mctx, ctx);
 }
-LCRYPTO_ALIAS(BN_to_montgomery);
 
 /*
  * bn_montgomery_reduce() performs Montgomery reduction, reducing the input
@@ -550,7 +518,7 @@ bn_montgomery_reduce(BIGNUM *r, BIGNUM *a, BN_MONT_CTX *mctx)
 	carry = 0;
 	n0 = mctx->n0[0];
 
-	/* Add multiples of the modulus, so that it becomes divisible by R. */
+	/* Add multiples of the modulus, so that it becomes divisable by R. */
 	for (i = 0; i < n_len; i++) {
 		v = bn_mul_add_words(&a->d[i], n->d, n_len, a->d[i] * n0);
 		bn_addw_addw(v, a->d[i + n_len], carry, &carry,
@@ -593,7 +561,7 @@ BN_from_montgomery(BIGNUM *r, const BIGNUM *a, BN_MONT_CTX *mctx, BN_CTX *ctx)
 
 	if ((tmp = BN_CTX_get(ctx)) == NULL)
 		goto err;
-	if (!bn_copy(tmp, a))
+	if (BN_copy(tmp, a) == NULL)
 		goto err;
 	if (!bn_montgomery_reduce(r, tmp, mctx))
 		goto err;
@@ -604,4 +572,3 @@ BN_from_montgomery(BIGNUM *r, const BIGNUM *a, BN_MONT_CTX *mctx, BN_CTX *ctx)
 
 	return ret;
 }
-LCRYPTO_ALIAS(BN_from_montgomery);

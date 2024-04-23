@@ -1,4 +1,4 @@
-/*	$OpenBSD: freenull.c.head,v 1.6 2023/07/28 17:13:56 tb Exp $	*/
+/*	$OpenBSD: freenull.c.head,v 1.4 2022/01/15 02:46:12 inoguchi Exp $	*/
 
 #include <openssl/asn1.h>
 #include <openssl/cmac.h>
@@ -6,6 +6,7 @@
 #include <openssl/comp.h>
 #include <openssl/conf_api.h>
 #include <openssl/ct.h>
+#include <openssl/dso.h>
 #ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>
 #endif
@@ -58,9 +59,11 @@ main(int argc, char **argv)
 	BASIC_CONSTRAINTS_free(NULL);
 	BIO_free(NULL);
 	BIO_meth_free(NULL);
+	BN_BLINDING_free(NULL);
 	BN_CTX_free(NULL);
 	BN_GENCB_free(NULL);
 	BN_MONT_CTX_free(NULL);
+	BN_RECP_CTX_free(NULL);
 	BN_clear_free(NULL);
 	BN_free(NULL);
 	BUF_MEM_free(NULL);
@@ -68,6 +71,7 @@ main(int argc, char **argv)
 	CMAC_CTX_free(NULL);
 	CMS_ContentInfo_free(NULL);
 	CMS_ReceiptRequest_free(NULL);
+	COMP_CTX_free(NULL);
 	CONF_free(NULL);
 	CRL_DIST_POINTS_free(NULL);
 	CTLOG_STORE_free(NULL);
@@ -81,6 +85,7 @@ main(int argc, char **argv)
 	DSA_SIG_free(NULL);
 	DSA_free(NULL);
 	DSA_meth_free(NULL);
+	DSO_free(NULL);
 	ECDSA_SIG_free(NULL);
 	EC_GROUP_clear_free(NULL);
 	EC_GROUP_free(NULL);
@@ -119,6 +124,7 @@ main(int argc, char **argv)
 	ISSUING_DIST_POINT_free(NULL);
 	NAME_CONSTRAINTS_free(NULL);
 	NCONF_free(NULL);
+	NETSCAPE_CERT_SEQUENCE_free(NULL);
 	NETSCAPE_SPKAC_free(NULL);
 	NETSCAPE_SPKI_free(NULL);
 	NOTICEREF_free(NULL);
@@ -162,12 +168,16 @@ main(int argc, char **argv)
 	POLICYQUALINFO_free(NULL);
 	POLICY_CONSTRAINTS_free(NULL);
 	POLICY_MAPPING_free(NULL);
+	PROXY_CERT_INFO_EXTENSION_free(NULL);
+	PROXY_POLICY_free(NULL);
 	RSA_OAEP_PARAMS_free(NULL);
 	RSA_PSS_PARAMS_free(NULL);
 	RSA_free(NULL);
 	RSA_meth_free(NULL);
 	SCT_LIST_free(NULL);
 	SCT_free(NULL);
+	SXNETID_free(NULL);
+	SXNET_free(NULL);
 	TS_ACCURACY_free(NULL);
 	TS_MSG_IMPRINT_free(NULL);
 	TS_REQ_ext_free(NULL);
@@ -207,6 +217,7 @@ main(int argc, char **argv)
 	X509_VERIFY_PARAM_free(NULL);
 	X509_email_free(NULL);
 	X509_free(NULL);
+	X509_policy_tree_free(NULL);
 	lh_free(NULL);
 	sk_free(NULL);
 /*	$OpenBSD: freenull.c.tail,v 1.2 2018/07/10 20:55:57 tb Exp $	*/

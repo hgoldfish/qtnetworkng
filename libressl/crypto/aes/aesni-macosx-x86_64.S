@@ -887,7 +887,6 @@ L$oop_enc1_6:
 
 .p2align	4
 _aesni_ctr32_encrypt_blocks:
-	endbr64
 	leaq	(%rsp),%rax
 	pushq	%rbp
 	subq	$32,%rsp
@@ -2544,6 +2543,7 @@ L$key_expansion_256b:
 	retq
 
 
+.section	__DATA,__const
 .p2align	6
 L$bswap_mask:
 .byte	15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0
@@ -2553,6 +2553,5 @@ L$increment64:
 .long	1,0,0,0
 L$xts_magic:
 .long	0x87,0,1,0
-
-.byte	65,69,83,32,102,111,114,32,73,110,116,101,108,32,65,69,83,45,78,73,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32,60,97,112,112,114,111,64,111,112,101,110,115,115,108,46,111,114,103,62,0
 .p2align	6
+.text	

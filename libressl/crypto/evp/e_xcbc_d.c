@@ -1,4 +1,4 @@
-/* $OpenBSD: e_xcbc_d.c,v 1.15 2023/07/07 19:37:53 beck Exp $ */
+/* $OpenBSD: e_xcbc_d.c,v 1.13 2022/11/26 16:08:52 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

@@ -1,4 +1,4 @@
-/* $OpenBSD: x509.c,v 1.33 2023/04/14 06:47:07 tb Exp $ */
+/* $OpenBSD: x509.c,v 1.31 2023/03/06 14:32:06 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -772,9 +772,10 @@ x509_main(int argc, char **argv)
 		ERR_print_errors(bio_err);
 		goto end;
 	}
-	if (cfg.CAkeyfile == NULL && cfg.CA_flag && cfg.CAformat == FORMAT_PEM) {
+	if ((cfg.CAkeyfile == NULL) && (cfg.CA_flag) &&
+	    (cfg.CAformat == FORMAT_PEM)) {
 		cfg.CAkeyfile = cfg.CAfile;
-	} else if (cfg.CA_flag && cfg.CAkeyfile == NULL) {
+	} else if ((cfg.CA_flag) && (cfg.CAkeyfile == NULL)) {
 		BIO_printf(bio_err,
 		    "need to specify a CAkey if using the CA command\n");
 		goto end;
@@ -795,8 +796,8 @@ x509_main(int argc, char **argv)
 			goto end;
 		}
 		if (cfg.extsect == NULL) {
-			cfg.extsect = NCONF_get_string(extconf, "default",
-			    "extensions");
+			cfg.extsect = NCONF_get_string(extconf,
+			    "default", "extensions");
 			if (cfg.extsect == NULL) {
 				ERR_clear_error();
 				cfg.extsect = "default";
@@ -804,9 +805,11 @@ x509_main(int argc, char **argv)
 		}
 		X509V3_set_ctx_test(&ctx2);
 		X509V3_set_nconf(&ctx2, extconf);
-		if (!X509V3_EXT_add_nconf(extconf, &ctx2, cfg.extsect, NULL)) {
+		if (!X509V3_EXT_add_nconf(extconf, &ctx2, cfg.extsect,
+		    NULL)) {
 			BIO_printf(bio_err,
-			    "Error Loading extension section %s\n", cfg.extsect);
+			    "Error Loading extension section %s\n",
+			    cfg.extsect);
 			ERR_print_errors(bio_err);
 			goto end;
 		}
@@ -866,7 +869,8 @@ x509_main(int argc, char **argv)
 
 		if (cfg.sno == NULL) {
 			cfg.sno = ASN1_INTEGER_new();
-			if (cfg.sno == NULL || !rand_serial(NULL, cfg.sno))
+			if (cfg.sno == NULL ||
+			    !rand_serial(NULL, cfg.sno))
 				goto end;
 			if (!X509_set_serialNumber(x, cfg.sno))
 				goto end;
@@ -888,18 +892,20 @@ x509_main(int argc, char **argv)
 
 		if ((pkey = X509_REQ_get0_pubkey(req)) == NULL)
 			goto end;
-		if (!X509_set_pubkey(x, pkey))
+		if (!X509_set_pubkey(x, pkey)) {
+			EVP_PKEY_free(pkey);
 			goto end;
+		}
 	} else {
-		x = load_cert(bio_err, cfg.infile, cfg.informat, NULL,
-		    "Certificate");
+		x = load_cert(bio_err, cfg.infile, cfg.informat,
+		    NULL, "Certificate");
 	}
 	if (x == NULL)
 		goto end;
 
 	if (cfg.CA_flag) {
-		xca = load_cert(bio_err, cfg.CAfile, cfg.CAformat, NULL,
-		    "CA Certificate");
+		xca = load_cert(bio_err, cfg.CAfile,
+		    cfg.CAformat, NULL, "CA Certificate");
 		if (xca == NULL)
 			goto end;
 	}
@@ -932,14 +938,16 @@ x509_main(int argc, char **argv)
 
 	if (cfg.trust != NULL) {
 		for (i = 0; i < sk_ASN1_OBJECT_num(cfg.trust); i++) {
-			cfg.objtmp = sk_ASN1_OBJECT_value(cfg.trust, i);
+			cfg.objtmp = sk_ASN1_OBJECT_value(
+			    cfg.trust, i);
 			if (!X509_add1_trust_object(x, cfg.objtmp))
 				goto end;
 		}
 	}
 	if (cfg.reject != NULL) {
 		for (i = 0; i < sk_ASN1_OBJECT_num(cfg.reject); i++) {
-			cfg.objtmp = sk_ASN1_OBJECT_value(cfg.reject, i);
+			cfg.objtmp = sk_ASN1_OBJECT_value(
+			    cfg.reject, i);
 			if (!X509_add1_reject_object(x, cfg.objtmp))
 				goto end;
 		}
@@ -948,10 +956,12 @@ x509_main(int argc, char **argv)
 		for (i = 1; i <= cfg.num; i++) {
 			if (cfg.issuer == i) {
 				print_name(STDout, "issuer= ",
-				    X509_get_issuer_name(x), cfg.nmflag);
+				    X509_get_issuer_name(x),
+				    cfg.nmflag);
 			} else if (cfg.subject == i) {
 				print_name(STDout, "subject= ",
-				    X509_get_subject_name(x), cfg.nmflag);
+				    X509_get_subject_name(x),
+				    cfg.nmflag);
 			} else if (cfg.serial == i) {
 				BIO_printf(STDout, "serial=");
 				i2a_ASN1_INTEGER(STDout,
@@ -960,7 +970,6 @@ x509_main(int argc, char **argv)
 			} else if (cfg.next_serial == i) {
 				BIGNUM *bnser;
 				ASN1_INTEGER *ser;
-
 				ser = X509_get_serialNumber(x);
 				if (ser == NULL)
 					goto end;
@@ -980,10 +989,10 @@ x509_main(int argc, char **argv)
 				i2a_ASN1_INTEGER(out, ser);
 				ASN1_INTEGER_free(ser);
 				BIO_puts(out, "\n");
-			} else if (cfg.email == i || cfg.ocsp_uri == i) {
-				STACK_OF(OPENSSL_STRING) *emlst;
+			} else if ((cfg.email == i) ||
+			    (cfg.ocsp_uri == i)) {
 				int j;
-
+				STACK_OF(OPENSSL_STRING) *emlst;
 				if (cfg.email == i)
 					emlst = X509_get1_email(x);
 				else
@@ -1024,7 +1033,6 @@ x509_main(int argc, char **argv)
 			else if (cfg.pprint == i) {
 				X509_PURPOSE *ptmp;
 				int j;
-
 				BIO_printf(STDout, "Certificate purposes:\n");
 				for (j = 0; j < X509_PURPOSE_get_count(); j++) {
 					ptmp = X509_PURPOSE_get0(j);
@@ -1154,7 +1162,6 @@ x509_main(int argc, char **argv)
 					goto end;
 			} else if (cfg.startdate == i) {
 				ASN1_TIME *nB = X509_get_notBefore(x);
-
 				BIO_puts(STDout, "notBefore=");
 				if (ASN1_time_parse(nB->data, nB->length, NULL,
 				    0) == -1)
@@ -1165,7 +1172,6 @@ x509_main(int argc, char **argv)
 				BIO_puts(STDout, "\n");
 			} else if (cfg.enddate == i) {
 				ASN1_TIME *nA = X509_get_notAfter(x);
-
 				BIO_puts(STDout, "notAfter=");
 				if (ASN1_time_parse(nA->data, nA->length, NULL,
 				    0) == -1)
@@ -1195,10 +1201,12 @@ x509_main(int argc, char **argv)
 				}
 
 			/* should be in the library */
-			} else if (cfg.sign_flag == i && cfg.x509req == 0) {
+			} else if ((cfg.sign_flag == i) &&
+			    (cfg.x509req == 0)) {
 				BIO_printf(bio_err, "Getting Private key\n");
 				if (Upkey == NULL) {
-					Upkey = load_key(bio_err, cfg.keyfile,
+					Upkey = load_key(bio_err,
+					    cfg.keyfile,
 					    cfg.keyformat, 0, passin,
 					    "Private key");
 					if (Upkey == NULL)
@@ -1211,16 +1219,20 @@ x509_main(int argc, char **argv)
 			} else if (cfg.CA_flag == i) {
 				BIO_printf(bio_err, "Getting CA Private Key\n");
 				if (cfg.CAkeyfile != NULL) {
-					CApkey = load_key(bio_err, cfg.CAkeyfile,
+					CApkey = load_key(bio_err,
+					    cfg.CAkeyfile,
 					    cfg.CAkeyformat, 0, passin,
 					    "CA Private Key");
 					if (CApkey == NULL)
 						goto end;
 				}
-				if (!x509_certify(ctx, cfg.CAfile, cfg.digest,
-				    x, xca, CApkey, cfg.sigopts, cfg.CAserial,
-				    cfg.CA_createserial, cfg.days, cfg.clrext,
-				    extconf, cfg.extsect, cfg.sno))
+				if (!x509_certify(ctx, cfg.CAfile,
+				    cfg.digest, x, xca, CApkey,
+				    cfg.sigopts, cfg.CAserial,
+				    cfg.CA_createserial,
+				    cfg.days, cfg.clrext,
+				    extconf, cfg.extsect,
+				    cfg.sno))
 					goto end;
 			} else if (cfg.x509req == i) {
 				EVP_PKEY *pk;
@@ -1232,7 +1244,8 @@ x509_main(int argc, char **argv)
 					    "no request key file specified\n");
 					goto end;
 				} else {
-					pk = load_key(bio_err, cfg.keyfile,
+					pk = load_key(bio_err,
+					    cfg.keyfile,
 					    cfg.keyformat, 0, passin,
 					    "request key");
 					if (pk == NULL)

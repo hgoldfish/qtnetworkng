@@ -1,4 +1,4 @@
-/* $OpenBSD: e_gost2814789.c,v 1.13 2023/07/07 19:37:53 beck Exp $ */
+/* $OpenBSD: e_gost2814789.c,v 1.11 2022/11/26 16:08:52 tb Exp $ */
 /*
  * Copyright (c) 2014 Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
  * Copyright (c) 2005-2006 Cryptocom LTD

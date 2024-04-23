@@ -1,4 +1,4 @@
-/* $OpenBSD: pem_lib.c,v 1.53 2023/07/07 13:40:44 beck Exp $ */
+/* $OpenBSD: pem_lib.c,v 1.52 2022/11/26 16:08:53 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -127,7 +127,6 @@ PEM_def_callback(char *buf, int num, int w, void *key)
 	}
 	return (int)l;
 }
-LCRYPTO_ALIAS(PEM_def_callback);
 
 void
 PEM_proc_type(char *buf, int type)
@@ -147,7 +146,6 @@ PEM_proc_type(char *buf, int type)
 	strlcat(buf, str, PEM_BUFSIZE);
 	strlcat(buf, "\n", PEM_BUFSIZE);
 }
-LCRYPTO_ALIAS(PEM_proc_type);
 
 void
 PEM_dek_info(char *buf, const char *type, int len, char *str)
@@ -169,7 +167,6 @@ PEM_dek_info(char *buf, const char *type, int len, char *str)
 	buf[j + i * 2] = '\n';
 	buf[j + i * 2 + 1] = '\0';
 }
-LCRYPTO_ALIAS(PEM_dek_info);
 
 void *
 PEM_ASN1_read(d2i_of_void *d2i, const char *name, FILE *fp, void **x,
@@ -187,7 +184,6 @@ PEM_ASN1_read(d2i_of_void *d2i, const char *name, FILE *fp, void **x,
 	BIO_free(b);
 	return (ret);
 }
-LCRYPTO_ALIAS(PEM_ASN1_read);
 
 static int
 check_pem(const char *nm, const char *name)
@@ -326,7 +322,6 @@ err:
 		free(data);
 	return ret;
 }
-LCRYPTO_ALIAS(PEM_bytes_read_bio);
 
 int
 PEM_ASN1_write(i2d_of_void *i2d, const char *name, FILE *fp, void *x,
@@ -345,7 +340,6 @@ PEM_ASN1_write(i2d_of_void *i2d, const char *name, FILE *fp, void *x,
 	BIO_free(b);
 	return (ret);
 }
-LCRYPTO_ALIAS(PEM_ASN1_write);
 
 int
 PEM_ASN1_write_bio(i2d_of_void *i2d, const char *name, BIO *bp, void *x,
@@ -444,7 +438,6 @@ err:
 	freezero(data, (unsigned int)dsize);
 	return (ret);
 }
-LCRYPTO_ALIAS(PEM_ASN1_write_bio);
 
 int
 PEM_do_header(EVP_CIPHER_INFO *cipher, unsigned char *data, long *plen,
@@ -490,7 +483,6 @@ PEM_do_header(EVP_CIPHER_INFO *cipher, unsigned char *data, long *plen,
 	*plen = j + i;
 	return (1);
 }
-LCRYPTO_ALIAS(PEM_do_header);
 
 int
 PEM_get_EVP_CIPHER_INFO(char *header, EVP_CIPHER_INFO *cipher)
@@ -552,7 +544,6 @@ PEM_get_EVP_CIPHER_INFO(char *header, EVP_CIPHER_INFO *cipher)
 
 	return (1);
 }
-LCRYPTO_ALIAS(PEM_get_EVP_CIPHER_INFO);
 
 static int
 load_iv(char **fromp, unsigned char *to, int num)
@@ -599,7 +590,6 @@ PEM_write(FILE *fp, const char *name, const char *header,
 	BIO_free(b);
 	return (ret);
 }
-LCRYPTO_ALIAS(PEM_write);
 
 int
 PEM_write_bio(BIO *bp, const char *name, const char *header,
@@ -657,7 +647,6 @@ err:
 	PEMerror(reason);
 	return (0);
 }
-LCRYPTO_ALIAS(PEM_write_bio);
 
 int
 PEM_read(FILE *fp, char **name, char **header, unsigned char **data, long *len)
@@ -674,7 +663,6 @@ PEM_read(FILE *fp, char **name, char **header, unsigned char **data, long *len)
 	BIO_free(b);
 	return (ret);
 }
-LCRYPTO_ALIAS(PEM_read);
 
 int
 PEM_read_bio(BIO *bp, char **name, char **header, unsigned char **data,
@@ -847,7 +835,6 @@ err:
 	BUF_MEM_free(dataB);
 	return (0);
 }
-LCRYPTO_ALIAS(PEM_read_bio);
 
 /* Check pem string and return prefix length.
  * If for example the pem_str == "RSA PRIVATE KEY" and suffix = "PRIVATE KEY"

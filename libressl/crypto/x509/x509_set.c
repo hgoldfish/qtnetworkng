@@ -1,4 +1,4 @@
-/* $OpenBSD: x509_set.c,v 1.26 2023/06/23 08:00:28 tb Exp $ */
+/* $OpenBSD: x509_set.c,v 1.24 2023/02/23 18:12:32 job Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -88,7 +88,6 @@ X509_set_version(X509 *x, long version)
 		if ((x->cert_info->version = ASN1_INTEGER_new()) == NULL)
 			return (0);
 	}
-	x->cert_info->enc.modified = 1;
 	return (ASN1_INTEGER_set(x->cert_info->version, version));
 }
 LCRYPTO_ALIAS(X509_set_version);
@@ -106,27 +105,25 @@ X509_set_serialNumber(X509 *x, ASN1_INTEGER *serial)
 	ASN1_INTEGER *in;
 
 	if (x == NULL)
-		return 0;
+		return (0);
 	in = x->cert_info->serialNumber;
 	if (in != serial) {
 		in = ASN1_INTEGER_dup(serial);
 		if (in != NULL) {
-			x->cert_info->enc.modified = 1;
 			ASN1_INTEGER_free(x->cert_info->serialNumber);
 			x->cert_info->serialNumber = in;
 		}
 	}
-	return in != NULL;
+	return (in != NULL);
 }
 LCRYPTO_ALIAS(X509_set_serialNumber);
 
 int
 X509_set_issuer_name(X509 *x, X509_NAME *name)
 {
-	if (x == NULL || x->cert_info == NULL)
-		return 0;
-	x->cert_info->enc.modified = 1;
-	return X509_NAME_set(&x->cert_info->issuer, name);
+	if ((x == NULL) || (x->cert_info == NULL))
+		return (0);
+	return (X509_NAME_set(&x->cert_info->issuer, name));
 }
 LCRYPTO_ALIAS(X509_set_issuer_name);
 
@@ -134,9 +131,8 @@ int
 X509_set_subject_name(X509 *x, X509_NAME *name)
 {
 	if (x == NULL || x->cert_info == NULL)
-		return 0;
-	x->cert_info->enc.modified = 1;
-	return X509_NAME_set(&x->cert_info->subject, name);
+		return (0);
+	return (X509_NAME_set(&x->cert_info->subject, name));
 }
 LCRYPTO_ALIAS(X509_set_subject_name);
 
@@ -151,7 +147,7 @@ ASN1_TIME *
 X509_getm_notBefore(const X509 *x)
 {
 	if (x == NULL || x->cert_info == NULL || x->cert_info->validity == NULL)
-		return NULL;
+		return (NULL);
 	return x->cert_info->validity->notBefore;
 }
 LCRYPTO_ALIAS(X509_getm_notBefore);
@@ -162,17 +158,16 @@ X509_set_notBefore(X509 *x, const ASN1_TIME *tm)
 	ASN1_TIME *in;
 
 	if (x == NULL || x->cert_info->validity == NULL)
-		return 0;
+		return (0);
 	in = x->cert_info->validity->notBefore;
 	if (in != tm) {
 		in = ASN1_STRING_dup(tm);
 		if (in != NULL) {
-			x->cert_info->enc.modified = 1;
 			ASN1_TIME_free(x->cert_info->validity->notBefore);
 			x->cert_info->validity->notBefore = in;
 		}
 	}
-	return in != NULL;
+	return (in != NULL);
 }
 LCRYPTO_ALIAS(X509_set_notBefore);
 
@@ -194,7 +189,7 @@ ASN1_TIME *
 X509_getm_notAfter(const X509 *x)
 {
 	if (x == NULL || x->cert_info == NULL || x->cert_info->validity == NULL)
-		return NULL;
+		return (NULL);
 	return x->cert_info->validity->notAfter;
 }
 LCRYPTO_ALIAS(X509_getm_notAfter);
@@ -205,17 +200,16 @@ X509_set_notAfter(X509 *x, const ASN1_TIME *tm)
 	ASN1_TIME *in;
 
 	if (x == NULL || x->cert_info->validity == NULL)
-		return 0;
+		return (0);
 	in = x->cert_info->validity->notAfter;
 	if (in != tm) {
 		in = ASN1_STRING_dup(tm);
 		if (in != NULL) {
-			x->cert_info->enc.modified = 1;
 			ASN1_TIME_free(x->cert_info->validity->notAfter);
 			x->cert_info->validity->notAfter = in;
 		}
 	}
-	return in != NULL;
+	return (in != NULL);
 }
 LCRYPTO_ALIAS(X509_set_notAfter);
 
@@ -229,10 +223,9 @@ LCRYPTO_ALIAS(X509_set1_notAfter);
 int
 X509_set_pubkey(X509 *x, EVP_PKEY *pkey)
 {
-	if (x == NULL || x->cert_info == NULL)
-		return 0;
-	x->cert_info->enc.modified = 1;
-	return X509_PUBKEY_set(&x->cert_info->key, pkey);
+	if ((x == NULL) || (x->cert_info == NULL))
+		return (0);
+	return (X509_PUBKEY_set(&(x->cert_info->key), pkey));
 }
 LCRYPTO_ALIAS(X509_set_pubkey);
 

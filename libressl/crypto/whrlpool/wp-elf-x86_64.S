@@ -5,7 +5,6 @@
 .type	whirlpool_block,@function
 .align	16
 whirlpool_block:
-	endbr64
 	pushq	%rbx
 	pushq	%rbp
 	pushq	%r12

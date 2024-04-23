@@ -1,4 +1,4 @@
-/* $OpenBSD: dsa_lib.c,v 1.44 2023/08/12 06:14:36 tb Exp $ */
+/* $OpenBSD: dsa_lib.c,v 1.42 2023/03/11 15:29:03 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -84,7 +84,6 @@ DSA_set_default_method(const DSA_METHOD *meth)
 {
 	default_DSA_method = meth;
 }
-LCRYPTO_ALIAS(DSA_set_default_method);
 
 const DSA_METHOD *
 DSA_get_default_method(void)
@@ -93,14 +92,12 @@ DSA_get_default_method(void)
 		default_DSA_method = DSA_OpenSSL();
 	return default_DSA_method;
 }
-LCRYPTO_ALIAS(DSA_get_default_method);
 
 DSA *
 DSA_new(void)
 {
 	return DSA_new_method(NULL);
 }
-LCRYPTO_ALIAS(DSA_new);
 
 int
 DSA_set_method(DSA *dsa, const DSA_METHOD *meth)
@@ -122,53 +119,66 @@ DSA_set_method(DSA *dsa, const DSA_METHOD *meth)
 		meth->init(dsa);
 	return 1;
 }
-LCRYPTO_ALIAS(DSA_set_method);
 
 DSA *
 DSA_new_method(ENGINE *engine)
 {
-	DSA *dsa;
+	DSA *ret;
 
-	if ((dsa = calloc(1, sizeof(DSA))) == NULL) {
+	ret = malloc(sizeof(DSA));
+	if (ret == NULL) {
 		DSAerror(ERR_R_MALLOC_FAILURE);
-		goto err;
+		return NULL;
 	}
-
-	dsa->meth = DSA_get_default_method();
-	dsa->flags = dsa->meth->flags & ~DSA_FLAG_NON_FIPS_ALLOW;
-	dsa->references = 1;
-
+	ret->meth = DSA_get_default_method();
 #ifndef OPENSSL_NO_ENGINE
 	if (engine) {
 		if (!ENGINE_init(engine)) {
 			DSAerror(ERR_R_ENGINE_LIB);
-			goto err;
+			free(ret);
+			return NULL;
 		}
-		dsa->engine = engine;
+		ret->engine = engine;
 	} else
-		dsa->engine = ENGINE_get_default_DSA();
-	if (dsa->engine != NULL) {
-		if ((dsa->meth = ENGINE_get_DSA(dsa->engine)) == NULL) {
+		ret->engine = ENGINE_get_default_DSA();
+	if (ret->engine) {
+		ret->meth = ENGINE_get_DSA(ret->engine);
+		if (ret->meth == NULL) {
 			DSAerror(ERR_R_ENGINE_LIB);
-			goto err;
+			ENGINE_finish(ret->engine);
+			free(ret);
+			return NULL;
 		}
-		dsa->flags = dsa->meth->flags & ~DSA_FLAG_NON_FIPS_ALLOW;
 	}
 #endif
 
-	if (!CRYPTO_new_ex_data(CRYPTO_EX_INDEX_DSA, dsa, &dsa->ex_data))
-		goto err;
-	if (dsa->meth->init != NULL && !dsa->meth->init(dsa))
-		goto err;
+	ret->pad = 0;
+	ret->version = 0;
+	ret->p = NULL;
+	ret->q = NULL;
+	ret->g = NULL;
 
-	return dsa;
+	ret->pub_key = NULL;
+	ret->priv_key = NULL;
 
- err:
-	DSA_free(dsa);
+	ret->kinv = NULL;
+	ret->r = NULL;
+	ret->method_mont_p = NULL;
 
-	return NULL;
+	ret->references = 1;
+	ret->flags = ret->meth->flags & ~DSA_FLAG_NON_FIPS_ALLOW;
+	CRYPTO_new_ex_data(CRYPTO_EX_INDEX_DSA, ret, &ret->ex_data);
+	if (ret->meth->init != NULL && !ret->meth->init(ret)) {
+#ifndef OPENSSL_NO_ENGINE
+		ENGINE_finish(ret->engine);
+#endif
+		CRYPTO_free_ex_data(CRYPTO_EX_INDEX_DSA, ret, &ret->ex_data);
+		free(ret);
+		ret = NULL;
+	}
+
+	return ret;
 }
-LCRYPTO_ALIAS(DSA_new_method);
 
 void
 DSA_free(DSA *r)
@@ -182,7 +192,7 @@ DSA_free(DSA *r)
 	if (i > 0)
 		return;
 
-	if (r->meth != NULL && r->meth->finish != NULL)
+	if (r->meth->finish)
 		r->meth->finish(r);
 #ifndef OPENSSL_NO_ENGINE
 	ENGINE_finish(r->engine);
@@ -199,7 +209,6 @@ DSA_free(DSA *r)
 	BN_free(r->r);
 	free(r);
 }
-LCRYPTO_ALIAS(DSA_free);
 
 int
 DSA_up_ref(DSA *r)
@@ -207,7 +216,6 @@ DSA_up_ref(DSA *r)
 	int i = CRYPTO_add(&r->references, 1, CRYPTO_LOCK_DSA);
 	return i > 1 ? 1 : 0;
 }
-LCRYPTO_ALIAS(DSA_up_ref);
 
 int
 DSA_size(const DSA *r)
@@ -223,7 +231,6 @@ DSA_size(const DSA *r)
 
 	return ret;
 }
-LCRYPTO_ALIAS(DSA_size);
 
 int
 DSA_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
@@ -232,21 +239,18 @@ DSA_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
 	return CRYPTO_get_ex_new_index(CRYPTO_EX_INDEX_DSA, argl, argp,
 	    new_func, dup_func, free_func);
 }
-LCRYPTO_ALIAS(DSA_get_ex_new_index);
 
 int
 DSA_set_ex_data(DSA *d, int idx, void *arg)
 {
 	return CRYPTO_set_ex_data(&d->ex_data, idx, arg);
 }
-LCRYPTO_ALIAS(DSA_set_ex_data);
 
 void *
 DSA_get_ex_data(DSA *d, int idx)
 {
 	return CRYPTO_get_ex_data(&d->ex_data, idx);
 }
-LCRYPTO_ALIAS(DSA_get_ex_data);
 
 int
 DSA_security_bits(const DSA *d)
@@ -256,7 +260,6 @@ DSA_security_bits(const DSA *d)
 
 	return BN_security_bits(BN_num_bits(d->p), BN_num_bits(d->q));
 }
-LCRYPTO_ALIAS(DSA_security_bits);
 
 #ifndef OPENSSL_NO_DH
 DH *
@@ -298,7 +301,6 @@ err:
 	DH_free(ret);
 	return NULL;
 }
-LCRYPTO_ALIAS(DSA_dup_DH);
 #endif
 
 void
@@ -311,7 +313,6 @@ DSA_get0_pqg(const DSA *d, const BIGNUM **p, const BIGNUM **q, const BIGNUM **g)
 	if (g != NULL)
 		*g = d->g;
 }
-LCRYPTO_ALIAS(DSA_get0_pqg);
 
 int
 DSA_set0_pqg(DSA *d, BIGNUM *p, BIGNUM *q, BIGNUM *g)
@@ -335,7 +336,6 @@ DSA_set0_pqg(DSA *d, BIGNUM *p, BIGNUM *q, BIGNUM *g)
 
 	return 1;
 }
-LCRYPTO_ALIAS(DSA_set0_pqg);
 
 void
 DSA_get0_key(const DSA *d, const BIGNUM **pub_key, const BIGNUM **priv_key)
@@ -345,7 +345,6 @@ DSA_get0_key(const DSA *d, const BIGNUM **pub_key, const BIGNUM **priv_key)
 	if (priv_key != NULL)
 		*priv_key = d->priv_key;
 }
-LCRYPTO_ALIAS(DSA_get0_key);
 
 int
 DSA_set0_key(DSA *d, BIGNUM *pub_key, BIGNUM *priv_key)
@@ -364,77 +363,66 @@ DSA_set0_key(DSA *d, BIGNUM *pub_key, BIGNUM *priv_key)
 
 	return 1;
 }
-LCRYPTO_ALIAS(DSA_set0_key);
 
 const BIGNUM *
 DSA_get0_p(const DSA *d)
 {
 	return d->p;
 }
-LCRYPTO_ALIAS(DSA_get0_p);
 
 const BIGNUM *
 DSA_get0_q(const DSA *d)
 {
 	return d->q;
 }
-LCRYPTO_ALIAS(DSA_get0_q);
 
 const BIGNUM *
 DSA_get0_g(const DSA *d)
 {
 	return d->g;
 }
-LCRYPTO_ALIAS(DSA_get0_g);
 
 const BIGNUM *
 DSA_get0_pub_key(const DSA *d)
 {
 	return d->pub_key;
 }
-LCRYPTO_ALIAS(DSA_get0_pub_key);
 
 const BIGNUM *
 DSA_get0_priv_key(const DSA *d)
 {
 	return d->priv_key;
 }
-LCRYPTO_ALIAS(DSA_get0_priv_key);
 
 void
 DSA_clear_flags(DSA *d, int flags)
 {
 	d->flags &= ~flags;
 }
-LCRYPTO_ALIAS(DSA_clear_flags);
 
 int
 DSA_test_flags(const DSA *d, int flags)
 {
 	return d->flags & flags;
 }
-LCRYPTO_ALIAS(DSA_test_flags);
 
 void
 DSA_set_flags(DSA *d, int flags)
 {
 	d->flags |= flags;
 }
-LCRYPTO_ALIAS(DSA_set_flags);
 
 ENGINE *
 DSA_get0_engine(DSA *d)
 {
 	return d->engine;
 }
-LCRYPTO_ALIAS(DSA_get0_engine);
 
 int
 DSA_bits(const DSA *dsa)
 {
 	return BN_num_bits(dsa->p);
 }
-LCRYPTO_ALIAS(DSA_bits);
 
 int
 dsa_check_key(const DSA *dsa)

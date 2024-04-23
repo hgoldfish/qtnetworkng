@@ -1,4 +1,4 @@
-/* $OpenBSD: dsa_gen.c,v 1.30 2023/07/08 14:28:15 beck Exp $ */
+/* $OpenBSD: dsa_gen.c,v 1.27 2023/01/11 04:39:42 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -94,7 +94,6 @@ DSA_generate_parameters_ex(DSA *ret, int bits, const unsigned char *seed_in,
 		    seed_len, NULL, counter_ret, h_ret, cb);
 	}
 }
-LCRYPTO_ALIAS(DSA_generate_parameters_ex);
 
 int
 dsa_builtin_paramgen(DSA *ret, size_t bits, size_t qbits, const EVP_MD *evpmd,
@@ -265,7 +264,7 @@ dsa_builtin_paramgen(DSA *ret, size_t bits, size_t qbits, const EVP_MD *evpmd,
 			/* more of step 8 */
 			if (!BN_mask_bits(W, bits - 1))
 				goto err;
-			if (!bn_copy(X, W))
+			if (!BN_copy(X, W))
 				goto err;
 			if (!BN_add(X, X, test))
 				goto err;
@@ -356,26 +355,4 @@ err:
 
 	return ok;
 }
-
-DSA *
-DSA_generate_parameters(int bits, unsigned char *seed_in, int seed_len,
-    int *counter_ret, unsigned long *h_ret, void (*callback)(int, int, void *),
-    void *cb_arg)
-{
-	BN_GENCB cb;
-	DSA *ret;
-
-	if ((ret = DSA_new()) == NULL)
-		return NULL;
-
-	BN_GENCB_set_old(&cb, callback, cb_arg);
-
-	if (DSA_generate_parameters_ex(ret, bits, seed_in, seed_len,
-	    counter_ret, h_ret, &cb))
-		return ret;
-	DSA_free(ret);
-	return NULL;
-}
-LCRYPTO_ALIAS(DSA_generate_parameters);
-
 #endif

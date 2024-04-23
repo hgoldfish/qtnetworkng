@@ -1,4 +1,4 @@
-/* $OpenBSD: gostr341194.c,v 1.7 2023/07/08 14:30:44 beck Exp $ */
+/* $OpenBSD: gostr341194.c,v 1.6 2022/11/26 16:08:53 tb Exp $ */
 /*
  * Copyright (c) 2014 Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
  * Copyright (c) 2005-2006 Cryptocom LTD
@@ -205,7 +205,6 @@ GOSTR341194_Init(GOSTR341194_CTX *c, int nid)
 	memset(c, 0, sizeof(*c));
 	return Gost2814789_set_sbox(&c->cipher, nid);
 }
-LCRYPTO_ALIAS(GOSTR341194_Init);
 
 static void
 GOSTR341194_block_data_order(GOSTR341194_CTX *ctx, const unsigned char *p,
@@ -231,8 +230,6 @@ GOSTR341194_block_data_order(GOSTR341194_CTX *ctx, const unsigned char *p,
 #define HASH_BLOCK_DATA_ORDER	GOSTR341194_block_data_order
 
 #include "md32_common.h"
-LCRYPTO_ALIAS(GOSTR341194_Update);
-LCRYPTO_ALIAS(GOSTR341194_Transform);
 
 int
 GOSTR341194_Final(unsigned char *md, GOSTR341194_CTX * c)
@@ -257,7 +254,6 @@ GOSTR341194_Final(unsigned char *md, GOSTR341194_CTX * c)
 
 	return 1;
 }
-LCRYPTO_ALIAS(GOSTR341194_Final);
 
 unsigned char *
 GOSTR341194(const unsigned char *d, size_t n, unsigned char *md, int nid)
@@ -274,5 +270,4 @@ GOSTR341194(const unsigned char *d, size_t n, unsigned char *md, int nid)
 	explicit_bzero(&c, sizeof(c));
 	return (md);
 }
-LCRYPTO_ALIAS(GOSTR341194);
 #endif

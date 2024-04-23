@@ -1,4 +1,4 @@
-/* $OpenBSD: e_rc4_hmac_md5.c,v 1.12 2023/07/07 19:37:53 beck Exp $ */
+/* $OpenBSD: e_rc4_hmac_md5.c,v 1.10 2022/11/26 16:08:52 tb Exp $ */
 /* ====================================================================
  * Copyright (c) 2011 The OpenSSL Project.  All rights reserved.
  *

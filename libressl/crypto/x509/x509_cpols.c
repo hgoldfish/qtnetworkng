@@ -1,4 +1,4 @@
-/* $OpenBSD: x509_cpols.c,v 1.11 2023/04/26 20:54:21 tb Exp $ */
+/* $OpenBSD: x509_cpols.c,v 1.7 2023/02/16 08:38:17 tb Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */
@@ -65,6 +65,7 @@
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
 
+#include "pcy_int.h"
 #include "x509_local.h"
 
 /* Certificate policies extension support: this one is a bit complex... */
@@ -222,6 +223,7 @@ static const ASN1_ADB_TABLE POLICYQUALINFO_adbtbl[] = {
 			.field_name = "d.cpsuri",
 			.item = &ASN1_IA5STRING_it,
 		},
+	
 	},
 	{
 		.value = NID_id_qt_unotice,
@@ -232,6 +234,7 @@ static const ASN1_ADB_TABLE POLICYQUALINFO_adbtbl[] = {
 			.field_name = "d.usernotice",
 			.item = &USERNOTICE_it,
 		},
+	
 	},
 };
 
@@ -591,7 +594,7 @@ notice_section(X509V3_CTX *ctx, STACK_OF(CONF_VALUE) *unot, int ia5org)
 		cnf = sk_CONF_VALUE_value(unot, i);
 		if (!strcmp(cnf->name, "explicitText")) {
 			if (not->exptext == NULL) {
-				not->exptext = ASN1_UTF8STRING_new();
+				not->exptext = ASN1_VISIBLESTRING_new();
 				if (not->exptext == NULL)
 					goto merr;
 			}
@@ -762,3 +765,21 @@ print_notice(BIO *out, USERNOTICE *notice, int indent)
 		BIO_printf(out, "%*sExplicit Text: %.*s\n", indent, "",
 		    notice->exptext->length, notice->exptext->data);
 }
+
+void
+X509_POLICY_NODE_print(BIO *out, X509_POLICY_NODE *node, int indent)
+{
+	const X509_POLICY_DATA *dat = node->data;
+
+	BIO_printf(out, "%*sPolicy: ", indent, "");
+
+	i2a_ASN1_OBJECT(out, dat->valid_policy);
+	BIO_puts(out, "\n");
+	BIO_printf(out, "%*s%s\n", indent + 2, "",
+	    node_data_critical(dat) ? "Critical" : "Non Critical");
+	if (dat->qualifier_set)
+		print_qualifiers(out, dat->qualifier_set, indent + 2);
+	else
+		BIO_printf(out, "%*sNo Qualifiers\n", indent + 2, "");
+}
+LCRYPTO_ALIAS(X509_POLICY_NODE_print);

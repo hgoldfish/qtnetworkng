@@ -1,4 +1,4 @@
-/* $OpenBSD: bio_err.c,v 1.20 2023/07/05 21:23:37 beck Exp $ */
+/* $OpenBSD: bio_err.c,v 1.19 2022/07/12 14:42:48 kn Exp $ */
 /* ====================================================================
  * Copyright (c) 1999-2011 The OpenSSL Project.  All rights reserved.
  *
@@ -117,4 +117,3 @@ ERR_load_BIO_strings(void)
 	}
 #endif
 }
-LCRYPTO_ALIAS(ERR_load_BIO_strings);

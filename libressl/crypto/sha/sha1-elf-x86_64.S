@@ -7,7 +7,6 @@
 .type	sha1_block_data_order,@function
 .align	16
 sha1_block_data_order:
-	endbr64
 	movl	OPENSSL_ia32cap_P+0(%rip),%r9d
 	movl	OPENSSL_ia32cap_P+4(%rip),%r8d
 	testl	$IA32CAP_MASK1_SSSE3,%r8d
@@ -1295,7 +1294,6 @@ sha1_block_data_order:
 .align	16
 sha1_block_data_order_ssse3:
 _ssse3_shortcut:
-	endbr64
 	pushq	%rbx
 	pushq	%rbp
 	pushq	%r12

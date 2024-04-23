@@ -1,4 +1,4 @@
-/* $OpenBSD: x_crl.c,v 1.41 2023/07/07 19:37:52 beck Exp $ */
+/* $OpenBSD: x_crl.c,v 1.39 2022/12/26 16:00:36 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *

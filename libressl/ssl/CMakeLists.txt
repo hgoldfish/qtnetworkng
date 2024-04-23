@@ -69,8 +69,7 @@ target_include_directories(ssl_obj
 		../crypto/bio
 		../include/compat
 	PUBLIC
-		../include
-		${CMAKE_BINARY_DIR}/include)
+		../include)
 
 add_library(bs_obj OBJECT ${BS_SRC})
 target_include_directories(bs_obj
@@ -87,33 +86,13 @@ endif()
 export_symbol(ssl ${CMAKE_CURRENT_SOURCE_DIR}/ssl.sym)
 target_link_libraries(ssl crypto ${PLATFORM_LIBS})
 if (WIN32)
-	set(SSL_POSTFIX -${SSL_MAJOR_VERSION} PARENT_SCOPE)
+	set(SSL_POSTFIX -${SSL_MAJOR_VERSION})
 endif()
 set_target_properties(ssl PROPERTIES
 	OUTPUT_NAME ssl${SSL_POSTFIX}
-	ARCHIVE_OUTPUT_NAME ssl${SSL_POSTFIX}
-	EXPORT_NAME SSL
-	VERSION ${SSL_VERSION}
-	SOVERSION ${SSL_MAJOR_VERSION}
-)
-
-target_include_directories(
-	ssl
-	PUBLIC
-	$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
-	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-)
-
-install(
-	TARGETS ssl
-	EXPORT SSL-target
-)
-
-export(
-	EXPORT SSL-target
-	FILE "${LibreSSL_BINARY_DIR}/LibreSSL-SSL.cmake"
-	NAMESPACE LibreSSL::
-)
+	ARCHIVE_OUTPUT_NAME ssl${SSL_POSTFIX})
+set_target_properties(ssl PROPERTIES VERSION ${SSL_VERSION}
+	SOVERSION ${SSL_MAJOR_VERSION})
 
 if(ENABLE_LIBRESSL_INSTALL)
 	install(
@@ -121,12 +100,6 @@ if(ENABLE_LIBRESSL_INSTALL)
 		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-	)
-	install(
-		EXPORT SSL-target
-		FILE "LibreSSL-SSL.cmake"
-		NAMESPACE LibreSSL::
-		DESTINATION "${LIBRESSL_INSTALL_CMAKEDIR}"
 	)
 endif(ENABLE_LIBRESSL_INSTALL)
 

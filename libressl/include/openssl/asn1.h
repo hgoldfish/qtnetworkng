@@ -1,4 +1,4 @@
-/* $OpenBSD: asn1.h,v 1.80 2023/07/28 10:33:13 tb Exp $ */
+/* $OpenBSD: asn1.h,v 1.72 2022/11/13 13:59:46 tb Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -66,11 +66,13 @@
 #ifndef OPENSSL_NO_BIO
 #include <openssl/bio.h>
 #endif
-#include <openssl/bn.h>
 #include <openssl/stack.h>
 #include <openssl/safestack.h>
 
 #include <openssl/ossl_typ.h>
+#ifndef OPENSSL_NO_DEPRECATED
+#include <openssl/bn.h>
+#endif
 
 #ifdef  __cplusplus
 extern "C" {
@@ -576,6 +578,16 @@ extern const ASN1_ITEM ASN1_BIT_STRING_it;
 int ASN1_BIT_STRING_set(ASN1_BIT_STRING *a, unsigned char *d, int length);
 int ASN1_BIT_STRING_set_bit(ASN1_BIT_STRING *a, int n, int value);
 int ASN1_BIT_STRING_get_bit(const ASN1_BIT_STRING *a, int n);
+int ASN1_BIT_STRING_check(const ASN1_BIT_STRING *a,
+    const unsigned char *flags, int flags_len);
+
+#ifndef OPENSSL_NO_BIO
+int ASN1_BIT_STRING_name_print(BIO *out, ASN1_BIT_STRING *bs,
+    BIT_STRING_BITNAME *tbl, int indent);
+#endif
+int ASN1_BIT_STRING_num_asc(const char *name, BIT_STRING_BITNAME *tbl);
+int ASN1_BIT_STRING_set_asc(ASN1_BIT_STRING *bs, const char *name, int value,
+    BIT_STRING_BITNAME *tbl);
 
 ASN1_INTEGER *ASN1_INTEGER_new(void);
 void ASN1_INTEGER_free(ASN1_INTEGER *a);
@@ -824,6 +836,9 @@ int ASN1_GENERALIZEDTIME_print(BIO *fp, const ASN1_GENERALIZEDTIME *a);
 int ASN1_TIME_print(BIO *fp, const ASN1_TIME *a);
 int ASN1_STRING_print(BIO *bp, const ASN1_STRING *v);
 int ASN1_STRING_print_ex(BIO *out, const ASN1_STRING *str, unsigned long flags);
+int ASN1_bn_print(BIO *bp, const char *number, const BIGNUM *num,
+    unsigned char *buf, int off);
+int ASN1_buf_print(BIO *bp, const unsigned char *buf, size_t buflen, int indent);
 int ASN1_parse(BIO *bp, const unsigned char *pp, long len, int indent);
 int ASN1_parse_dump(BIO *bp, const unsigned char *pp, long len, int indent, int dump);
 #endif
@@ -867,6 +882,7 @@ void ASN1_item_free(ASN1_VALUE *val, const ASN1_ITEM *it);
 ASN1_VALUE *ASN1_item_d2i(ASN1_VALUE **val, const unsigned char **in,
     long len, const ASN1_ITEM *it);
 int ASN1_item_i2d(ASN1_VALUE *val, unsigned char **out, const ASN1_ITEM *it);
+int ASN1_item_ndef_i2d(ASN1_VALUE *val, unsigned char **out, const ASN1_ITEM *it);
 
 void ASN1_add_oid_module(void);
 
@@ -909,6 +925,18 @@ void ASN1_PCTX_set_oid_flags(ASN1_PCTX *p, unsigned long flags);
 unsigned long ASN1_PCTX_get_str_flags(const ASN1_PCTX *p);
 void ASN1_PCTX_set_str_flags(ASN1_PCTX *p, unsigned long flags);
 
+const BIO_METHOD *BIO_f_asn1(void);
+
+BIO *BIO_new_NDEF(BIO *out, ASN1_VALUE *val, const ASN1_ITEM *it);
+
+int i2d_ASN1_bio_stream(BIO *out, ASN1_VALUE *val, BIO *in, int flags,
+    const ASN1_ITEM *it);
+int PEM_write_bio_ASN1_stream(BIO *out, ASN1_VALUE *val, BIO *in, int flags,
+    const char *hdr, const ASN1_ITEM *it);
+int SMIME_write_ASN1(BIO *bio, ASN1_VALUE *val, BIO *data, int flags,
+    int ctype_nid, int econt_nid, STACK_OF(X509_ALGOR) *mdalgs,
+    const ASN1_ITEM *it);
+ASN1_VALUE *SMIME_read_ASN1(BIO *bio, BIO **bcont, const ASN1_ITEM *it);
 int SMIME_crlf_copy(BIO *in, BIO *out, int flags);
 int SMIME_text(BIO *in, BIO *out);
 
