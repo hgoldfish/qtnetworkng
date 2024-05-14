@@ -8,9 +8,10 @@
 #include <QtCore/qpointer.h>
 #include <QtCore/qcoreevent.h>
 #include "../include/private/eventloop_p.h"
+#include "eventloop_qt_p.h"
 #include "debugger.h"
 
-QTNG_LOGGER("qtng.eventloop_qt");
+QTNG_LOGGER("qtng.eventloop_qt")
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
@@ -74,7 +75,6 @@ TimerWatcher::~TimerWatcher()
 
 }  // anonymous namespace
 
-class EventLoopCoroutinePrivateQtHelper;
 class QtEventLoopCoroutinePrivate : public EventLoopCoroutinePrivate
 {
 public:
@@ -115,33 +115,28 @@ private:
     friend int startQtLoop();
 };
 
-class EventLoopCoroutinePrivateQtHelper : public QObject
+EventLoopCoroutinePrivateQtHelper::EventLoopCoroutinePrivateQtHelper(QtEventLoopCoroutinePrivate *parent)
+    : parent(parent) {}
+
+
+void EventLoopCoroutinePrivateQtHelper::timerEvent(QTimerEvent *event)
 {
-    Q_OBJECT
-public:
-    EventLoopCoroutinePrivateQtHelper(QtEventLoopCoroutinePrivate *parent)
-        : parent(parent)
-    {
-    }
-public slots:
-    virtual void timerEvent(QTimerEvent *event) override { parent->timerEvent(event); }
+    parent->timerEvent(event);
+}
 
-    void callLaterThreadSafeStub(quint32 msecs, void *callback)
-    {
-        parent->callLater(msecs, static_cast<Functor *>(callback));
-    }
+void EventLoopCoroutinePrivateQtHelper::callLaterThreadSafeStub(quint32 msecs, void *callback)
+{
+    parent->callLater(msecs, static_cast<Functor *>(callback));
+}
 
-    void handleIoEvent(int socket)
-    {
-        QSocketNotifier *n = dynamic_cast<QSocketNotifier *>(sender());
-        if (!parent->handleIoEvent(socket, n)) {
-            // prevent cpu 100%
-            n->setEnabled(false);
-        }
+void EventLoopCoroutinePrivateQtHelper::handleIoEvent(int socket)
+{
+    QSocketNotifier *n = dynamic_cast<QSocketNotifier *>(sender());
+    if (!parent->handleIoEvent(socket, n)) {
+        // prevent cpu 100%
+        n->setEnabled(false);
     }
-private:
-    QtEventLoopCoroutinePrivate * const parent;
-};
+}
 
 QtEventLoopCoroutinePrivate::QtEventLoopCoroutinePrivate(EventLoopCoroutine *q)
     : EventLoopCoroutinePrivate(q)
@@ -405,4 +400,4 @@ int startQtLoop()
 
 QTNETWORKNG_NAMESPACE_END
 
-#include "eventloop_qt.moc"
+//#include "src/eventloop_qt.moc"

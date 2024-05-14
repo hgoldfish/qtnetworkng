@@ -13,9 +13,10 @@ endif ()
 project(qtnetworkng LANGUAGES C CXX ASM)
 
 option(QTNG_USE_OPENSSL OFF)
-set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOMOC OFF)
 set(CMAKE_AUTOUIC OFF)
 set(CMAKE_AUTORCC OFF)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
 if (QTNG_USE_OPENSSL)
@@ -72,6 +73,8 @@ set(QTNETWORKNG_SRC
 
     src/network_interface/network_interface.cpp
 )
+
+qt5_wrap_cpp(QTNETWORKNG_SRC src/eventloop_qt_p.h)
 
 set(QTNETWORKNG_INCLUDE
     include/config.h
