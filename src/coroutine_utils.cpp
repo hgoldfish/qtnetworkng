@@ -48,8 +48,8 @@ void DeferCallThread::run()
 {
     makeResult();
     if (!eventloop.isNull()) {
-        eventloop->callLaterThreadSafe(0, new MarkDoneFunctor(done));
         eventloop->callLaterThreadSafe(100, new DeleteLaterFunctor<DeferCallThread>(this));
+        eventloop->callLaterThreadSafe(0, new MarkDoneFunctor(done));
     }
 }
 
