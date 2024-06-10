@@ -33,7 +33,10 @@ SOURCES += \
     $$PWD/src/websocket.cpp \
     $$PWD/src/random.cpp \
     $$PWD/src/hostaddress.cpp \
-    $$PWD/src/network_interface/network_interface.cpp
+    $$PWD/src/network_interface/network_interface.cpp \
+    $$PWD/src/lmdb.cpp \
+    $$PWD/src/liblmdb/midl.c \
+    $$PWD/src/liblmdb/mdb.c
 
     
 PRIVATE_HEADERS += \
@@ -66,7 +69,11 @@ HEADERS += \
     $$PWD/include/httpd.h \
     $$PWD/include/random.h \
     $$PWD/include/hostaddress.h \
-    $$PWD/include/network_interface.h
+    $$PWD/include/network_interface.h \
+    $$PWD/include/lmdb.h \
+    $$PWD/src/eventloop_qt_p.h \
+    $$PWD/src/liblmdb/midl.h \
+    $$PWD/src/liblmdb/lmdb.h
 
     
 win32 {

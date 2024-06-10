@@ -469,7 +469,6 @@ bool KcpSocketPrivate::handleDatagram(const char *buf, quint32 len)
 
 void KcpSocketPrivate::doUpdate()
 {
-    Q_Q(KcpSocket);
     // in close(), state is set to Socket::UnconnectedState but error = NoError.
     while (state == Socket::ConnectedState || (state == Socket::UnconnectedState && error == Socket::NoError)) {
         quint64 now = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());

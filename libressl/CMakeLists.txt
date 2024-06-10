@@ -41,6 +41,7 @@ option(ENABLE_ASM "Enable assembly" ON)
 option(ENABLE_EXTRATESTS "Enable extra tests that may be unreliable on some platforms" OFF)
 option(ENABLE_NC "Enable installing TLS-enabled nc(1)" OFF)
 set(OPENSSLDIR ${OPENSSLDIR} CACHE PATH "Set the default openssl directory" FORCE)
+set(LIBRESSL_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/LibreSSL" CACHE STRING "Installation directory for the CMake targets")
 
 option(USE_STATIC_MSVC_RUNTIMES "Use /MT instead of /MD in MSVC" OFF)
 if(USE_STATIC_MSVC_RUNTIMES)
@@ -51,6 +52,21 @@ if(NOT LIBRESSL_SKIP_INSTALL)
 	set( ENABLE_LIBRESSL_INSTALL ON )
 endif(NOT LIBRESSL_SKIP_INSTALL)
 
+
+# Set a default build type if none was specified
+set(default_build_type "Release")
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
+      STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY
+          STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
+# Enable asserts regardless of build type
+add_definitions(-UNDEBUG)
 
 set(BUILD_NC true)
 
@@ -146,6 +162,9 @@ if(MSVC)
 			"C4706" # assignment within conditional expression
 			"C4996" # The POSIX name for this item is deprecated.
 				# Instead, use the ISO C and C++ conformant name
+                        "C5045" # /Qspectre
+                        "C4710" # didn't inline
+                        "C4711" # didn't inline
 		)
 	elseif(CMAKE_C_COMPILER_ID MATCHES "Intel")
 		add_definitions(-D_CRT_SUPPRESS_RESTRICT)
@@ -168,7 +187,7 @@ if(MSVC)
 	string(REPLACE "C" " -wd" MSVC_DISABLED_WARNINGS_STR
 		${MSVC_DISABLED_WARNINGS_LIST})
 	string(REGEX REPLACE "[/-]W[1234][ ]?" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MP -W4 ${MSVC_DISABLED_WARNINGS_STR}")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MP -W3 ${MSVC_DISABLED_WARNINGS_STR}")
 endif()
 
 check_function_exists(asprintf HAVE_ASPRINTF)
@@ -306,15 +325,15 @@ if(HAVE_NETINET_IP_H)
 	add_definitions(-DHAVE_NETINET_IP_H)
 endif()
 
-if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "(aarch64|arm64)")
+if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "(aarch64|arm64|ARM64)")
 	set(HOST_AARCH64 true)
 elseif("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "arm")
 	set(HOST_ARM true)
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "SunOS" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "i386")
 	set(HOST_X86_64 true)
-elseif("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "(x86_64|amd64)")
+elseif("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "(x86_64|amd64|AMD64)")
 	set(HOST_X86_64 true)
-elseif("${CMAKE_SYSTEM_NAME}" MATCHES "[i?86|x86]")
+elseif("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "(i[3-6]86|[xX]86)")
 	set(ENABLE_ASM false)
 	set(HOST_I386 true)
 elseif("${CMAKE_SYSTEM_NAME}" MATCHES "mips64")
@@ -426,7 +445,7 @@ if(ENABLE_LIBRESSL_INSTALL)
 		if(PLATFORM_LIBS)
 			string(REGEX REPLACE ";" " -l" PLATFORM_LDADD ";${PLATFORM_LIBS}")
 		endif()
-		file(STRINGS    "VERSION" VERSION LIMIT_COUNT 1)
+                file(STRINGS    "VERSION" VERSION LIMIT_COUNT 1)
 		file(GLOB       OPENSSL_PKGCONFIGS "*.pc.in")
 		foreach(file ${OPENSSL_PKGCONFIGS})
 			get_filename_component(filename ${file} NAME)

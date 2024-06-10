@@ -142,6 +142,18 @@ set(QTCRYPTONG_PRIVATE_INCLUDE
     include/private/qasn1element.h
 )
 
+set(QTLMDB_SRC
+    src/lmdb.cpp
+    src/liblmdb/midl.c
+    src/liblmdb/midl.h
+    src/liblmdb/mdb.c
+    src/liblmdb/lmdb.h
+)
+
+set(QTLMDB_INCLUDE
+    include/lmdb.h
+)
+
 find_path(QT_BUNDLED_ZLIB zlib.h HINTS "${_qt5Core_install_prefix}/include/QtZlib")
 if (${QT_BUNDLED_ZLIB} STREQUAL "${_qt5Core_install_prefix}/include/QtZlib")
     message("use qt bundled zlib.")
@@ -328,7 +340,7 @@ endif()
 
 add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
                                ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE}
-                               ${OS_DEPENDENDED_SRC} ${ZLIB_SRC})
+                               ${OS_DEPENDENDED_SRC} ${ZLIB_SRC} ${QTLMDB_SRC} ${QTLMDB_INCLUDE})
 target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}"
                                        PRIVATE "${ZLIB_INCLUDE}")
 target_compile_definitions(qtnetworkng PRIVATE -DQTNG_HAVE_ZLIB)
