@@ -116,7 +116,10 @@ LmdbIterator::LmdbIterator(LmdbIterator &&other)
 
 class Database
 {
-    Q_DISABLE_COPY_MOVE(Database);
+    Q_DISABLE_COPY(Database);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
+    Q_DISABLE_MOVE(Database);
+#endif
 public:
     typedef LmdbIterator iterator;
     typedef ConstLmdbIterator const_iterator;
@@ -224,7 +227,10 @@ private:
 class TransactionPrivate;
 class Transaction
 {
-    Q_DISABLE_COPY_MOVE(Transaction);
+    Q_DISABLE_COPY(Transaction);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
+    Q_DISABLE_MOVE(Transaction);
+#endif
 public:
     ~Transaction();
 public:
@@ -248,7 +254,10 @@ class EnvironmentPrivate;
 class EnvironmentBuilder;
 class Environment : public QObject
 {
-    Q_DISABLE_COPY_MOVE(Environment);
+    Q_DISABLE_COPY(Environment);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
+    Q_DISABLE_MOVE(Environment);
+#endif
 public:
     typedef EnvironmentBuilder Builder;
     ~Environment();
@@ -270,7 +279,10 @@ private:
 
 class EnvironmentBuilder
 {
-    Q_DISABLE_COPY_MOVE(EnvironmentBuilder);
+    Q_DISABLE_COPY(EnvironmentBuilder);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
+    Q_DISABLE_MOVE(EnvironmentBuilder);
+#endif
 public:
     EnvironmentBuilder(const QString &dirPath);
     EnvironmentBuilder &maxMapSize(size_t size);
