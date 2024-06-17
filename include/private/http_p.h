@@ -59,7 +59,7 @@ class HttpSessionPrivate : public ConnectionPool
 public:
     HttpSessionPrivate(HttpSession *q_ptr);
     virtual ~HttpSessionPrivate();
-    QList<HttpHeader> makeHeaders(HttpRequest &request, const QUrl &url);
+    QList<HttpHeader> makeHeaders(HttpRequest &request, const QUrl &url) const;
     void mergeCookies(HttpRequest &request, const QUrl &url);
     HttpResponse send(HttpRequest &req);
     void prepareWebSocketRequest(HttpRequest &request, QByteArray &secKey);

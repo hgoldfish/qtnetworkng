@@ -1224,7 +1224,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     // read body.
     response.d->body = headerSplitter.buf;
     response.d->stream = connection;
-    if (!request.streamResponse()) {
+    if (!request.streamResponse() && response.d->statusCode != HttpStatus::NoContent) {
         if (request.method().toUpper() == QString::fromUtf8("HEAD")) {
             response.d->consumed = true;
             response.d->body.clear();
@@ -1276,7 +1276,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
     return response;
 }
 
-QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QUrl &url)
+QList<HttpHeader> HttpSessionPrivate::makeHeaders(HttpRequest &request, const QUrl &url) const
 {
     QList<HttpHeader> allHeaders = request.allHeaders();
 
