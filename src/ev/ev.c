@@ -112,7 +112,8 @@ static void ev_sleep(ev_tstamp delay)
 
 static void ev_printerr(const char *msg)
 {
-    write(STDERR_FILENO, msg, strlen(msg));
+    ssize_t rt = write(STDERR_FILENO, msg, strlen(msg));
+    (void) rt;
 }
 
 static void ev_syserr(const char *msg)
@@ -762,11 +763,13 @@ static void evpipe_write(struct ev_loop *loop, EV_ATOMIC_T *flag)
 #if EV_USE_EVENTFD
         if (loop->evpipe[0] < 0) {
             uint64_t counter = 1;
-            write(loop->evpipe[1], &counter, sizeof(uint64_t));
+            ssize_t rt = write(loop->evpipe[1], &counter, sizeof(uint64_t));
+            (void) rt;
         } else
 #endif
         {
-            write(loop->evpipe[1], &(loop->evpipe[1]), 1);
+            ssize_t rt = write(loop->evpipe[1], &(loop->evpipe[1]), 1);
+            (void) rt;
         }
 
         errno = old_errno;
@@ -783,12 +786,14 @@ static void pipecb(struct ev_loop *loop, ev_io *iow, int revents)
 #if EV_USE_EVENTFD
         if (loop->evpipe[0] < 0) {
             uint64_t counter;
-            read(loop->evpipe[1], &counter, sizeof(uint64_t));
+            ssize_t rt = read(loop->evpipe[1], &counter, sizeof(uint64_t));
+            (void) rt;
         } else
 #endif
         {
             char dummy[4];
-            read(loop->evpipe[0], &dummy, sizeof(dummy));
+            ssize_t rt = read(loop->evpipe[0], &dummy, sizeof(dummy));
+            (void) rt;
         }
     }
 
