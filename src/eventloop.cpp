@@ -172,13 +172,13 @@ bool EventLoopCoroutine::runUntil(BaseCoroutine *coroutine)
     return d->runUntil(coroutine);
 }
 
-void EventLoopCoroutine::yield()
+bool EventLoopCoroutine::yield()
 {
     Q_D(EventLoopCoroutine);
     if (d->loopCoroutine) {
-        d->loopCoroutine->yield();
+        return d->loopCoroutine->yield();
     } else {
-        BaseCoroutine::yield();
+        return BaseCoroutine::yield();
     }
 }
 
@@ -261,14 +261,14 @@ ScopedIoWatcher::ScopedIoWatcher(EventLoopCoroutine::EventType event, qintptr fd
 {
 }
 
-void ScopedIoWatcher::start()
+bool ScopedIoWatcher::start()
 {
     QSharedPointer<EventLoopCoroutine> eventLoop = currentLoopStorage->getOrCreate();
     if (watcherId <= 0) {
         watcherId = eventLoop->createWatcher(event, fd, new YieldCurrentFunctor());
     }
     eventLoop->startWatcher(watcherId);
-    eventLoop->yield();
+    return eventLoop->yield();
 }
 
 ScopedIoWatcher::~ScopedIoWatcher()

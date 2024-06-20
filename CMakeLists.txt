@@ -13,12 +13,6 @@ endif ()
 project(qtnetworkng LANGUAGES C CXX ASM)
 
 option(QTNG_USE_OPENSSL OFF)
-set(CMAKE_AUTOMOC OFF)
-set(CMAKE_AUTOUIC OFF)
-set(CMAKE_AUTORCC OFF)
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
-find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
 if (QTNG_USE_OPENSSL)
     find_package(OpenSSL REQUIRED)  # CMAKE_FIND_ROOT_PATH_BOTH
     include(CheckFunctionExists)
@@ -27,6 +21,11 @@ else()
     add_subdirectory(libressl)
 endif()
 
+find_package(Qt5Core CONFIG REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
+set(CMAKE_AUTOMOC OFF)
+set(CMAKE_AUTOUIC OFF)
+set(CMAKE_AUTORCC OFF)
+set(CMAKE_INCLUDE_CURRENT_DIR OFF)
 if (CMAKE_VERSION VERSION_LESS "3.1")
     if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -36,7 +35,6 @@ if (CMAKE_VERSION VERSION_LESS "3.1")
 else ()
     set (CMAKE_CXX_STANDARD 11)
 endif ()
-
 
 set(QTNETWORKNG_SRC
     src/debugger.h

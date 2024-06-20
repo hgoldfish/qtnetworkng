@@ -80,7 +80,7 @@ public:
     void cancelCall(int callbackId);
     int exitCode();
     bool runUntil(BaseCoroutine *coroutine);
-    void yield();
+    bool yield();
     bool isQt() const { return objectName() == QString::fromUtf8("qt_eventloop_coroutine"); }
     bool isEv() const { return objectName() == QString::fromUtf8("libev_eventloop_coroutine"); }
     bool isWin() const { return objectName() == QString::fromUtf8("win_eventloop_coroutine"); }
@@ -100,7 +100,7 @@ class ScopedIoWatcher
 public:
     ScopedIoWatcher(EventLoopCoroutine::EventType event, qintptr fd);
     ~ScopedIoWatcher();
-    void start();
+    bool start();
 private:
     EventLoopCoroutine::EventType event;
     qintptr fd;
