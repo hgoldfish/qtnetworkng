@@ -1,13 +1,6 @@
-#include <QtCore/qobject.h>
 #include "kcp_base_p.h"
-#include "../include/random.h"
-#include "../include/private/socket_p.h"
-
-#include "debugger.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
-
-// #define DEBUG_PROTOCOL 1
 
 class SinglePathUdpLinkId
 {

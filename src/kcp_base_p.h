@@ -85,7 +85,7 @@ protected:
     bool handleDatagram(const char *buf, qint32 len);  // len bigger than 5
     void updateKcp();
     void updateStatus();
-    void doUpdate();
+    virtual void doUpdate();
 public:
     CoroutineGroup *operations;
     QString errorString;
@@ -98,8 +98,9 @@ public:
     RLock kcpLock;
     Gate forceToUpdate;
 
-    QByteArray waitToRead;
+    char waitToReadBuffer[65536];
     int waitToReadOffset;
+    int waitToReadSize;
 
     const quint64 zeroTimestamp;
     quint64 lastActiveTimestamp;
@@ -165,6 +166,7 @@ public:
     virtual qint32 peekRaw(char *data, qint32 size) override;
     virtual qint32 sendRaw(const char *data, qint32 size) override;
     virtual qint32 udpSend(const char *data, qint32 size, const LinkPathID &remote) override;
+    virtual void doUpdate();
 public:
     friend class MasterKcpBase<Link>;
     LinkPathID originalPathID;
@@ -177,6 +179,7 @@ KcpBase<Link>::KcpBase(KcpMode mode /* = KcpMode::Internet*/)
     , state(Socket::UnconnectedState)
     , error(Socket::NoError)
     , waitToReadOffset(0)
+    , waitToReadSize(0)
     , zeroTimestamp(static_cast<quint64>(QDateTime::currentMSecsSinceEpoch()))
     , lastActiveTimestamp(zeroTimestamp)
     , lastKeepaliveTimestamp(zeroTimestamp)
@@ -187,6 +190,11 @@ KcpBase<Link>::KcpBase(KcpMode mode /* = KcpMode::Internet*/)
 {
     kcp = ikcp_create(0, this);
     ikcp_setoutput(kcp, kcp_callback);
+#ifdef DEBUG_PROTOCOL
+    kcp->writelog = [](const char *log, struct IKCPCB *kcp, void *user) { qDebug(log); };
+    kcp->logmask |= IKCP_LOG_IN_ACK | IKCP_LOG_OUTPUT;
+#endif
+
     sendingQueueEmpty.set();
     sendingQueueNotFull.set();
     receivingQueueNotEmpty.clear();
@@ -229,7 +237,7 @@ void KcpBase<Link>::setMode(KcpMode mode)
         break;
     case KcpMode::Ethernet:
         waterLine = 64;
-        ikcp_nodelay(kcp, 1, 10, 4, 0);
+        ikcp_nodelay(kcp, 1, 10, 1, 0);
         ikcp_setmtu(kcp, 1024 * 32);
         ikcp_wndsize(kcp, 128, 128);
         kcp->rx_minrto = 10;
@@ -237,7 +245,7 @@ void KcpBase<Link>::setMode(KcpMode mode)
         break;
     case KcpMode::Loopback:
         waterLine = 64;
-        ikcp_nodelay(kcp, 1, 10, 0, 1);
+        ikcp_nodelay(kcp, 1, 10, 1, 0);
         ikcp_setmtu(kcp, 1024 * 64 - 256);
         ikcp_wndsize(kcp, 128, 128);
         kcp->rx_minrto = 5;
@@ -325,24 +333,23 @@ qint32 KcpBase<Link>::peek(char *data, qint32 size)
     if (state != Socket::ConnectedState) {
         return -1;
     }
-    if (waitToRead.size() - waitToReadOffset > 0) {
-        qint32 result = qMin(size, waitToRead.size() - waitToReadOffset);
-        memcpy(data, waitToRead.data() + waitToReadOffset, result);
+    if (waitToReadSize - waitToReadOffset > 0) {
+        qint32 result = qMin(size, waitToReadSize - waitToReadOffset);
+        memcpy(data, waitToReadBuffer + waitToReadOffset, result);
         return result;
     }
+    
+    ScopedLock<RLock> l(kcpLock);
     int peeksize = ikcp_peeksize(kcp);
     if (peeksize > 0) {
-        int readBytes;
-        {
-            ScopedLock<RLock> l(kcpLock);
-            waitToRead.resize(peeksize);
-            waitToReadOffset = 0;
-            readBytes = ikcp_recv(kcp, waitToRead.data(), peeksize);
-        }
+        peeksize = qMin(static_cast<int>(sizeof(waitToReadBuffer)), peeksize);
+        int readBytes = ikcp_recv(kcp, waitToReadBuffer, peeksize);
         Q_ASSERT(readBytes == peeksize);
+        waitToReadOffset = 0;
+        waitToReadSize = readBytes;
 
-        qint32 result = qMin(size, waitToRead.size());
-        memcpy(data, waitToRead.data(), result);
+        qint32 result = qMin(size, waitToReadSize);
+        memcpy(data, waitToReadBuffer, result);
         return result;
     }
     return 0;
@@ -397,9 +404,9 @@ qint32 KcpBase<Link>::recv(char *data, qint32 size, bool all)
     qint32 left = size;
     qint32 total = 0;
     while (true) {
-        if (waitToRead.size() - waitToReadOffset > 0) {
-            qint32 len = qMin(left, waitToRead.size() - waitToReadOffset);
-            memcpy(data + total, waitToRead.data() + waitToReadOffset, static_cast<size_t>(len));
+        if (waitToReadSize - waitToReadOffset > 0) {
+            qint32 len = qMin(left, waitToReadSize - waitToReadOffset);
+            memcpy(data + total, waitToReadBuffer + waitToReadOffset, static_cast<size_t>(len));
             total += len;
             waitToReadOffset += len;
             if (!all || total >= size) {
@@ -408,22 +415,22 @@ qint32 KcpBase<Link>::recv(char *data, qint32 size, bool all)
             left -= len;
         }
         while (true) {
+            {
+                ScopedLock<RLock> l(kcpLock);
+                int peeksize = ikcp_peeksize(kcp);
+                if (peeksize > 0) {
+                    peeksize = qMin(static_cast<int>(sizeof(waitToReadBuffer)), peeksize);
+                    int readBytes = ikcp_recv(kcp, waitToReadBuffer, peeksize);
+                    Q_ASSERT(readBytes == peeksize);
+                    waitToReadOffset = 0;
+                    waitToReadSize = readBytes;
+                    break;
+                }
+            }
             if (state != Socket::ConnectedState) {
                 error = Socket::SocketAccessError;
                 errorString = QString::fromLatin1("KcpBase is not connected.");
                 return -1;
-            }
-            int peeksize = ikcp_peeksize(kcp);
-            if (peeksize > 0) {
-                int readBytes;
-                {
-                    ScopedLock<RLock> l(kcpLock);
-                    waitToRead.resize(peeksize);
-                    waitToReadOffset = 0;
-                    readBytes = ikcp_recv(kcp, waitToRead.data(), peeksize);
-                }
-                Q_ASSERT(readBytes == peeksize);
-                break;
             }
             receivingQueueNotEmpty.clear();
             if (!receivingQueueNotEmpty.tryWait()) {
@@ -485,8 +492,9 @@ qint32 KcpBase<Link>::send(const char *data, qint32 size, bool all)
             qtng_warning << "why ikcp_send error happened? result:" << result << "connectionId:" << connectionId;
             return total > 0 ? total : -1;
         }
+        Q_ASSERT(result == nextBlockSize);
         updateStatus();
-        total += nextBlockSize;
+        total += result;
         if (!all) {
             break;
         }
@@ -612,8 +620,8 @@ bool KcpBase<Link>::handleDatagram(const char *buf, qint32 len)
             return false;
         }
         lastActiveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
+        updateKcp(); // send ack before info user layer that has receive data can let kcp faster
         receivingQueueNotEmpty.set();
-        updateKcp();
         return true;
     }
     case PACKET_TYPE_CREATE_MULTIPATH:
@@ -623,6 +631,9 @@ bool KcpBase<Link>::handleDatagram(const char *buf, qint32 len)
         return false;
     case PACKET_TYPE_KEEPALIVE:
         lastActiveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
+#ifdef DEBUG_PROTOCOL
+        qtng_debug << "recv keep alive from" << connectionId << remoteId;
+#endif
         return true;
     default:
         break;
@@ -704,7 +715,7 @@ void KcpBase<Link>::updateStatus()
         sendingQueueEmpty.set();
     } else {
         sendingQueueEmpty.clear();
-        if (static_cast<quint32>(sendingQueueSize) > (waterLine * 1.2)) {
+        if (static_cast<quint32>(sendingQueueSize) > (kcp->snd_wnd << 1)) {
             sendingQueueNotFull.clear();
         } else if (static_cast<quint32>(sendingQueueSize) <= waterLine) {
             sendingQueueNotFull.set();
@@ -987,18 +998,7 @@ void MasterKcpBase<Link>::doAccept()
 
             receiversByLinkPathID.insert(remote, slave.data());
             receiversByConnectionId.insert(slave->connectionId, slave.data());
-            const QByteArray &multiPathPacket = KcpBase<Link>::makeMultiPathPacket(slave->connectionId);
             pendingSlaves.put(slave.take());
-            if (this->link->sendto(multiPathPacket.data(), multiPathPacket.size(), remote) != multiPathPacket.size()) {
-                if (this->error == Socket::NoError) {
-                    this->error = Socket::SocketResourceError;
-                    this->errorString = QString::fromLatin1("kcp can not send udp packet.");
-                }
-#ifdef DEBUG_PROTOCOL
-                qtng_debug << this->errorString;
-#endif
-                MasterKcpBase<Link>::close(true);
-            }
             continue;
         }
         if (!receiver->handleDatagram(data, len)) {
@@ -1201,6 +1201,28 @@ qint32 SlaveKcpBase<Link>::udpSend(const char *data, qint32 size, const LinkPath
         return -1;
     }
     return parent->link->sendto(data, size, remote);
+}
+
+template<typename Link>
+void SlaveKcpBase<Link>::doUpdate()
+{
+    if (parent.isNull()) {
+        return;
+    }
+    // sent first packet to let peer known its connection id
+    const QByteArray &multiPathPacket = KcpBase<Link>::makeMultiPathPacket(this->connectionId);
+    if (parent->link->sendto(multiPathPacket.data(), multiPathPacket.size(), this->remoteId) != multiPathPacket.size()) {
+        if (this->error == Socket::NoError) {
+            this->error = Socket::SocketResourceError;
+            this->errorString = QString::fromLatin1("kcp can not send udp packet.");
+        }
+#ifdef DEBUG_PROTOCOL
+        qtng_debug << this->errorString;
+#endif
+        SlaveKcpBase<Link>::close(true);
+        return;
+    }
+    KcpBase<Link>::doUpdate();
 }
 
 template<typename Link>
