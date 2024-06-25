@@ -6,21 +6,6 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-namespace internal {
-inline QByteArray int2bytes(qint64 i)
-{
-    QByteArray buf(sizeof(qint64), Qt::Uninitialized);
-    qToLittleEndian<qint64>(i, buf.data());
-    return buf;
-}
-
-inline qint64 bytes2int(const QByteArray &buf)
-{
-    Q_ASSERT(buf.size() == sizeof(qint64));
-    return qFromLittleEndian<qint64>(buf.constData());
-}
-}  // namespace internal
-
 class DatabasePrivate;
 class Database;
 class TransactionPrivate;
@@ -50,11 +35,14 @@ public:
     QByteArray value() const;
     bool isEnd() const;
 public:
-    inline qint64 intKey() const { return internal::bytes2int(key()); }
+    const char *data() const;
+    size_t size() const;
+public:
     inline const QString strKey() const { return QString::fromUtf8(key()); }
 public:
     bool operator==(const ConstLmdbIterator &other) const;
     inline bool operator!=(const ConstLmdbIterator &other) const { return !(*this == other); }
+    bool operator!() const { return isEnd(); }
     ConstLmdbIterator &operator++();
     ConstLmdbIterator &operator--();
 private:
@@ -81,15 +69,17 @@ public:
     QByteArray key() const;
     QByteArray value() const;
     bool isEnd() const;
-    void set(const QByteArray &value);
 public:
-    inline qint64 intKey() const { return internal::bytes2int(key()); }
+    char *data() const;  // use this at your risk! you must known what you're doing.
+    size_t size() const;
+public:
     inline QString strKey() const { return QString::fromUtf8(key()); }
 public:
     inline bool operator==(const ConstLmdbIterator &) const { return false; }
     inline bool operator!=(const ConstLmdbIterator &) const { return true; }
     bool operator==(const LmdbIterator &other) const;
     inline bool operator!=(const LmdbIterator &other) const { return !(*this == other); }
+    bool operator!() const { return isEnd(); }
     LmdbIterator &operator++();
     LmdbIterator &operator--();
 private:
@@ -116,10 +106,6 @@ LmdbIterator::LmdbIterator(LmdbIterator &&other)
 
 class Database
 {
-    Q_DISABLE_COPY(Database);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
-    Q_DISABLE_MOVE(Database);
-#endif
 public:
     typedef LmdbIterator iterator;
     typedef ConstLmdbIterator const_iterator;
@@ -131,12 +117,11 @@ public:
 public:
     inline QByteArray value(const QByteArray &key) const { return constFind(key).value(); }
     iterator insert(const QByteArray &key, const QByteArray &value);
-    iterator reserve(const QByteArray &key, size_t size);
+    iterator reserve(const QByteArray &key, size_t size); // insert value using itor.data() and itor.size()
     qint64 insert(const Database &other);
     void clear();
     QList<QByteArray> keys() const;
     QStringList strKeys() const;
-    QList<qint64> intKeys() const;
     int remove(const QByteArray &key);
     QByteArray take(const QByteArray &key);
     bool contains(const QByteArray &key) const;
@@ -177,40 +162,12 @@ public:
     }
 public:
     inline qint64 count() const { return size(); }
-    inline QByteArray value(const QString &key) const { return value(key.toUtf8()); }
-    inline QByteArray value(qint64 key) const { return value(internal::int2bytes(key)); }
-    inline iterator insert(const QString &key, const QByteArray &value) { return insert(key.toUtf8(), value); }
-    inline iterator insert(qint64 key, const QByteArray &value) { return insert(internal::int2bytes(key), value); }
     inline const_iterator begin() const { return constBegin(); }
     inline const_iterator cbegin() const { return constBegin(); }
     inline const_iterator end() const { return constEnd(); }
     inline const_iterator cend() const { return constEnd(); }
-    inline bool contains(const QString &key) const { return contains(key.toUtf8()); }
-    inline bool contains(qint64 key) const { return contains(internal::int2bytes(key)); }
-    inline iterator erase(const QString &key) { return erase(key.toUtf8()); }
-    inline iterator erase(qint64 key) { return erase(internal::int2bytes(key)); }
-    inline iterator find(const QString &key) { return find(key.toUtf8()); }
-    inline iterator find(qint64 key) { return find(internal::int2bytes(key)); }
     inline const_iterator find(const QByteArray &key) const { return constFind(key); }
-    inline const_iterator find(const QString &key) const { return constFind(key.toUtf8()); }
-    inline const_iterator find(qint64 key) const { return constFind(internal::int2bytes(key)); }
-    inline const_iterator constFind(const QString &key) const { return constFind(key.toUtf8()); }
-    inline const_iterator constFind(qint64 key) const { return constFind(internal::int2bytes(key)); }
-    //    inline const_iterator lowBound(const QString &key) const { return lowBound(key.toUtf8()); }
-    //    inline iterator lowBound(const QString &key)  { return lowBound(key.toUtf8()); }
-    //    inline const_iterator lowBound(qint64 key) const { return lowBound(int2bytes(key)); }
-    //    inline iterator lowBound(qint64 key)  { return lowBound(int2bytes(key)); }
-    inline const_iterator upperBound(const QString &key) const { return upperBound(key.toUtf8()); }
-    inline iterator upperBound(const QString &key) { return upperBound(key.toUtf8()); }
-    inline const_iterator upperBound(qint64 key) const { return upperBound(internal::int2bytes(key)); }
-    inline iterator upperBound(qint64 key) { return upperBound(internal::int2bytes(key)); }
-    inline int remove(const QString &key) { return remove(key.toUtf8()); }
-    inline int remove(qint64 key) { return remove(internal::int2bytes(key)); }
-    inline QByteArray take(const QString &key) { return take(key.toUtf8()); }
-    inline QByteArray take(qint64 key) { return take(internal::int2bytes(key)); }
     inline QByteArray operator[](const QByteArray &key) const { return value(key); }
-    inline QByteArray operator[](const QString &key) const { return value(key.toUtf8()); }
-    inline QByteArray operator[](int key) const { return value(internal::int2bytes(key)); }
 private:
     Database(DatabasePrivate *d)
         : d_ptr(d)
@@ -222,15 +179,15 @@ private:
 private:
     DatabasePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Database);
+private:
+    Q_DISABLE_COPY(Database);
+    Database(Database &&) = delete;
+    Database &operator=(Database &&) = delete;
 };
 
 class TransactionPrivate;
 class Transaction
 {
-    Q_DISABLE_COPY(Transaction);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
-    Q_DISABLE_MOVE(Transaction);
-#endif
 public:
     ~Transaction();
 public:
@@ -247,20 +204,20 @@ private:
     }
     TransactionPrivate * const d_ptr;
     friend class TransactionPrivate;
-    friend class Environment;
+    friend class Lmdb;
+private:
+    Q_DISABLE_COPY(Transaction);
+    Transaction(Transaction &&) = delete;
+    Transaction &operator=(Transaction &&) = delete;
 };
 
-class EnvironmentPrivate;
-class EnvironmentBuilder;
-class Environment : public QObject
+class LmdbPrivate;
+class LmdbBuilder;
+class Lmdb
 {
-    Q_DISABLE_COPY(Environment);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
-    Q_DISABLE_MOVE(Environment);
-#endif
 public:
-    typedef EnvironmentBuilder Builder;
-    ~Environment();
+    typedef LmdbBuilder Builder;
+    ~Lmdb();
 public:
     QSharedPointer<const Transaction> toRead();
     QSharedPointer<Transaction> toWrite();
@@ -268,35 +225,38 @@ public:
     void sync(bool force = false);
     bool backupTo(const QString &dirPath);
 private:
-    Environment(EnvironmentPrivate *d)
-        : dd_ptr(d)
+    Lmdb(LmdbPrivate *d)
+        : d_ptr(d)
     {
     }
-    EnvironmentPrivate * const dd_ptr;
-    Q_DECLARE_PRIVATE_D(dd_ptr, Environment);
-    friend class EnvironmentBuilder;
+    LmdbPrivate * const d_ptr;
+    Q_DECLARE_PRIVATE_D(d_ptr, Lmdb);
+    friend class LmdbBuilder;
+private:
+    Q_DISABLE_COPY(Lmdb);
+    Lmdb(Lmdb &&) = delete;
+    Lmdb &operator=(Lmdb &&) = delete;
 };
 
-class EnvironmentBuilder
+class LmdbBuilder
 {
-    Q_DISABLE_COPY(EnvironmentBuilder);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
-    Q_DISABLE_MOVE(EnvironmentBuilder);
-#endif
 public:
-    EnvironmentBuilder(const QString &dirPath);
-    EnvironmentBuilder &maxMapSize(size_t size);
-    EnvironmentBuilder &maxReaders(int readers);
-    EnvironmentBuilder &maxDbs(int maxDbs);
-    EnvironmentBuilder &dirPath(const QString &path);
-    EnvironmentBuilder &noSync(bool noSync);
-    QSharedPointer<Environment> create();
+    LmdbBuilder(const QString &dirPath);
+    LmdbBuilder &maxMapSize(size_t size);
+    LmdbBuilder &maxReaders(int readers);
+    LmdbBuilder &maxDbs(int maxDbs);
+    LmdbBuilder &noSync(bool noSync);
+    QSharedPointer<Lmdb> create();
 private:
     size_t m_maxMapSize = 1024 * 1024 * 16;
     int m_maxReaders = 256;
     int m_maxDbs = 1024;
     QString m_dirPath;
     bool m_noSync = false;
+private:
+    Q_DISABLE_COPY(LmdbBuilder);
+    LmdbBuilder(LmdbBuilder &&) = delete;
+    LmdbBuilder &operator=(LmdbBuilder &&) = delete;
 };
 
 QTNETWORKNG_NAMESPACE_END

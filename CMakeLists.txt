@@ -343,17 +343,22 @@ target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${C
                                        PRIVATE "${ZLIB_INCLUDE}")
 target_compile_definitions(qtnetworkng PRIVATE -DQTNG_HAVE_ZLIB)
 
+if(UNIX)
+    # 自从我们添加了 lmdb 之后，我们就依赖这个 pthread 了。
+    set(OS_EXTRA_LINK pthread)
+endif()
+
 # Fix Qt-static cmake BUG
 # https://bugreports.qt.io/browse/QTBUG-38913
 # FIXME qt 5.13 fix this bug
 if(EXISTS ${_qt5Core_install_prefix}/lib/libQt5Core.a AND NOT EXISTS ${_qt5Core_install_prefix}/bin/Qt5Core.dll)
     message("Static Qt is detected.")
     if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-        set(OS_EXTRA_LINK log qtpcre2)
-    elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-        set(OS_EXTRA_LINK pthread dl qtpcre2)
+        set(OS_EXTRA_LINK ${OS_EXTRA_LINK} log qtpcre2)
+    elseif(UNIX)
+        set(OS_EXTRA_LINK ${OS_EXTRA_LINK} dl qtpcre2)
     elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-        set(OS_EXTRA_LINK ws2_32 qtpcre2)
+        set(OS_EXTRA_LINK ${OS_EXTRA_LINK} ws2_32 qtpcre2)
     endif()
     if(${CMAKE_VERSION} VERSION_GREATER "3.13.0")
         target_link_directories(qtnetworkng PUBLIC ${_qt5Core_install_prefix}/lib/)

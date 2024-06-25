@@ -66,7 +66,7 @@ public:
     bool readOnly;
 };
 
-class EnvironmentPrivate
+class LmdbPrivate
 {
 public:
     MDB_env *env;
@@ -155,6 +155,22 @@ QByteArray ConstLmdbIterator::value() const
     return QByteArray(static_cast<const char *>(d_ptr->mdbValue.mv_data), d_ptr->mdbValue.mv_size);
 }
 
+const char *ConstLmdbIterator::data() const
+{
+    if (isEnd()) {
+        return nullptr;
+    }
+    return static_cast<const char *>(d_ptr->mdbValue.mv_data);
+}
+
+size_t ConstLmdbIterator::size() const
+{
+    if (isEnd()) {
+        return 0;
+    }
+    return d_ptr->mdbValue.mv_size;
+}
+
 bool ConstLmdbIterator::isEnd() const
 {
     return !d_ptr || d_ptr->key.isEmpty();
@@ -222,12 +238,20 @@ bool LmdbIterator::isEnd() const
     return !d_ptr || d_ptr->key.isEmpty();
 }
 
-void LmdbIterator::set(const QByteArray &value)
+char *LmdbIterator::data() const
 {
-    if (isEnd() || d_ptr->mdbValue.mv_size == 0) {
-        return;
+    if (isEnd()) {
+        return nullptr;
     }
-    memcpy(d_ptr->mdbValue.mv_data, value.constData(), value.size());
+    return static_cast<char *>(d_ptr->mdbValue.mv_data);
+}
+
+size_t LmdbIterator::size() const
+{
+    if (isEnd()) {
+        return 0;
+    }
+    return d_ptr->mdbValue.mv_size;
 }
 
 bool LmdbIterator::operator==(const LmdbIterator &other) const
@@ -270,7 +294,18 @@ Database::~Database()
 Database::iterator Database::insert(const QByteArray &key, const QByteArray &value)
 {
     Database::iterator itor = reserve(key, value.size());
-    itor.set(value);  // set() check isEnd()
+
+    if (itor.isEnd()) {
+        return itor;
+    }
+    if (itor.d_ptr->mdbValue.mv_size == 0) {
+        return end();
+    }
+    if (static_cast<size_t>(value.size()) != itor.d_ptr->mdbValue.mv_size) {
+        qtng_warning << "setting value is too large for lmdb reserved key-value.";
+    }
+    size_t minSize = qMin(static_cast<size_t>(value.size()), itor.d_ptr->mdbValue.mv_size);
+    memcpy(itor.d_ptr->mdbValue.mv_data, value.constData(), minSize);
     return itor;
 }
 
@@ -393,20 +428,6 @@ QStringList Database::strKeys() const
         sl.append(QString::fromUtf8(key));
     }
     return sl;
-}
-
-QList<qint64> Database::intKeys() const
-{
-    if (isNull()) {
-        return QList<qint64>();
-    }
-    QList<QByteArray> ks = keys();
-    QList<qint64> il;
-    il.reserve(ks.size());
-    for (const QByteArray &key : ks) {
-        il.append(internal::bytes2int(key));
-    }
-    return il;
 }
 
 int Database::remove(const QByteArray &key)
@@ -608,7 +629,7 @@ Database::iterator Database::find(const QByteArray &key)
     }
 
     MDB_val mdbKey, mdbData;
-    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData);
+    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData, MDB_SET);
     if (!cursor) {
         return LmdbIterator(nullptr);
     }
@@ -624,7 +645,7 @@ Database::const_iterator Database::constFind(const QByteArray &key) const
     }
 
     MDB_val mdbKey, mdbData;
-    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData);
+    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData, MDB_SET);
     if (!cursor) {
         return ConstLmdbIterator(nullptr);
     }
@@ -707,9 +728,6 @@ Database &TransactionPrivate::open(const QString &name)
     unsigned int flags = readOnly ? 0 : MDB_CREATE;
     int rt = mdb_dbi_open(txn, name.toUtf8(), flags, &dbi);
     if (rt < 0) {
-#if QTLMDB_DEBUG
-        qtng_warning << "can not open lmdb datbase:" << mdb_strerror(rt);
-#endif
         return empty;
     }
     QScopedPointer<DatabasePrivate> d(new DatabasePrivate(txn, dbi, readOnly));
@@ -792,51 +810,51 @@ void Transaction::abort()
     d_ptr->finished = true;
 }
 
-Environment::~Environment()
+Lmdb::~Lmdb()
 {
-    mdb_env_close(dd_ptr->env);
-    delete dd_ptr;
+    mdb_env_close(d_ptr->env);
+    delete d_ptr;
 }
 
-QSharedPointer<const Transaction> Environment::toRead()
+QSharedPointer<const Transaction> Lmdb::toRead()
 {
     MDB_txn *txn;
     unsigned int flags = MDB_RDONLY;
-    int rt = mdb_txn_begin(dd_ptr->env, NULL, flags, &txn);
+    int rt = mdb_txn_begin(d_ptr->env, NULL, flags, &txn);
     if (rt) {
 #if QTLMDB_DEBUG
         qtng_warning << "can not begin lmdb transaction:" << mdb_strerror(rt);
 #endif
         return QSharedPointer<const Transaction>();
     }
-    TransactionPrivate *d = new TransactionPrivate(dd_ptr->env, txn, true);
+    TransactionPrivate *d = new TransactionPrivate(d_ptr->env, txn, true);
     return QSharedPointer<const Transaction>(new Transaction(d));
 }
 
-QSharedPointer<Transaction> Environment::toWrite()
+QSharedPointer<Transaction> Lmdb::toWrite()
 {
     MDB_txn *txn;
     unsigned int flags = 0;
-    int rt = mdb_txn_begin(dd_ptr->env, NULL, flags, &txn);
+    int rt = mdb_txn_begin(d_ptr->env, NULL, flags, &txn);
     if (rt) {
 #if QTLMDB_DEBUG
         qtng_warning << "can not begin lmdb transaction:" << mdb_strerror(rt);
 #endif
         return QSharedPointer<Transaction>();
     }
-    TransactionPrivate *d = new TransactionPrivate(dd_ptr->env, txn, false);
+    TransactionPrivate *d = new TransactionPrivate(d_ptr->env, txn, false);
     return QSharedPointer<Transaction>(new Transaction(d));
 }
 
-QString Environment::version() const
+QString Lmdb::version() const
 {
     char *s = mdb_version(NULL, NULL, NULL);
     return QString::fromLatin1(s);
 }
 
-void Environment::sync(bool force)
+void Lmdb::sync(bool force)
 {
-    int rt = mdb_env_sync(dd_ptr->env, force);
+    int rt = mdb_env_sync(d_ptr->env, force);
     if (rt) {
 #if QTLMDB_DEBUG
         qtng_warning << "can not sync lmdb env:" << mdb_strerror(rt);
@@ -844,10 +862,10 @@ void Environment::sync(bool force)
     }
 }
 
-bool Environment::backupTo(const QString &dirPath)
+bool Lmdb::backupTo(const QString &dirPath)
 {
     unsigned int flags = 0;
-    int rt = mdb_env_copy2(dd_ptr->env, dirPath.toUtf8(), flags);
+    int rt = mdb_env_copy2(d_ptr->env, dirPath.toUtf8(), flags);
     if (rt) {
 #if QTLMDB_DEBUG
         qtng_warning << "can not backup lmdb env:" << mdb_strerror(rt);
@@ -857,50 +875,44 @@ bool Environment::backupTo(const QString &dirPath)
     return true;
 }
 
-EnvironmentBuilder::EnvironmentBuilder(const QString &dirPath)
+LmdbBuilder::LmdbBuilder(const QString &dirPath)
     : m_dirPath(dirPath)
 {
 }
 
-EnvironmentBuilder &EnvironmentBuilder::maxMapSize(size_t size)
+LmdbBuilder &LmdbBuilder::maxMapSize(size_t size)
 {
     m_maxMapSize = size;
     return *this;
 }
 
-EnvironmentBuilder &EnvironmentBuilder::maxReaders(int readers)
+LmdbBuilder &LmdbBuilder::maxReaders(int readers)
 {
     m_maxReaders = readers;
     return *this;
 }
 
-EnvironmentBuilder &EnvironmentBuilder::maxDbs(int maxDbs)
+LmdbBuilder &LmdbBuilder::maxDbs(int maxDbs)
 {
     m_maxDbs = maxDbs;
     return *this;
 }
 
-EnvironmentBuilder &EnvironmentBuilder::dirPath(const QString &path)
-{
-    m_dirPath = path;
-    return *this;
-}
-
-EnvironmentBuilder &EnvironmentBuilder::noSync(bool noSync)
+LmdbBuilder &LmdbBuilder::noSync(bool noSync)
 {
     m_noSync = noSync;
     return *this;
 }
 
-QSharedPointer<Environment> EnvironmentBuilder::create()
+QSharedPointer<Lmdb> LmdbBuilder::create()
 {
     Q_ASSERT(!m_dirPath.isEmpty());
-    QScopedPointer<EnvironmentPrivate> d(new EnvironmentPrivate());
+    QScopedPointer<LmdbPrivate> d(new LmdbPrivate());
     int rt = mdb_env_create(&d->env);
     if (rt) {
 #if QTLMDB_DEBUG
         qtng_warning << "can not create lmdb env:" << mdb_strerror(rt);
-        return QSharedPointer<Environment>();
+        return QSharedPointer<Lmdb>();
 #endif
     }
     mdb_env_set_mapsize(d->env, m_maxMapSize);
@@ -916,10 +928,10 @@ QSharedPointer<Environment> EnvironmentBuilder::create()
     if (rt) {
 #if QTLMDB_DEBUG
         qtng_warning << "can not open lmdb env:" << mdb_strerror(rt);
-        return QSharedPointer<Environment>();
+        return QSharedPointer<Lmdb>();
 #endif
     }
-    return QSharedPointer<Environment>(new Environment(d.take()));
+    return QSharedPointer<Lmdb>(new Lmdb(d.take()));
 }
 
 QTNETWORKNG_NAMESPACE_END
