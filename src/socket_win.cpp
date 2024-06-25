@@ -659,7 +659,10 @@ bool SocketPrivate::connect(const HostAddress &address, quint16 port)
             default:
                 return setErrorFromWASError(this, err);
             }
-            watcher.start();
+            if (!watcher.start()) {
+                setError(Socket::UnknownSocketError, UnknownSocketErrorString);
+                return false;
+            }
         } else {
             state = Socket::ConnectedState;
             fetchConnectionParameters();
@@ -894,7 +897,11 @@ qint32 SocketPrivate::recv(char *data, qint32 size, bool all)
                 return total;
             }
         }
-        watcher.start();
+        if (!watcher.start()) {
+            setError(Socket::UnknownSocketError, UnknownSocketErrorString);
+            close();
+            return total == 0 ? -1 : total;
+        }
     }
     return total;
 }
@@ -994,7 +1001,11 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
                 return -1;
             }
         }
-        watcher.start();
+        if (!watcher.start()) {
+            setError(Socket::UnknownSocketError, UnknownSocketErrorString);
+            close();
+            return -1;
+        }
     }
     return ret;
 }
@@ -1098,7 +1109,10 @@ qint32 SocketPrivate::recvfrom(char *data, qint32 size, HostAddress *addr, quint
 #endif
             return ret;
         } else {
-            watcher.start();
+            if (!watcher.start()) {
+                setError(Socket::UnknownSocketError, UnknownSocketErrorString);
+                return -1;
+            }
         }
     }
 }
@@ -1183,7 +1197,10 @@ qint32 SocketPrivate::sendto(const char *data, qint32 size, const HostAddress &a
                 return ret;
             }
         }
-        watcher.start();
+        if (!watcher.start()) {
+            setError(Socket::UnknownSocketError, UnknownSocketErrorString);
+            return -1;
+        }
     }
 }
 
@@ -1520,7 +1537,10 @@ Socket *SocketPrivate::accept()
             Socket *conn = new Socket(static_cast<qintptr>(acceptedDescriptor));
             return conn;
         }
-        watcher.start();
+        if (!watcher.start()) {
+            setError(Socket::UnknownSocketError, UnknownSocketErrorString);
+            return nullptr;
+        }
     }
 }
 
