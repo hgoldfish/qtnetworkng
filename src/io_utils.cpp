@@ -93,7 +93,9 @@ qint32 RawFile::read(char *data, qint32 size)
         } else {
             return r;
         }
-        watcher.start();
+        if (!watcher.start()) {
+            return -1;
+        }
     }
 #else
     qint64 len = f->read(data, size);
@@ -131,7 +133,9 @@ qint32 RawFile::write(const char *data, qint32 size)
         } else {
             return r;
         }
-        watcher.start();
+        if (!watcher.start()) {
+            return -1;
+        }
     }
 #else
     qint64 len = f->write(data, size);

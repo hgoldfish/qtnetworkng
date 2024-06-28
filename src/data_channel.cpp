@@ -202,7 +202,6 @@ public:
     void doSend();
     void doReceive();
     void doKeepalive();
-    HostAddress getPeerAddress();
 
     const QSharedPointer<SocketLike> connection;
     Queue<WritingPacket> sendingQueue;
@@ -734,7 +733,7 @@ void SocketChannelPrivate::doKeepalive()
             lastKeepaliveTimestamp = now;
             QSharedPointer<ValueEvent<bool>> done;
 #ifdef DEBUG_PROTOCOL
-            qtng_debug << "sending keepalive packet.";
+            qtng_debug << "sending keepalive packet." << connection->peerAddressURI();
 #endif
             sendingQueue.putForcedly(WritingPacket(CommandChannelNumber, packKeepaliveRequest(), done));
         }
