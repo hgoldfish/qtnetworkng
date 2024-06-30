@@ -7,11 +7,11 @@
 #include "deferred.h"
 
 #ifndef DEFAULT_COROUTINE_STACK_SIZE
-#  ifdef Q_OS_ANDROID
-#    define DEFAULT_COROUTINE_STACK_SIZE 1024 * 64
-#  else
-#    define DEFAULT_COROUTINE_STACK_SIZE 1024 * 256
-#  endif
+#ifdef Q_OS_ANDROID
+#define DEFAULT_COROUTINE_STACK_SIZE 1024 * 64
+#else
+#define DEFAULT_COROUTINE_STACK_SIZE 1024 * 256
+#endif
 #endif
 
 QTNETWORKNG_NAMESPACE_BEGIN
@@ -84,6 +84,78 @@ private:
     friend BaseCoroutine *createMainCoroutine();
     Q_DECLARE_PRIVATE_D(dd_ptr, BaseCoroutine)
 };
+
+template<typename T>
+class Iterator
+{
+public:
+    Iterator(std::function<void(Iterator &itor)> func);
+    ~Iterator();
+    T next(bool &isEnd);
+    void yield(const T &t);
+public:
+    BaseCoroutine *caller;
+    BaseCoroutine *callee;
+    T result;
+};
+
+namespace internal {
+template<typename T>
+class IteratorCoroutine : public BaseCoroutine
+{
+public:
+    IteratorCoroutine(Iterator<T> &itor, std::function<void(Iterator<T> &)> func)
+        : BaseCoroutine(BaseCoroutine::current())
+        , itor(itor)
+        , func(func)
+    {
+    }
+
+    virtual void run() override { func(itor); }
+
+    Iterator<T> &itor;
+    std::function<void(Iterator<T> &itor)> func;
+};
+}  // namespace internal
+
+template<typename T>
+Iterator<T>::Iterator(std::function<void(Iterator &itor)> func)
+    : caller(BaseCoroutine::current())
+    , callee(new internal::IteratorCoroutine<T>(*this, func))
+{
+}
+
+template<typename T>
+Iterator<T>::~Iterator()
+{
+    if (callee->isRunning()) {
+        callee->raise(new CoroutineExitException());
+    }
+    delete callee;
+}
+
+template<typename T>
+T Iterator<T>::next(bool &isEnd)
+{
+    if (callee->isFinished()) {
+        isEnd = true;
+        return T();
+    } else if (callee->state() == BaseCoroutine::Initialized) {
+        callee->yield();
+    } else {
+        Q_ASSERT(callee->isRunning());
+    }
+    callee->yield();
+    isEnd = callee->isFinished();
+    return result;
+}
+
+template<typename T>
+void Iterator<T>::yield(const T &t)
+{
+    result = t;
+    caller->yield();
+}
 
 QTNETWORKNG_NAMESPACE_END
 
