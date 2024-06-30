@@ -330,7 +330,14 @@ Database::iterator Database::reserve(const QByteArray &key, size_t size)
     mdbData.mv_data = NULL;
 
     unsigned flags = MDB_RESERVE;
-    mdb_cursor_put(cursor, &mdbKey, &mdbData, flags);
+    int rt = mdb_cursor_put(cursor, &mdbKey, &mdbData, flags);
+    if (rt) {
+#if QTLMDB_DEBUG
+        qtng_warning << "can not put lmdb value:" << mdb_strerror(rt);
+#endif
+        mdb_cursor_close(cursor);
+        return LmdbIterator(nullptr);
+    }
 
     LmdbIteratorPrivate *d = new LmdbIteratorPrivate(key, cursor, mdbData);
     return LmdbIterator(d);

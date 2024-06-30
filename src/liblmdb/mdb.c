@@ -3747,7 +3747,12 @@ mdb_page_flush(MDB_txn *txn, int keep)
 	struct iovec iov[MDB_COMMIT_PAGES];
 	HANDLE fd = env->me_fd;
 #endif
+#ifdef _WIN32
+    DWROD		wsize = 0;
+    LPDWORD     wres;
+#else
 	ssize_t		wsize = 0, wres;
+#endif
 	MDB_OFF_T	wpos = 0, next_pos = 1; /* impossible pos, so pos != next_pos */
 	int			n = 0;
 
