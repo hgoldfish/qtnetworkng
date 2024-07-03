@@ -1,6 +1,7 @@
 #ifndef QTNG_LOCKS_H
 #define QTNG_LOCKS_H
 
+#include <functional>
 #include <QtCore/qqueue.h>
 #include <QtCore/qsharedpointer.h>
 #include <QtCore/qreadwritelock.h>
@@ -255,8 +256,8 @@ public:
     bool returns(const T &e);  // like put() but insert e to the head of queue.
     bool returnsForcely(const T &e);  // like putForcedly() but insert e to the head of queue.
 
-    template<typename U = EventType, std::enable_if_t<std::is_same<U, ThreadEvent>::value, int> = 0>
-    T get()
+    template<typename U = EventType>
+    typename std::enable_if<std::is_same<U, ThreadEvent>::value, T>::type get()
     {
         do {
             if (!notEmpty.tryWait()) {
@@ -280,8 +281,8 @@ public:
         return e;
     }
 
-    template<typename U = EventType, std::enable_if_t<!std::is_same<U, ThreadEvent>::value, int> = 0>
-    T get()
+    template<typename U = EventType>
+    typename std::enable_if<!std::is_same<U, ThreadEvent>::value, T>::type get()
     {
         if (!notEmpty.tryWait()) {
             return T();

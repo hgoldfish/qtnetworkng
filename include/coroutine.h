@@ -91,7 +91,7 @@ class Iterator
 public:
     Iterator(std::function<void(Iterator &itor)> func);
     ~Iterator();
-    T next(bool &isEnd);
+    bool next(T &result);
     void yield(const T &t);
 public:
     BaseCoroutine *caller;
@@ -135,19 +135,19 @@ Iterator<T>::~Iterator()
 }
 
 template<typename T>
-T Iterator<T>::next(bool &isEnd)
+bool Iterator<T>::next(T &result)
 {
     if (callee->isFinished()) {
-        isEnd = true;
-        return T();
+        result = T();
+        return true;
     } else if (callee->state() == BaseCoroutine::Initialized) {
         callee->yield();
     } else {
         Q_ASSERT(callee->isRunning());
     }
     callee->yield();
-    isEnd = callee->isFinished();
-    return result;
+    result = this->result;
+    return callee->isFinished();
 }
 
 template<typename T>
