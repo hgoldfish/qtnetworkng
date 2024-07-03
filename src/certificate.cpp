@@ -185,7 +185,9 @@ static QMultiMap<QByteArray, QString> _mapFromX509Name(X509_NAME *name)
         unsigned char *data = nullptr;
         int size = ASN1_STRING_to_UTF8(&data, X509_NAME_ENTRY_get_data(e));
         info.insert(name, QString::fromUtf8(static_cast<char *>(static_cast<void *>(data)), size));
-#ifdef LIBRESSL_VERSION_NUMBER
+#if LIBRESSL_VERSION_NUMBER >= 0x3090000fL
+        CRYPTO_free(data, __FILE__, __LINE__);
+#elif defined(LIBRESSL_VERSION_NUMBER)
         CRYPTO_free(data);
 #else
         CRYPTO_free(data, __FILE__, __LINE__);
