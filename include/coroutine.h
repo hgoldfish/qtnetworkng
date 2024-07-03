@@ -89,14 +89,15 @@ template<typename T>
 class Iterator
 {
 public:
-    Iterator(std::function<void(Iterator &itor)> func);
+    Iterator(std::function<void(Iterator &itor)> func, typename std::list<T>::size_type batchSize = 64);
     ~Iterator();
     bool next(T &result);
     void yield(const T &t);
 public:
     BaseCoroutine *caller;
     BaseCoroutine *callee;
-    T result;
+    std::list<T> chunk;
+    typename std::list<T>::size_type batchSize;
 };
 
 namespace internal {
@@ -105,7 +106,7 @@ class IteratorCoroutine : public BaseCoroutine
 {
 public:
     IteratorCoroutine(Iterator<T> &itor, std::function<void(Iterator<T> &)> func)
-        : BaseCoroutine(BaseCoroutine::current())
+        : BaseCoroutine(itor.caller)
         , itor(itor)
         , func(func)
     {
@@ -119,9 +120,10 @@ public:
 }  // namespace internal
 
 template<typename T>
-Iterator<T>::Iterator(std::function<void(Iterator &itor)> func)
+Iterator<T>::Iterator(std::function<void(Iterator &itor)> func, typename std::list<T>::size_type batchSize)
     : caller(BaseCoroutine::current())
     , callee(new internal::IteratorCoroutine<T>(*this, func))
+    , batchSize(batchSize)
 {
 }
 
@@ -137,25 +139,38 @@ Iterator<T>::~Iterator()
 template<typename T>
 bool Iterator<T>::next(T &result)
 {
+    if (!chunk.empty()) {
+        result = chunk.front();
+        chunk.pop_front();
+        return true;
+    }
+
     if (callee->isFinished()) {
         result = T();
-        return true;
-    } else if (callee->state() == BaseCoroutine::Initialized) {
+        return false;
+    } else  {
         callee->yield();
-    } else {
-        Q_ASSERT(callee->isRunning());
     }
-    callee->yield();
-    result = this->result;
-    return callee->isFinished();
+
+    if (!chunk.empty()) {
+        result = chunk.front();
+        chunk.pop_front();
+        return true;
+    } else {
+        result = T();
+        return false;
+    }
 }
 
 template<typename T>
 void Iterator<T>::yield(const T &t)
 {
-    result = t;
-    caller->yield();
+    chunk.push_back(t);
+    if (chunk.size() >= this->batchSize) {
+        caller->yield();
+    }
 }
+
 
 QTNETWORKNG_NAMESPACE_END
 

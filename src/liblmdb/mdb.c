@@ -5894,6 +5894,8 @@ mdb_env_close0(MDB_env *env, int excl)
 			 */
 			UnlockFile(env->me_lfd, 0, 0, 1, 0);
 		}
+#else
+        (void) excl;
 #endif
 		(void) close(env->me_lfd);
 	}

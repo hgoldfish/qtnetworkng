@@ -172,12 +172,14 @@ void ikcp_allocator(void* (*new_malloc)(size_t), void (*new_free)(void*))
 // allocate a new kcp segment
 static IKCPSEG* ikcp_segment_new(ikcpcb *kcp, int size)
 {
+    (void) kcp;
 	return (IKCPSEG*)ikcp_malloc(sizeof(IKCPSEG) + size);
 }
 
 // delete a segment
 static void ikcp_segment_delete(ikcpcb *kcp, IKCPSEG *seg)
 {
+    (void) kcp;
 	ikcp_free(seg);
 }
 
@@ -224,6 +226,9 @@ void ikcp_qprint(const char *name, const struct IQUEUEHEAD *head)
 		if (p->next != head) printf(",");
 	}
 	printf("]\n");
+#else
+    (void) name;
+    (void) head;
 #endif
 }
 
