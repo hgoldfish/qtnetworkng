@@ -235,7 +235,7 @@ QByteArray LmdbIterator::value() const
 
 bool LmdbIterator::isEnd() const
 {
-    return !d_ptr || d_ptr->key.isEmpty();
+    return !d_ptr || !d_ptr->cursor || d_ptr->key.isEmpty();
 }
 
 char *LmdbIterator::data() const
@@ -460,17 +460,14 @@ int Database::remove(const QByteArray &key)
     return 1;
 }
 
-Database::iterator Database::erase(const QByteArray &key)
+Database::iterator Database::erase(const Database::iterator &itor)
 {
-    if (isNull() || d_ptr->readOnly) {
+    if (itor.isEnd()) {
         return LmdbIterator(nullptr);
     }
 
-    MDB_val mdbKey, mdbData;
-    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData);
-    if (!cursor) {
-        return LmdbIterator(nullptr);
-    }
+    MDB_cursor *cursor = itor.d_ptr->cursor;
+    const QByteArray& key = itor.d_ptr->key;
 
     int rt = mdb_cursor_del(cursor, 0);
     if (rt) {
@@ -481,6 +478,7 @@ Database::iterator Database::erase(const QByteArray &key)
         return LmdbIterator(nullptr);
     }
 
+    MDB_val mdbKey, mdbData;
     rt = mdb_cursor_get(cursor, &mdbKey, &mdbData, MDB_NEXT);
 
     if (rt) {

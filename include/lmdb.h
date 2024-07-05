@@ -133,7 +133,7 @@ public:
     const_iterator constBegin() const;
     iterator end();
     const_iterator constEnd() const;
-    iterator erase(const QByteArray &key);
+    iterator erase(const iterator &itor);
     iterator find(const QByteArray &key);
     const_iterator constFind(const QByteArray &key) const;
     const_iterator lowerBound(const QByteArray &key) const;
@@ -178,7 +178,7 @@ private:
     friend class TransactionPrivate;
 private:
     DatabasePrivate * const d_ptr;
-    Q_DECLARE_PRIVATE(Database);
+    Q_DECLARE_PRIVATE(Database)
 private:
     Q_DISABLE_COPY(Database);
     Database(Database &&) = delete;
@@ -206,7 +206,7 @@ private:
     friend class TransactionPrivate;
     friend class Lmdb;
 private:
-    Q_DISABLE_COPY(Transaction);
+    Q_DISABLE_COPY(Transaction)
     Transaction(Transaction &&) = delete;
     Transaction &operator=(Transaction &&) = delete;
 };
@@ -230,10 +230,10 @@ private:
     {
     }
     LmdbPrivate * const d_ptr;
-    Q_DECLARE_PRIVATE_D(d_ptr, Lmdb);
+    Q_DECLARE_PRIVATE_D(d_ptr, Lmdb)
     friend class LmdbBuilder;
 private:
-    Q_DISABLE_COPY(Lmdb);
+    Q_DISABLE_COPY(Lmdb)
     Lmdb(Lmdb &&) = delete;
     Lmdb &operator=(Lmdb &&) = delete;
 };
@@ -254,7 +254,7 @@ private:
     QString m_dirPath;
     bool m_noSync = false;
 private:
-    Q_DISABLE_COPY(LmdbBuilder);
+    Q_DISABLE_COPY(LmdbBuilder)
     LmdbBuilder(LmdbBuilder &&) = delete;
     LmdbBuilder &operator=(LmdbBuilder &&) = delete;
 };
