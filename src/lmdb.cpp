@@ -482,9 +482,7 @@ Database::iterator Database::erase(const Database::iterator &itor)
     rt = mdb_cursor_get(cursor, &mdbKey, &mdbData, MDB_NEXT);
 
     if (rt) {
-#if QTLMDB_DEBUG
-        qtng_warning << "can not next lmdb cursor:" << mdb_strerror(rt);
-#endif
+        // we delete the last item. there is no next item any more.
         mdb_cursor_close(cursor);
         return LmdbIterator(nullptr);
     }
