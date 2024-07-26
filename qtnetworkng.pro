@@ -17,11 +17,11 @@ include(qtnetworkng.pri)
 qtnetworkng_public_headers.path=$$[QT_INSTALL_HEADERS]/qtnetworkng/
 qtnetworkng_public_headers.files=$$HEADERS
 qtnetworkng_private_headers.path=$$[QT_INSTALL_HEADERS]/qtnetworkng/private/
-qtnetworkng_public_headers.files=$$PRIVATE_HEADERS
+qtnetworkng_private_headers.files=$$PRIVATE_HEADERS
 
 target.path=$$[QT_INSTALL_LIBS]/
 
-INSTALLS += qtnetworkng_public_headers target
+INSTALLS += qtnetworkng_public_headers qtnetworkng_private_headers target
 
 
 
