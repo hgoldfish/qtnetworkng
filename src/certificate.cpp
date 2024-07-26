@@ -594,11 +594,6 @@ static bool setSubjectInfos(X509 *x, const QMultiMap<Certificate::SubjectInfo, Q
     return r;
 }
 
-std::string toText(const QDateTime &t)
-{
-    return (t.toUTC().toString(QLatin1String("yyyyMMddhhmmss")) + QLatin1String("Z")).toStdString();
-}
-
 struct Asn1TimeCleaner
 {
     static void inline cleanup(ASN1_TIME *t)
@@ -635,11 +630,9 @@ Certificate CertificatePrivate::generate(const PublicKey &publickey, const Priva
         qtng_debug << "can not set issuer infos.";
         return cert;
     }
-    // FIXME set datetime
     QScopedPointer<ASN1_TIME, Asn1TimeCleaner> t(ASN1_TIME_new());
     if (!t.isNull()) {
-        r = ASN1_TIME_set_string(t.data(), toText(effectiveDate).c_str());
-        if (r) {
+        if (ASN1_TIME_set(t.data(), effectiveDate.toUTC().toTime_t())) {
             r = X509_set1_notBefore(x509.data(), t.data());
             if (!r) {
                 qtng_debug << "can not set effective date.";
@@ -647,8 +640,7 @@ Certificate CertificatePrivate::generate(const PublicKey &publickey, const Priva
         } else {
             qtng_debug << "invalid x509 effective date:" << effectiveDate;
         }
-        r = ASN1_TIME_set_string(t.data(), toText(expiryDate).c_str());
-        if (r) {
+        if (ASN1_TIME_set(t.data(), expiryDate.toUTC().toTime_t())) {
             r = X509_set1_notAfter(x509.data(), t.data());
             if (!r) {
                 qtng_debug << "can not set expiry date";
