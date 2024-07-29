@@ -45,10 +45,12 @@ PRIVATE_HEADERS += \
     $$PWD/include/private/socket_p.h \
     $$PWD/include/private/hostaddress_p.h \
     $$PWD/include/private/network_interface_p.h \
+    $$PWD/include/private/eventloop_p.h
     $$PWD/src/kcp/ikcp.h
 
     
 HEADERS += \
+    $$PWD/include/qtnetworkng.h \
     $$PWD/include/config.h \
     $$PWD/include/coroutine.h \
     $$PWD/include/socket.h \
@@ -65,7 +67,11 @@ HEADERS += \
     $$PWD/include/deferred.h \
     $$PWD/include/msgpack.h \
     $$PWD/include/kcp.h \
+    $$PWD/include/kcp_base.h \
+    $$PWD/include/multi_path_kcp.h \
     $$PWD/include/socket_server.h \
+    $$PWD/include/websocket.h \
+    $$PWD/include/data_channel.h \
     $$PWD/include/httpd.h \
     $$PWD/include/random.h \
     $$PWD/include/hostaddress.h \

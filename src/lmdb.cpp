@@ -907,6 +907,12 @@ LmdbBuilder &LmdbBuilder::noSync(bool noSync)
     return *this;
 }
 
+LmdbBuilder &LmdbBuilder::writeMap(bool writable)
+{
+    m_writeMap = writable;
+    return *this;
+}
+
 QSharedPointer<Lmdb> LmdbBuilder::create()
 {
     Q_ASSERT(!m_dirPath.isEmpty());
@@ -924,7 +930,15 @@ QSharedPointer<Lmdb> LmdbBuilder::create()
 
     unsigned int flags = MDB_NOSUBDIR | MDB_NOTLS;
     if (m_noSync) {
-        flags |= MDB_NOSYNC | MDB_MAPASYNC;
+        flags |= MDB_NOSYNC;
+    }
+    if (m_writeMap) {
+        flags |= MDB_WRITEMAP;
+        // Note that sync=False, writemap=True leaves the system with no hint for when to write transactions to disk,
+        // unless sync() is called. map_async=True, writemap=True may be preferable.
+        if (m_noSync) {
+            flags |= MDB_MAPASYNC;
+        }
     }
     mdb_mode_t mode = 0660;
     rt = mdb_env_open(d->env, m_dirPath.toUtf8(), flags, mode);
