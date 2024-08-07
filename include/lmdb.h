@@ -180,7 +180,7 @@ private:
     DatabasePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(Database)
 private:
-    Q_DISABLE_COPY(Database);
+    Q_DISABLE_COPY(Database)
     Database(Database &&) = delete;
     Database &operator=(Database &&) = delete;
 };

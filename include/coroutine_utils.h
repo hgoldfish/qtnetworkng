@@ -216,7 +216,7 @@ public:
     void apply(const std::function<void()> &f);
 private:
     CoroutineThreadPrivate * const dd_ptr;
-    Q_DECLARE_PRIVATE_D(dd_ptr, CoroutineThread);
+    Q_DECLARE_PRIVATE_D(dd_ptr, CoroutineThread)
 };
 
 bool waitThread(QThread *thread);

@@ -1,5 +1,6 @@
 #include <QtCore/qloggingcategory.h>
 #include "../include/config.h"
+#define MDB_IDL_LOGN 20  // can handle very large transaction.
 #include "../include/lmdb.h"
 #include "./liblmdb/lmdb.h"
 #include "./debugger.h"
@@ -762,33 +763,53 @@ Database &Transaction::db(const QString &name)
     return d_ptr->open(name);
 }
 
+static bool isWriteMap(MDB_env *env)
+{
+    unsigned int flags;
+    int rt = mdb_env_get_flags(env, &flags);
+    Q_ASSERT(rt == MDB_SUCCESS);
+    if (flags & MDB_WRITEMAP) {
+#if QTLMDB_DEBUG
+        qtng_warning << "sub transaction is not supported with MDB_WRITEMAP features.";
+#endif
+        return true;
+    }
+    return false;
+}
+
 QSharedPointer<Transaction> Transaction::sub()
 {
-    MDB_txn *txn;
+    if (isWriteMap(d_ptr->env)) {
+        return QSharedPointer<Transaction>();
+    }
+    MDB_txn *child_txn;
     unsigned int flags = 0;
-    int rt = mdb_txn_begin(d_ptr->env, d_ptr->txn, flags, &txn);
+    int rt = mdb_txn_begin(d_ptr->env, d_ptr->txn, flags, &child_txn);
     if (rt) {
 #if QTLMDB_DEBUG
-        qtng_warning << "can not begin lmdb transaction:" << mdb_strerror(rt);
+        qtng_warning << "can not begin sub lmdb transaction:" << mdb_strerror(rt);
 #endif
         return QSharedPointer<Transaction>();
     }
-    TransactionPrivate *d = new TransactionPrivate(d_ptr->env, txn, false);
+    TransactionPrivate *d = new TransactionPrivate(d_ptr->env, child_txn, false);
     return QSharedPointer<Transaction>(new Transaction(d));
 }
 
 QSharedPointer<const Transaction> Transaction::sub() const
 {
-    MDB_txn *txn;
+    if (isWriteMap(d_ptr->env)) {
+        return QSharedPointer<const Transaction>();
+    }
+    MDB_txn *child_txn;
     unsigned int flags = MDB_RDONLY;
-    int rt = mdb_txn_begin(d_ptr->env, d_ptr->txn, flags, &txn);
+    int rt = mdb_txn_begin(d_ptr->env, d_ptr->txn, flags, &child_txn);
     if (rt) {
 #if QTLMDB_DEBUG
-        qtng_warning << "can not begin lmdb transaction:" << mdb_strerror(rt);
+        qtng_warning << "can not begin sub lmdb transaction:" << mdb_strerror(rt);
 #endif
         return QSharedPointer<const Transaction>();
     }
-    TransactionPrivate *d = new TransactionPrivate(d_ptr->env, txn, true);
+    TransactionPrivate *d = new TransactionPrivate(d_ptr->env, child_txn, true);
     return QSharedPointer<Transaction>(new Transaction(d));
 }
 
