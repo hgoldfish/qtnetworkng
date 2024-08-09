@@ -81,8 +81,10 @@ void LmdbIteratorPrivate::load(MDB_cursor_op op)
     int rt = mdb_cursor_get(cursor, &mdbKey, &mdbValue, op);
     if (rt) {
 #if QTLMDB_DEBUG
-        if (rt != MDB_NOTFOUND || (op != MDB_NEXT && op != MDB_PREV && op != MDB_SET && op != MDB_SET_KEY)) {
-            qCInfo(qtng_logger) << "can not open lmdb cursor:" << mdb_strerror(rt);
+        if (rt != MDB_NOTFOUND || (op != MDB_FIRST && op != MDB_NEXT &&
+                                   op != MDB_PREV && op != MDB_SET && op != MDB_SET_KEY &&
+                                   op != MDB_LAST)) {
+            qCInfo(qtng_logger) << "can not open lmdb cursor:" << mdb_strerror(rt) << key << op;
         }
 #endif
         key.clear();
