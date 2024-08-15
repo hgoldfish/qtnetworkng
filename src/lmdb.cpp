@@ -944,8 +944,8 @@ QSharedPointer<Lmdb> LmdbBuilder::create()
     if (rt) {
 #if QTLMDB_DEBUG
         qtng_warning << "can not create lmdb env:" << mdb_strerror(rt);
-        return QSharedPointer<Lmdb>();
 #endif
+        return QSharedPointer<Lmdb>();
     }
     mdb_env_set_mapsize(d->env, m_maxMapSize);
     mdb_env_set_maxdbs(d->env, m_maxDbs);
@@ -968,8 +968,8 @@ QSharedPointer<Lmdb> LmdbBuilder::create()
     if (rt) {
 #if QTLMDB_DEBUG
         qtng_warning << "can not open lmdb env:" << mdb_strerror(rt);
-        return QSharedPointer<Lmdb>();
 #endif
+        return QSharedPointer<Lmdb>();
     }
     return QSharedPointer<Lmdb>(new Lmdb(d.take()));
 }
