@@ -473,6 +473,7 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::call(std::function<void()> func)
 {
+    QSharedPointer<Semaphore> semaphore(this->semaphore);
     ScopedLock<Semaphore> lock(*semaphore);
     if (!lock.isSuccess()) {
         return;
@@ -484,11 +485,20 @@ void ThreadPool::call(std::function<void()> func)
     } else {
         thread = threads.takeFirst();
     }
+    QPointer<ThreadPool> self(this);
     try {
         thread->call(func);
-        threads.append(thread);
+        if (self) {
+            threads.append(thread);
+        } else {
+            thread->kill();
+        }
     } catch (...) {
-        threads.append(thread);
+        if (self) {
+            threads.append(thread);
+        } else {
+            thread->kill();
+        }
         throw;
     }
 }
