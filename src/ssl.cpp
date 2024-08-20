@@ -843,11 +843,13 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &hostName
             // do not free incoming & outgoing
             freeBIOs = false;
             SSL_set_bio(ssl.data(), incoming, outgoing);
-            QSharedPointer<ChooseTlsExtNameCallback> callback = config.tlsExtHostNameCallback();
-            if (!asServer && !tlsExtHostName.isEmpty() && !callback.isNull()) {
-                const QByteArray &t = callback->choose(tlsExtHostName).toUtf8();
-                if (!t.isEmpty()) {
-                    SSL_set_tlsext_host_name(ssl.data(), t.data());
+            if (!asServer && !tlsExtHostName.isEmpty()) {
+                QSharedPointer<ChooseTlsExtNameCallback> callback = config.tlsExtHostNameCallback();
+                if (!callback.isNull()) {
+                    const QByteArray &t = callback->choose(tlsExtHostName).toUtf8();
+                    if (!t.isEmpty()) {
+                        SSL_set_tlsext_host_name(ssl.data(), t.data());
+                    }
                 }
             }
             if (_handshake()) {

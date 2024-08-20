@@ -101,7 +101,7 @@ bool BaseStreamServer::serverBind()
     }
     d->bound = d->serverSocket->bind(d->serverAddress, d->serverPort, mode);
 #ifdef DEBUG_PROTOCOL
-    if (!ok) {
+    if (!d->bound) {
         qCInfo(logger) << "server can not bind to" << d->serverAddress.toString() << ":" << d->serverPort;
     }
 #endif

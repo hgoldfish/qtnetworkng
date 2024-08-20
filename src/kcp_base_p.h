@@ -166,7 +166,7 @@ public:
     virtual qint32 peekRaw(char *data, qint32 size) override;
     virtual qint32 sendRaw(const char *data, qint32 size) override;
     virtual qint32 udpSend(const char *data, qint32 size, const LinkPathID &remote) override;
-    virtual void doUpdate();
+    virtual void doUpdate() override;
 public:
     friend class MasterKcpBase<Link>;
     LinkPathID originalPathID;
