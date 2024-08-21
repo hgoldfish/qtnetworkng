@@ -353,13 +353,16 @@ bool QtEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
         QPointer<BaseCoroutine> old = loopCoroutine;
         loopCoroutine = current;
         QSharedPointer<QEventLoop> sub(new QEventLoop());
+#define SubEventLoopExitValue 9527
         Deferred<BaseCoroutine *>::Callback shutdown = [sub](BaseCoroutine *) {
-            sub->exit();
+            sub->exit(SubEventLoopExitValue);
         };
         int callbackId = coroutine->finished.addCallback(shutdown);
-        sub->exec();
+        int exitValue = sub->exec();
         coroutine->finished.remove(callbackId);
         loopCoroutine = old;
+        return exitValue == SubEventLoopExitValue;
+#undef SubEventLoopExitValue
     }
     return true;
 }
