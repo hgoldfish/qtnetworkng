@@ -1,16 +1,7 @@
-cmake_minimum_required(VERSION 2.8.8...3.17 FATAL_ERROR)
+# target_sources require cmake 3.1
+cmake_minimum_required(VERSION 3.1.0...3.17 FATAL_ERROR)
 
-if (POLICY CMP0048)
-    cmake_policy(SET CMP0048 NEW)
-endif()
-if (POLICY CMP0020)
-    cmake_policy(SET CMP0020 NEW)
-endif ()
-if (POLICY CMP0071)
-    cmake_policy(SET CMP0071 NEW)
-endif ()
-
-project(qtnetworkng LANGUAGES C CXX ASM)
+project(qtnetworkng LANGUAGES C CXX ASM VERSION 1.0.0)
 
 option(QTNG_USE_OPENSSL OFF)
 if (QTNG_USE_OPENSSL)
@@ -26,15 +17,7 @@ set(CMAKE_AUTOMOC OFF)
 set(CMAKE_AUTOUIC OFF)
 set(CMAKE_AUTORCC OFF)
 set(CMAKE_INCLUDE_CURRENT_DIR OFF)
-if (CMAKE_VERSION VERSION_LESS "3.1")
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-    else()
-        message(SEND_ERROR "Please update your cmake to enable c++11.")
-    endif ()
-else ()
-    set (CMAKE_CXX_STANDARD 11)
-endif ()
+set (CMAKE_CXX_STANDARD 11)
 
 set(QTNETWORKNG_SRC
     src/debugger.h
@@ -152,6 +135,7 @@ set(QTLMDB_INCLUDE
     include/lmdb.h
 )
 
+# process zlib requirment
 find_path(QT_BUNDLED_ZLIB zlib.h HINTS "${_qt5Core_install_prefix}/include/QtZlib")
 if (${QT_BUNDLED_ZLIB} STREQUAL "${_qt5Core_install_prefix}/include/QtZlib")
     message("use qt bundled zlib.")
@@ -164,7 +148,7 @@ else()
 endif()
 unset(QT_BUNDLED_ZLIB)
 
-
+# determine context_swap and socket implements
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(OS_DEPENDENDED_SRC
         src/socket_win.cpp
@@ -308,34 +292,6 @@ else()
     message(FATAL_ERROR ${CMAKE_SYSTEM_NAME} is not supported.)
 endif()
 
-# intergrate libev-light
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    add_definitions(-DQTNETWORKNG_USE_WIN=1)
-    set(QTNETWORKNG_SRC ${QTNETWORKNG_SRC} src/eventloop_win.cpp)
-elseif(UNIX)
-    add_definitions(-DQTNETWOKRNG_USE_EV)
-    add_definitions(-DEV_USE_4HEAP=1 -DEV_VERIFY=0 -DQTNG_EV_ASSERT=0)
-    check_function_exists(kqueue HAVE_KQUEUE)
-    check_function_exists(epoll_ctl HAVE_EPOLL)
-    if(HAVE_EPOLL)
-        message("Use linux epoll() for libev.")
-        add_definitions(-DEV_USE_EPOLL=1 -DEV_USE_EVENTFD=1)
-        add_definitions(-DEV_USE_KQUEUE=0)
-        add_definitions(-DEV_USE_POLL=0)
-    elseif(HAVE_KQUEUE AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "NetBSD")
-        message("Use bsd kqueue() for libev.")
-        add_definitions(-DEV_USE_EPOLL=0 -DEV_USE_EVENTFD=0)
-        add_definitions(-DEV_USE_KQUEUE=1)
-        add_definitions(-DEV_USE_POLL=0)
-    else()
-        message("Use unix poll() for libev.")
-        add_definitions(-DEV_USE_EPOLL=0 -DEV_USE_EVENTFD=0)
-        add_definitions(-DEV_USE_KQUEUE=0)
-        add_definitions(-DEV_USE_POLL=1)
-    endif()
-    set(QTNETWORKNG_SRC ${QTNETWORKNG_SRC} src/ev/ev.c src/ev/ev.h src/eventloop_ev.cpp)
-endif()
-
 add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTNETWORKNG_PRIVATE_INCLUDE}
                                ${QTCRYPTONG_SRC} ${QTCRYPTONG_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE}
                                ${OS_DEPENDENDED_SRC} ${ZLIB_SRC} ${QTLMDB_SRC} ${QTLMDB_INCLUDE})
@@ -343,6 +299,36 @@ target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${C
                                        PRIVATE "${ZLIB_INCLUDE}")
 target_compile_definitions(qtnetworkng PRIVATE -DQTNG_HAVE_ZLIB)
 
+# intergrate libev-light/libev
+# TODO iocp, io_uring
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    target_compile_definitions(qtnetworkng PRIVATE -DQTNETWORKNG_USE_WIN=1)
+    set(QTNETWORKNG_SRC ${QTNETWORKNG_SRC} src/eventloop_win.cpp)
+elseif(UNIX)
+    target_compile_definitions(qtnetworkng PRIVATE -DQTNETWOKRNG_USE_EV)
+    target_compile_definitions(qtnetworkng PRIVATE -DEV_USE_4HEAP=1 -DEV_VERIFY=0 -DQTNG_EV_ASSERT=0)
+    check_function_exists(kqueue HAVE_KQUEUE)
+    check_function_exists(epoll_ctl HAVE_EPOLL)
+    if(HAVE_EPOLL)
+        message("Use linux epoll() for libev.")
+        target_compile_definitions(qtnetworkng PRIVATE -DEV_USE_EPOLL=1 -DEV_USE_EVENTFD=1)
+        target_compile_definitions(qtnetworkng PRIVATE -DEV_USE_KQUEUE=0)
+        target_compile_definitions(qtnetworkng PRIVATE -DEV_USE_POLL=0)
+    elseif(HAVE_KQUEUE AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "NetBSD")
+        message("Use bsd kqueue() for libev.")
+        target_compile_definitions(qtnetworkng PRIVATE -DEV_USE_EPOLL=0 -DEV_USE_EVENTFD=0)
+        target_compile_definitions(qtnetworkng PRIVATE -DEV_USE_KQUEUE=1)
+        target_compile_definitions(qtnetworkng PRIVATE -DEV_USE_POLL=0)
+    else()
+        message("Use unix poll() for libev.")
+        target_compile_definitions(qtnetworkng PRIVATE -DEV_USE_EPOLL=0 -DEV_USE_EVENTFD=0)
+        target_compile_definitions(qtnetworkng PRIVATE -DEV_USE_KQUEUE=0)
+        target_compile_definitions(qtnetworkng PRIVATE -DEV_USE_POLL=1)
+    endif()
+    target_sources(qtnetworkng PRIVATE src/ev/ev.c src/ev/ev.h src/eventloop_ev.cpp)
+endif()
+
+# determine what os/openssl libs to link.
 if(UNIX)
     # 自从我们添加了 lmdb 之后，我们就依赖这个 pthread 了。
     set(OS_EXTRA_LINK pthread)
@@ -379,8 +365,9 @@ endif()
 
 target_link_libraries(qtnetworkng PUBLIC Qt5::Core PRIVATE ${ZLIB_LINK} ${OPENSSL_LIBRARIES} ${OS_EXTRA_LINK})
 
+# make install
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
-install(FILES ${QTNETWORKNG_INCLUDE} ${QTCRYPTONG_INCLUDE} DESTINATION include/qtnetworkng/)
+install(FILES ${QTNETWORKNG_INCLUDE} ${QTCRYPTONG_INCLUDE} ${QTLMDB_INCLUDE} DESTINATION include/qtnetworkng/)
 install(FILES ${QTNETWORKNG_PRIVATE_INCLUDE} ${QTCRYPTONG_PRIVATE_INCLUDE} DESTINATION include/qtnetworkng/private/)
 
