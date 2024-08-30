@@ -17,7 +17,7 @@ set(CMAKE_AUTOMOC OFF)
 set(CMAKE_AUTOUIC OFF)
 set(CMAKE_AUTORCC OFF)
 set(CMAKE_INCLUDE_CURRENT_DIR OFF)
-set (CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 11)
 
 set(QTNETWORKNG_SRC
     src/debugger.h
@@ -364,7 +364,7 @@ else()
 endif()
 
 target_link_libraries(qtnetworkng PUBLIC Qt5::Core PRIVATE ${ZLIB_LINK} ${OPENSSL_LIBRARIES} ${OS_EXTRA_LINK})
-
+set(HAS_QTNG ON PARENT_SCOPE)
 # make install
 set(CMAKE_INSTALL_PREFIX ${_qt5Core_install_prefix})
 install(TARGETS qtnetworkng ARCHIVE DESTINATION lib)
