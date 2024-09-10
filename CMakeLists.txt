@@ -303,7 +303,7 @@ target_compile_definitions(qtnetworkng PRIVATE -DQTNG_HAVE_ZLIB)
 # TODO iocp, io_uring
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     target_compile_definitions(qtnetworkng PRIVATE -DQTNETWORKNG_USE_WIN=1)
-    set(QTNETWORKNG_SRC ${QTNETWORKNG_SRC} src/eventloop_win.cpp)
+    target_sources(qtnetworkng PRIVATE src/eventloop_win.cpp)
 elseif(UNIX)
     target_compile_definitions(qtnetworkng PRIVATE -DQTNETWOKRNG_USE_EV)
     target_compile_definitions(qtnetworkng PRIVATE -DEV_USE_4HEAP=1 -DEV_VERIFY=0 -DQTNG_EV_ASSERT=0)
