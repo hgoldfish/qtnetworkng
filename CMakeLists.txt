@@ -194,6 +194,14 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
         src/network_interface/network_interface_unix.cpp
     )
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    # This isn't ready for universal binaries yet, since we do conditional
+    # compilation based on the architecture, but this makes cross compiling for a
+    # single architecture work on macOS at least.
+    #
+    # Don't set CMAKE_OSX_ARCHITECTURES to more than a single value for now.
+    if(NOT CMAKE_OSX_ARCHITECTURES STREQUAL "")
+        set(CMAKE_SYSTEM_PROCESSOR "${CMAKE_OSX_ARCHITECTURES}")
+    endif()
     if((${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
             OR (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "amd64"))
         set(OS_DEPENDENDED_SRC
