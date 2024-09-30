@@ -331,7 +331,11 @@ bool SocketPrivate::connect(const HostAddress &address, quint16 port)
     }
 #endif
     state = Socket::ConnectingState;
+#ifdef Q_OS_MAC
+    ScopedIoWatcher watcher(EventLoopCoroutine::ReadWrite, fd);
+#else
     ScopedIoWatcher watcher(EventLoopCoroutine::Write, fd);
+#endif
     while (true) {
         if (!checkState())
             return false;
