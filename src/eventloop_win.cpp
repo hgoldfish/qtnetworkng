@@ -47,7 +47,6 @@ struct TimerWatcher: public WinWatcher
     Functor *callback;
     quint32 repeat;
     quint32 inUse;
-    quint32 canceled;
 };
 
 
@@ -72,7 +71,7 @@ IoWatcher::~IoWatcher()
 
 
 TimerWatcher::TimerWatcher(quint32 interval, bool repeat, Functor *callback)
-    : at(0), interval(interval), callback(callback), repeat(repeat), inUse(false), canceled(false)
+    : at(0), interval(interval), callback(callback), repeat(repeat), inUse(false)
 {
 }
 
@@ -116,12 +115,7 @@ private:
     QMap<int, WinWatcher*> watchers;
     QMap<qintptr, QSet<IoWatcher *> > activeSockets;
 
-    struct PriorityDataLess
-    {
-        bool operator()(const TimerWatcher *a, const TimerWatcher *b) { return a->at > b->at; }
-    };
-
-    std::priority_queue<TimerWatcher *, std::vector<TimerWatcher *>, PriorityDataLess> activeTimers;
+    std::multimap<quint64, TimerWatcher *> activeTimers; // key: TimerWatcher->at
 
     QMutex mqMutex;
     QQueue<TimerWatcher *> callLaterQueue;
@@ -172,10 +166,7 @@ WinEventLoopCoroutinePrivate::~WinEventLoopCoroutinePrivate()
             WSAAsyncSelect(static_cast<SOCKET>(fd), internalHwnd, 0, 0);
         }
         activeSockets.clear();
-        while (!activeTimers.empty()) {
-            activeTimers.pop();
-        }
-
+        activeTimers.clear();
         QMapIterator<int, WinWatcher*> watchersItor(watchers);
         while (watchersItor.hasNext()) {
             delete watchersItor.next().value();
@@ -208,7 +199,7 @@ void WinEventLoopCoroutinePrivate::run()
             quint64 waittime = INFINITE;
             if (!activeTimers.empty()) {
                 updateTimeStamp();
-                quint64 top_time = activeTimers.top()->at;
+                quint64 top_time = activeTimers.begin()->first;
                 if (perCnt == 0) {
                     waittime = top_time > timeCurrent ? top_time - timeCurrent : 0;
                 } else {
@@ -351,7 +342,7 @@ int WinEventLoopCoroutinePrivate::addTimer(TimerWatcher *watcher)
         watcher->at = timeCurrent + watcher->interval / 1000.0 * perCnt;
     }
     
-    activeTimers.push(watcher);
+    activeTimers.emplace(watcher->at, watcher);
 
     if (!inProcessTimer) {
         PostMessageW(internalHwnd, WM_QTNG_WAKEUP, 0, 0);
@@ -397,9 +388,17 @@ void WinEventLoopCoroutinePrivate::cancelCall(int callbackId)
 {
     TimerWatcher *watcher = dynamic_cast<TimerWatcher*>(watchers.take(callbackId));
     if (watcher) {
-        watcher->canceled = true;
+        std::pair<std::multimap<quint64, TimerWatcher *>::iterator, std::multimap<quint64, TimerWatcher *>::iterator> pair = activeTimers.equal_range(watcher->at);
+        for (std::multimap<quint64, TimerWatcher *>::iterator it = pair.first; it != pair.second; ++it) {
+            if (it->second == watcher) {
+                activeTimers.erase(it);
+                break;
+            }
+        }
         if (watcher->inUse) {
             watcher->id = 0;
+        } else {
+            delete watcher;
         }
     }
 }
@@ -566,12 +565,6 @@ void WinEventLoopCoroutinePrivate::createInternalWindow()
 
 void WinEventLoopCoroutinePrivate::sendTimerEvent(TimerWatcher *watcher)
 {
-    if (watcher->canceled) {
-        Q_ASSERT(!watcher->inUse);
-        delete watcher;
-        return;
-    }
-
     if (!watcher->repeat) {
         watchers.remove(watcher->id);
         watcher->id = 0;
@@ -659,11 +652,12 @@ void WinEventLoopCoroutinePrivate::processTimers()
     //The margin of error is 200 microsecond 
     quint64 dstTime = perCnt == 0 ? timeCurrent : timeCurrent + 2e-4 * perCnt;
     while (!activeTimers.empty() && !interrupted) {
-        TimerWatcher *watcher = activeTimers.top();
-        if (watcher->at > dstTime) {
+        std::multimap<quint64, TimerWatcher *>::iterator it = activeTimers.begin();
+        if (it->first > dstTime) {
             break;
         }
-        activeTimers.pop();
+        TimerWatcher *watcher = it->second;
+        activeTimers.erase(it);
         sendTimerEvent(watcher);
     }
     inProcessTimer = false;
