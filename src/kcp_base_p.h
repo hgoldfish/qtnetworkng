@@ -215,7 +215,7 @@ void KcpBase<Link>::setMode(KcpMode mode)
     switch (mode) {
     case KcpMode::LargeDelayInternet:
         waterLine = 512;
-        ikcp_nodelay(kcp, 0, 20, 1, 1);
+        ikcp_nodelay(kcp, 0, 20, 1, 0);
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 1024, 1024);
         break;
@@ -237,7 +237,7 @@ void KcpBase<Link>::setMode(KcpMode mode)
         break;
     case KcpMode::Ethernet:
         waterLine = 64;
-        ikcp_nodelay(kcp, 1, 10, 1, 0);
+        ikcp_nodelay(kcp, 1, 10, 1, 1);
         ikcp_setmtu(kcp, 1024 * 32);
         ikcp_wndsize(kcp, 128, 128);
         kcp->rx_minrto = 10;
@@ -245,7 +245,7 @@ void KcpBase<Link>::setMode(KcpMode mode)
         break;
     case KcpMode::Loopback:
         waterLine = 64;
-        ikcp_nodelay(kcp, 1, 10, 1, 0);
+        ikcp_nodelay(kcp, 1, 10, 1, 1);
         ikcp_setmtu(kcp, 1024 * 64 - 256);
         ikcp_wndsize(kcp, 128, 128);
         kcp->rx_minrto = 5;
