@@ -293,13 +293,13 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
     switch (mode) {
     case KcpSocket::LargeDelayInternet:
         waterLine = 512;
-        ikcp_nodelay(kcp, 0, 20, 1, 0);
+        ikcp_nodelay(kcp, 0, 20, 1, 1);
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 1024, 1024);
         break;
     case KcpSocket::Internet:
         waterLine = 256;
-        ikcp_nodelay(kcp, 1, 10, 1, 0);
+        ikcp_nodelay(kcp, 1, 10, 1, 1);
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 1024, 1024);
         kcp->rx_minrto = 30;
@@ -307,7 +307,7 @@ void KcpSocketPrivate::setMode(KcpSocket::Mode mode)
         break;
     case KcpSocket::FastInternet:
         waterLine = 192;
-        ikcp_nodelay(kcp, 1, 10, 1, 0);
+        ikcp_nodelay(kcp, 1, 10, 1, 1);
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 512, 512);
         kcp->rx_minrto = 20;
