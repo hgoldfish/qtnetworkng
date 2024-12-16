@@ -3,7 +3,6 @@
 
 #include "kcp.h"
 #include "kcp_base.h"
-#include "multi_path_kcp.h"
 #include "socket_utils.h"
 #include "coroutine_utils.h"
 #ifndef QTNG_NO_CRYPTO
@@ -154,57 +153,6 @@ QSharedPointer<SocketLike> KcpServerV2<RequestHandler>::serverCreate()
 
 template<typename RequestHandler>
 void KcpServerV2<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
-{
-    RequestHandler handler;
-    handler.request = request;
-    handler.server = this;
-    handler.run();
-}
-
-template<typename RequestHandler>
-class MultiPathKcpServer : public BaseStreamServer
-{
-public:
-    MultiPathKcpServer(const QList<QPair<HostAddress, quint16>> &localHosts)
-        : BaseStreamServer(HostAddress::Any, 0)
-        , localHosts(localHosts)
-    {
-    }
-    MultiPathKcpServer(const HostAddress & = HostAddress(), quint16 = 0)
-        : BaseStreamServer(HostAddress::Any, 0)
-    {
-    }
-
-    void setLocalHosts(const QList<QPair<HostAddress, quint16>> &localHosts);
-    bool restart();
-protected:
-    virtual QSharedPointer<SocketLike> serverCreate() override;
-    virtual void processRequest(QSharedPointer<SocketLike> request) override;
-protected:
-    QList<QPair<HostAddress, quint16>> localHosts;
-};
-
-template<typename RequestHandler>
-void MultiPathKcpServer<RequestHandler>::setLocalHosts(const QList<QPair<HostAddress, quint16>> &localHosts)
-{
-    this->localHosts = localHosts;
-}
-
-template<typename RequestHandler>
-inline bool MultiPathKcpServer<RequestHandler>::restart()
-{
-    MultiPathKcpServerSocketLikeHelper helper(serverSocket());
-    return helper.rebind(localHosts);
-}
-
-template<typename RequestHandler>
-QSharedPointer<SocketLike> MultiPathKcpServer<RequestHandler>::serverCreate()
-{
-    return createMultiKcpServer(localHosts, 0);
-}
-
-template<typename RequestHandler>
-void MultiPathKcpServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
 {
     RequestHandler handler;
     handler.request = request;
