@@ -51,6 +51,7 @@ public:
     Timeout(quint32 msecs, int);  // the second parameter is not used.
     ~Timeout();
 public:
+    void cancel();
     void restart();
 private:
     quint32 msecs;

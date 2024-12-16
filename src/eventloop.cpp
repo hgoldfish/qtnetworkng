@@ -556,6 +556,14 @@ Timeout::~Timeout()
     }
 }
 
+void Timeout::cancel()
+{
+    if (timeoutId) {
+        EventLoopCoroutine::get()->cancelCall(timeoutId);
+        timeoutId = 0;
+    }
+}
+
 void Timeout::restart()
 {
     if (timeoutId) {
