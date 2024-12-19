@@ -538,7 +538,7 @@ RequestError *toRequestError(ChunkedBlockReader::Error error)
     }
 }
 
-QSharedPointer<FileLike> HttpResponse::bodyAsFile(bool processEncoding)
+QSharedPointer<FileLike> HttpResponse::bodyAsFile(bool processGzip, bool processChunked)
 {
     if (d->consumed) {
         qtng_warning
@@ -580,7 +580,7 @@ QSharedPointer<FileLike> HttpResponse::bodyAsFile(bool processEncoding)
         }
         const QByteArray &transferEncodingHeader = header(QString::fromLatin1("Transfer-Encoding"));
         bool isChunked = (transferEncodingHeader.toLower() == QByteArray("chunked"));
-        if (isChunked && processEncoding) {
+        if (isChunked && processChunked) {
             removeHeader(QString::fromLatin1("Transfer-Encoding"));
             bodyFile = QSharedPointer<ChunkedBodyFile>::create(d->request.maxBodySize(), d->body, d->stream);
         } else {
@@ -589,7 +589,7 @@ QSharedPointer<FileLike> HttpResponse::bodyAsFile(bool processEncoding)
     }
     d->body.clear();
 
-    if (processEncoding) {
+    if (processGzip) {
         const QByteArray &contentEncodingHeader = header(QString::fromLatin1("Content-Encoding"));
         const QByteArray &transferEncodingHeader = header(QString::fromLatin1("Transfer-Encoding"));
 #ifdef QTNG_HAVE_ZLIB
