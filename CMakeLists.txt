@@ -303,7 +303,7 @@ add_library(qtnetworkng STATIC ${QTNETWORKNG_SRC} ${QTNETWORKNG_INCLUDE} ${QTNET
                                ${OS_DEPENDENDED_SRC} ${ZLIB_SRC} ${QTLMDB_SRC} ${QTLMDB_INCLUDE})
 target_include_directories(qtnetworkng PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}"
                                        PRIVATE "${ZLIB_INCLUDE}")
-target_compile_definitions(qtnetworkng PRIVATE -DQTNG_HAVE_ZLIB)
+target_compile_definitions(qtnetworkng PUBLIC -DQTNG_HAVE_ZLIB)
 
 # intergrate libev-light/libev
 # TODO iocp, io_uring

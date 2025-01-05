@@ -4,7 +4,7 @@
 #include <QtCore/qsharedpointer.h>
 #include <QtCore/qfileinfo.h>
 #include <QtCore/qfile.h>
-#include "socket.h"
+#include "config.h"
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
