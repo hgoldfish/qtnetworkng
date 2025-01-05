@@ -193,10 +193,11 @@ qint32 GzipDecompressFile::read(char *data, qint32 size)
 
     while (d->buf.size() < size && !d->eof) {
         qint32 readBytes = d->backend->read(inBuf.data(), inBuf.size());
-        if (readBytes < 0) {
-            return false;
-        } else if (readBytes == 0) {
-            d->eof = true;
+        if (readBytes <= 0) {
+            if (d->buf.isEmpty()) {
+                return -1;
+            }
+            break;
         }
         d->zstream.next_in = reinterpret_cast<Bytef *>(inBuf.data());
         d->zstream.avail_in = static_cast<uint>(readBytes);
@@ -242,6 +243,13 @@ qint32 GzipDecompressFile::read(char *data, qint32 size)
                 break;
             }
         } while (d->zstream.avail_out == 0);
+    }
+    if (d->buf.isEmpty()) {
+        if (d->eof) {
+            return 0;
+        }
+        // the server closed the connection prematurely, and the data was not sent completely
+        return -1;
     }
     qint32 bytesToRead = qMin(size, d->buf.size());
     memcpy(data, d->buf.data(), bytesToRead);
@@ -310,12 +318,6 @@ qint32 GzipDecompressFile::write(const char *data, qint32 size)
     }
 }
 
-bool GzipDecompressFile::atEnd() const
-{
-    Q_D(const GzipDecompressFile);
-    return d->eof;
-}
-
 bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int level)
 {
     if (input.isNull() || output.isNull()) {
@@ -373,32 +375,8 @@ bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> outp
 
 bool qGzipDecompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output)
 {
-    if (input.isNull() || output.isNull()) {
-        return false;
-    }
-    if (input->size() == 0) {
-        return true;
-    }
     QSharedPointer<GzipDecompressFile> gzip(new GzipDecompressFile(input));
-    qint64 s = gzip->size();
-    if (s == 0) {
-        return true;
-    }
-    bool ok = false;
-    qint64 count = 0;
-    char buf[1024 * 8];
-    while (true) {
-        qint32 readBytes = gzip->read(buf, sizeof(buf));
-        if (readBytes <= 0) {
-            ok = (s < 0 || count == s) && gzip->atEnd();
-            return ok;
-        }
-        count += readBytes;
-        qint32 writeSize = output->write(buf, readBytes);
-        if (writeSize != readBytes) {
-            return false;
-        }
-    }
+    return sendfile(gzip, output);
 }
 
 QTNETWORKNG_NAMESPACE_END

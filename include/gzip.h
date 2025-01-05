@@ -33,7 +33,6 @@ public:
     virtual qint32 write(const char *, qint32) override;
     virtual void close() override { }
     virtual qint64 size() override { return -1; }
-    bool atEnd() const;
 private:
     GzipDecompressFilePrivate * const d_ptr;
     Q_DECLARE_PRIVATE(GzipDecompressFile);
