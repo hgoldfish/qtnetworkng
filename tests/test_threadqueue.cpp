@@ -51,7 +51,7 @@ void TestThreadQueue::testMultiProducer()
 
     for (int i = 0; i < ProducerNumber; ++i) {
         int base = i * Blocks;
-        QSharedPointer<QThread> producer(QThread::create([queue, base] {
+        QSharedPointer<QThread> producer(QThread::create([Blocks, queue, base] {
             for (int i = 0; i < Blocks; ++i) {
                 queue->put(QByteArray::number(base + i));
             }
@@ -61,7 +61,7 @@ void TestThreadQueue::testMultiProducer()
     }
 
     QSharedPointer<Event> done = QSharedPointer<Event>::create();
-    QScopedPointer<QThread> consumer(QThread::create([queue, done] {
+    QScopedPointer<QThread> consumer(QThread::create([ProducerNumber, Blocks, queue, done] {
         for (int i = 0; i < ProducerNumber * Blocks; ++i) {
             const QByteArray &e = queue->get();
             if (e.isNull()) {
@@ -90,7 +90,7 @@ void TestThreadQueue::testCoroutineConsumer()
 
     for (int i = 0; i < ProducerNumber; ++i) {
         int base = i * Blocks;
-        QSharedPointer<Event> producer = spawnInThread([queue, base] {
+        QSharedPointer<Event> producer = spawnInThread([Blocks, queue, base] {
             for (int i = 0; i < Blocks; ++i) {
                 queue->put(QByteArray::number(base + i));
             }
@@ -99,7 +99,7 @@ void TestThreadQueue::testCoroutineConsumer()
     }
 
     QSharedPointer<Event> done = QSharedPointer<Event>::create();
-    QScopedPointer<Coroutine> consumer(Coroutine::spawn([queue, done] {
+    QScopedPointer<Coroutine> consumer(Coroutine::spawn([ProducerNumber, Blocks, queue, done] {
         for (int i = 0; i < ProducerNumber * Blocks; ++i) {
             const QByteArray &e = queue->get();
             if (e.isNull()) {

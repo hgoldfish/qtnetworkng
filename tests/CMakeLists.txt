@@ -19,7 +19,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 enable_testing()
 
 add_executable(test_threadqueue test_threadqueue.cpp)
-target_link_libraries(test_threadqueue PRIVATE Qt5::Test Qt5::Core pthread qtnetworkng)
+target_link_libraries(test_threadqueue PRIVATE Qt5::Test Qt5::Core qtnetworkng)
 add_test(qtng_tests test_threadqueue)
 
 add_executable(test_kcp test_kcp.cpp)
