@@ -332,7 +332,7 @@ Database::iterator Database::reserve(const QByteArray &key, size_t size)
     mdbData.mv_size = size;
     mdbData.mv_data = NULL;
 
-    unsigned flags = MDB_RESERVE;
+    unsigned int flags = MDB_RESERVE;
     int rt = mdb_cursor_put(cursor, &mdbKey, &mdbData, flags);
     if (rt) {
 #if QTLMDB_DEBUG
@@ -341,7 +341,6 @@ Database::iterator Database::reserve(const QByteArray &key, size_t size)
         mdb_cursor_close(cursor);
         return LmdbIterator(nullptr);
     }
-
     LmdbIteratorPrivate *d = new LmdbIteratorPrivate(key, cursor, mdbData);
     return LmdbIterator(d);
 }
@@ -447,7 +446,7 @@ int Database::remove(const QByteArray &key)
     }
 
     MDB_val mdbKey, mdbData;
-    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData);
+    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData, MDB_SET);
     if (!cursor) {
         return -1;
     }
@@ -482,6 +481,8 @@ Database::iterator Database::erase(const Database::iterator &itor)
     }
 
     MDB_val mdbKey, mdbData;
+    memset(&mdbKey, 0, sizeof(mdbKey));
+    memset(&mdbData, 0, sizeof(mdbData));
     rt = mdb_cursor_get(cursor, &mdbKey, &mdbData, MDB_NEXT);
 
     if (rt) {
@@ -502,7 +503,7 @@ QByteArray Database::take(const QByteArray &key)
     }
 
     MDB_val mdbKey, mdbData;
-    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData);
+    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData, MDB_SET);
     if (!cursor) {
         return QByteArray();
     }
@@ -930,6 +931,12 @@ LmdbBuilder &LmdbBuilder::noSync(bool noSync)
     return *this;
 }
 
+LmdbBuilder &LmdbBuilder::noSubDir(bool noSubDir)
+{
+    m_noSubDir = noSubDir;
+    return *this;
+}
+
 LmdbBuilder &LmdbBuilder::writeMap(bool writable)
 {
     m_writeMap = writable;
@@ -951,7 +958,10 @@ QSharedPointer<Lmdb> LmdbBuilder::create()
     mdb_env_set_maxdbs(d->env, m_maxDbs);
     mdb_env_set_maxreaders(d->env, m_maxReaders);
 
-    unsigned int flags = MDB_NOSUBDIR | MDB_NOTLS;
+    unsigned int flags = MDB_NOTLS;
+    if (m_noSubDir) {
+        flags |= MDB_NOSUBDIR;
+    }
     if (m_noSync) {
         flags |= MDB_NOSYNC;
     }
