@@ -3749,7 +3749,7 @@ mdb_page_flush(MDB_txn *txn, int keep)
 #endif
 #ifdef _WIN32
     DWORD		wsize = 0;
-    LPDWORD     wres;
+    DWORD     wres;
 #else
 	ssize_t		wsize = 0, wres;
 #endif
