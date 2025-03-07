@@ -20,7 +20,9 @@ QtNetworkNg 参考文档
     
     class MyCoroutine: public BaseCoroutine {
     public:
-        MyCoroutine() {
+        MyCoroutine()
+        :BaseCoroutine(nullptr) 
+        {
             // 保存当前协程以便切换回来
             old = BaseCoroutine::current();
         }
@@ -176,11 +178,6 @@ QtNetworkNg 参考文档
 
 .. method:: Deferred<BaseCoroutine*> BaseCoroutine::finished
 
-QtNetworkNg 的参考文档
-=========================
-
-1. 使用协程
------------------
 
 1.3 操作协程
 ^^^^^^^^^^^^^^^^^^^^^^

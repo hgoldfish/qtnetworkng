@@ -20,7 +20,8 @@ Coroutine is light-weight thread. In other programming languages, it is called *
     
     class MyCoroutine: public BaseCoroutine {
     public:
-        MyCoroutine() {
+        MyCoroutine()
+        :BaseCoroutine(nullptr) {
             // remember the current coroutine which we will switch to.
             old = BaseCoroutine::current();
         }
