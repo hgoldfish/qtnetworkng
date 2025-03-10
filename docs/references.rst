@@ -20,7 +20,8 @@ Coroutine is light-weight thread. In other programming languages, it is called *
     
     class MyCoroutine: public BaseCoroutine {
     public:
-        MyCoroutine() {
+        MyCoroutine()
+        :BaseCoroutine(nullptr) {
             // remember the current coroutine which we will switch to.
             old = BaseCoroutine::current();
         }
@@ -2013,8 +2014,8 @@ Before using the ``HttpResponse``, you should check ``HttpResonse::isOk()``. If 
 6. Configuration And Build
 --------------------------
 
-5.1 Use libev Instead Of Qt Eventloop
+6.1 Use libev Instead Of Qt Eventloop
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-5.2 Disable SSL Support
+6.2 Disable SSL Support
 ^^^^^^^^^^^^^^^^^^^^^^^
