@@ -876,6 +876,7 @@ QByteArray PosixPath::readall(bool *ok) const
         if (ok) {
             *ok = false;
         }
+        return QByteArray();
     }
     return f->readall(ok);
 }
