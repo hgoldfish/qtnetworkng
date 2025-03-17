@@ -26,7 +26,7 @@ class GzipDecompressFilePrivate;
 class GzipDecompressFile : public FileLike
 {
 public:
-    GzipDecompressFile(QSharedPointer<FileLike> input);
+    GzipDecompressFile(QSharedPointer<FileLike> backend);
     virtual ~GzipDecompressFile() override;
 public:
     virtual qint32 read(char *data, qint32 size) override;

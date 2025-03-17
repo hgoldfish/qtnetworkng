@@ -320,11 +320,11 @@ qint32 GzipDecompressFile::write(const char *data, qint32 size)
 
 bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int level)
 {
-    if (input.isNull()) {
+    if (input.isNull() || output.isNull()) {
         return false;
     }
-    QSharedPointer<GzipCompressFile> gzip(new GzipCompressFile(input, level));
-    return sendfile(gzip, output);
+    QSharedPointer<GzipCompressFile> gzip(new GzipCompressFile(output, level));
+    return sendfile(input, gzip);
 }
 
 bool qGzipDecompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output)
