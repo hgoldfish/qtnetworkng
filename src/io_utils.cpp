@@ -285,7 +285,9 @@ class BytesIOPrivate
 {
 public:
     BytesIOPrivate(qint32 pos)
-        : pos(pos)
+        : buf(nullptr)
+        , pos(pos)
+        , ownbuf(false)
     {
     }
     QByteArray *buf;
@@ -470,10 +472,11 @@ Pipe::Pipe(qint32 maxBufferSize)
 class FileToRead : public FileLike
 {
 public:
-    FileToRead(QSharedPointer<PipePrivate> pp)
+    explicit FileToRead(QSharedPointer<PipePrivate> pp)
         : pp(pp)
     {
     }
+    virtual ~FileToRead() override { close(); }
 public:
     virtual qint32 read(char *data, qint32 size) override
     {
@@ -532,20 +535,26 @@ public:
     virtual qint64 size() override { return -1; }
 public:
     const QWeakPointer<PipePrivate> pp;
+    QSharedPointer<Pipe> pipe;
 };
 
-QSharedPointer<FileLike> Pipe::fileToRead()
+QSharedPointer<FileLike> Pipe::fileToRead(bool takePipe)
 {
-    return QSharedPointer<FileToRead>::create(d);
+    QSharedPointer<FileToRead> f = QSharedPointer<FileToRead>::create(d);
+    if (takePipe) {
+        f->pipe = sharedFromThis();
+    }
+    return f;
 }
 
 class FileToWrite : public FileLike
 {
 public:
-    FileToWrite(QSharedPointer<PipePrivate> pp)
+    explicit FileToWrite(QSharedPointer<PipePrivate> pp)
         : pp(pp)
     {
     }
+    virtual ~FileToWrite() override { close(); }
 public:
     virtual qint32 read(char *, qint32) override { return -1; }
     virtual qint32 write(const char *data, qint32 size) override
@@ -597,17 +606,22 @@ public:
     virtual qint64 size() override { return -1; }
 public:
     const QWeakPointer<PipePrivate> pp;
+    QSharedPointer<Pipe> pipe;
 };
 
-QSharedPointer<FileLike> Pipe::fileToWrite()
+QSharedPointer<FileLike> Pipe::fileToWrite(bool takePipe)
 {
-    return QSharedPointer<FileToWrite>::create(d);
+    QSharedPointer<FileToWrite> f = QSharedPointer<FileToWrite>::create(d);
+    if (takePipe) {
+        f->pipe = sharedFromThis();
+    }
+    return f;
 }
 
 class DeviceToRead : public QIODevice
 {
 public:
-    DeviceToRead(QSharedPointer<PipePrivate> pp, bool connectSignals)
+    explicit DeviceToRead(QSharedPointer<PipePrivate> pp, bool connectSignals)
         : pp(pp)
     {
         bool ok = QIODevice::open(QIODevice::ReadOnly | QIODevice::Unbuffered);
@@ -617,6 +631,7 @@ public:
             connect(pp->q_ptr, SIGNAL(readyRead()), this, SIGNAL(readyRead()));
         }
     }
+    virtual ~DeviceToRead() override { close(); }
 public:
     virtual bool atEnd() const override
     {
@@ -716,19 +731,24 @@ public:
         }
         return true;
     }
-private:
+public:
     QWeakPointer<PipePrivate> pp;
+    QSharedPointer<Pipe> pipe;
 };
 
-QSharedPointer<QIODevice> Pipe::deviceToRead(bool connectSignals)
+QSharedPointer<QIODevice> Pipe::deviceToRead(bool connectSignals, bool takePipe)
 {
-    return QSharedPointer<DeviceToRead>::create(d, connectSignals);
+    QSharedPointer<DeviceToRead> v = QSharedPointer<DeviceToRead>::create(d, connectSignals);
+    if (takePipe) {
+        v->pipe = sharedFromThis();
+    }
+    return v;
 }
 
 class DeviceToWrite : public QIODevice
 {
 public:
-    DeviceToWrite(QSharedPointer<PipePrivate> pp, bool connectSignals)
+    explicit DeviceToWrite(QSharedPointer<PipePrivate> pp, bool connectSignals)
         : pp(pp)
     {
         bool ok = QIODevice::open(QIODevice::WriteOnly | QIODevice::Unbuffered);
@@ -738,6 +758,7 @@ public:
             connect(pp->q_ptr, SIGNAL(bytesWritten(qint64)), this, SIGNAL(bytesWritten(qint64)));
         }
     }
+    virtual ~DeviceToWrite() override { close(); }
 public:
     virtual bool atEnd() const override
     {
@@ -844,13 +865,18 @@ public:
     }
 
     virtual bool waitForReadyRead(int) override { return false; }
-private:
+public:
     QWeakPointer<PipePrivate> pp;
+    QSharedPointer<Pipe> pipe;
 };
 
-QSharedPointer<QIODevice> Pipe::deivceToWrite(bool connectSignals)
+QSharedPointer<QIODevice> Pipe::deivceToWrite(bool connectSignals, bool takePipe)
 {
-    return QSharedPointer<DeviceToWrite>::create(d, connectSignals);
+    QSharedPointer<DeviceToWrite> v = QSharedPointer<DeviceToWrite>::create(d, connectSignals);
+    if (takePipe) {
+        v->pipe = sharedFromThis();
+    }
+    return v;
 }
 
 class PosixPathPrivate : public QSharedData
