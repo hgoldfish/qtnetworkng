@@ -60,7 +60,7 @@ bool GzipFilePrivate::initZStream(bool asRawDeflate)
             ret = deflateInit2(&zstream, level, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY);
         } else {
             Q_ASSERT(mode == GzipFile::Decompress);
-            ret = inflateInit2(&zstream, MAX_WBITS + 16);
+            ret = inflateInit2(&zstream, MAX_WBITS + 32);
         }
     }
 
@@ -90,7 +90,7 @@ qint32 GzipFile::read(char *data, qint32 size)
     if (d->hasError || !d->inited || ( d->mode != Decompress && d->mode != Inflate)) {
         return -1;
     }
-    const int OutputBufferSize = 1024 * 64;
+    const int OutputBufferSize = 1024 * 48;
     const int InputBufferSize = 1024 * 8;
     QByteArray inBuf(InputBufferSize, Qt::Uninitialized);
     QByteArray outBuf(OutputBufferSize, Qt::Uninitialized);
@@ -123,6 +123,7 @@ qint32 GzipFile::read(char *data, qint32 size)
                 d->hasError = true;
                 return -1;
             }
+            Q_ASSERT(ret == Z_OK || ret == Z_STREAM_END);
             if (Q_UNLIKELY(d->zstream.avail_out > static_cast<uint>(outBuf.size()))) {  // is this possible?
                 qtng_warning << "gzip report avail_out > outBuf.size() at reading, this is impossible!";
                 d->hasError = true;
@@ -173,7 +174,9 @@ qint32 GzipFile::write(const char *data, qint32 size)
         d->zstream.avail_out = static_cast<uint>(outBuf.size());
         int ret = deflate(&d->zstream, size > 0 ? Z_NO_FLUSH : Z_FINISH);
         if (ret < 0 || ret == Z_NEED_DICT) {
-            qtng_warning << "gzip report need dict?! why this happened?";
+            if (Q_UNLIKELY(ret == Z_NEED_DICT)) {
+                qtng_warning << "gzip report need dict?! why this happened?";
+            }
             d->hasError = true;
             return -1;
         }
@@ -189,10 +192,10 @@ qint32 GzipFile::write(const char *data, qint32 size)
     } while (d->zstream.avail_out == 0 || d->zstream.avail_in > 0);
 
     if (d->buf.isEmpty()) {
-        return true;
+        return size;
     }
 
-    qint32 bytesWritten = d->backend->write(d->buf.constData(), d->buf.size());
+    qint32 bytesWritten = d->backend->write(d->buf);
     bool success = (bytesWritten == d->buf.size());
     d->buf.clear();
     return success ? size : -1;

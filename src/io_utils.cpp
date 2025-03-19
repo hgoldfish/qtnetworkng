@@ -444,22 +444,17 @@ class PipePrivate
 public:
     PipePrivate(Pipe *q, qint32 maxBufferSize)
         : q_ptr(q)
+        , closed(false)
         , maxBufferSize(maxBufferSize)
-        , noMoreData(false)
         , shouldEmitReadyRead(false)
         , shouldEmitBytesWritten(false)
     {
-        notEmpty.clear();
-        notFull.set();
     }
 public:
     Pipe * const q_ptr;
-    QByteArray buffer;
-    ThreadEvent notEmpty;
-    ThreadEvent notFull;
-    QMutex lock;
+    ThreadQueue<QByteArray> queue;
+    QAtomicInteger<bool> closed;
     const qint32 maxBufferSize;
-    bool noMoreData;
     bool shouldEmitReadyRead;
     bool shouldEmitBytesWritten;
 };
@@ -485,41 +480,29 @@ public:
         if (pp.isNull() || size <= 0) {
             return -1;
         }
-        if (localBuffer.size() <= size) {
+        // TODO we need ring buffer.
+        if (localBuffer.size() >= size) {
             memcpy(data, localBuffer.constData(), size);
             localBuffer.remove(0, size);
             return size;
         }
 
-        QMutexLocker locker(&pp->lock);
-        if (pp->buffer.isEmpty()) {
-            if (pp->noMoreData) {
-                // pipe is closed.
-                return -1;
-            } else {
-                locker.unlock();
-                if (!pp->notEmpty.tryWait()) {
-                    return -1;
+        if (!pp->queue.isEmpty() || !pp->closed) {
+            qint64 bytesWritten = 0;
+            do {
+                const QByteArray &packet = pp->queue.get();
+                if (packet.isEmpty()) {
+                    Q_ASSERT(pp->closed && pp->queue.isEmpty());
+                    break;
+                } else {
+                    bytesWritten += packet.size();
+                    localBuffer.append(packet);
                 }
-                locker.relock();
-                if (pp->buffer.isEmpty()) {
-                    // another peer closed this pipe
-                    Q_ASSERT(pp->noMoreData);
-                    return -1;
-                }
-            }
-        }
+            } while (!pp->queue.isEmpty());
 
-        qint64 bytesWritten = pp->buffer.size();
-        localBuffer.append(pp->buffer);
-        pp->buffer.clear();
-        pp->notFull.set();
-        if (!pp->noMoreData) {
-            pp->notEmpty.clear();
-        }
-        if (pp->shouldEmitBytesWritten) {
-            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(bytesWritten(qint64)), Qt::QueuedConnection,
-                                      Q_ARG(qint64, bytesWritten));
+            if (pp->shouldEmitBytesWritten && bytesWritten > 0) {
+                QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(bytesWritten(qint64)), Q_ARG(qint64, bytesWritten));
+            }
         }
 
         qint32 bytesToRead = qMin<qint32>(localBuffer.size(), size);
@@ -536,17 +519,20 @@ public:
         if (pp.isNull()) {
             return;
         }
-        QMutexLocker locker(&pp->lock);
-        pp->notFull.set();
-        pp->notEmpty.set();
-        // discard all bytes of buffer.
-        pp->buffer.clear();
+        qint64 bytesWritten = 0;
+        while (!pp->queue.isEmpty()) {
+            bytesWritten += pp->queue.get().size();
+        }
+        pp->queue.clear();
+        pp->closed = true;
         localBuffer.clear();
-        pp->noMoreData = true;
+        if (pp->shouldEmitBytesWritten && bytesWritten > 0) {
+            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(bytesWritten(qint64)), Q_ARG(qint64, bytesWritten));
+        }
     }
     virtual qint64 size() override { return -1; }
 public:
-    const QWeakPointer<PipePrivate> pp;
+    QWeakPointer<PipePrivate> pp;
     QSharedPointer<Pipe> pipe;
     QByteArray localBuffer;
 };
@@ -566,6 +552,7 @@ public:
     explicit FileToWrite(QSharedPointer<PipePrivate> pp)
         : pp(pp)
     {
+        localBuffer.reserve(pp->maxBufferSize);
     }
     virtual ~FileToWrite() override { close(); }
 public:
@@ -573,55 +560,34 @@ public:
     virtual qint32 write(const char *data, qint32 size) override
     {
         QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
-        if (pp.isNull()) {
+        if (pp.isNull() || pp->closed || size <= 0) {
             return -1;
         }
-        QMutexLocker locker(&pp->lock);
-        if (pp->noMoreData) {
-            // pipe is closed. don't write anymore.
-            return -1;
+        if (localBuffer.size() + size <= pp->maxBufferSize) {
+            localBuffer.append(data, size);
+            return size;
         }
-        if (pp->buffer.size() >= pp->maxBufferSize) {
-            locker.unlock();
-            if (!pp->notFull.tryWait()) {
-                return -1;
-            }
-            locker.relock();
-            if (pp->noMoreData) {
-                // pipe is closed. don't write anymore.
-                return -1;
-            } else {
-                Q_ASSERT(pp->buffer.size() < pp->maxBufferSize);
-            }
+        pp->queue.put(localBuffer);
+        pp->queue.put(QByteArray(data, size));
+        localBuffer.clear();
+        if (pp->shouldEmitReadyRead) {
+            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
         }
-        qint32 bytesToWrite = qMin(pp->maxBufferSize - pp->buffer.size(), size);
-        pp->buffer.append(data, bytesToWrite);
-        if (pp->buffer.size() > pp->maxBufferSize / 2) {
-            // dont emit not empty too offen for performence.
-            // close() always set not empty, so don't worry.
-            pp->notEmpty.set();
-            if (pp->shouldEmitReadyRead) {
-                QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
-            }
-        }
-        if (!pp->noMoreData && pp->buffer.size() >= pp->maxBufferSize) {
-            pp->notFull.clear();
-        }
-        return bytesToWrite;
+        return size;
     }
     virtual void close() override
     {
         QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
-        if (pp.isNull()) {
+        if (pp.isNull() || pp->closed) {
             return;
         }
-        QMutexLocker locker(&pp->lock);
-        pp->notFull.set();
-        pp->notEmpty.set();
-        // do not discard buffer.
-        // pp->buffer.clear();
-        pp->noMoreData = true;
-        if (pp->shouldEmitReadyRead && !pp->buffer.isEmpty()) {
+        pp->closed = true;
+        if (!localBuffer.isEmpty()) {
+            pp->queue.putForcedly(localBuffer);
+            localBuffer.clear();
+        }
+        pp->queue.putForcedly(QByteArray());
+        if (pp->shouldEmitReadyRead) {
             QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
         }
     }
@@ -629,6 +595,7 @@ public:
 public:
     const QWeakPointer<PipePrivate> pp;
     QSharedPointer<Pipe> pipe;
+    QByteArray localBuffer;
 };
 
 QSharedPointer<FileLike> Pipe::fileToWrite(bool takePipe)
@@ -662,13 +629,12 @@ public:
         if (pp.isNull()) {
             return true;
         }
-        QMutexLocker locker(&pp->lock);
         // may has some bytes left in the internal buffer of QIODevice.
         // for example, some func called peek() before.
         if (!QIODevice::atEnd()) {
             return false;
         }
-        return localBuffer.isEmpty() && pp->buffer.isEmpty() && pp->noMoreData;
+        return localBuffer.isEmpty() && pp->queue.isEmpty() && pp->closed;
     }
 
     virtual qint64 bytesAvailable() const override
@@ -677,9 +643,9 @@ public:
         if (pp.isNull()) {
             return 0;
         }
-        QMutexLocker locker(&pp->lock);
+        qint64 bytesInQueue = pp->queue.peek().size();
         // QIODevice::bytesAvailable() can be greater than 0 when peek() is called.
-        return localBuffer.size() + pp->buffer.size() + QIODevice::bytesAvailable();
+        return localBuffer.size() + bytesInQueue + QIODevice::bytesAvailable();
     }
 
     virtual qint64 bytesToWrite() const override { return 0; }
@@ -694,76 +660,66 @@ public:
         if (pp.isNull()) {
             return;
         }
-        QMutexLocker locker(&pp->lock);
-        // emit aboutToClose()
+        // to emit aboutToClose()
         QIODevice::close();
-        pp->notFull.set();
-        pp->notEmpty.set();
-        // discard all content from buffer.
-        pp->buffer.clear();
+        qint64 bytesWritten = 0;
+        while (!pp->queue.isEmpty()) {
+            bytesWritten += pp->queue.get().size();
+        }
+        pp->queue.clear();
+        pp->closed = true;
         localBuffer.clear();
-        pp->noMoreData = true;
+        if (pp->shouldEmitBytesWritten && bytesWritten > 0) {
+            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(bytesWritten(qint64)), Q_ARG(qint64, bytesWritten));
+        }
     }
 
-    virtual qint64 readData(char *data, qint64 maxSize) override
+    virtual qint64 readData(char *data, qint64 size) override
     {
         QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
-        if (pp.isNull() || maxSize < 0) {
+        if (pp.isNull() || size < 0) {
             return -1;
         }
         // the document of qiodevice says that this function can be called with maxSize == 0 in some situaction.
         // but i don't known what case is it?
-        if (maxSize == 0)
+        if (size == 0)
             return 0;
 
-        if (maxSize <= localBuffer.size()) {
-            memcpy(data, localBuffer.constData(), maxSize);
-            localBuffer.remove(0, maxSize);
-            return maxSize;
+        if (size <= localBuffer.size()) {
+            memcpy(data, localBuffer.constData(), size);
+            localBuffer.remove(0, size);
+            return size;
         }
-        QMutexLocker locker(&pp->lock);
-
         // the docunent of qiodevice require readData() must return all bytes of maxSize before return.
         // this cause blocking.
-        while (localBuffer.size() + pp->buffer.size() < maxSize) {
-            if (pp->buffer.isEmpty()) {
-                if (pp->noMoreData) {
-                    // pipe is closed.
+        if (!pp->queue.isEmpty() || !pp->closed) {
+            qint64 bytesWritten = 0;
+            do {
+                const QByteArray &packet = pp->queue.get();
+                if (packet.isEmpty()) {
+                    Q_ASSERT(pp->closed && pp->queue.isEmpty());
                     break;
                 } else {
-                    locker.unlock();
-                    if (!pp->notEmpty.tryWait()) {
-                        return -1;
-                    }
-                    locker.relock();
-                    if (pp->buffer.isEmpty()) {
-                        // another peer closed this pipe
-                        Q_ASSERT(pp->noMoreData);
-                        break;
-                    }
+                    bytesWritten += packet.size();
+                    localBuffer.append(packet);
                 }
-            }
-            localBuffer.append(pp->buffer);
-            qint64 bytesWritten = pp->buffer.size();
-            pp->buffer.clear();
-            pp->notFull.set();
-            if (!pp->noMoreData) {
-                pp->notEmpty.clear();
-            }
-            if (pp->shouldEmitBytesWritten) {
+            } while (!pp->queue.isEmpty());
+
+            if (pp->shouldEmitBytesWritten && bytesWritten > 0) {
                 QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(bytesWritten(qint64)), Q_ARG(qint64, bytesWritten));
             }
         }
-        // but the pipe is closed before we have maxSize;
-        qint32 bytesToRead = qMin<qint32>(localBuffer.size(), maxSize);
+
+        qint32 bytesToRead = qMin<qint32>(localBuffer.size(), size);
         memcpy(data, localBuffer.constData(), bytesToRead);
         localBuffer.remove(0, bytesToRead);
         return bytesToRead;
     }
     virtual qint64 writeData(const char *, qint64) override { return -1; }
     virtual bool waitForBytesWritten(int) override { return false; }
-    virtual bool waitForReadyRead(int msecs) override
+    virtual bool waitForReadyRead(int) override
     {
+
         QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
         if (pp.isNull()) {
             return false;
@@ -771,28 +727,14 @@ public:
         if (!localBuffer.isEmpty()) {
             return true;
         }
-        if (!pp->lock.tryLock(msecs)) {
+        if (!pp->queue.isEmpty()) {
+            return true;
+        }
+        if (pp->closed) {
             return false;
         }
-        auto unlock = qScopeGuard([pp] { pp->lock.unlock(); });
-        if (pp->buffer.isEmpty()) {
-            if (pp->noMoreData) {
-                // pipe is closed.
-                return false;
-            } else {
-                pp->lock.unlock();
-                if (!pp->notEmpty.tryWait()) {
-                    unlock.dismiss();
-                    return false;
-                }
-                pp->lock.lock();
-                if (pp->buffer.isEmpty()) {
-                    // another peer closed this pipe
-                    Q_ASSERT(pp->noMoreData);
-                    return false;
-                }
-            }
-        }
+        const QByteArray &packet = pp->queue.get();
+        pp->queue.returnsForcely(packet);
         return true;
     }
 public:
@@ -832,8 +774,7 @@ public:
         if (pp.isNull()) {
             return true;
         }
-        QMutexLocker locker(&pp->lock);
-        return pp->noMoreData;
+        return pp->closed;
     }
 
     virtual qint64 bytesAvailable() const override { return 0; }
@@ -842,13 +783,12 @@ public:
     {
         QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
         if (pp.isNull()) {
-            return true;
-        }
-        QMutexLocker locker(&pp->lock);
-        if (pp->noMoreData) {
             return 0;
         }
-        return qMax(pp->maxBufferSize - pp->buffer.size() - this->localBuffer.size(), 0);
+        if (pp->closed) {
+            return 0;
+        }
+        return qMax(pp->maxBufferSize - pp->queue.peek().size() - this->localBuffer.size(), 0);
     }
 
     virtual bool canReadLine() const override { return false; }
@@ -858,18 +798,17 @@ public:
     virtual void close() override
     {
         QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
-        if (pp.isNull()) {
+        if (pp.isNull() || pp->closed) {
             return;
         }
-        QMutexLocker locker(&pp->lock);
-        pp->notFull.set();
-        pp->notEmpty.set();
-        // XXX do not discard buffer. we are writer! not reader!
-        // pp->buffer.clear();
-        pp->buffer.append(this->localBuffer);
-        this->localBuffer.clear();
-        pp->noMoreData = true;
-        if (pp->shouldEmitReadyRead && !pp->buffer.isEmpty()) {
+
+        pp->closed = true;
+        if (!localBuffer.isEmpty()) {
+            pp->queue.putForcedly(localBuffer);
+            localBuffer.clear();
+        }
+        pp->queue.putForcedly(QByteArray());
+        if (pp->shouldEmitReadyRead) {
             QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
         }
     }
@@ -880,74 +819,39 @@ public:
     {
         // according to the document, we must write all data!
         QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
-        if (pp.isNull() || size < 0) {
+        if (pp.isNull() || pp->closed || size < 0) {
             return -1;
-        }
-        if (size > 0) {
-            this->localBuffer.append(data, size);
-            if (this->localBuffer.size() < pp->maxBufferSize / 2) {
+        } else if (size > 0) {
+            if (localBuffer.size() + size <= pp->maxBufferSize) {
+                localBuffer.append(data, size);
                 return size;
             }
+        } else {
+            // the qt document says size can be 0.
+            Q_ASSERT(size == 0);
         }
 
-        QMutexLocker locker(&pp->lock);
-        qint64 total = 0;
-        qint64 localBufferSize = this->localBuffer.size();
-        while (total < localBufferSize) {
-            if (pp->buffer.size() >= pp->maxBufferSize) {
-                if (pp->noMoreData) {
-                    return -1;
-                }
-                locker.unlock();
-                if (!pp->notFull.tryWait()) {
-                    return -1;
-                }
-                locker.relock();
-                if (pp->noMoreData) {
-                    return -1;
-                }
-            }
-            Q_ASSERT(pp->buffer.size() < pp->maxBufferSize);
-            qint64 bytesToWrite = qMin<qint32>(localBufferSize - total, pp->maxBufferSize - pp->buffer.size());
-            pp->buffer.append(localBuffer.data() + total, bytesToWrite);
-            total += bytesToWrite;
-            pp->notEmpty.set();
-            if (pp->buffer.size() >= pp->maxBufferSize && !pp->noMoreData) {
-                pp->notFull.clear();
-            }
-            if (pp->shouldEmitReadyRead) {
-                QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
-            }
+        pp->queue.put(localBuffer + QByteArray(data, size));
+        localBuffer.clear();
+        if (pp->shouldEmitReadyRead) {
+            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
         }
-        this->localBuffer.clear();
         return size;
     }
 
     virtual bool waitForBytesWritten(int msecs) override
     {
         QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
-        if (pp.isNull()) {
+        if (pp.isNull() || pp->closed) {
             return false;
         }
-        if (!pp->lock.tryLock(msecs)) {
-            return false;
+        if (localBuffer.size() < pp->maxBufferSize) {
+            return true;
         }
-        auto unlock = qScopeGuard([pp] { pp->lock.unlock(); });
-        if (pp->buffer.size() >= pp->maxBufferSize) {
-            if (pp->noMoreData) {
-                return false;
-            }
-            pp->lock.unlock();
-            if (!pp->notFull.tryWait()) {
-                return false;
-            }
-            pp->lock.lock();
-            if (pp->buffer.size() >= pp->maxBufferSize) {
-                Q_ASSERT(pp->noMoreData);
-                return false;
-            }
+        if (pp->queue.notFull.isSet()) {
+            return true;
         }
-        return true;
+        return pp->queue.notFull.tryWait(msecs);
     }
 
     virtual bool waitForReadyRead(int) override { return false; }

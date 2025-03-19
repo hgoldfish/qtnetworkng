@@ -21,8 +21,7 @@ public:
 public:
     virtual qint32 read(char *data, qint32 size) override;
     virtual qint32 write(const char *data, qint32 size) override;
-    qint32 flush() { return write(nullptr, 0); }
-    virtual void close() override { flush(); }
+    virtual void close() override { write(nullptr, 0); }
     virtual qint64 size() override { return -1; }
 public:
     qint64 processedBytes() const;
