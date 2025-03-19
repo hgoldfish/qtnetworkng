@@ -396,11 +396,11 @@ QSharedPointer<FileLike> BaseHttpRequestHandler::bodyAsFile(bool processEncoding
         if (contentEncodingHeader.toLower() == QByteArray("gzip")
             || contentEncodingHeader.toLower() == QByteArray("deflate")) {
             removeHeader(QString::fromLatin1("Content-Encoding"));
-            bodyFile = QSharedPointer<GzipDecompressFile>::create(bodyFile);
+            bodyFile = QSharedPointer<GzipFile>::create(bodyFile, GzipFile::Decompress);
         } else if (transferEncodingHeader.toLower() == QByteArray("gzip")
                    || transferEncodingHeader.toLower() == QByteArray("deflate")) {
             removeHeader(QString::fromLatin1("Transfer-Encoding"));
-            bodyFile = QSharedPointer<GzipDecompressFile>::create(bodyFile);
+            bodyFile = QSharedPointer<GzipFile>::create(bodyFile, GzipFile::Decompress);
         } else if (transferEncodingHeader.toLower() == QByteArray("qt")) {
             bool ok;
             const QByteArray &compBody = bodyFile->readall(&ok);

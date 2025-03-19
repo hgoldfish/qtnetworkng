@@ -6,36 +6,29 @@
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-class GzipCompressFilePrivate;
-class GzipCompressFile : public FileLike
+class GzipFilePrivate;
+class GzipFile : public FileLike
 {
 public:
-    GzipCompressFile(QSharedPointer<FileLike> backend, int level = -1);
-    virtual ~GzipCompressFile() override;
+    enum IOMode
+    {
+        Decompress = 0, Compress = 1,
+        Inflate = 2, Deflate = 3
+    };
+public:
+    GzipFile(QSharedPointer<FileLike> backend, IOMode mode, int level = -1);
+    virtual ~GzipFile() override;
 public:
     virtual qint32 read(char *data, qint32 size) override;
-    virtual qint32 write(const char *, qint32) override;
-    virtual void close() override { }
+    virtual qint32 write(const char *data, qint32 size) override;
+    qint32 flush() { return write(nullptr, 0); }
+    virtual void close() override { flush(); }
     virtual qint64 size() override { return -1; }
-private:
-    GzipCompressFilePrivate * const d_ptr;
-    Q_DECLARE_PRIVATE(GzipCompressFile);
-};
-
-class GzipDecompressFilePrivate;
-class GzipDecompressFile : public FileLike
-{
 public:
-    GzipDecompressFile(QSharedPointer<FileLike> backend);
-    virtual ~GzipDecompressFile() override;
-public:
-    virtual qint32 read(char *data, qint32 size) override;
-    virtual qint32 write(const char *, qint32) override;
-    virtual void close() override { }
-    virtual qint64 size() override { return -1; }
+    qint64 processedBytes() const;
 private:
-    GzipDecompressFilePrivate * const d_ptr;
-    Q_DECLARE_PRIVATE(GzipDecompressFile);
+    GzipFilePrivate * const d_ptr;
+    Q_DECLARE_PRIVATE(GzipFile);
 };
 
 bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int level = -1);

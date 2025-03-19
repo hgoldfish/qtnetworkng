@@ -1,192 +1,96 @@
 #include "../include/gzip.h"
+#include "debugger.h"
 extern "C" {
 #include <zlib.h>
 }
 
-#define GZIP_WINDOWS_BIT (MAX_WBITS + 32)
+QTNG_LOGGER("qtng.gzip");
 
 QTNETWORKNG_NAMESPACE_BEGIN
 
-class GzipCompressFilePrivate
+class GzipFilePrivate
 {
 public:
-    GzipCompressFilePrivate(QSharedPointer<FileLike> backend, int level)
+    GzipFilePrivate(QSharedPointer<FileLike> backend, GzipFile::IOMode mode, int level)
         : backend(backend)
+        , mode(mode)
+        , processedBytes(0)
         , level(qMax(-1, qMin(9, level)))
         , hasError(false)
-        , eof(false)
-    {
-    }
-public:
-    QSharedPointer<FileLike> backend;
-    QByteArray buf;
-    z_stream zstream;
-    int level;
-    bool hasError;
-    bool inited;
-    bool eof;
-};
-
-class GzipDecompressFilePrivate
-{
-public:
-    GzipDecompressFilePrivate(QSharedPointer<FileLike> backend)
-        : backend(backend)
-        , hasError(false)
+        , inited(false)
         , triedRawDeflate(false)
         , eof(false)
     {
     }
 public:
+    bool initZStream(bool asRawDeflate);
+public:
     QSharedPointer<FileLike> backend;
+    GzipFile::IOMode mode;
+    qint64 processedBytes;
     QByteArray buf;
     z_stream zstream;
+    int level;
     bool hasError;
     bool inited;
     bool triedRawDeflate;
     bool eof;
 };
 
-GzipCompressFile::GzipCompressFile(QSharedPointer<FileLike> backend, int level)
-    : d_ptr(new GzipCompressFilePrivate(backend, level))
+bool GzipFilePrivate::initZStream(bool asRawDeflate)
 {
-    Q_D(GzipCompressFile);
-    d->zstream.zalloc = nullptr;
-    d->zstream.zfree = nullptr;
-    d->zstream.opaque = nullptr;
-    d->zstream.avail_in = 0;
-    d->zstream.next_in = nullptr;
-    int ret = deflateInit2(&d->zstream, level, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY);
-    d->inited = (ret == Z_OK);
-}
-
-GzipCompressFile::~GzipCompressFile()
-{
-    Q_D(GzipCompressFile);
-    if (d->inited) {
-        deflateEnd(&d->zstream);
+    if (inited) {
+        deflateEnd(&zstream);
     }
-    delete d_ptr;
-}
-
-qint32 GzipCompressFile::read(char *data, qint32 size)
-{
-    Q_D(GzipCompressFile);
-    if (d->hasError || !d->inited) {
-        return -1;
-    }
-
-    const int OutputBufferSize = 1024 * 32;
-    const int InputBufferSize = 1024 * 8;
-    while (d->buf.size() < size && !d->eof) {
-        QByteArray inBuf(InputBufferSize, Qt::Uninitialized);
-        QByteArray outBuf(OutputBufferSize, Qt::Uninitialized);
-
-        qint32 readBytes = d->backend->read(inBuf.data(), inBuf.size());
-        if (readBytes < 0) {
-            d->hasError = true;
-            return -1;
-        } else if (readBytes == 0) {
-            d->eof = true;
+    memset(&zstream, 0, sizeof(zstream));
+    int ret;
+    if (asRawDeflate) {
+        triedRawDeflate = true;
+        if (mode == GzipFile::Deflate || mode == GzipFile::Compress) {
+            ret = deflateInit2(&zstream, level, Z_DEFLATED, -MAX_WBITS, 8, Z_DEFAULT_STRATEGY);
+        } else {
+            Q_ASSERT(mode == GzipFile::Inflate || mode == GzipFile::Decompress);
+            ret = inflateInit2(&zstream, -MAX_WBITS);
         }
-        d->zstream.next_in = reinterpret_cast<Bytef *>(inBuf.data());
-        d->zstream.avail_in = static_cast<uint>(readBytes);
-        do {
-            d->zstream.next_out = reinterpret_cast<Bytef *>(outBuf.data());
-            d->zstream.avail_out = static_cast<uint>(outBuf.size());
-            int ret = deflate(&d->zstream, readBytes > 0 ? Z_NO_FLUSH : Z_FINISH);
-            if (ret < 0 || ret == Z_NEED_DICT) {
-                d->hasError = true;
-                return -1;
-            }
-            if (Q_UNLIKELY(d->zstream.avail_out > static_cast<uint>(outBuf.size()))) {  // is this possible?
-                d->hasError = true;
-                return -1;
-            }
-            int have = outBuf.size() - static_cast<int>(d->zstream.avail_out);
-            if (have > 0) {
-                d->buf.append(outBuf.data(), static_cast<qint32>(have));
-            }
-        } while (d->zstream.avail_out == 0 || d->zstream.avail_in > 0);
-    }
-    qint32 bytesToRead = qMin(size, d->buf.size());
-    memcpy(data, d->buf.data(), bytesToRead);
-    d->buf.remove(0, bytesToRead);
-    return bytesToRead;
-}
-
-qint32 GzipCompressFile::write(const char *data, qint32 size)
-{
-    Q_D(GzipCompressFile);
-    if (d->hasError || !d->inited) {
-        return -1;
-    }
-    if (Q_UNLIKELY(size == 0)) {
-        return 0;
-    }
-
-    const int OutputBufferSize = 1024 * 32;
-    QByteArray outBuf(OutputBufferSize, Qt::Uninitialized);
-
-    d->zstream.next_in = reinterpret_cast<Bytef *>(const_cast<char *>(data));
-    d->zstream.avail_in = static_cast<uint>(size);
-    do {
-        d->zstream.next_out = reinterpret_cast<Bytef *>(outBuf.data());
-        d->zstream.avail_out = static_cast<uint>(outBuf.size());
-        int ret = deflate(&d->zstream, size > 0 ? Z_NO_FLUSH : Z_FINISH);
-        if (ret < 0 || ret == Z_NEED_DICT) {
-            d->hasError = true;
-            return -1;
-        }
-        if (Q_UNLIKELY(d->zstream.avail_out > static_cast<uint>(outBuf.size()))) {  // is this possible?
-            d->hasError = true;
-            return -1;
-        }
-        int have = outBuf.size() - static_cast<int>(d->zstream.avail_out);
-        if (have > 0) {
-            d->buf.append(outBuf.data(), static_cast<qint32>(have));
-        }
-    } while (d->zstream.avail_out == 0 || d->zstream.avail_in > 0);
-
-    qint32 bytesWritten = d->backend->write(d->buf.constData(), d->buf.size());
-    bool success = (bytesWritten == d->buf.size());
-    d->buf.clear();
-    if (success) {
-        return size;
     } else {
-        return -1;
+        Q_ASSERT(!triedRawDeflate);
+        Q_ASSERT(mode != GzipFile::Deflate && mode != GzipFile::Inflate);
+        // GZIP_WINDOWS_BIT = MAX_WBITS + 32
+        if (mode == GzipFile::Compress) {
+            ret = deflateInit2(&zstream, level, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY);
+        } else {
+            Q_ASSERT(mode == GzipFile::Decompress);
+            ret = inflateInit2(&zstream, MAX_WBITS + 16);
+        }
     }
+
+    inited = (ret == Z_OK);
+    return inited;
 }
 
-GzipDecompressFile::GzipDecompressFile(QSharedPointer<FileLike> backend)
-    : d_ptr(new GzipDecompressFilePrivate(backend))
+GzipFile::GzipFile(QSharedPointer<FileLike> backend, GzipFile::IOMode mode, int level)
+    : d_ptr(new GzipFilePrivate(backend, mode, level))
 {
-    Q_D(GzipDecompressFile);
-    d->zstream.zalloc = nullptr;
-    d->zstream.zfree = nullptr;
-    d->zstream.opaque = nullptr;
-    d->zstream.avail_in = 0;
-    d->zstream.next_in = nullptr;
-    int ret = inflateInit2(&d->zstream, GZIP_WINDOWS_BIT);
-    d->inited = (ret == Z_OK);
+    d_ptr->initZStream(mode == GzipFile::Inflate || mode == GzipFile::Deflate);
 }
 
-GzipDecompressFile::~GzipDecompressFile()
+GzipFile::~GzipFile()
 {
-    Q_D(GzipDecompressFile);
+    Q_D(GzipFile);
+    close();
     if (d->inited) {
         deflateEnd(&d->zstream);
     }
     delete d_ptr;
 }
 
-qint32 GzipDecompressFile::read(char *data, qint32 size)
+qint32 GzipFile::read(char *data, qint32 size)
 {
-    Q_D(GzipDecompressFile);
-    if (d->hasError || !d->inited) {
+    Q_D(GzipFile);
+    if (d->hasError || !d->inited || ( d->mode != Decompress && d->mode != Inflate)) {
         return -1;
     }
-    const int OutputBufferSize = 1024 * 32;
+    const int OutputBufferSize = 1024 * 64;
     const int InputBufferSize = 1024 * 8;
     QByteArray inBuf(InputBufferSize, Qt::Uninitialized);
     QByteArray outBuf(OutputBufferSize, Qt::Uninitialized);
@@ -194,6 +98,8 @@ qint32 GzipDecompressFile::read(char *data, qint32 size)
     while (d->buf.size() < size && !d->eof) {
         qint32 readBytes = d->backend->read(inBuf.data(), inBuf.size());
         if (readBytes <= 0) {
+            // the gzip stream have an eof mark. we expect it!
+            // before the gzip steam eof, readBytes <= 0 is always error.
             if (d->buf.isEmpty()) {
                 return -1;
             }
@@ -204,29 +110,21 @@ qint32 GzipDecompressFile::read(char *data, qint32 size)
         do {
             d->zstream.next_out = reinterpret_cast<Bytef *>(outBuf.data());
             d->zstream.avail_out = static_cast<uint>(outBuf.size());
-            int ret = inflate(&d->zstream, readBytes > 0 ? Z_FULL_FLUSH : Z_FINISH);
+            int ret = inflate(&d->zstream, readBytes > 0 ? Z_NO_FLUSH : Z_FINISH);
             if (ret == Z_DATA_ERROR && !d->triedRawDeflate) {
-                d->triedRawDeflate = true;
-                inflateEnd(&d->zstream);
-                d->zstream.zalloc = nullptr;
-                d->zstream.zfree = nullptr;
-                d->zstream.opaque = nullptr;
-                d->zstream.avail_in = 0;
-                d->zstream.next_in = nullptr;
-                ret = inflateInit2(&d->zstream, -MAX_WBITS);
-                if (ret != Z_OK) {
-                    d->inited = false;
+                if (!d->initZStream(true)) {
                     return -1;
-                } else {
-                    d->zstream.next_in = reinterpret_cast<Bytef *>(inBuf.data());
-                    d->zstream.avail_in = static_cast<uint>(readBytes);
-                    continue;
                 }
+                d->zstream.next_in = reinterpret_cast<Bytef *>(inBuf.data());
+                d->zstream.avail_in = static_cast<uint>(readBytes);
+                continue;
             } else if (ret < 0 || ret == Z_NEED_DICT) {
+                qtng_warning << "gzip report need dict?! why this happened?";
                 d->hasError = true;
                 return -1;
             }
             if (Q_UNLIKELY(d->zstream.avail_out > static_cast<uint>(outBuf.size()))) {  // is this possible?
+                qtng_warning << "gzip report avail_out > outBuf.size() at reading, this is impossible!";
                 d->hasError = true;
                 return -1;
             }
@@ -240,6 +138,7 @@ qint32 GzipDecompressFile::read(char *data, qint32 size)
                 break;
             }
             if (d->zstream.avail_in == 0) {
+                // all readBytes is consumed, we must read more.
                 break;
             }
         } while (d->zstream.avail_out == 0);
@@ -257,14 +156,11 @@ qint32 GzipDecompressFile::read(char *data, qint32 size)
     return bytesToRead;
 }
 
-qint32 GzipDecompressFile::write(const char *data, qint32 size)
+qint32 GzipFile::write(const char *data, qint32 size)
 {
-    Q_D(GzipDecompressFile);
-    if (d->hasError || !d->inited) {
+    Q_D(GzipFile);
+    if (d->hasError || !d->inited || (d->mode != Compress && d->mode != Deflate)) {
         return -1;
-    }
-    if (Q_UNLIKELY(size == 0)) {
-        return 0;
     }
 
     const int OutputBufferSize = 1024 * 32;
@@ -275,47 +171,31 @@ qint32 GzipDecompressFile::write(const char *data, qint32 size)
     do {
         d->zstream.next_out = reinterpret_cast<Bytef *>(outBuf.data());
         d->zstream.avail_out = static_cast<uint>(outBuf.size());
-        int ret = inflate(&d->zstream, size > 0 ? Z_FULL_FLUSH : Z_FINISH);
-        if (ret == Z_DATA_ERROR && !d->triedRawDeflate) {
-            d->triedRawDeflate = true;
-            inflateEnd(&d->zstream);
-            d->zstream.zalloc = nullptr;
-            d->zstream.zfree = nullptr;
-            d->zstream.opaque = nullptr;
-            d->zstream.avail_in = 0;
-            d->zstream.next_in = nullptr;
-            int ret = inflateInit2(&d->zstream, -MAX_WBITS);
-            if (ret != Z_OK) {
-                d->inited = false;
-                return -1;
-            } else {
-                d->zstream.next_in = reinterpret_cast<Bytef *>(const_cast<char *>(data));
-                d->zstream.avail_in = static_cast<uint>(size);
-                continue;
-            }
-        } else if (ret < 0 || ret == Z_NEED_DICT) {
+        int ret = deflate(&d->zstream, size > 0 ? Z_NO_FLUSH : Z_FINISH);
+        if (ret < 0 || ret == Z_NEED_DICT) {
+            qtng_warning << "gzip report need dict?! why this happened?";
             d->hasError = true;
             return -1;
         }
         if (Q_UNLIKELY(d->zstream.avail_out > static_cast<uint>(outBuf.size()))) {  // is this possible?
+            qtng_warning << "gzip report avail_out > outBuf.size() at writing, this is impossible!";
             d->hasError = true;
             return -1;
         }
-        d->triedRawDeflate = true;
         int have = outBuf.size() - static_cast<int>(d->zstream.avail_out);
         if (have > 0) {
-            d->buf.append(outBuf.data(), have);
+            d->buf.append(outBuf.data(), static_cast<qint32>(have));
         }
     } while (d->zstream.avail_out == 0 || d->zstream.avail_in > 0);
+
+    if (d->buf.isEmpty()) {
+        return true;
+    }
 
     qint32 bytesWritten = d->backend->write(d->buf.constData(), d->buf.size());
     bool success = (bytesWritten == d->buf.size());
     d->buf.clear();
-    if (success) {
-        return size;
-    } else {
-        return -1;
-    }
+    return success ? size : -1;
 }
 
 bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int level)
@@ -323,16 +203,16 @@ bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> outp
     if (input.isNull() || output.isNull()) {
         return false;
     }
-    QSharedPointer<GzipCompressFile> gzip(new GzipCompressFile(output, level));
+    QSharedPointer<GzipFile> gzip(new GzipFile(output, GzipFile::Compress, level));
     return sendfile(input, gzip);
 }
 
 bool qGzipDecompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output)
 {
-    if (input.isNull()) {
+    if (input.isNull() || output.isNull()) {
         return false;
     }
-    QSharedPointer<GzipDecompressFile> gzip(new GzipDecompressFile(input));
+    QSharedPointer<GzipFile> gzip(new GzipFile(input, GzipFile::Decompress));
     return sendfile(gzip, output);
 }
 
