@@ -80,7 +80,7 @@ Here comes an example showing two coroutines output message in turn.
         void run() override {
             for (int i = 0; i < 3; ++i) {
                 qDebug() << name << i;
-                // switch to eventloop coroutine, will switch back in 100 ms.
+                // switch to eventloop coroutine, will switch back in 100 ms.See 1.7 for details.
                 msleep(100); 
             }
         }
@@ -576,6 +576,7 @@ An `Event` (also called event semaphore) is a type of synchronization mechanism 
         operations.spawn([event]{
             event->send(3);
         });
+        operations.joinall();
         return 0;
     }
 
@@ -832,8 +833,147 @@ Here come two functions that can resolve these errors, and another that can spaw
 1.7 The Internal: How Coroutines Switch
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-to be written.
+1.7.1 Functor
+-------------
+Abstract callback interface that defines a unified ``operator()`` method. All concrete callbacks should inherit from this class (e.g., timer callbacks, I/O event callbacks).
 
+.. method:: virtual bool operator()() = 0
+
+    Pure virtual base class; subclasses must implement concrete logic.
+
+
+1.7.2 DoNothingFunctor
+----------------------
+No-operation callback that can be used as a placeholder or default callback.
+
+.. method:: bool operator()()
+
+    No-operation callback that directly returns ``false``.
+
+
+1.7.3 YieldCurrentFunctor
+-------------------------
+Yields execution rights of the current operation.
+
+.. method:: explicit YieldCurrentFunctor()
+
+    Preserves the pointer to the current coroutine.
+
+.. method:: virtual bool operator()()
+
+    Reawakens the preserved coroutine pointer.
+
+
+1.7.4 DeleteLaterFunctor<T>
+---------------------------
+Delays object deletion to avoid direct destruction within callbacks.
+
+.. method:: virtual bool operator()()
+
+    Releases dynamically allocated objects of type ``T``.
+
+
+1.7.5 LambdaFunctor
+-------------------
+Wraps a lambda expression to allow it to act as a callback.
+
+.. method:: virtual bool operator()()
+
+    Invokes the stored ``callback()`` to execute user-defined logic.
+
+
+1.7.6 callInEventLoopCoroutine
+------------------------------
+Core class of the coroutine event loop, serving as the carrier of the event loop.Responsible for managing I/O event monitoring, timer scheduling, coroutine suspension/resumption, and coordinating interactions between coroutines and the underlying event-driven mechanisms.
+
+Types of I/O operations
+    .. code-block:: c++
+        enum EventType {
+            Read = 1,
+            Write = 2,
+            ReadWrite = 3,
+        };
+
+.. method:: int createWatcher(EventType event, qintptr fd, Functor *callback)
+
+    Creates a read/write event watcher for file descriptor ``fd``, binding the callback function ``callback``.
+
+
+.. method:: void startWatcher(int watcherId)
+
+    Starts the watcher with specified ID. Used for dynamic event monitoring control.
+
+
+.. method:: void stopWatcher(int watcherId)
+
+    Stops the watcher with specified ID. Used for dynamic event monitoring control.
+
+
+.. method:: void removeWatcher(int watcherId)
+
+    Removes the watcher and releases associated resources.
+
+
+.. method:: void triggerIoWatchers(qintptr fd)
+
+    Manually triggers all registered event callbacks associated with ``fd``. Used for external event notifications.
+
+
+.. method:: void callLaterThreadSafe(quint32 msecs, Functor *callback)
+
+    Schedules an asynchronous callback to be executed after a delay of ``msecs`` milliseconds in a thread-safe manner.
+
+
+.. method:: int callLater(quint32 msecs, Functor *callback)
+
+    Executes ``callback`` once after delaying ``msecs`` milliseconds. Returns timer ID.
+
+
+.. method:: int callRepeat(quint32 msecs, Functor *callback)
+
+    Repeatedly executes ``callback`` every ``msecs`` milliseconds. Returns timer ID.
+
+
+.. method:: void cancelCall(int callbackId)
+
+    Cancels the timer with specified ID to prevent callback execution.
+
+
+.. method:: bool runUntil(BaseCoroutine *coroutine)
+
+    Runs event loop until ``coroutine`` completes. Used to block waiting for coroutine finish.
+
+
+.. method:: bool yield()
+
+    Suspends current coroutine and yields CPU to other coroutines. Typically called while waiting for events.
+
+
+.. method:: int exitCode()
+
+    Returns event loop's termination status code for judging operation result.
+
+
+.. method:: bool isQt()
+
+    Determines if the event loop backend implementation is Qt.
+
+
+.. method:: bool isEv()
+
+    Determines if the event loop backend implementation is libev.
+
+
+.. method:: bool isWin()
+
+    Determines if the event loop backend implementation is winev.
+
+
+.. method:: static EventLoopCoroutine *get()
+
+    Unified entry point for event loop, manages instance lifecycle via thread-local storage and adapts to multi-platform backends. 
+    Serves as the core hub for asynchronous programming. Its design philosophy aligns with Python's ``asyncio.get_event_loop()``, but implements lower-level control leveraging C++ features.
+    
 2. Basic Network Programming
 ----------------------------
 

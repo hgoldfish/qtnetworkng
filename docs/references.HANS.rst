@@ -63,7 +63,7 @@ QtNetworkNg 参考文档
 - ``BaseCoroutine``：提供基础切换功能
 - ``Coroutine``：通过事件循环协程实现调度
 
-示例展示两个协程交替执行：
+示例2:展示两个协程交替执行
 
 .. code-block:: c++
     :caption: 示例2: 两个Coroutine交替运行
@@ -78,7 +78,7 @@ QtNetworkNg 参考文档
         void run() override {
             for (int i = 0; i < 3; ++i) {
                 qDebug() << name << i;
-                msleep(100);  # 切换至事件循环协程，100ms后返回
+                msleep(100);  # 切换至事件循环协程，100ms后返回，详情可见1.7
             }
         }
         QString name;
@@ -434,7 +434,7 @@ QtNetworkNg 参考文档
             QCoreApplication app(argc, argv);
             QList<int> range10;
             for (int i = 0; i < 10; ++i)
-                range10.append(i);
+                range10.append(i); 
             CoroutineGroup::each<int>(output, range10);
             return 0;
         }
@@ -573,6 +573,7 @@ QtNetworkNg 参考文档
         operations.spawn([event]{
             event->send(3);
         });
+        operations.joinall();
         return 0;
     }
 
@@ -908,8 +909,191 @@ QtNetworkNg 编程中**最严重的错误**是在事件循环协程中调用阻�
 1.7 内部机制：协程如何切换
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-待编写。
+1.7.1 Functor
 
+抽象回调接口，定义统一的 operator()方法，所有具体回调需继承此类，例如定时器回调，IO事件回调
+
+.. method:: virtual bool operator()()=0
+    
+    纯虚基类，子类需实现具体逻辑
+
+1.7.2 DoNothingFunctor
+  
+空操作回调，可用于占位或默认回调
+
+..method::operator()()=0
+
+  空操作回调，直接返回 false
+
+1.7.3 YieldCurrentFunctor
+
+让出当前操作的执行权
+
+..method::explicit YieldCurrentFunctor()
+
+  保存当前协程的指针
+
+..method::virtual bool operator()()
+ 
+ 重新唤醒保存的指针
+
+1.7.4 DeleteLaterFunctor<T>
+
+延迟删除对象，避免在回调中直接析构
+
+..methodvirtual bool operator()()
+
+ 释放动态分配的对象
+
+1.7.5 LambdaFunctor
+
+包装函数，允许lambda表达式作为回调
+
+..method::virtual operator()()
+
+  调用callback() 执行用户定义逻辑
+
+1.7.6 callInEventLoopCoroutine
+
+协程事件循环的核心类，作为事件循环的载体,负责管理 ​I/O 事件监听、定时器调度、协程挂起与恢复，并协调协程与底层事件驱动的交互。
+
+I/O操作类型
+    .. code-block:: c++
+    enum EventType {
+        Read = 1,
+        Write = 2,
+        ReadWrite = 3,
+    };
+
+..method:: int createWatcher(EventType event, qintptr fd, Functor *callback)
+
+ 创建针对文件描述符 fd 的读写事件监视器，绑定回调函数 callback
+
+..method:: void startWatcher(int watcherId);
+
+ 启动指定 ID 的监视器。适用于动态控制事件监听。
+
+..method:: void stopWatcher(int watcherId);
+
+ 停止指定 ID 的监视器。适用于动态控制事件监听。
+
+..method:: void removeWatcher(int watcherId);
+
+ 移除监视器，释放相关资源。
+
+..method:: void triggerIoWatchers(qintptr fd);
+
+ 手动触发与 fd 关联的所有已注册事件回调。用于外部事件通知。
+
+..method:: void callLaterThreadSafe(quint32 msecs, Functor *callback)
+
+ 线程安全地调度一个延迟 msecs 毫秒后执行的异步回调。
+
+..method:: int callLater(quint32 msecs, Functor *callback)
+
+ 延迟 msecs 毫秒后执行一次 callback，返回定时器 ID。
+
+..method:: int callRepeat(quint32 msecs, Functor *callback) 
+
+ 每隔 msecs 毫秒重复执行 callback，返回定时器 ID。
+
+..method:: void cancelCall(int callbackId)
+
+ 取消指定 ID 的定时器，防止回调执行。
+
+..method:: bool runUntil(BaseCoroutine *coroutine)
+ 
+ 运行事件循环，直到 coroutine 协程结束。用于阻塞等待协程完成。
+
+..method:: bool yield();
+
+ 挂起当前协程，让出 CPU 给其他协程。通常在等待事件时调用。
+
+ ..method:: int exitCode()
+
+ 返回事件循环的终止状态码，用于判断事件循环的运行结果。
+
+..method:: bool isQt()
+
+ 判断事件循环的后端实现(Qt) 
+
+..method:: bool isEv() 
+
+ 判断事件循环的后端实现(libev)
+
+..method:: bool isWin()
+ 
+ 判断事件循环的后端实现(winev)
+
+..method static EventLoopCoroutine *get();
+
+ 事件循环的统一入口，通过线程本地存储管理实例生命周期，并适配多平台后端，是异步编程的核心枢纽。其设计理念与 Python 的 asyncio.get_event_loop() 一脉相承，但结合 C++ 特性实现了更底层的控制。
+
+1.7.7 ScopedIoWatcher
+
+ RAII 封装 IO 事件监视器，自动管理资源。
+
+..method:: ScopedIoWatcher(EventType, qintptr fd)
+
+ 创建指定类型（读/写）的文件描述符监视器。
+
+..method:: ​bool start()
+
+ 启动监视器。
+
+1.7.8 CurrentLoopStorage
+
+ 事件循环的抽象基类，定义平台相关的接口。
+
+..method:: QSharedPointer<EventLoopCoroutine> getOrCreate();
+
+ 获取当前线程的事件循环实例；若不存在则创建新实例。
+
+..method:: QSharedPointer<EventLoopCoroutine> get();
+
+ 仅获取当前线程的事件循环实例，若未初始化则返回空指针。
+
+..method:: void set(QSharedPointer<EventLoopCoroutine> eventLoop);
+
+ 显式设置当前线程的事件循环实例（覆盖自动创建逻辑）。
+
+..method:: void clean();
+
+ 清空当前线程的事件循环实例，触发 QSharedPointer 的引用计数析构。
+
+1.7.7 ScopedIoWatcher
+---------------------
+RAII wrapper for IO event watcher that automatically manages resources.
+
+.. method:: ScopedIoWatcher(EventType event, qintptr fd)
+
+    Creates a watcher for specified event type (read/write) on file descriptor ``fd``.
+
+.. method:: bool start()
+
+    Starts the watcher.
+
+
+1.7.8 CurrentLoopStorage
+------------------------
+Abstract base class for event loops that defines platform-dependent interfaces.
+
+.. method:: QSharedPointer<EventLoopCoroutine> getOrCreate()
+
+    Gets the event loop instance for current thread; creates a new instance if none exists.
+
+.. method:: QSharedPointer<EventLoopCoroutine> get()
+
+    Only retrieves current thread's event loop instance; returns null pointer if uninitialized.
+
+.. method:: void set(QSharedPointer<EventLoopCoroutine> eventLoop)
+
+    Explicitly sets current thread's event loop instance (overrides auto-creation logic).
+
+.. method:: void clean()
+
+    Clears current thread's event loop instance, triggering ``QSharedPointer``'s reference-counted destruction.
+    
 2. 基础网络编程
 ----------------------------
 
@@ -987,35 +1171,35 @@ QtNetworkNg 支持 IPv4 和 IPv6，旨在提供类似 Python socket 模块的面
 +---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Name                               | Description                                                                                                                          |
 +====================================+======================================================================================================================================+
-| ``BroadcastSocketOption``          | UDP套接字发送广播数据报                                                                                                              |
+| ``BroadcastSocketOption``          | UDP套接字发送广播数据报                                                                                                                |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``AddressReusable``                | 允许bind()调用重用本地地址                                                                                                            |
+| ``AddressReusable``                | 允许bind()调用重用本地地址                                                                                                             |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``ReceiveOutOfBandData``           | 启用时将带外数据直接放入接收数据流                                                                                                    |
+| ``ReceiveOutOfBandData``           | 启用时将带外数据直接放入接收数据流                                                                                                      |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``ReceivePacketInformation``       | 保留选项，暂不支持                                                                                                                   |
+| ``ReceivePacketInformation``       | 保留选项，暂不支持                                                                                                                     |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``ReceiveHopLimit``                | 保留选项，暂不支持                                                                                                                   |
+| ``ReceiveHopLimit``                | 保留选项，暂不支持                                                                                                                     |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``LowDelayOption``                 | 禁用Nagle算法                                                                                                                        |
+| ``LowDelayOption``                 | 禁用Nagle算法                                                                                                                         |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``KeepAliveOption``                | 在面向连接的套接字上启用保活报文发送                                                                                                  |
+| ``KeepAliveOption``                | 在面向连接的套接字上启用保活报文发送                                                                                                     |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``MulticastTtlOption``             | 设置/读取组播报文的生存时间(TTL)                                                                                                      |
+| ``MulticastTtlOption``             | 设置/读取组播报文的生存时间(TTL)                                                                                                        |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``MulticastLoopbackOption``        | 控制是否回环发送的组播报文                                                                                                            |
+| ``MulticastLoopbackOption``        | 控制是否回环发送的组播报文                                                                                                              |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``TypeOfServiceOption``            | 设置/读取IP报文的服务类型字段(TOS)                                                                                                    |
+| ``TypeOfServiceOption``            | 设置/读取IP报文的服务类型字段(TOS)                                                                                                      |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``SendBufferSizeSocketOption``     | 设置/获取发送缓冲区最大字节数                                                                                                         |
+| ``SendBufferSizeSocketOption``     | 设置/获取发送缓冲区最大字节数                                                                                                           |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``ReceiveBufferSizeSocketOption``  | 设置/获取接收缓冲区最大字节数                                                                                                         |
+| ``ReceiveBufferSizeSocketOption``  | 设置/获取接收缓冲区最大字节数                                                                                                           |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``MaxStreamsSocketOption``         | 保留选项，暂不支持STCP协议                                                                                                            |
+| ``MaxStreamsSocketOption``         | 保留选项，暂不支持STCP协议                                                                                                             |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``NonBlockingSocketOption``        | 保留选项，Socket内部要求非阻塞模式                                                                                                    |
+| ``NonBlockingSocketOption``        | 保留选项，Socket内部要求非阻塞模式                                                                                                      |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``BindExclusively``                | 保留选项，暂不支持                                                                                                                   |
+| ``BindExclusively``                | 保留选项，暂不支持                                                                                                                     |
 +------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
 
 注意：Windows Runtime中必须在连接前设置Socket::KeepAliveOption
@@ -1410,35 +1594,6 @@ DNS相关
     
     // 启用缓存管理
     session.setCacheManager(QSharedPointer<HttpCacheManager>::create());
-
-``HttpRequest``提供了许多函数，用于对web服务器的请求进行细粒度控制。最常用的功能是“setMethod () ' ', ' ' setUrl () ' ', ' ' setBody () ' ', ' ' setTimeout() ' '。
-
-``HttpResponse``提供了解析HTTP响应的函数。如果发生了一些错误，例如连接超时、HTTP 500错误等，`HttpResonse::isOk()`将返回false。所以，在使用``HttpResonse``之前一定要检查它。错误的详细信息是``HttpResonse::error()``。
-
-有一个特殊的函数``HttpRequest::setStreamResponse()``，它表明``HttpResponse``不解析响应体。然后，你可以使用``HttpResponse::takeStream()``将HTTP连接作为普通套接字。
-
-好的，我现在需要处理用户提供的关于QtNetworkNg的HttpSession类的文档翻译任务。用户的要求是将英文的rst格式文档准确翻译成中文，保持原有格式和符号不变，不翻译专有名词，如类名、方法名等。
-
-首先，我需要通读整个提供的文档部分，理解每个方法和参数的含义，确保在翻译时不会改变技术细节。用户已经提供了部分翻译示例，我需要遵循相同的风格和术语。例如，“HttpSession”应保留不翻译，方法名如“send()”或“get()”也要保持原样。
-
-接下来，注意到用户特别强调不要改动任何符号，比如代码块中的星号、括号、引号等。因此，在翻译过程中，必须仔细检查格式，确保所有代码示例、表格结构、链接标记等都保持原样。例如，表格中的“VerifyNone”、“QueryPeer”等应保留英文，同时翻译其后的描述内容。
-
-在处理每个方法时，要确保参数和返回值的描述准确无误。例如，“setMaxConnectionsPerServer(int maxConnectionsPerServer)”中的参数名和类型不应翻译，但说明部分需要转化为通顺的中文。同时，注意技术术语的一致性，比如“cookie”、“timeout”、“proxy”等在中文技术文档中通常保留英文，但根据用户要求可能需要调整，但用户示例显示这些术语被翻译了，所以需要统一。
-
-对于重复出现的部分，例如多个重载的“get()”、“post()”等方法，要保持结构一致，使用相同的格式和术语。用户提供的示例中，这些方法用代码块列出，翻译时应保持代码块的格式，仅翻译参数说明部分。
-
-还需要注意用户之前翻译中的一些细节，比如“HttpResponse::isOk()”翻译为“检测请求是否成功”，而错误处理部分要明确说明如何获取错误信息。同时，用户提到的一些注意事项，如“setCookieJar()暂未实现”，需要准确传达。
-
-在翻译过程中，可能会遇到一些技术难点，比如某些术语在中文中没有直接对应的词汇，这时需要参考已有的技术文档或通用译法，确保术语的准确性和一致性。例如，“SOCKS5 proxy”通常译为“SOCKS5代理”，而“cache manager”译为“缓存管理器”。
-
-此外，要确保整个文档的结构和层次清晰，使用适当的标题和子标题，保持与原文相同的章节编号和格式。例如，“3.1 HttpSession”应保持不变，下面的方法列表使用正确的rst语法，如“.. method::”和代码块标记。
-
-最后，完成翻译后，需要通读检查，确保没有遗漏任何部分，格式正确，术语一致，语句通顺。特别是用户强调的不要改动任何符号，需仔细核对代码块、表格、链接等部分，确保与原文档完全一致，仅语言转换为中文。
-
-总结来说，这个过程需要细致的技术理解、严格遵循格式要求、准确的术语翻译，以及多次校对确保质量。保持与用户提供的示例一致，同时处理大量重复和结构化的内容，是完成此任务的关键。
-
-
-
 
 3.1 HttpSession
 ^^^^^^^^^^^^^^^
