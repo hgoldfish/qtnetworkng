@@ -503,6 +503,7 @@ T QueueType<T, EventType, ReadWriteLockType>::peek()
 {
     lock.lockForRead();
     if (this->queue.isEmpty()) {
+        lock.unlock();
         return T();
     }
     const T &t = queue.head();

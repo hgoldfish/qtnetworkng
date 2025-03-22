@@ -444,6 +444,7 @@ class PipePrivate
 public:
     PipePrivate(Pipe *q, qint32 maxBufferSize)
         : q_ptr(q)
+        , queue(2)
         , closed(false)
         , maxBufferSize(maxBufferSize)
         , shouldEmitReadyRead(false)
@@ -711,15 +712,17 @@ public:
         }
 
         qint32 bytesToRead = qMin<qint32>(localBuffer.size(), size);
-        memcpy(data, localBuffer.constData(), bytesToRead);
-        localBuffer.remove(0, bytesToRead);
-        return bytesToRead;
+        if (bytesToRead > 0) {
+            memcpy(data, localBuffer.constData(), bytesToRead);
+            localBuffer.remove(0, bytesToRead);
+            return bytesToRead;
+        }
+        return 0;
     }
     virtual qint64 writeData(const char *, qint64) override { return -1; }
     virtual bool waitForBytesWritten(int) override { return false; }
-    virtual bool waitForReadyRead(int) override
+    virtual bool waitForReadyRead(int msecs) override
     {
-
         QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
         if (pp.isNull()) {
             return false;
@@ -733,8 +736,7 @@ public:
         if (pp->closed) {
             return false;
         }
-        const QByteArray &packet = pp->queue.get();
-        pp->queue.returnsForcely(packet);
+        pp->queue.notEmpty.tryWait(msecs < 0 ? UINT_MAX : msecs);
         return true;
     }
 public:
@@ -828,13 +830,17 @@ public:
             }
         } else {
             // the qt document says size can be 0.
+            // write(0) == flush()
             Q_ASSERT(size == 0);
         }
 
-        pp->queue.put(localBuffer + QByteArray(data, size));
-        localBuffer.clear();
-        if (pp->shouldEmitReadyRead) {
-            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
+        if (localBuffer.size() + size > 0) {
+            // putting empty packet means closing pipe.
+            pp->queue.put(localBuffer + QByteArray(data, size));
+            localBuffer.clear();
+            if (pp->shouldEmitReadyRead) {
+                QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
+            }
         }
         return size;
     }
@@ -851,7 +857,7 @@ public:
         if (pp->queue.notFull.isSet()) {
             return true;
         }
-        return pp->queue.notFull.tryWait(msecs);
+        return pp->queue.notFull.tryWait(msecs < 0 ? UINT_MAX: msecs);
     }
 
     virtual bool waitForReadyRead(int) override { return false; }
