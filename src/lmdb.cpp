@@ -977,8 +977,9 @@ QSharedPointer<Lmdb> LmdbBuilder::create()
     rt = mdb_env_open(d->env, m_dirPath.toUtf8(), flags, mode);
     if (rt) {
 #if QTLMDB_DEBUG
-        qtng_warning << "can not open lmdb env:" << mdb_strerror(rt);
+        qtng_warning << "can not open lmdb env:" << mdb_strerror(rt) << m_dirPath << flags << mode;
 #endif
+        mdb_env_close(d->env);
         return QSharedPointer<Lmdb>();
     }
     return QSharedPointer<Lmdb>(new Lmdb(d.take()));
