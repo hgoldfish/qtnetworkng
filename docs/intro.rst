@@ -17,7 +17,7 @@ Coroutine-based paradigm is the now and the future of network programming. Corou
 
 
 Cross platforms
----------------
+----------------
 
 QtNetworkNg is tested in Linux, Android, Windows, MacOS, and OpenBSD. And support gcc, clang, mingw32, msvc.
 
@@ -29,7 +29,7 @@ The Qt eventloop can be replaced with libev eventloop, and SSL/cipher functions 
 
 
 Use QtNetworkNg in qmake projects
----------------------------------
+----------------------------------
 
 Assume your Qt/qmake project is project *foo*, described in ``foo.pro``, and has a directory structure like this.
 

@@ -1,18 +1,18 @@
 QtNetworkNg 参考文档
-============================
+====================
 
 1. 使用协程
------------------
+-----------
 
 1.1 基础与示例
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^
 
-协程是轻量级线程。在其他编程语言中，也被称为*fiber*、*goroutine*、*greenlet*等。协程拥有独立的栈空间，可以手动切换（yield）到其他协程。
+协程是轻量级线程。在其他编程语言中，也被称为 *fiber* 、 *goroutine* 、 *greenlet* 等。协程拥有独立的栈空间，可以手动切换（yield）到其他协程。
 
 .. code-block:: c++
-    :caption: 示例1: 两个BaseCoroutine之间的切换
+    :caption: 示例 1: 在两个协程间进行切换
 
-    // 警告：yield() 很少直接使用，此示例仅用于演示协程切换能力
+    // 警告: yield() 通常不直接使用, 这里只是为了展示协程的切换
     #include <qtnetworkng/qtnetworkng.h>
     #include <QCoreApplication>
     
@@ -21,9 +21,8 @@ QtNetworkNg 参考文档
     class MyCoroutine: public BaseCoroutine {
     public:
         MyCoroutine()
-        :BaseCoroutine(nullptr) 
-        {
-            // 保存当前协程以便切换回来
+        :BaseCoroutine(nullptr) {
+            // 保存协程上下文
             old = BaseCoroutine::current();
         }
         void run() {
@@ -35,12 +34,12 @@ QtNetworkNg 参考文档
         BaseCoroutine *old;
     };
     
-    int main(int argc, char ​**argv) {
+    int main(int argc, char **argv) {
         QCoreApplication app(argc, argv);
-        // 创建新协程时，主线程会隐式转换为主协程
+        // 一旦创建了一个新的协程，主线程就会隐式地转换为主协程。
         MyCoroutine m;
         qDebug() << "主协程在这里";
-        // 切换到新协程，yield() 在切换回来后返回
+        // 切换到新的协程，yield（）函数返回直到切换回来。
         m.yield();
         qDebug() << "返回主协程";
         return 0;
@@ -55,8 +54,8 @@ QtNetworkNg 参考文档
     我的协程在这里
     返回主协程
     不要删除运行中的BaseCoroutine: QObject(0x7ffdfae77e40)  # 可安全忽略的警告
-
-``BaseCoroutine::raise()``与``BaseCoroutine::yield()``类似，但会向目标协程发送``CoroutineException``异常。
+ 
+``BaseCoroutine::raise()`` 与 ``BaseCoroutine::yield()`` 类似，但会向目标协程发送``CoroutineException``异常。
 
 实际开发中更常用的是``Coroutine::start()``和``Coroutine::kill()``。QtNetworkNg 将协程功能分为``BaseCoroutine``和``Coroutine``两个类：
 
@@ -66,7 +65,7 @@ QtNetworkNg 参考文档
 示例2:展示两个协程交替执行
 
 .. code-block:: c++
-    :caption: 示例2: 两个Coroutine交替运行
+    :caption: 示例 2: 两个协程交替运行.
     
     #include "qtnetworkng/qtnetworkng.h"
     
@@ -78,18 +77,21 @@ QtNetworkNg 参考文档
         void run() override {
             for (int i = 0; i < 3; ++i) {
                 qDebug() << name << i;
-                msleep(100);  # 切换至事件循环协程，100ms后返回，详情可见1.7
+                // 进入事件循环，将在100 ms后切换回来。详情参见1.7.
+                msleep(100); 
             }
         }
         QString name;
     };
     
-    int main(int argc, char ​**argv) {
+    int main(int argc, char **argv) {
         MyCoroutine coroutine1("coroutine1");
         MyCoroutine coroutine2("coroutine2");
         coroutine1.start();
         coroutine2.start();
+        // 切换回主协程
         coroutine1.join();
+        // 切换到第二个协程来完成它
         coroutine2.join();
         return 0;
     }
@@ -107,7 +109,7 @@ QtNetworkNg 参考文档
     "coroutine2" 2
 
 1.2 启动协程
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^
 
 .. note:: 
 
@@ -277,7 +279,7 @@ QtNetworkNg 参考文档
     本属性为 ``Deferred`` 对象，作用类似 Qt 事件。可通过添加回调函数在协程结束后执行操作。
 
 1.4 使用 CoroutineGroup 管理多个协程
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 在 C++ 中创建和删除协程较为复杂，主要由于内存管理问题。通常需确保协程使用的资源在外部删除前协程已退出，并遵循以下规则：
 
@@ -440,7 +442,7 @@ QtNetworkNg 参考文档
         }
 
 1.5 协程间通信
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^
 
 相较于 `boost::coroutine`，QtNetworkNg 最显著的优势在于其完善的协程通信机制。
 
@@ -522,7 +524,7 @@ QtNetworkNg 参考文档
 1.5.2 Event
 +++++++++++
 
-`Event`（事件信号量）是用于通知等待协程特定条件已触发的同步机制。
+`Event` (事件信号量)是用于通知等待协程特定条件已触发的同步机制。
 
 .. _Event: https://en.wikipedia.org/wiki/Event_(synchronization_primitive)
 
@@ -605,93 +607,6 @@ QtNetworkNg 参考文档
     
 .. method:: int getting() const
 
-1.5.2 Event
-+++++++++++
-
-`Event`（事件信号量）是用于通知等待协程特定条件已触发的同步机制。
-
-.. _Event: https://en.wikipedia.org/wiki/Event_(synchronization_primitive)
-
-.. method:: bool wait(bool blocking = true)
-
-    等待事件。若事件未触发且 ``blocking=true``，阻塞当前协程直至事件触发；否则立即返回。
-    
-    返回事件是否已触发。
-    
-.. method:: void set()
-
-    触发事件。等待此事件的协程将在当前协程切换至事件循环协程后恢复。
-    
-.. method:: void clear()
-
-    重置事件状态。
-    
-.. method:: bool isSet() const
-
-    检测事件是否已触发。
-    
-.. method:: int getting() const
-
-    获取当前等待此事件的协程数量。
-    
-1.5.3 ValueEvent<>
-++++++++++++++++++
-
-``ValueEvent<>`` 继承自 ``Event``，支持协程间传递数据。
-
-.. code-block:: c++
-    :caption: 使用 ValueEvent<> 传递值
-    
-    #include <QtCore/qcoreapplication.h>
-    #include "qtnetworkng/qtnetworkng.h"
-
-    using namespace qtng;
-
-    int main(int argc, char **argv)
-    {
-        QCoreApplication app(argc, argv);
-        QSharedPointer<ValueEvent<int>> event(new ValueEvent<int>());
-        
-        CoroutineGroup operations;
-        operations.spawn([event]{
-            qDebug() << event->wait();
-        });
-        operations.spawn([event]{
-            event->send(3);
-        });
-        return 0;
-    }
-
-输出结果：
-
-.. code-block:: text
-
-    3
-
-.. method:: void send(const Value &value)
-    
-    发送数据并触发事件。等待协程将在当前协程切换至事件循环协程后恢复。
-    
-.. method:: Value wait(bool blocking = true)
-    
-    等待事件。若事件未触发且 ``blocking=true``，阻塞当前协程直至触发。返回发送的数据，失败时返回默认构造值。
-    
-.. method:: void set()
-
-    触发事件（与 ``send()`` 等效）。
-    
-.. method:: void clear()
-
-    重置事件状态。
-    
-.. method:: bool isSet() const
-
-    检测事件是否已触发。
-    
-.. method:: int getting() const
-
-    获取当前等待此事件的协程数量。
-
 1.5.4 Gate
 ++++++++++
 
@@ -754,6 +669,7 @@ QtNetworkNg 参考文档
 该示例启动 100 个协程，但仅有 5 个协程同时向 HTTP 服务器发起请求。
 
 .. method:: Semaphore(int value = 1)
+    :no-index:
 
     构造函数指定最大资源数 ``value``。
     
@@ -777,6 +693,7 @@ QtNetworkNg 参考文档
 协程间队列。
 
 .. method:: Queue(int capacity)
+    :no-index:
 
 构造函数指定队列容量 ``capacity``。
 
@@ -907,10 +824,10 @@ QtNetworkNg 编程中**最严重的错误**是在事件循环协程中调用阻�
 
 
 1.7 内部机制：协程如何切换
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 1.7.1 Functor
-
+--------------
 抽象回调接口，定义统一的 operator()方法，所有具体回调需继承此类，例如定时器回调，IO事件回调
 
 .. method:: virtual bool operator()()=0
@@ -918,181 +835,151 @@ QtNetworkNg 编程中**最严重的错误**是在事件循环协程中调用阻�
     纯虚基类，子类需实现具体逻辑
 
 1.7.2 DoNothingFunctor
-  
+-----------------------
 空操作回调，可用于占位或默认回调
 
-..method::operator()()=0
+.. method::operator()()=0
 
   空操作回调，直接返回 false
 
 1.7.3 YieldCurrentFunctor
-
+--------------------------
 让出当前操作的执行权
 
-..method::explicit YieldCurrentFunctor()
+.. method::explicit YieldCurrentFunctor()
 
   保存当前协程的指针
 
-..method::virtual bool operator()()
+.. method::virtual bool operator()()
  
  重新唤醒保存的指针
 
 1.7.4 DeleteLaterFunctor<T>
-
+----------------------------
 延迟删除对象，避免在回调中直接析构
 
-..methodvirtual bool operator()()
+.. method::virtual bool operator()()
 
  释放动态分配的对象
 
 1.7.5 LambdaFunctor
-
+-------------------
 包装函数，允许lambda表达式作为回调
 
-..method::virtual operator()()
+.. method::virtual operator()()
 
   调用callback() 执行用户定义逻辑
 
 1.7.6 callInEventLoopCoroutine
-
+-------------------------------
 协程事件循环的核心类，作为事件循环的载体,负责管理 ​I/O 事件监听、定时器调度、协程挂起与恢复，并协调协程与底层事件驱动的交互。
 
 I/O操作类型
-    .. code-block:: c++
-    enum EventType {
-        Read = 1,
-        Write = 2,
-        ReadWrite = 3,
-    };
 
-..method:: int createWatcher(EventType event, qintptr fd, Functor *callback)
+    .. code-block:: c++
+
+        enum EventType {
+            Read = 1,
+            Write = 2,
+            ReadWrite = 3,
+        };
+
+.. method:: int createWatcher(EventType event, qintptr fd, Functor *callback)
 
  创建针对文件描述符 fd 的读写事件监视器，绑定回调函数 callback
 
-..method:: void startWatcher(int watcherId);
+.. method:: void startWatcher(int watcherId);
 
  启动指定 ID 的监视器。适用于动态控制事件监听。
 
-..method:: void stopWatcher(int watcherId);
+.. method:: void stopWatcher(int watcherId);
 
  停止指定 ID 的监视器。适用于动态控制事件监听。
 
-..method:: void removeWatcher(int watcherId);
+.. method:: void removeWatcher(int watcherId);
 
  移除监视器，释放相关资源。
 
-..method:: void triggerIoWatchers(qintptr fd);
+.. method:: void triggerIoWatchers(qintptr fd);
 
  手动触发与 fd 关联的所有已注册事件回调。用于外部事件通知。
 
-..method:: void callLaterThreadSafe(quint32 msecs, Functor *callback)
+.. method:: void callLaterThreadSafe(quint32 msecs, Functor *callback)
 
  线程安全地调度一个延迟 msecs 毫秒后执行的异步回调。
 
-..method:: int callLater(quint32 msecs, Functor *callback)
+.. method:: int callLater(quint32 msecs, Functor *callback)
 
  延迟 msecs 毫秒后执行一次 callback，返回定时器 ID。
 
-..method:: int callRepeat(quint32 msecs, Functor *callback) 
+.. method:: int callRepeat(quint32 msecs, Functor *callback) 
 
  每隔 msecs 毫秒重复执行 callback，返回定时器 ID。
 
-..method:: void cancelCall(int callbackId)
+.. method:: void cancelCall(int callbackId)
 
  取消指定 ID 的定时器，防止回调执行。
 
-..method:: bool runUntil(BaseCoroutine *coroutine)
+.. method:: bool runUntil(BaseCoroutine *coroutine)
  
  运行事件循环，直到 coroutine 协程结束。用于阻塞等待协程完成。
 
-..method:: bool yield();
+.. method:: bool yield();
 
  挂起当前协程，让出 CPU 给其他协程。通常在等待事件时调用。
 
- ..method:: int exitCode()
+ .. method:: int exitCode()
 
  返回事件循环的终止状态码，用于判断事件循环的运行结果。
 
-..method:: bool isQt()
+.. method:: bool isQt()
 
  判断事件循环的后端实现(Qt) 
 
-..method:: bool isEv() 
+.. method:: bool isEv() 
 
  判断事件循环的后端实现(libev)
 
-..method:: bool isWin()
+.. method:: bool isWin()
  
  判断事件循环的后端实现(winev)
 
-..method static EventLoopCoroutine *get();
+.. method:: static EventLoopCoroutine *get();
 
  事件循环的统一入口，通过线程本地存储管理实例生命周期，并适配多平台后端，是异步编程的核心枢纽。其设计理念与 Python 的 asyncio.get_event_loop() 一脉相承，但结合 C++ 特性实现了更底层的控制。
 
 1.7.7 ScopedIoWatcher
+----------------------
+RAII 封装 IO 事件监视器，自动管理资源。
 
- RAII 封装 IO 事件监视器，自动管理资源。
-
-..method:: ScopedIoWatcher(EventType, qintptr fd)
+.. method:: ScopedIoWatcher(EventType, qintptr fd)
+    :no-index:
 
  创建指定类型（读/写）的文件描述符监视器。
 
-..method:: ​bool start()
+.. method:: ​bool start()
 
  启动监视器。
 
 1.7.8 CurrentLoopStorage
-
+-------------------------
  事件循环的抽象基类，定义平台相关的接口。
 
-..method:: QSharedPointer<EventLoopCoroutine> getOrCreate();
+.. method:: QSharedPointer<EventLoopCoroutine> getOrCreate();
 
  获取当前线程的事件循环实例；若不存在则创建新实例。
 
-..method:: QSharedPointer<EventLoopCoroutine> get();
+.. method:: QSharedPointer<EventLoopCoroutine> get();
 
  仅获取当前线程的事件循环实例，若未初始化则返回空指针。
 
-..method:: void set(QSharedPointer<EventLoopCoroutine> eventLoop);
+.. method:: void set(QSharedPointer<EventLoopCoroutine> eventLoop);
 
  显式设置当前线程的事件循环实例（覆盖自动创建逻辑）。
 
-..method:: void clean();
+.. method:: void clean();
 
  清空当前线程的事件循环实例，触发 QSharedPointer 的引用计数析构。
-
-1.7.7 ScopedIoWatcher
----------------------
-RAII wrapper for IO event watcher that automatically manages resources.
-
-.. method:: ScopedIoWatcher(EventType event, qintptr fd)
-
-    Creates a watcher for specified event type (read/write) on file descriptor ``fd``.
-
-.. method:: bool start()
-
-    Starts the watcher.
-
-
-1.7.8 CurrentLoopStorage
-------------------------
-Abstract base class for event loops that defines platform-dependent interfaces.
-
-.. method:: QSharedPointer<EventLoopCoroutine> getOrCreate()
-
-    Gets the event loop instance for current thread; creates a new instance if none exists.
-
-.. method:: QSharedPointer<EventLoopCoroutine> get()
-
-    Only retrieves current thread's event loop instance; returns null pointer if uninitialized.
-
-.. method:: void set(QSharedPointer<EventLoopCoroutine> eventLoop)
-
-    Explicitly sets current thread's event loop instance (overrides auto-creation logic).
-
-.. method:: void clean()
-
-    Clears current thread's event loop instance, triggering ``QSharedPointer``'s reference-counted destruction.
     
 2. 基础网络编程
 ----------------------------
@@ -1168,39 +1055,42 @@ QtNetworkNg 支持 IPv4 和 IPv6，旨在提供类似 Python socket 模块的面
 
 套接字选项可通过以下表格配置：
 
-+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Name                               | Description                                                                                                                          |
-+====================================+======================================================================================================================================+
-| ``BroadcastSocketOption``          | UDP套接字发送广播数据报                                                                                                                |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``AddressReusable``                | 允许bind()调用重用本地地址                                                                                                             |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``ReceiveOutOfBandData``           | 启用时将带外数据直接放入接收数据流                                                                                                      |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``ReceivePacketInformation``       | 保留选项，暂不支持                                                                                                                     |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``ReceiveHopLimit``                | 保留选项，暂不支持                                                                                                                     |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``LowDelayOption``                 | 禁用Nagle算法                                                                                                                         |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``KeepAliveOption``                | 在面向连接的套接字上启用保活报文发送                                                                                                     |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``MulticastTtlOption``             | 设置/读取组播报文的生存时间(TTL)                                                                                                        |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``MulticastLoopbackOption``        | 控制是否回环发送的组播报文                                                                                                              |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``TypeOfServiceOption``            | 设置/读取IP报文的服务类型字段(TOS)                                                                                                      |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``SendBufferSizeSocketOption``     | 设置/获取发送缓冲区最大字节数                                                                                                           |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``ReceiveBufferSizeSocketOption``  | 设置/获取接收缓冲区最大字节数                                                                                                           |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``MaxStreamsSocketOption``         | 保留选项，暂不支持STCP协议                                                                                                             |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``NonBlockingSocketOption``        | 保留选项，Socket内部要求非阻塞模式                                                                                                      |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
-| ``BindExclusively``                | 保留选项，暂不支持                                                                                                                     |
-+------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+
+.. list-table:: Socket 选项说明
+   :header-rows: 1
+   :widths: 30 70
+
+   * - 选项名称
+     - 描述
+   * - ``BroadcastSocketOption``
+     - UDP套接字发送广播数据报
+   * - ``AddressReusable``
+     - 允许bind()调用重用本地地址
+   * - ``ReceiveOutOfBandData``
+     - 启用时将带外数据直接放入接收数据流
+   * - ``ReceivePacketInformation``
+     - 保留选项，暂不支持
+   * - ``ReceiveHopLimit``
+     - 保留选项，暂不支持
+   * - ``LowDelayOption``
+     - 禁用Nagle算法
+   * - ``KeepAliveOption``
+     - 在面向连接的套接字上启用保活报文发送
+   * - ``MulticastTtlOption``
+     - 设置/读取组播报文的生存时间(TTL)
+   * - ``MulticastLoopbackOption``
+     - 控制是否回环发送的组播报文
+   * - ``TypeOfServiceOption``
+     - 设置/读取IP报文的服务类型字段(TOS)
+   * - ``SendBufferSizeSocketOption``
+     - 设置/获取发送缓冲区最大字节数
+   * - ``ReceiveBufferSizeSocketOption``
+     - 设置/获取接收缓冲区最大字节数
+   * - ``MaxStreamsSocketOption``
+     - 保留选项，暂不支持STCP协议
+   * - ``NonBlockingSocketOption``
+     - 保留选项，Socket内部要求非阻塞模式
+   * - ``BindExclusively``
+     - 保留选项，暂不支持
 
 注意：Windows Runtime中必须在连接前设置Socket::KeepAliveOption
 
@@ -1295,7 +1185,7 @@ QtNetworkNg 支持 IPv4 和 IPv6，旨在提供类似 Python socket 模块的面
     获取原生套接字描述符
     
 协议与类型
-^^^^^^^^^
+^^^^^^^^^^
 .. method:: SocketType type() const
 
     返回套接字类型(TCP/UDP)
@@ -1309,7 +1199,7 @@ QtNetworkNg 支持 IPv4 和 IPv6，旨在提供类似 Python socket 模块的面
     返回网络层协议
     
 DNS相关
-^^^^^^
+^^^^^^^
 .. method:: static QList<HostAddress> resolve(const QString &hostName)
 
     执行DNS解析
@@ -1440,17 +1330,21 @@ DNS相关
 
     返回对端验证模式：
 
-    +----------------------+--------------------------------------------------------------------------------------+
-    | PeerVerifyMode       | 描述                                                                                 |
-    +======================+======================================================================================+
-    | ``VerifyNone``       | 不要求对端提供证书，连接仍加密但身份验证关闭                                          |
-    +----------------------+--------------------------------------------------------------------------------------+
-    | ``QueryPeer``        | 请求对端证书但不强制验证（服务端默认模式）                                            |
-    +----------------------+--------------------------------------------------------------------------------------+
-    | ``VerifyPeer``       | 强制验证对端证书有效性                                                                |
-    +----------------------+--------------------------------------------------------------------------------------+
-    | ``AutoVerifyPeer``   | 自动模式：服务端用QueryPeer，客户端用VerifyPeer                                       |
-    +----------------------+--------------------------------------------------------------------------------------+
+ .. list-table:: QSslSocket 对等验证模式说明
+   :header-rows: 1
+   :widths: 30 70
+
+   * - PeerVerifyMode
+     - 描述
+   * - ``VerifyNone``
+     - 不要求对端提供证书，连接仍加密但身份验证关闭
+   * - ``QueryPeer``
+     - 请求对端证书但不强制验证（服务端默认模式）
+   * - ``VerifyPeer``
+     - 强制验证对端证书有效性（客户端默认模式）
+   * - ``AutoVerifyPeer``
+     - 自动模式：服务端用 QueryPeer，客户端用 VerifyPeer
+
 
 .. method:: QString peerVerifyName() const
 
@@ -2070,7 +1964,6 @@ DNS相关
 
     设置表单 ``name`` 字段的值为 ``value``。
 
-
 3.4 HTTP errors
 ^^^^^^^^^^^^^^^
 
@@ -2200,4 +2093,3 @@ DNS相关
 
 6.2 禁用SSL支持
 ^^^^^^^^^^^^^^^^^^^^^^^
-```

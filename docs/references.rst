@@ -887,7 +887,9 @@ Wraps a lambda expression to allow it to act as a callback.
 Core class of the coroutine event loop, serving as the carrier of the event loop.Responsible for managing I/O event monitoring, timer scheduling, coroutine suspension/resumption, and coordinating interactions between coroutines and the underlying event-driven mechanisms.
 
 Types of I/O operations
+
     .. code-block:: c++
+        
         enum EventType {
             Read = 1,
             Write = 2,
@@ -973,7 +975,40 @@ Types of I/O operations
 
     Unified entry point for event loop, manages instance lifecycle via thread-local storage and adapts to multi-platform backends. 
     Serves as the core hub for asynchronous programming. Its design philosophy aligns with Python's ``asyncio.get_event_loop()``, but implements lower-level control leveraging C++ features.
-    
+
+1.7.7 ScopedIoWatcher
+---------------------
+RAII wrapper for IO event watcher that automatically manages resources.
+
+.. method:: ScopedIoWatcher(EventType event, qintptr fd)
+
+    Creates a watcher for specified event type (read/write) on file descriptor ``fd``.
+
+.. method:: bool start()
+
+    Starts the watcher.
+
+
+1.7.8 CurrentLoopStorage
+------------------------
+Abstract base class for event loops that defines platform-dependent interfaces.
+
+.. method:: QSharedPointer<EventLoopCoroutine> getOrCreate()
+
+    Gets the event loop instance for current thread; creates a new instance if none exists.
+
+.. method:: QSharedPointer<EventLoopCoroutine> get()
+
+    Only retrieves current thread's event loop instance; returns null pointer if uninitialized.
+
+.. method:: void set(QSharedPointer<EventLoopCoroutine> eventLoop)
+
+    Explicitly sets current thread's event loop instance (overrides auto-creation logic).
+
+.. method:: void clean()
+
+    Clears current thread's event loop instance, triggering ``QSharedPointer``'s reference-counted destruction.
+
 2. Basic Network Programming
 ----------------------------
 
