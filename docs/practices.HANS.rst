@@ -1,12 +1,11 @@
-Best Pratices
+最佳实现
 =============
 
-Use CoroutineGroup to manage Coroutines
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+使用 CoroutineGroup 管理协程
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
-The difference between send() and sendall(), recv() and recvall()
+send()和sendall(), recv()和recvall()的不同点
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Pass QSharedPointer<T> to coroutine entry
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+使用QSharedPointer<T>智能指针管理协程
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

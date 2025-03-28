@@ -29,7 +29,7 @@ Qize Huang <hgoldfish#gmail.com>
 Feel free to send feedback to me.
 
 A glance at QtNetworkNg
------------------------
+------------------------
 
 QtNetworkNg is a coroutine-based network toolkit, like boost::asio but uses concepts from QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg requires Qt5 framework. Here comes a simple example to get web pages.
 
@@ -173,4 +173,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

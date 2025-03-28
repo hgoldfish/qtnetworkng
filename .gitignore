@@ -4,3 +4,4 @@ CMakeLists.txt.user*
 include/pool.h
 website/
 
+/docs/_build

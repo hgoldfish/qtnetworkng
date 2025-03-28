@@ -981,7 +981,7 @@ Types of I/O operations
 RAII wrapper for IO event watcher that automatically manages resources.
 
 .. method:: ScopedIoWatcher(EventType event, qintptr fd)
-
+    : no-index:
     Creates a watcher for specified event type (read/write) on file descriptor ``fd``.
 
 .. method:: bool start()
@@ -1523,7 +1523,248 @@ The second constructor use the ``hostName`` and ``port`` to create a valid Socks
 2.4 SocketServer
 ^^^^^^^^^^^^^^^^
 
-Not implmented yet.
+2.4.1 BaseStreamServer
++++++++++++++++++++++++
+BaseStreamServer is the foundational core class for building other SocketServers, providing basic socket server methods and reserving interfaces for further implementation of server types like TcpServer and KcpServer.
+
+.. method:: BaseStreamServer(const HostAddress &serverAddress, quint16 serverPort);
+
+    Initializes the server's listening address and port, defaults to binding all network interfaces using HostAddress::Any. Also initializes event objects started and stopped to track server status.
+
+.. method:: bool serveForever()
+
+    Blocks to run the server, cyclically accepting client connections and processing requests.
+
+.. method:: bool start()
+
+    Starts the server non-blockingly, running the service in background coroutine.
+
+.. method:: void stop()
+
+    Immediately closes server socket and terminates all connections.
+
+.. method:: bool wait()
+
+    Blocks current thread until server completely stops.
+
+.. method:: void setAllowReuseAddress(bool b)
+
+    Sets whether to allow port reuse (SO_REUSEADDR).
+
+.. method:: bool isSecure()
+
+    Identifies if the server uses encrypted protocols (e.g. SSL). Default returns: false, subclasses (e.g. WithSsl) override to return true.
+
+.. method:: QSharedPointer<SocketLike> serverSocket()
+
+    Gets underlying server socket object. First call will trigger serverCreate() to create socket.
+
+.. method:: quint16 serverPort()
+
+    Gets port number bound by the server.
+
+.. method:: HostAddress serverAddress()
+
+    Gets IP address bound by the server.
+
+.. method:: virtual bool serverBind()
+
+    Binds the server to specified address and port. Default implementation: sets SO_REUSEADDR option (if allowing address reuse), calls Socket::bind() for system call.
+
+.. method:: virtual bool serverActivate()
+
+    Sets socket to listening state. Default implementation: calls Socket::listen(), sets maximum connection queue length.
+
+.. method:: virtual QSharedPointer<SocketLike> prepareRequest(QSharedPointer<SocketLike> request);
+
+    Preprocesses requests (e.g. SSL handshake).
+
+.. method:: virtual bool verifyRequest(QSharedPointer<SocketLike> request);
+
+    Verifies request validity (e.g. IP blacklist). Default implementation: directly returns true, accepting all connections.
+
+2.4.2 WithSsl
+++++++++++++++
+Adds SSL/TLS encryption to any streaming server seamlessly through template composition.
+
+.. method:: WithSsl(const HostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
+
+    Initializes SSL server, inherits from ServerType, with several other similar constructors:
+
+.. code-block:: c++
+
+    WithSsl(const HostAddress &serverAddress, quint16 serverPort);
+    WithSsl(quint16 serverPort);
+    WithSsl(quint16 serverPort, const SslConfiguration &configuration);
+.. method:: void setSslConfiguration(const SslConfiguration &configuration);
+
+    Dynamically sets SSL configuration.
+
+.. method:: SslConfiguration sslConfiguration() const;
+
+    Gets SSL configuration.
+
+.. method:: void setSslHandshakeTimeout(float sslHandshakeTimeout)
+
+    Controls SSL handshake phase duration to prevent client-side malicious occupation.
+
+.. method:: float sslHandshakeTimeout()
+
+    Gets current SSL handshake timeout setting.
+
+.. method:: virtual bool isSecure()
+
+    Indicates server uses encrypted protocol for external code inspection.
+
+.. method:: prepareRequest()
+
+    Upgrades raw TCP connection to SSL connection.
+
+2.4.3 BaseRequestHandler
++++++++++++++++++++++++++
+Base class for request handling logic, users should inherit and implement concrete logic.
+
+.. method:: void run()
+
+    Main flow controller ensuring execution order: setup → handle → finish.
+
+.. method:: void setup()
+
+    Initializes request handling environment (e.g. verifying permissions, loading configurations).
+
+.. method:: void handle()
+
+    Implements core business logic (e.g. reading requests, processing data, returning responses).
+
+.. method:: void finish()
+
+    Cleans up resources (e.g. closing connections, logging, memory release). finish() should ensure resource cleanup even if business logic fails.
+
+.. method:: void userData()
+
+    Safely retrieves server-associated custom data (e.g. database connection pools, configuration objects).
+
+2.4.4 Socks5RequestHandler
++++++++++++++++++++++++++++
+Socks5RequestHandler implements SOCKS5 proxy protocol, inheriting from BaseRequestHandler to handle client connection requests through SOCKS5 proxy. Core features include protocol handshake, target address resolution, connection establishment, and data forwarding.
+
+.. method:: virtual void handle()
+
+    Main entry point for handling client SOCKS5 requests.
+
+.. method:: bool handshake()
+
+    Handles SOCKS5 handshake and authentication negotiation. Return value: true indicates successful handshake, false indicates failure.
+
+.. method:: bool parseAddress(QString *hostName, HostAddress *addr, quint16 *port)
+
+    Parses target address and port from client request.
+
+.. method:: virtual QSharedPointer<SocketLike> makeConnection(const QString &hostName, const HostAddress &hostAddress,quint16 port, HostAddress *forwardAddress)
+
+    Establishes connection to target server. hostName: Target domain name (e.g. ATYP=0x03), hostAddress: Target IP address (e.g. ATYP=0x01 or 0x04), port: Target port, forwardAddress: Output parameter recording actual connected server address.
+
+.. method:: bool sendConnectReply(const HostAddress &hostAddress, quint16 port)
+
+    Sends connection success response to client.
+
+.. method:: bool sendFailedReply()
+
+    Sends connection failure response.
+
+.. method:: virtual void exchange(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward)
+
+    Bidirectionally forwards data between client and target server.
+
+.. method:: doConnect()
+    : no-index:
+    Allows subclass extension for connection success behavior.
+
+.. method:: doFailed()
+
+    Allows subclass extension for connection failure behavior.
+
+.. method:: virtual void logProxy(const QString &hostName, const HostAddress &hostAddress, quint16 port,const HostAddress &forwardAddress, bool success)
+
+    Logs detailed proxy request information.
+
+2.4.5 TcpServer
+++++++++++++++++
+Encapsulates the creation, binding, and listening of TCP servers. Implements business logic decoupling through the template parameter RequestHandler. Supports high-concurrency connections based on coroutine concurrency model.
+
+.. method:: TcpServer(const HostAddress &serverAddress, quint16 serverPort);
+
+    Initialize the TCP server, bind to the specified address and port. Directly calls the constructor of ``BaseStreamServer``. If no address is specified, it defaults to binding all network interfaces (HostAddress::Any).
+
+.. method:: virtual QSharedPointer<SocketLike> serverCreate();
+
+    Create the underlying TCP server socket.
+
+.. method:: virtual void processRequest(QSharedPointer<SocketLike> request)
+
+    Handle a single client connection request.
+
+.. code-block:: c++
+    :caption: Example: Simple TCP Server
+        #include <QCoreApplication>
+        #include "qtnetworkng.h"
+        using namespace  qtng;
+        class EchoHandler : public BaseRequestHandler // Inherit BaseRequestHandler and override handle()
+        {
+        protected:
+            void handle()  {
+                qDebug()<<"Received message";
+                qint32 size=1024;
+                QByteArray data=request->recvall(size);
+                qDebug()<<QString(data);
+            }
+        };
+        int main()
+        {
+            // Create the server, listen on port 8080
+            TcpServer<EchoHandler> server(8080);
+            // Configure server parameters
+            server.setRequestQueueSize(100); // Set connection queue length
+            server.setAllowReuseAddress(true); // Allow port reuse
+            // Start the server (blocking operation)
+            if (!server.serveForever()) {
+                qDebug() << "Server startup failed!";
+                return 1;
+            }
+            return 0;
+        }
+
+2.4.6 KcpServer
+++++++++++++++++
+Detailed explanation of the KcpServer and KcpServerV2 classes, their methods, and implementation differences.
+
+.. method:: KcpServer(const HostAddress &serverAddress, quint16 serverPort)
+    
+    Initialize the KCP server, bind to the specified address and port. Directly calls the constructor of ``BaseStreamServer``. If no address is specified, it defaults to binding all network interfaces (HostAddress::Any).
+
+.. method:: virtual QSharedPointer<SocketLike> serverCreate()
+
+    Call ``KcpSocket::createServer()`` to create the KCP server, implemented via the KcpSocket class. This method initializes KCP sessions, binds to the specified address/port, and sets default parameters (e.g., MTU size, window size).
+
+.. method:: virtual void processRequest(QSharedPointer<SocketLike> request)
+
+    After accepting a client connection, instantiate the user-defined RequestHandler and pass the KCP session (encapsulated as a SocketLike object) to the business logic processing module.
+
+2.4.7 KcpServerV2
+++++++++++++++++++
+Lower-level KCP protocol server implementation, directly manipulating KCP session instances.
+
+.. method:: KcpServerV2(const HostAddress &serverAddress, quint16 serverPort)
+
+    Initialize the KCP server, bind to the specified address and port. Directly calls the constructor of ``BaseStreamServer``. If no address is specified, it defaults to binding all network interfaces (HostAddress::Any).
+
+.. method:: virtual QSharedPointer<SocketLike> serverCreate()
+
+    Call ``createKcpServer()`` to create the server. Unlike KcpServer, this may directly manage UDP sockets and handle KCP session input/output via callback functions.
+
+.. method:: virtual void processRequest(QSharedPointer<SocketLike> request)
+
+    Similar to KcpServer, but may directly manipulate KCP session objects (e.g., calling ``kcp_input()`` to parse packets and ``kcp_recv()`` to extract application-layer data).
 
 3. Http Client
 --------------
@@ -2161,9 +2402,155 @@ Before using the ``HttpResponse``, you should check ``HttpResonse::isOk()``. If 
 
 4.1 Basic Http Server
 ^^^^^^^^^^^^^^^^^^^^^
+4.1.1 BaseHttpRequestHandler
++++++++++++++++++++++++
+Base class for handling HTTP requests, providing core functionality for HTTP protocol parsing, response generation, and error handling.
+
+.. method:: BaseHttpRequestHandler()
+
+    Initializes default parameters: HTTP version defaults to Http1_1, request timeout (requestTimeout) defaults to 1 hour, maximum request body size (maxBodySize) defaults to 32MB, connection state (closeConnection) initially set to Maybe.
+
+.. method:: virtual void handle()
+
+    Processes requests in a loop until closeConnection is marked as Yes, calls handleOneRequest() to process individual requests.
+
+.. method:: virtual void handleOneRequest()
+
+    Sets timeout limit (Timeout timeout(requestTimeout)), calls parseRequest() to parse request headers, dispatches to specific HTTP method handlers via doMethod().
+
+.. method:: virtual bool parseRequest()
+
+    Parses request line (e.g. GET /path HTTP/1.1), extracts method/path/version, parses and stores headers, handles Connection header to determine keep-alive, returns true on success or false on failure (automatically sends 400 error).
+
+.. method:: void doMethod
+
+    HTTP method dispatcher. All methods return 501 Not implemented by default. The following methods require subclass implementation:
+
+    .. code-block:: c++
+
+        virtual void doGET();
+        virtual void doPOST();
+        virtual void doPUT();
+        virtual void doDELETE();
+        virtual void doPATCH();
+        virtual void doHEAD();
+        virtual void doOPTIONS();
+        virtual void doTRACE();
+        virtual void doCONNECT();
+
+.. method:: bool sendError(HttpStatus status, const QString &message = QString())
+
+    Generates standard error page (HTML format), sends error response headers (status code, Content-Type, etc.), logs error via logError().
+
+.. method:: void sendCommandLine(HttpStatus status, const QString &shortMessage)
+
+    Sends status line (e.g. HTTP/1.1 200 OK).
+
+.. method:: void sendHeader(const QByteArray &name, const QByteArray &value)
+
+    Adds response header (automatically handles Connection logic).
+
+.. method:: void sendHeader(KnownHeader name, const QByteArray &value)
+
+    Same functionality as sendHeader.
+
+.. method:: bool endHeader()
+
+    Finalizes headers with \r\n, returns true on success.
+
+.. method:: QSharedPointer<FileLike> bodyAsFile(bool processEncoding = true)
+
+    Reads request body via Content-Length or Transfer-Encoding, handles GZIP/DEFLATE decompression (requires QTNG_HAVE_ZLIB), supports chunked encoding. Returns readable FileLike object containing request body.
+
+.. method:: bool switchToWebSocket()
+
+    Validates Upgrade: websocket and Sec-WebSocket-Key headers, calculates and returns Sec-WebSocket-Accept, marks connection upgrade to WebSocket.
+
+.. method:: virtual void logRequest(HttpStatus status, int bodySize);
+
+    Logs client address, request method, status code, and response body size.
+
+.. method:: virtual void logError(HttpStatus status, const QString &shortMessage, const QString &longMessage);
+
+    Logs error status and messages.
+
+4.1.2 StaticHttpRequestHandler
+++++++++++++++++++++++++++++++
+Inherits ``BaseHttpRequestHandler``. Handles static resource requests with file transfer, directory listing, auto-index file detection. Includes path traversal protection, automatic MIME type detection, and XSS protection.
+
+.. method:: QSharedPointer<FileLike> serveStaticFiles(const QDir &dir, const QString &subPath)
+
+    Returns file content or directory listing based on given directory and subpath. 
+
+.. method:: QSharedPointer<FileLike> listDirectory(const QDir &dir, const QString &displayDir)
+
+    Generates HTML directory listing page with clickable links for files/subdirectories.
+
+.. method:: QFileInfo getIndexFile(const QDir &dir)
+
+    Checks for index.html/index.htm in directory. Returns file info if exists, otherwise empty. Determines whether to display default index file when accessing directories.
+
+.. method:: virtual bool loadMissingFile(const QFileInfo &fileInfo);
+
+    Returns false by default. Subclasses can override to generate/retrieve missing files.
+
+4.1.3 SimpleHttpRequestHandler
++++++++++++++++++++++++++++++++
+Inherits ``SimpleHttpRequestHandler``. Preconfigured static file server with out-of-the-box basic HTTP file serving.
+
+.. method:: void setRootDir(const QDir &rootDir)
+
+    Sets accessible root directory. Ensure process has read permissions. Recommended to set before server startup to avoid race conditions.
+
+.. method:: virtual void doGET() override;
+
+    Handles GET requests using parent class's serveStaticFiles method.
+
+.. method:: virtual void doHEAD() override;
+
+    Handles HEAD requests using parent class's serveStaticFiles method.
+
+4.1.4 BaseHttpProxyRequestHandler
+++++++++++++++++++++++++++++++++++
+Implements core logic for HTTP proxy, supporting forward proxy and tunnel proxy (e.g. HTTPS CONNECT method).
+
+.. method:: virtual void logRequest(qtng::HttpStatus status, int bodySize)
+
+    Empty implementation for request logging. Requires subclass implementation.
+
+.. method:: virtual void logError(qtng::HttpStatus status, const QString &shortMessage, const QString &longMessage)
+
+    Empty implementation for error logging. Requires subclass implementation.
+
+.. method:: virtual void logProxy(const QString &remoteHostName, quint16 remotePort, const HostAddress &forwardAddress,bool success)
+
+    Provides proxy-specific logging via logProxy(). Disables regular request logging by default to avoid duplication.
+
+.. method:: virtual void doMethod()
+
+    HTTP request dispatcher. Checks if method is CONNECT for tunnel handling, routes other methods (GET/POST/etc.) through standard proxy flow.
+
+.. method:: virtual void doCONNECT()
+
+    Handles CONNECT tunnel requests by establishing bidirectional client-target server channels.
+
+.. method:: virtual void doProxy()
+
+    Handles standard HTTP proxy requests by forwarding client requests to target servers and returning responses.
+
+.. method:: virtual QSharedPointer<SocketLike> makeConnection(const QString &remoteHostName, quint16 remotePort,HostAddress *forwardAddress)
+    
+    It is responsible for creating and initializing a Socket connection to the target server, given the passed remoteHostName and remotePort. This connection will be used for subsequent HTTP request forwarding or HTTPS tunnel proxy (such as CONNECT method).
 
 4.2 Application Server
 ^^^^^^^^^^^^^^^^^^^^^^
+SimpleHttpServer : public TcpServer<SimpleHttpRequestHandler>
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+There is no specific implementation yet
+
+SimpleHttpsServer : public SslServer<SimpleHttpRequestHandler>
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+There is no specific implementation yet
 
 5. Cryptography
 ---------------

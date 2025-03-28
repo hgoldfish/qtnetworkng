@@ -827,7 +827,7 @@ QtNetworkNg 编程中**最严重的错误**是在事件循环协程中调用阻�
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 1.7.1 Functor
---------------
+++++++++++++++
 抽象回调接口，定义统一的 operator()方法，所有具体回调需继承此类，例如定时器回调，IO事件回调
 
 .. method:: virtual bool operator()()=0
@@ -835,7 +835,7 @@ QtNetworkNg 编程中**最严重的错误**是在事件循环协程中调用阻�
     纯虚基类，子类需实现具体逻辑
 
 1.7.2 DoNothingFunctor
------------------------
+++++++++++++++++++++++++
 空操作回调，可用于占位或默认回调
 
 .. method::operator()()=0
@@ -843,7 +843,7 @@ QtNetworkNg 编程中**最严重的错误**是在事件循环协程中调用阻�
   空操作回调，直接返回 false
 
 1.7.3 YieldCurrentFunctor
---------------------------
+++++++++++++++++++++++++++++++
 让出当前操作的执行权
 
 .. method::explicit YieldCurrentFunctor()
@@ -855,7 +855,7 @@ QtNetworkNg 编程中**最严重的错误**是在事件循环协程中调用阻�
  重新唤醒保存的指针
 
 1.7.4 DeleteLaterFunctor<T>
-----------------------------
+++++++++++++++++++++++++++++++
 延迟删除对象，避免在回调中直接析构
 
 .. method::virtual bool operator()()
@@ -863,7 +863,7 @@ QtNetworkNg 编程中**最严重的错误**是在事件循环协程中调用阻�
  释放动态分配的对象
 
 1.7.5 LambdaFunctor
--------------------
+++++++++++++++++++++
 包装函数，允许lambda表达式作为回调
 
 .. method::virtual operator()()
@@ -871,7 +871,7 @@ QtNetworkNg 编程中**最严重的错误**是在事件循环协程中调用阻�
   调用callback() 执行用户定义逻辑
 
 1.7.6 callInEventLoopCoroutine
--------------------------------
++++++++++++++++++++++++++++++++
 协程事件循环的核心类，作为事件循环的载体,负责管理 ​I/O 事件监听、定时器调度、协程挂起与恢复，并协调协程与底层事件驱动的交互。
 
 I/O操作类型
@@ -949,7 +949,7 @@ I/O操作类型
  事件循环的统一入口，通过线程本地存储管理实例生命周期，并适配多平台后端，是异步编程的核心枢纽。其设计理念与 Python 的 asyncio.get_event_loop() 一脉相承，但结合 C++ 特性实现了更底层的控制。
 
 1.7.7 ScopedIoWatcher
-----------------------
++++++++++++++++++++++++
 RAII 封装 IO 事件监视器，自动管理资源。
 
 .. method:: ScopedIoWatcher(EventType, qintptr fd)
@@ -962,7 +962,7 @@ RAII 封装 IO 事件监视器，自动管理资源。
  启动监视器。
 
 1.7.8 CurrentLoopStorage
--------------------------
++++++++++++++++++++++++++
  事件循环的抽象基类，定义平台相关的接口。
 
 .. method:: QSharedPointer<EventLoopCoroutine> getOrCreate();
@@ -1454,12 +1454,254 @@ DNS相关
 2.4 SocketServer
 ^^^^^^^^^^^^^^^^
 
-还没有实现。
+2.4.1 BaseStreamServer
++++++++++++++++++++++++
+ ``BaseStreamServer`` 是构建其他SocketServer基础核心类，提供了一些Socket服务器基础方法，以及保留了一些接口，用于进一步实现 ``TcpServer`` 和 ``KcpServer`` 等类型
+
+.. method:: BaseStreamServer(const HostAddress &serverAddress, quint16 serverPort);
+
+    初始化服务器监听的地址和端口，默认使用 HostAddress::Any 绑定到所有网络接口，同时初始化事件对象 started 和 stopped，用于跟踪服务器状态。
+
+.. method:: bool serveForever()
+
+    阻塞式运行服务器，循环接受客户端连接并处理请求。
+
+.. method:: bool start()
+
+    非阻塞式启动服务器，在后台协程中运行服务。
+
+.. method:: void stop()
+
+    立即关闭服务器套接字，终止所有连接
+
+.. method:: bool wait()
+
+    阻塞当前线程,直到服务器完全停止
+
+.. method:: void setAllowReuseAddress(bool b)
+
+    设置是否允许端口复用（SO_REUSEADDR）。
+
+.. method:: bool isSecure()
+
+    标识服务器是否使用加密协议（如SSL）。默认返回：false，子类（如 WithSsl）覆盖后返回 true。
+
+.. method:: QSharedPointer<SocketLike> serverSocket()
+
+    获取底层服务器套接字对象，首次调用会触发 serverCreate() 创建套接字。
+
+.. method:: quint16 serverPort()
+
+    获取服务器绑定的端口号
+
+.. method:: HostAddress serverAddress()
+
+    获取服务器绑定的ip地址
+
+.. method:: virtual bool serverBind()
+
+    绑定服务器到指定地址和端口，默认实现：设置 SO_REUSEADDR 选项（若允许复用地址），调用 Socket::bind() 完成系统调用。
+
+.. method:: virtual bool serverActivate()
+
+    将套接字置为监听状态,默认实现：调用 Socket::listen()，设置最大连接队列长度。
+
+.. method:: virtual QSharedPointer<SocketLike> prepareRequest(QSharedPointer<SocketLike> request);
+
+    预处理请求（如SSL握手）。
+
+.. method:: virtual bool verifyRequest(QSharedPointer<SocketLike> request);
+
+    验证请求是否合法（如IP黑名单），默认实现：直接返回 true，接受所有连接。
+
+2.4.2 WithSsl 
+++++++++++++++
+通过模板组合，为任意流式服务器无缝添加 SSL/TLS 加密功能。
+
+.. method:: WithSsl(const HostAddress &serverAddress, quint16 serverPort, const SslConfiguration &configuration);
+    
+    初始化 SSL 服务器，继承自 ServerType，还有几个其他类似方法
+
+    .. code-block:: c++
+
+        WithSsl(const HostAddress &serverAddress, quint16 serverPort);
+        WithSsl(quint16 serverPort);
+        WithSsl(quint16 serverPort, const SslConfiguration &configuration);
+    
+.. method:: void setSslConfiguration(const SslConfiguration &configuration);
+
+    动态设置SSL配置。
+
+.. method:: SslConfiguration sslConfiguration() const;
+
+    获取SSL配置。
+
+.. method:: void setSslHandshakeTimeout(float sslHandshakeTimeout)
+
+    控制SSL握手阶段的时间，防止客户端恶意占用
+
+.. method:: float sslHandshakeTimeout()
+
+    获取当前设置SSL握手的超时时长
+
+.. method:: virtual bool isSecure()
+
+    标识服务器使用加密协议，供外部代码检查。
+
+.. method:: prepareRequest()
+
+    将原始 TCP 连接升级为 SSL 连接。
+
+2.4.3 BaseRequestHandler
++++++++++++++++++++++++++
+请求处理逻辑的基类，用户需继承并实现具体逻辑。
+
+.. method:: void run()
+
+    请求处理的主流程控制器，确保 setup → handle → finish 顺序执行。
+
+.. method:: void setup()
+
+    初始化请求处理环境（如验证权限、加载配置）。
+
+.. method:: void handle()
+
+    实现核心业务逻辑（如读取请求、处理数据、返回响应）。
+
+.. method:: void finish()
+
+    清理资源（如关闭连接、记录日志、释放内存），即使业务逻辑失败，finish() 也应确保资源释放。
+
+.. method:: void userData()
+
+    安全获取服务器关联的自定义数据（如数据库连接池、配置对象）。
+
+2.4.4 Socks5RequestHandler
++++++++++++++++++++++++++++
+``Socks5RequestHandler`` 是 SOCKS5 代理协议的具体实现，继承自 ``BaseRequestHandler``，用于处理客户端通过 SOCKS5 代理发起的连接请求。其核心功能包括协议握手、目标地址解析、连接建立和数据转发。
+
+.. method:: virtual void handle()
+
+    处理客户端 SOCKS5 请求的主入口。 
+
+.. method:: bool handshake()
+
+    处理 SOCKS5 握手与认证协商,返回值：true 表示握手成功，false 表示失败
+
+.. method:: bool parseAddress(QString *hostName, HostAddress *addr, quint16 *port)
+
+    解析客户端请求中的目标地址和端口。
+
+.. method:: virtual QSharedPointer<SocketLike> makeConnection(const QString &hostName, const HostAddress &hostAddress,quint16 port, HostAddress *forwardAddress)
+
+    建立到目标服务器的连接。hostName：目标域名(如 ATYP=0x03),hostAddress：目标 IP 地址(如 ATYP=0x01 或 0x04),port：目标端口,forwardAddress：输出参数，记录实际连接的服务器地址。
+
+.. method:: bool sendConnectReply(const HostAddress &hostAddress, quint16 port)
+
+    向客户端发送连接成功响应。
+
+.. method:: bool sendFailedReply()
+
+    发送连接失败响应。
+
+.. method:: virtual void exchange(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward)
+
+    在客户端和目标服务器之间双向转发数据。
+
+.. method:: doConnect()
+
+    供子类扩展连接成功的行为。
+
+.. method:: doFailed()
+
+    供子类扩展连接失败时的行为。
+
+.. method:: virtual void logProxy(const QString &hostName, const HostAddress &hostAddress, quint16 port,const HostAddress &forwardAddress, bool success)
+
+    记录代理请求的详细日志。 
+
+2.4.5 TcpServer
+++++++++++++++++
+封装 TCP 服务器的创建、绑定、监听,通过模板参数 RequestHandler 实现业务逻辑解耦,基于协程的并发模型,支持高并发连接。
+
+.. method:: TcpServer(const HostAddress &serverAddress, quint16 serverPort);
+
+    初始化TCP服务器，绑定到指定地址和端口，直接调用 ``BaseStreamServer`` 的构造函数，若未指定地址则默认绑定所有网络接口(HostAddress::Any)
+
+.. method:: virtual QSharedPointer<SocketLike> serverCreate();
+
+    创建底层 TCP 服务器套接字。
+
+.. method:: virtual void processRequest(QSharedPointer<SocketLike> request)
+
+    处理单个客户端连接请求。
+
+.. code-block:: c++
+    :caption: 示例 : 简单的Tcp服务器
+        #include <QCoreApplication>
+        #include "qtnetworkng.h"
+        using namespace  qtng;
+        class EchoHandler : public BaseRequestHandler//需要继承BaseRequestHandle并重写handle方法
+        {
+        protected:
+            void handle()  {
+                qDebug()<<"收到消息";
+                qint32 size=1024;
+                QByteArray data=request->recvall(size);
+                qDebug()<<QString(data);
+            }
+        };
+        int main()
+        {
+            // 创建服务器，监听 8080 端口
+            TcpServer<EchoHandler> server(8080);
+            // 配置服务器参数
+            server.setRequestQueueSize(100); // 设置连接队列长度
+            server.setAllowReuseAddress(true); // 允许端口复用
+            // 启动服务器（阻塞式运行）
+            if (!server.serveForever()) {
+                qDebug() << "服务器启动失败!";
+                return 1;
+            }
+            return 0;
+        }
+
+2.4.6 KcpServer
+++++++++++++++++
+详细解释KcpServer 和 KcpServerV2这两个类和各个方法，并详细解释这两个类的实现区别
+
+.. method:: KcpServer(const HostAddress &serverAddress, quint16 serverPort)
+    
+    初始化KCP服务器，绑定到指定地址和端口，直接调用 ``BaseStreamServer`` 的构造函数，若未指定地址则默认绑定所有网络接口(HostAddress::Any)
+
+.. method:: virtual QSharedPointer<SocketLike> serverCreate()
+
+    调用KcpSocket::createServer(),创建KCP服务器，底层通过KcpSocket类实现。此方法会初始化KCP会话，绑定到指定地址和端口，并设置默认参数（如MTU大小、窗口大小等）。
+
+.. method:: virtual void processRequest(QSharedPointer<SocketLike> request)
+
+    接收客户端连接后，实例化用户定义的RequestHandler，将KCP会话封装为SocketLike对象传递给业务逻辑处理模块。
+    
+2.4.7 KcpServerV2
+++++++++++++++++++
+更底层的KCP协议服务器实现，直接操作KCP会话实例。
+
+.. method:: KcpServerV2(const HostAddress &serverAddress, quint16 serverPort)
+
+    初始化KCP服务器，绑定到指定地址和端口，直接调用 ``BaseStreamServer`` 的构造函数，若未指定地址则默认绑定所有网络接口(HostAddress::Any)
+
+.. method:: virtual QSharedPointer<SocketLike> serverCreate()
+
+    调用createKcpServer()函数创建服务器。与KcpServer不同，此处可能直接管理UDP套接字，并通过回调函数处理KCP会话的输入/输出
+
+.. method:: virtual void processRequest(QSharedPointer<SocketLike> request)
+
+    与KcpServer类似，但可能直接操作KCP会话对象（如调用kcp_input()解析数据包、kcp_recv()提取应用层数据）
 
 3. HTTP 客户端
 --------------
 
-``HttpSession`` 是支持 HTTP 1.0/1.1 的客户端，具备自动 Cookie 管理和自动重定向功能。核心方法 ``HttpSession::send()`` 用于发送请求并解析响应，同时提供快捷方法如 ``get()``、``post()``、``head()`` 等实现单行代码发起 HTTP 请求。
+``HttpSession`` 是支持 HTTP 1.0/1.1 的客户端，具备自动 Cookie 管理和自动重定向功能。核心方法 ``HttpSession::send()`` 用于发送请求并解析响应，同时提供快捷方法如 ``get()``、 ``post()``、 ``head()`` 等实现单行代码发起 HTTP 请求。
 
 该组件支持 SOCKS5 代理（默认未启用），目前暂不支持 HTTP 代理。Cookie 管理通过 ``HttpSession::cookieJar()`` 实现，响应缓存使用 ``HttpSession::cacheManager()``（默认无缓存）。QtNetworkNg 提供内存缓存组件 ``HttpMemoryCacheManager``。
 
@@ -2061,35 +2303,182 @@ DNS相关
 4.1 Basic Http Server
 ^^^^^^^^^^^^^^^^^^^^^
 
+4.1.1 BaseHttpRequestHandler
+++++++++++++++++++++++++++++++
+处理 HTTP 请求的基础类，提供 HTTP 协议解析、响应生成、错误处理等核心功能。
+
+.. method:: BaseHttpRequestHandler()
+
+    初始化默认参数，HTTP 版本默认为 Http1_1，请求超时时间 requestTimeout 默认 1 小时，最大请求体大小 maxBodySize 默认 32MB，连接状态 closeConnection 初始为 Maybe
+
+.. method:: virtual void handle()
+
+    循环处理请求，直到 closeConnection 标记为 Yes，调用 handleOneRequest() 处理单个请求
+
+.. method:: virtual void handleOneRequest()
+
+    设置超时限制（Timeout timeout(requestTimeout);）,调用 parseRequest() 解析请求头,调用 doMethod() 分发到具体 HTTP 方法处理器
+
+.. method:: virtual bool parseRequest()
+
+    解析请求行（如 GET /path HTTP/1.1）,提取 method、path、version,解析请求头并存储到 headers,处理 Connection 头决定是否保持连接,返回值: true 表示解析成功，false 表示失败（自动发送 400 错误）
+
+.. method:: void doMethod
+
+    http方法分发，所有方法默认返回 501 Not implemented，以下方法都需要子类进行重写具体实现
+
+    .. code-block:: c++
+
+        virtual void doGET();
+        virtual void doPOST();
+        virtual void doPUT();
+        virtual void doDELETE();
+        virtual void doPATCH();
+        virtual void doHEAD();
+        virtual void doOPTIONS();
+        virtual void doTRACE();
+        virtual void doCONNECT();
+
+.. method:: bool sendError(HttpStatus status, const QString &message = QString())
+
+    生成标准错误页面（HTML 格式）,发送错误响应头（状态码、Content-Type 等）,记录错误日志（logError()）
+
+.. method:: void sendCommandLine(HttpStatus status, const QString &shortMessage)
+
+    发送状态行（如 HTTP/1.1 200 OK）
+
+.. method:: void sendHeader(const QByteArray &name, const QByteArray &value)
+
+    添加响应头（自动处理 Connection 逻辑）
+
+.. method:: void sendHeader(KnownHeader name, const QByteArray &value)
+
+    同sendHeader功能
+
+.. method:: bool endHeader()
+
+    结束头部并发送 \r\n，返回 true 表示成功
+
+.. method:: QSharedPointer<FileLike> bodyAsFile(bool processEncoding = true)
+
+    根据 Content-Length 或 Transfer-Encoding 读取请求体,自动处理 GZIP/DEFLATE 解压缩（需启用 QTNG_HAVE_ZLIB）,支持分块传输（Chunked Encoding,返回值: 返回可读的 FileLike 对象，包含请求体内容。
+
+.. method:: bool switchToWebSocket()
+
+    验证 Upgrade: websocket 和 Sec-WebSocket-Key,计算并返回 Sec-WebSocket-Accept,标记连接升级为 WebSocket
+
+.. method:: virtual void logRequest(HttpStatus status, int bodySize);
+
+    打印客户端地址、请求方法、状态码和响应体大小
+
+.. method:: virtual void logError(HttpStatus status, const QString &shortMessage, const QString &longMessage);
+
+    记录错误状态和消息
+
+4.1.2 StaticHttpRequestHandler
++++++++++++++++++++++++++++++++
+继承 ``BaseHttpRequestHandler``，处理静态资源请求，支持文件传输、目录列表、自动索引文件检测等功能,内置路径遍历防护、MIME类型自动识别、XSS防护
+
+.. method:: QSharedPointer<FileLike> serveStaticFiles(const QDir &dir, const QString &subPath)
+
+    根据给定的目录和子路径，返回对应的文件内容或目录列表。 
+
+.. method:: QSharedPointer<FileLike> listDirectory(const QDir &dir, const QString &displayDir)
+
+    生成目录列表的HTML页面。遍历目录中的文件和子目录，生成带有链接的HTML列表。
+
+.. method:: QFileInfo getIndexFile(const QDir &dir)
+
+    检查目录中是否存在`index.html`或`index.htm`，如果存在则返回该文件的信息，否则返回空,这决定了当访问目录时是否显示默认索引文件。
+
+.. method:: virtual bool loadMissingFile(const QFileInfo &fileInfo);
+
+    默认返回false，子类可以重写这个方法，尝试生成或获取缺失的文件。
+
+4.1.3 SimpleHttpRequestHandler
++++++++++++++++++++++++++++++++
+继承 ``SimpleHttpRequestHandler``, 预配置的静态文件服务器，提供开箱即用的基本HTTP文件服务功能
+
+.. method:: void setRootDir(const QDir &rootDir)
+
+    设置允许修改的目录,应确保运行进程对目标目录有读取权限,建议在服务器启动前设置，避免运行时修改导致竞态条件
+
+.. method:: virtual void doGET() override;
+
+    响应Get请求，调用父类的serveStaticFiles方法，进行文件处理
+
+.. method:: virtual void doHEAD() override;
+
+    响应HEAD请求，调用父类的serveStaticFiles方法，进行文件处理
+
+4.1.4 BaseHttpProxyRequestHandler
+
+    实现 HTTP 代理的核心逻辑，支持正向代理和隧道代理（如 HTTPS CONNECT 方法）
+
+.. method:: virtual void logRequest(qtng::HttpStatus status, int bodySize)
+
+    用于记录请求日志,这里是空实现，需要子类进行具体实现
+
+.. method:: virtual void logError(qtng::HttpStatus status, const QString &shortMessage, const QString &longMessage)
+
+    用于记录错误日志,这里是空实现，需要子类进行具体实现
+
+.. method:: virtual void logProxy(const QString &remoteHostName, quint16 remotePort, const HostAddress &forwardAddress,bool success)
+
+    提供代理专用日志接口 logProxy(),默认关闭常规请求日志（避免重复记录）
+
+.. method:: virtual void doMethod()
+
+    HTTP 请求分发入口，根据请求方法决定处理逻辑。检查 method 是否为 CONNECT,其他方法（GET/POST等）走普通代理流程
+
+.. method:: virtual void doCONNECT()
+
+    处理 CONNECT 隧道请求，建立客户端与目标服务器的双向通道。
+
+.. method:: virtual void doProxy()
+
+    处理普通HTTP代理请求，转发客户端请求到目标服务器并返回响应。
+
+.. method:: virtual QSharedPointer<SocketLike> makeConnection(const QString &remoteHostName, quint16 remotePort,HostAddress *forwardAddress)
+
+    负责根据传入的remoteHostName（目标主机名）和remotePort（目标端口），创建并初始化一个到目标服务器的Socket连接。此连接将用于后续的HTTP请求转发或HTTPS隧道代理（如CONNECT方法）。
+
 4.2 Application Server
 ^^^^^^^^^^^^^^^^^^^^^^^
+SimpleHttpServer : public TcpServer<SimpleHttpRequestHandler>
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+暂无具体实现
+
+SimpleHttpsServer : public SslServer<SimpleHttpRequestHandler>
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+暂无具体实现
 
 5. 密码学
 ---------------
 
 5.1 密码哈希表
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^
 
 5.2 对称加密和解密
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-5.3 公钥算法
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-5.4 证书和证书请求
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-5.5 密钥推导函数
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-5.6 TLS密码套件
 ^^^^^^^^^^^^^^^^^^^^
 
+5.3 公钥算法
+^^^^^^^^^^^^^^
+
+5.4 证书和证书请求
+^^^^^^^^^^^^^^^^^^^
+
+5.5 密钥推导函数
+^^^^^^^^^^^^^^^^^
+
+5.6 TLS密码套件
+^^^^^^^^^^^^^^^^^
+
 6. 配置和构建
---------------------------
+--------------
 
 6.1 使用libev代替Qt Eventloop
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 6.2 禁用SSL支持
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
