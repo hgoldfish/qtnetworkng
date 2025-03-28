@@ -3,35 +3,36 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to QtNetworkNg's documentation!
-=======================================
+欢迎来到QtNetworkNg的文档！
+========================================
 
-Source Code
+源代码
 -----------
 
 https://github.com/hgoldfish/qtnetworkng/
 
-Language
+语言
 --------
 
-Choose a language for document reading
+选择文档阅读语言
 
 English:https://qtng.org/index.html
 
 中文:https://qtng.org/index.HANS.html
 
 
-Author
+
+作者
 ------
 
 Qize Huang <hgoldfish#gmail.com>
 
-Feel free to send feedback to me.
+欢迎发送反馈至我的邮箱。
 
-A glance at QtNetworkNg
-------------------------
+QtNetworkNg一览
+-----------------------
 
-QtNetworkNg is a coroutine-based network toolkit, like boost::asio but uses concepts from QtNetwork and gevent of Python. Compare to boost::asio and Qt's QtNetwork, QtNetworkNg has more simpler API. As the name suggests, QtNetworkNg requires Qt5 framework. Here comes a simple example to get web pages.
+QtNetworkNg是基于协程的网络工具包，类似boost::asio但借鉴了QtNetwork和Python gevent的设计理念。与boost::asio和Qt的QtNetwork相比，QtNetworkNg提供了更简洁的API。正如其名，QtNetworkNg需要Qt5框架支持。以下是一个获取网页的简单示例：
 
 .. code-block:: c++
     
@@ -49,8 +50,8 @@ QtNetworkNg is a coroutine-based network toolkit, like boost::asio but uses conc
         }
         return 0;
     }
-    
-And another example to make IPv4 tcp connection.
+
+另一个建立IPv4 TCP连接的示例：
 
 .. code-block:: c++
     
@@ -66,7 +67,7 @@ And another example to make IPv4 tcp connection.
         return 0;
     }
 
-To create IPv4 tcp server.
+创建IPv4 TCP服务器的示例：
 
 .. code-block:: c++
     
@@ -85,8 +86,7 @@ To create IPv4 tcp server.
         });
     }
 
-    
-A Qt GUI example to fetch web page.
+Qt GUI获取网页的示例：
 
 .. code-block:: c++
 
@@ -131,10 +131,10 @@ A Qt GUI example to fetch web page.
         QApplication app(argc, argv);
         HtmlWindow w;
         w.show();
-        return startQtLoop(); // Qt GUI application start the eventloop using startQtLoop() instead of app.exec()
+        return startQtLoop(); // Qt GUI应用使用startQtLoop()启动事件循环而非app.exec()
     }
 
-And its qmake project file.
+对应的qmake项目文件：
 
 .. code-block:: text
 
@@ -144,10 +144,9 @@ And its qmake project file.
     SOURCES += main.cpp
     include(qtnetworkng/qtnetworkng.pri)
     
-    
-As you can see, networking programming is done with very straightforward API.
+可见，网络编程通过非常直观的API即可完成。
 
-Give it a try (for linux). ::
+尝试运行（Linux环境）::
 
     git clone https://github.com/hgoldfish/qtnetworkng.git
     cd qtnetworkng/examples/fetch_web_content/
@@ -156,20 +155,20 @@ Give it a try (for linux). ::
     ./fetch_web_content
 
 
-User Guide
+用户指南
 ==========
 
 .. toctree::
    :maxdepth: 3
 
-   intro
-   practices
-   references
-   index.HANS
+   intro.HANS
+   practices.HANS
+   references.HANS
    
-Indices and tables
+   
+索引和表格
 ==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+• :ref:`genindex`
+• :ref:`modindex`
+• :ref:`search`
