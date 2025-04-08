@@ -138,7 +138,7 @@ private:
     WebSocketFrame makeControlFrame(FrameType type);
     QVector<WebSocketFrame> fragmentFrame(const PacketToWrite &writingPacket, const int blockSize);
     quint32 makeMaskkey();
-    bool recvBytes(char *packet, size_t &packetSize);
+    bool recvBytes(QByteArray &buf, size_t &usedSize);
     bool sendBytes(const QByteArray &packet);
 public:
     CoroutineGroup *operations;
@@ -671,13 +671,13 @@ inline bool isCloseCodeValid(int closeCode)
 void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
 {
     QByteArray buf(1024 * 64, Qt::Uninitialized);
-    size_t packetSize = 0;
-    if (headBytes.size() > 1024 * 64) {
+    size_t usedSize = 0;
+    if (headBytes.size() > buf.size()) {
         buf = headBytes;
-        packetSize = headBytes.size();
+        usedSize = headBytes.size();
     } else if (!headBytes.isEmpty()) {
         memcpy(buf.data(), headBytes.constData(), headBytes.size());
-        packetSize = headBytes.size();
+        usedSize = headBytes.size();
     }
     char *packet = buf.data();
 
@@ -687,14 +687,14 @@ void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
     while (true) {
         WebSocketFrame frame;
 
-        if (!recvBytes(packet, packetSize)) {
+        if (!recvBytes(buf, usedSize)) {
             return;
         }
 
-        qint64 payloadSize = frame.feedHeader(packet, packetSize);
+        qint64 payloadSize = frame.feedHeader(packet, usedSize);
         if (payloadSize < 0) {
             // there are not enough header bytes to parse. we will receive more, and try again later.
-            Q_ASSERT(sizeof(packet) > packetSize);
+            Q_ASSERT(sizeof(packet) > usedSize);
             continue;
         } else if (payloadSize > maxPayloadSize) {
             qtng_info << "can not process web socket frame larger than " << maxPayloadSize;
@@ -713,11 +713,11 @@ void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
         }
 
         while (payloadSize > frame.payload.size()) {
-            size_t size = qMin<size_t>(payloadSize - frame.payload.size(), packetSize);
+            size_t size = qMin<size_t>(payloadSize - frame.payload.size(), usedSize);
             frame.payload.append(packet, size);
-            packetSize -= size;
-            if (packetSize > 0) {
-                memmove(packet, packet + size, packetSize);
+            usedSize -= size;
+            if (usedSize > 0) {
+                memmove(packet, packet + size, usedSize);
             }
 
             // we got enougth data!
@@ -729,7 +729,7 @@ void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
                 break;
             }
 
-            if (!recvBytes(packet, packetSize)) {
+            if (!recvBytes(buf, usedSize)) {
                 return;
             }
         }
@@ -957,11 +957,11 @@ void WebSocketConnectionPrivate::abort(int errorCode)
     q->disconnected->set();
 }
 
-bool WebSocketConnectionPrivate::recvBytes(char *packet, size_t &packetSize)
+bool WebSocketConnectionPrivate::recvBytes(QByteArray &buf, size_t &usedSize)
 {
     qint32 receivedBytes;
     try {
-        receivedBytes = connection->recv(packet + packetSize, sizeof(packet) - packetSize);
+        receivedBytes = connection->recv(buf.data() + usedSize, buf.size() - usedSize);
     } catch (CoroutineExitException &) {
         Q_ASSERT(errorCode != WebSocketConnection::NoError);
         return false;
@@ -975,11 +975,11 @@ bool WebSocketConnectionPrivate::recvBytes(char *packet, size_t &packetSize)
         return false;
     } else {
         if (debugLevel >= 3) {
-            qtng_debug << "received data:" << QByteArray::fromRawData(packet + packetSize, receivedBytes);
+            qtng_debug << "received data:" << QByteArray::fromRawData(buf.data() + usedSize, receivedBytes);
         } else if (debugLevel >= 2) {
             qtng_debug << "received data:" << receivedBytes;
         }
-        packetSize += receivedBytes;
+        usedSize += receivedBytes;
         lastActiveTimestamp = QDateTime::currentMSecsSinceEpoch();
         return true;
     }
