@@ -108,7 +108,7 @@ public:
 public:
     // parse the header and returns the payload size.
     // if the header is valid, it will be removed from the buf
-    qint64 feedHeader(char *packet, size_t &packetSize);
+    qint64 feedHeader(char *packet, int &packetSize);
 
     // apply mask to payload and copy to src[offset: len]. this function also decode payload using mask
     void applyMaskTo(char *dst, int offset, int dst_max_len) const;
@@ -138,7 +138,7 @@ private:
     WebSocketFrame makeControlFrame(FrameType type);
     QVector<WebSocketFrame> fragmentFrame(const PacketToWrite &writingPacket, const int blockSize);
     quint32 makeMaskkey();
-    bool recvBytes(QByteArray &buf, size_t &usedSize);
+    bool recvBytes(QByteArray &buf, int &usedSize);
     bool sendBytes(const QByteArray &packet);
 public:
     CoroutineGroup *operations;
@@ -296,7 +296,7 @@ WebSocketFrame::WebSocketFrame()
 {
 }
 
-qint64 WebSocketFrame::feedHeader(char *packet, size_t &packetSize)
+qint64 WebSocketFrame::feedHeader(char *packet, int &packetSize)
 {
     Q_ASSERT(packetSize >= 2);
     // the qFromBigEndian<>() only accept uchar* in the earlier version of Qt.
@@ -314,7 +314,7 @@ qint64 WebSocketFrame::feedHeader(char *packet, size_t &packetSize)
     int len = b1 & 0x7f;
     maskkey = 0;
 
-    size_t headerSize = 2;
+    int headerSize = 2;
     if (len <= 125) {
         // pass
     } else if (len == 126) {
@@ -341,7 +341,7 @@ qint64 WebSocketFrame::feedHeader(char *packet, size_t &packetSize)
             return -1;
         }
     }
-    memmove(packet, upacket + headerSize, packetSize - headerSize);
+    memmove(packet, packet + headerSize, packetSize - headerSize);
     packetSize -= headerSize;
     return len;
 }
@@ -671,7 +671,7 @@ inline bool isCloseCodeValid(int closeCode)
 void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
 {
     QByteArray buf(1024 * 64, Qt::Uninitialized);
-    size_t usedSize = 0;
+    int usedSize = 0;
     if (headBytes.size() > buf.size()) {
         buf = headBytes;
         usedSize = headBytes.size();
@@ -679,22 +679,22 @@ void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
         memcpy(buf.data(), headBytes.constData(), headBytes.size());
         usedSize = headBytes.size();
     }
-    char *packet = buf.data();
 
     WebSocketConnection::FrameType tmpType = WebSocketConnection::Unknown;
     QByteArray tmpPayload;
+    bool needMoreData = buf.size() < 2;
 
     while (true) {
-        WebSocketFrame frame;
-
-        if (!recvBytes(buf, usedSize)) {
+        if ((usedSize < 2 || needMoreData) && !recvBytes(buf, usedSize)) {
             return;
         }
 
-        qint64 payloadSize = frame.feedHeader(packet, usedSize);
+        WebSocketFrame frame;
+        qint64 payloadSize = frame.feedHeader(buf.data(), usedSize);
         if (payloadSize < 0) {
             // there are not enough header bytes to parse. we will receive more, and try again later.
-            Q_ASSERT(sizeof(packet) > usedSize);
+            Q_ASSERT(buf.size() > usedSize);
+            needMoreData = true;
             continue;
         } else if (payloadSize > maxPayloadSize) {
             qtng_info << "can not process web socket frame larger than " << maxPayloadSize;
@@ -708,16 +708,17 @@ void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
                 return;
             }
         }
+        needMoreData = false;
         if (debugLevel >= 3) {
             qtng_debug << "want payload:" << payloadSize;
         }
 
-        while (payloadSize > frame.payload.size()) {
-            size_t size = qMin<size_t>(payloadSize - frame.payload.size(), usedSize);
-            frame.payload.append(packet, size);
+        while (frame.payload.size() < payloadSize) {
+            int size = qMin<int>(payloadSize - frame.payload.size(), usedSize);
+            frame.payload.append(buf.data(), size);
             usedSize -= size;
             if (usedSize > 0) {
-                memmove(packet, packet + size, usedSize);
+                memmove(buf.data(), buf.data() + size, usedSize);
             }
 
             // we got enougth data!
@@ -729,6 +730,7 @@ void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
                 break;
             }
 
+            // not enough payload!
             if (!recvBytes(buf, usedSize)) {
                 return;
             }
@@ -957,7 +959,7 @@ void WebSocketConnectionPrivate::abort(int errorCode)
     q->disconnected->set();
 }
 
-bool WebSocketConnectionPrivate::recvBytes(QByteArray &buf, size_t &usedSize)
+bool WebSocketConnectionPrivate::recvBytes(QByteArray &buf, int &usedSize)
 {
     qint32 receivedBytes;
     try {
