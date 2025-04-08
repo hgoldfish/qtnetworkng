@@ -35,10 +35,12 @@ public:
 
     void setDevice(QIODevice *d);
     QIODevice *device() const;
+    QByteArray data() const;
     bool atEnd() const;
 
     enum Status { Ok, ReadPastEnd, ReadCorruptData, WriteFailed };
     Status status() const;
+    inline bool isOk() const { return status() == Ok; }
     void resetStatus();
     void setStatus(Status status);
     void setFlushWrites(bool flushWrites);
@@ -93,6 +95,7 @@ public:
     MsgPackStream &operator<<(const QVariant &v);
 
     bool writeBytes(const char *data, qint64 len);
+    bool writeString(const char *data, quint32 len);
     bool writeArrayHeader(quint32 len);
     bool writeMapHeader(quint32 len);
     bool writeExtHeader(quint32 len, quint8 msgpackType);
@@ -255,6 +258,21 @@ MsgPackStream &operator<<(MsgPackStream &s, const QList<T> &list)
 }
 
 template<typename T>
+MsgPackStream &operator<<(MsgPackStream &s, const QSet<T> &set)
+{
+    if (!s.writeArrayHeader(set.size())) {
+        return s;
+    }
+    for (int i = 0; i < set.size(); ++i) {
+        s << set[i];
+        if (s.status() != MsgPackStream::Ok) {
+            break;
+        }
+    }
+    return s;
+}
+
+template<typename T>
 MsgPackStream &operator<<(MsgPackStream &s, const QVector<T> &list)
 {
     if (!s.writeArrayHeader(list.size())) {
@@ -293,7 +311,7 @@ MsgPackStream &operator<<(MsgPackStream &s, const QHash<K, V> &map)
     if (!s.writeMapHeader(map.size())) {
         return s;
     }
-    QMapIterator<K, V> itor(map);
+    QHashIterator<K, V> itor(map);
     while (itor.hasNext()) {
         itor.next();
         s << itor.key();
@@ -345,6 +363,28 @@ MsgPackStream &operator>>(MsgPackStream &s, QList<T> &list)
             break;
         }
         list.append(t);
+        if (s.atEnd())
+            break;
+    }
+    return s;
+}
+
+template<typename T>
+MsgPackStream &operator>>(MsgPackStream &s, QSet<T> &set)
+{
+    quint32 len = 0;
+    if (!s.readArrayHeader(len)) {
+        return s;
+    }
+    set.clear();
+    set.reserve(len);
+    for (quint32 i = 0; i < len; ++i) {
+        T t = s_allocate<T>();
+        s >> t;
+        if (s.status() != MsgPackStream::Ok) {
+            break;
+        }
+        set.insert(t);
         if (s.atEnd())
             break;
     }

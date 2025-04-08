@@ -4,24 +4,24 @@
 
 #undef CHECK_STREAM_PRECOND
 #ifndef QT_NO_DEBUG
-#  define CHECK_STREAM_PRECOND(retVal)              \
-    Q_D(MsgPackStream);                             \
-    if (!d->dev) {                                  \
-      qWarning("msgpack::Stream: No device");       \
-      return retVal;                                \
-    }                                               \
-    if (d->status != Ok) {                          \
-      qWarning("msgpack::Stream: Invalid status."); \
-      return retVal;                                \
+#define CHECK_STREAM_PRECOND(retVal)                  \
+    Q_D(MsgPackStream);                               \
+    if (!d->dev) {                                    \
+        qWarning("msgpack::Stream: No device");       \
+        return retVal;                                \
+    }                                                 \
+    if (d->status != Ok) {                            \
+        qWarning("msgpack::Stream: Invalid status."); \
+        return retVal;                                \
     }
 #else
-#  define CHECK_STREAM_PRECOND(retVal) \
-    Q_D(MsgPackStream);                \
-    if (!d->dev) {                     \
-      return retVal;                   \
-    }                                  \
-    if (d->status != Ok) {             \
-      return retVal;                   \
+#define CHECK_STREAM_PRECOND(retVal) \
+    Q_D(MsgPackStream);              \
+    if (!d->dev) {                   \
+        return retVal;               \
+    }                                \
+    if (d->status != Ok) {           \
+        return retVal;               \
     }
 #endif
 
@@ -41,8 +41,8 @@ static inline QDateTime unpackDatetime(const QByteArray &bs)
         seconds = t & 0x00000003ffffffffL;
         nanoseconds = t >> 34;
     } else if (bs.size() == 12) {
-        seconds = qFromBigEndian<quint32>(static_cast<const void *>(bs.constData()));
-        nanoseconds = qFromBigEndian<quint32>(static_cast<const void *>(bs.constData() + 4));
+        nanoseconds = qFromBigEndian<quint32>(static_cast<const void *>(bs.constData()));
+        seconds = qFromBigEndian<qint64>(static_cast<const void *>(bs.constData() + 4));
     } else {
         Q_UNREACHABLE();
     }
@@ -102,14 +102,15 @@ public:
 };
 
 MsgPackStreamPrivate::MsgPackStreamPrivate()
-    : dev(nullptr)
+    : dev(new QBuffer())
     , status(MsgPackStream::Ok)
     , limit(std::numeric_limits<quint32>::max())
     , pos(0)
     , version(0)
-    , owndev(false)
+    , owndev(true)
     , flushWrites(false)
 {
+    dev->open(QIODevice::WriteOnly);
 }
 
 MsgPackStreamPrivate::MsgPackStreamPrivate(QIODevice *d)
@@ -1068,6 +1069,17 @@ QIODevice *MsgPackStream::device() const
     return d->dev;
 }
 
+QByteArray MsgPackStream::data() const
+{
+    Q_D(const MsgPackStream);
+    QBuffer *buf = dynamic_cast<QBuffer *>(d->dev);
+    if (buf) {
+        return buf->data();
+    } else {
+        return QByteArray();
+    }
+}
+
 bool MsgPackStream::atEnd() const
 {
     Q_D(const MsgPackStream);
@@ -1585,31 +1597,8 @@ MsgPackStream &MsgPackStream::operator<<(double f)
 
 MsgPackStream &MsgPackStream::operator<<(const QString &str)
 {
-    CHECK_STREAM_PRECOND(*this);
     const QByteArray &bytes = str.toUtf8();
-    quint32 len = static_cast<quint32>(bytes.size());
-    quint8 p[5];
-    int sz;
-    if (len <= 31) {
-        p[0] = FirstByte::FIXSTR | len;
-        sz = 1;
-    } else if (len <= std::numeric_limits<quint8>::max()) {
-        p[0] = FirstByte::STR8;
-        _msgpack_store8(p + 1, static_cast<quint8>(len));
-        sz = 2;
-    } else if (len <= std::numeric_limits<quint16>::max()) {
-        p[0] = FirstByte::STR16;
-        _msgpack_store16(p + 1, static_cast<quint16>(len));
-        sz = 3;
-    } else {
-        p[0] = FirstByte::STR32;
-        _msgpack_store32(p + 1, len);
-        sz = 5;
-    }
-    if (!d->writeBytes(p, sz)) {
-        return *this;
-    }
-    d->writeBytes(bytes.data(), len);
+    writeString(bytes.constData(), bytes.size());
     return *this;
 }
 
@@ -1715,6 +1704,9 @@ MsgPackStream &MsgPackStream::operator<<(const QVariant &v)
         return *this << v.toByteArray();
     } else if (t == QMetaType::QVariantMap) {
         return *this << v.toMap();
+    } else if (t == QMetaType::QDate) {
+        QDateTime dayStart = QDateTime(v.toDate(), QTime(0, 0, 0));
+        return *this << dayStart;
     } else if (t == QMetaType::QDateTime) {
         return *this << v.toDateTime();
     } else {
@@ -1731,6 +1723,33 @@ MsgPackStream &MsgPackStream::operator<<(const QVariant &v)
 bool MsgPackStream::writeBytes(const char *data, qint64 len)
 {
     Q_D(MsgPackStream);
+    return d->writeBytes(data, len);
+}
+
+bool MsgPackStream::writeString(const char *data, quint32 len)
+{
+    CHECK_STREAM_PRECOND(false);
+    quint8 p[5];
+    int sz;
+    if (len <= 31) {
+        p[0] = FirstByte::FIXSTR | len;
+        sz = 1;
+    } else if (len <= std::numeric_limits<quint8>::max()) {
+        p[0] = FirstByte::STR8;
+        _msgpack_store8(p + 1, static_cast<quint8>(len));
+        sz = 2;
+    } else if (len <= std::numeric_limits<quint16>::max()) {
+        p[0] = FirstByte::STR16;
+        _msgpack_store16(p + 1, static_cast<quint16>(len));
+        sz = 3;
+    } else {
+        p[0] = FirstByte::STR32;
+        _msgpack_store32(p + 1, len);
+        sz = 5;
+    }
+    if (!d->writeBytes(p, sz)) {
+        return false;
+    }
     return d->writeBytes(data, len);
 }
 
