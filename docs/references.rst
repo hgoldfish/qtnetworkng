@@ -1617,6 +1617,7 @@ Adds SSL/TLS encryption to any streaming server seamlessly through template comp
     Indicates server uses encrypted protocol for external code inspection.
 
 .. method:: prepareRequest()
+    :no-index:
 
     Upgrades raw TCP connection to SSL connection.
 
@@ -1677,10 +1678,12 @@ Socks5RequestHandler implements SOCKS5 proxy protocol, inheriting from BaseReque
     Bidirectionally forwards data between client and target server.
 
 .. method:: doConnect()
-    : no-index:
+    :no-index:
+
     Allows subclass extension for connection success behavior.
 
 .. method:: doFailed()
+    :no-index:
 
     Allows subclass extension for connection failure behavior.
 
@@ -1739,7 +1742,7 @@ Encapsulates the creation, binding, and listening of TCP servers. Implements bus
 Detailed explanation of the KcpServer and KcpServerV2 classes, their methods, and implementation differences.
 
 .. method:: KcpServer(const HostAddress &serverAddress, quint16 serverPort)
-    
+
     Initialize the KCP server, bind to the specified address and port. Directly calls the constructor of ``BaseStreamServer``. If no address is specified, it defaults to binding all network interfaces (HostAddress::Any).
 
 .. method:: virtual QSharedPointer<SocketLike> serverCreate()
@@ -2403,7 +2406,7 @@ Before using the ``HttpResponse``, you should check ``HttpResonse::isOk()``. If 
 4.1 Basic Http Server
 ^^^^^^^^^^^^^^^^^^^^^
 4.1.1 BaseHttpRequestHandler
-+++++++++++++++++++++++
+++++++++++++++++++++++++++++++++
 Base class for handling HTTP requests, providing core functionality for HTTP protocol parsing, response generation, and error handling.
 
 .. method:: BaseHttpRequestHandler()
@@ -2552,32 +2555,965 @@ SimpleHttpsServer : public SslServer<SimpleHttpRequestHandler>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 There is no specific implementation yet
 
-5. Cryptography
----------------
+5.1 Password Hash Table
+^^^^^^^^^^^^^^^^^^^^^^^
+MessageDigest
+++++++++++++++
+Provides message digest (hash) functionality, supporting multiple hash algorithms, allows processing data in chunks and generating digests. Supports MD4 and MD5 algorithms, Sha1, Sha224, Sha256, Sha384, Sha512 series of SHA algorithms, as well as Ripemd160 and Whirlpool hash algorithms.
 
-5.1 Cryptographic Hash
-^^^^^^^^^^^^^^^^^^^^^^
+.. method:: MessageDigest(Algoritim algo)
 
-5.2 Symmetrical encryption and decryption
+    Initializes the context with the specified hash algorithm.
+
+.. method:: addData(const char *data, int len)
+
+    Adds raw byte data to the hash calculation. Calls EVP_DigestUpdate to update the context. Marks error on failure.
+
+.. method:: addData(const char *data)
+    :no-index:
+
+    Overload of addData. Internally calculates data length and calls the previous addData.
+
+.. method:: QByteArray result()
+
+    Finalizes the hash calculation and returns the final digest. If called for the first time, calls EVP_DigestFinal_ex to finalize the calculation and caches the result. Subsequent calls return the cached result directly. Returns empty QByteArray on failure.
+
+.. method:: void update(const QByteArray &data)
+
+    Same as addData, provides compatibility with common hash interfaces.
+
+.. method:: void update(const char *data, int len)
+
+    Same as addData, provides compatibility with common hash interfaces.
+
+.. method:: QByteArray hexDigest()
+
+    Same as result(), returns the raw digest.
+
+.. method:: QByteArray digest()
+
+    Returns the digest in hexadecimal string form.
+
+.. method:: static QByteArray hash(const QByteArray &data, Algorithm algo)
+
+    One-time calculation of the hash value (hexadecimal) of the data.
+
+.. method:: static QByteArray digest(const QByteArray &data, Algorithm algo)
+
+    One-time calculation of the hash value (raw bytes) of the data.
+
+.. method:: QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo = MessageDigest::Sha256, int i = 10000)
+
+    Calls OpenSSL's PKCS5_PBKDF2_HMAC function to generate the key.
+
+.. method:: QByteArray scrypt(int keylen, const QByteArray &password, const QByteArray &salt, int n = 1048576, int r = 8, int p = 1)
+
+    Not yet implemented.
+
+5.2 Symmetric Encryption and Decryption
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Cipher
++++++++
+Provides symmetric encryption/decryption functionality. Supports multiple algorithms (e.g. AES, DES, ChaCha20) and modes (e.g. CBC, CTR, ECB). Supports password derivation and padding control.
+
+.. method:: Cipher(Algorithm alog, Mode mode, Operation operation)
+
+    Initializes the encryption context. Obtains the corresponding OpenSSL EVP_CIPHER via getOpenSSL_CIPHER(). Creates EVP_CIPHER_CTX context. Enables padding by default. Marks hasError on failure.
+
+.. method:: Cipher *copy(Operation operation)
+
+    Copies the current configuration and creates a new Cipher instance.
+
+.. method:: bool isValid()
+
+    Checks if the context is valid. Conditions: OpenSSL context exists, no errors occurred, and it has been initialized.
+
+.. method:: bool isStream()
+
+    Determines if the current encryption context uses stream cipher mode (e.g. CFB, OFB, CTR).
+
+.. method:: bool isBlock()
+
+    Determines if block cipher mode is used (e.g. ECB, CBC). Directly returns !isStream().
+
+.. method:: void setKey(const QByteArray &key)
+
+    Sets the raw key.
+
+.. method:: QByteArray key()
+
+    Returns the current key.
+
+.. method:: setInitialVector(const QByteArray &iv)
+
+    Sets the initialization vector (IV). Stores the IV and initializes the context.
+
+.. method:: QByteArray initialVector()
+
+    Returns the current IV.
+
+.. method:: QByteArray iv()
+
+    Same as initialVector method.
+
+.. method:: bool setPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo = MessageDigest::Sha256, int i = 100000)
+
+    Derives key via password using PBKDF2-HMAC. Parameters: password, salt, hash algorithm, iteration count. Generates random salt (optional), calls PBKDF2_HMAC to derive key and IV.
+
+.. method:: bool setOpensslPassword(const QByteArray &password, const QByteArray &salt, const MessageDigest::Algorithm hashAlgo = MessageDigest::Md5, int i = 1)
+
+    Compatible with OpenSSL's key derivation (EVP_BytesToKey). Parameters: password, salt (must be 8 bytes), hash algorithm, iteration count. Uses legacy method to generate keys, suitable for decrypting data encrypted by OpenSSL.
+
+.. method:: QByteArray addData(const QByteArray &data)
+
+    Processes data in chunks and returns encrypted/decrypted result.
+
+.. method:: QByteArray addData(const char *data, int len)
+
+    Processes data in chunks and returns encrypted/decrypted result.
+
+.. method:: QByteArray update(const QByteArray &data)
+
+    Processes data in chunks and returns encrypted/decrypted result.
+
+.. method:: QByteArray update(const char *data, int len)
+
+    Processes data in chunks and returns encrypted/decrypted result.
+
+.. method:: QByteArray finalData()
+
+    Finalizes encryption/decryption and returns remaining data.
+
+.. method:: QByteArray final()
+
+    Finalizes encryption/decryption and returns remaining data.
+
+.. method:: QByteArray saltHeader()
+
+    Generates OpenSSL-style salt header ("Salted__" + 8-byte salt). Saves salt during encryption for decryption use.
+
+.. method:: QByteArray parseSalt()
+
+    Parses salt value from OpenSSL header. Return value: QPair<QByteArray, QByteArray> (salt + remaining data).
+
+.. method:: bool setPadding(bool padding)
+
+    Enables or disables PKCS#7 padding: Controls the automatic addition of padding bytes at the end of data for block cipher algorithms (e.g. AES-CBC, DES-ECB). Only effective for block ciphers: automatically ignores padding settings in stream cipher modes (e.g. CTR, CFB).
+
+.. method:: bool padding()
+
+    Gets enable/disable status of PKCS#7 padding.
+
+.. method:: int keySize()
+
+    Gets key length.
+
+.. method:: int ivSize()
+
+    Gets IV length.
+
+.. method:: int blockSize()
+
+    Gets block length.
+
+5.3 Public Key Algorithms
+^^^^^^^^^^^^^^^^^^^^^^^^^
+5.3.1 PublicKey
+++++++++++++++++
+Core class in the encryption system, used for managing public key operations.
+
+.. method:: PublicKey()
+
+    Creates an empty public key object. Initializes OpenSSL's EVP_PKEY structure internally.
+
+.. method:: PublicKey(const PublicKey &other)
+    :no-index:
+
+    Deep copies the underlying OpenSSL key object (via EVP_PKEY_dup). Prevents multiple objects sharing the same key memory, ensuring thread safety.
+
+.. method:: static PublicKey load(const QByteArray &data, Ssl::EncodingFormat format = Ssl::Pem)
+
+    Creates BIO memory object to read key data. Calls PEM_read_bio_PUBKEY to parse PEM format. Generates EVP_PKEY structure and stores it in PublicKeyPrivate.
+
+.. method:: QByteArray save(Ssl::EncodingFormat format = Ssl::Pem)
+
+    Writes the key to BIO object via PEM_write_bio_PUBKEY.
+
+.. method:: QByteArray encrypt(const QByteArray &data)
+
+    Initializes encryption context (algorithm auto-detected). Dynamically calculates output buffer size (avoids fixed length limitation). Executes encryption and returns result.
+
+.. method:: QByteArray rsaPublicEncrypt(const QByteArray &data, RsaPadding padding = PKCS1_PADDING)
+
+    RSA-specific encryption. PKCS1_PADDING: Best compatibility (default). NO_PADDING: Requires manual padding handling, only for specific protocols.
+
+.. method:: QByteArray rsaPublicDecrypt(const QByteArray &data, RsaPadding padding = PKCS1_PADDING)
+
+    RSA-specific decryption. PKCS1_PADDING: Best compatibility (default). NO_PADDING: Requires manual padding handling, only for specific protocols.
+
+.. method:: bool verify(const QByteArray &data, const QByteArray &hash, MessageDigest::Algorithm hashAlgo)
+
+    Processes data with specified hash algorithm (e.g. SHA256). Compares signature hash value with computed value. Returns true if verification passes.
+
+.. method:: Algorithm algorithm()
+
+    Enum type identifying key type (RSA/DSA/EC).
+
+.. method:: int bits()
+
+    Returns key length. 2048-bit RSA key returns 2048.
+
+.. method:: PublicKey &operator=(const PublicKey &other)
+
+    Overloaded = operator. Functionally equivalent to copy constructor.
+
+.. method:: bool operator==(const PublicKey &other)
+
+    Overloaded == operator.
+
+.. method:: bool operator==(const PrivateKey &)
+
+    Overloaded == operator.
+
+.. method:: bool operator!=(const PublicKey &other)
+
+    Overloaded != operator.
+
+.. method:: bool operator!=(const PrivateKey &)
+
+    Overloaded != operator.
+
+.. method:: QByteArray digest(MessageDigest::Algorithm algorithm = MessageDigest::Sha256)
+
+    Generates unique fingerprint (e.g. SHA256 hash) for key verification.
+
+.. method:: bool isNull()
+
+    Checks if key is empty.
+
+.. method:: bool isValid()
+
+    Checks key validity.
+
+5.3.2 PrivateKey
++++++++++++++++++
+Encapsulates private key operations including key generation, signing, decryption, and private key-specific encryption operations.
+
+.. method:: PrivateKey()
+
+    Default constructor.
+
+.. method:: PrivateKey(const PrivateKey &other)
+    :no-index:
+
+    Copy constructor.
+
+.. method:: PrivateKey(PrivateKey &&other)
+    :no-index:
+
+    Move constructor.
+
+.. method:: PrivateKey &operator=(const PublicKey &other)
+    :no-index:
+
+    Copy assignment operator.
+
+.. method:: PrivateKey &operator=(const PrivateKey &other)
+
+    Copy assignment operator.
+
+.. method:: bool operator==(const PrivateKey &other)
+
+    Overloaded == operator.
+
+.. method:: bool operator==(const PublicKey &)
+
+    Overloaded == operator.
+
+.. method:: bool operator!=(const PrivateKey &other)
+
+    Overloaded != operator.
+
+.. method:: bool operator!=(const PublicKey &)
+
+    Overloaded != operator.
+
+.. method:: PublicKey publicKey()
+
+    Extracts the public key corresponding to current private key.
+
+.. method:: QByteArray sign(const QByteArray &data, MessageDigest::Algorithm hashAlgo)
+
+    Signs data using private key.
+
+.. method:: QByteArray decrypt(const QByteArray &data)
+
+    Decrypts data using private key. Initializes decryption context: EVP_PKEY_decrypt_init. Calculates decrypted length: Calls EVP_PKEY_decrypt twice (first to get length, second to decrypt data). Returns decrypted result: Resizes QByteArray and fills data.
+
+.. method:: rsaPrivateEncrypt
+
+    Directly uses RSA private key for raw encryption.
+
+.. method:: rsaPrivateDecrypt
+
+    Directly uses RSA private key for raw decryption.
+
+.. method:: static PrivateKey generate(Algorithm algo, int bits)
+
+    Generates private key of specified algorithm and length.
+
+.. method:: static PrivateKey load(const QByteArray &data, Ssl::EncodingFormat format = Ssl::Pem, const QByteArray &password = QByteArray())
+
+    Loads private key from PEM/DER format with password decryption support.
+
+.. method:: QByteArray save(Ssl::EncodingFormat format = Ssl::Pem, const QByteArray &password = QByteArray())
+
+    Core functionality serializes private key. Supports password encryption (requires valid encryption algorithm). Relies on PrivateKeyWriter to handle OpenSSL low-level details. Needs DER format and default encryption logic improvement.
+
+.. method:: QByteArray savePublic(Ssl::EncodingFormat format = Ssl::Pem)
+
+    Directly reuses public key saving logic. Ensures output contains only public key information. No password handling required, always saves in plaintext.
+
+5.3.3 PasswordCallback
++++++++++++++++++++++++
+Encryption/decryption progress tracking.
+
+.. method:: virtual QByteArray get(bool writing) = 0;
+
+    Gets encryption/decryption progress. Must be implemented by subclass.
+
+5.3.4 PrivateKeyWriter
++++++++++++++++++++++++
+Serializes asymmetric encryption keys (e.g. RSA, DSA keys) to specific formats (PEM/DER). Supports encrypting private keys and saving to files or memory. Core responsibility: Provides flexible configuration options (encryption algorithm, password, public-only saving) and calls OpenSSL functions for serialization.
+
+.. method:: PrivateKeyWriter(const PrivateKey &key)
+
+    Copy constructor via private key.
+
+.. method:: PrivateKeyWriter(const PublicKey &key)
+    :no-index:
+
+    Copy constructor via public key.
+
+.. method:: PrivateKeyWriter &setCipher(Cipher::Algorithm algo, Cipher::Mode mode)
+
+    Specifies encryption algorithm for private key (e.g. AES-256-CBC). If not called, defaults to no encryption (Cipher::Null).
+
+.. method:: PrivateKeyWriter &setPassword(const QByteArray &password)
+
+    Provides password for private key encryption via direct input.
+
+.. method:: PrivateKeyWriter &setPassword(QSharedPointer<PasswordCallback> callback)
+    :no-index:
+
+    Provides password for private key encryption via dynamic callback.
+
+.. method:: PrivateKeyWriter &setPublicOnly(bool publicOnly)
+
+    Forces saving public key only, even when private key is passed. Extracts public key from private key and saves.
+
+.. method:: QByteArray asPem()
+
+    Serializes key to PEM format. Supports encrypted private keys.
+
+.. method:: QByteArray asDer()
+
+    Not fully implemented, returns empty data. Serializes key to DER format. Supports PKCS#8 encryption.
+
+.. method:: bool save(const QString &filePath)
+
+    Saves key to file. Uses PEM format by default.
+
+5.3.5 PrivateKeyReader
++++++++++++++++++++++++
+Responsible for loading private/public keys from files or memory data. Supports handling encrypted private key files (via password or callback).
+
+.. method:: PrivateKeyReader()
+
+    Initialization. Generates PrivateKey object.
+
+.. method:: PrivateKeyReader &setPassword(const QByteArray &password)
+
+    Sets direct password for decrypting encrypted private keys.
+
+.. method:: PrivateKeyReader &setPassword(QSharedPointer<PasswordCallback> callback)
+
+    Sets password callback object for dynamic password retrieval (e.g. GUI input).
+
+.. method:: PrivateKeyReader &setFormat(Ssl::EncodingFormat format)
+
+    Specifies input data encoding format (currently only PEM supported).
+
+.. method:: PrivateKey read(const QByteArray &data)
+
+    Reads private key from in-memory byte array.
+
+.. method:: PublicKey readPublic(const QByteArray &data)
+
+    Reads public key from in-memory byte array.
+
+.. method:: PrivateKey read(const QString &filePath)
+
+    Reads private key from file.
+
+.. method:: PublicKey readPublic(const QString &filePath)
+
+    Reads public key from file.
+
+5.4 Certificates and Certificate Requests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+5.4.1 Certificate
+++++++++++++++++++
+Encapsulates certificate operations. Provides interfaces like load/save certificate, retrieve certificate information, generate certificates.
 
-5.3 Public Key Algorithm
-^^^^^^^^^^^^^^^^^^^^^^^^
+.. method:: Certificate()
 
-5.4 Certificate and CertificateRequest
+    Constructor. Performs initialization.
+
+.. method:: Certificate(const Certificate &other)
+    :no-index:
+
+    Copy constructor. Performs initialization.
+
+.. method:: Certificate(Certificate &&other)
+    :no-index:
+
+    Move constructor. Performs initialization.
+
+.. method:: static Certificate load(const QByteArray &data, Ssl::EncodingFormat format = Ssl::Pem)
+
+    Loads certificate from PEM or DER formatted byte stream.
+
+.. method:: static Certificate generate(const PublicKey &publickey, const PrivateKey &caKey, MessageDigest::Algorithm signAlgo, long serialNumber, const QDateTime &effectiveDate, const QDateTime &expiryDate, const QMultiMap<SubjectInfo, QString> &subjectInfoes)
+
+    Generates new X.509 certificate. Signs with CA private key.
+
+.. method:: static Certificate selfSign(const PrivateKey &key, MessageDigest::Algorithm signAlgo, long serialNumber, const QDateTime &effectiveDate, const QDateTime &expiryDate, const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
+
+    Self-sign shortcut method. Calls generate method internally.
+
+.. method:: QByteArray save(Ssl::EncodingFormat format = Ssl::Pem)
+
+    Saves certificate in PEM or DER format.
+
+.. method:: QByteArray digest(MessageDigest::Algorithm algorithm = MessageDigest::Sha256)
+
+    Computes hash value (e.g. SHA-256) of certificate DER data.
+
+.. method:: QDateTime effectiveDate()
+
+    Parses X509_getm_notBefore and X509_getm_notAfter in CertificatePrivate::init.
+
+.. method:: QDateTime expiryDate()
+
+    Parses X509_getm_notBefore and X509_getm_notAfter in CertificatePrivate::init.
+
+.. method:: QStringList subjectInfo(SubjectInfo subject)
+
+    Retrieves X509_NAME via X509_get_subject_name and X509_get_issuer_name. Parses into key-value pairs.
+
+.. method:: QStringList subjectInfo(const QByteArray &attribute)
+
+    Retrieves X509_NAME via X509_get_subject_name and X509_get_issuer_name. Parses into key-value pairs.
+
+.. method:: PublicKey publicKey()
+
+    Gets public key.
+
+.. method:: QByteArray serialNumber()
+
+    Gets serial number.
+
+.. method:: bool isBlacklisted()
+
+    Checks if certificate is in predefined blacklist (e.g. malicious certificates from Comodo incident).
+
+.. method:: bool isNull()
+
+    Checks if certificate is empty.
+
+.. method:: bool isValid()
+
+    Checks certificate validity (non-empty and not blacklisted).
+
+.. method:: QString toString()
+
+    Returns certificate as string representation.
+
+.. method:: QByteArray version()
+
+    Returns current certificate version.
+
+.. method:: bool isSelfSigned()
+
+    Calls X509_check_issued to check if certificate is self-signed.
+
+5.4.2 CertificateRequest
++++++++++++++++++++++++++
+Certificate request operations.
+
+.. method:: certificate()
+
+    Returns Certificate object associated with the certificate request.
+
+5.5 TLS Cipher Suites
+^^^^^^^^^^^^^^^^^^^^^^
+5.5.1 SslCipher
+++++++++++++++++
+Encryption cipher suite used in SSL/TLS connections. Contains detailed information like encryption algorithm, protocol version, key exchange method.
+
+.. method:: SslCipher()
+
+    Default constructor.
+
+.. method:: SslCipher(const QString &name)
+    :no-index:
+
+    Constructor via name.
+
+.. method:: SslCipher(const QString &name, Ssl::SslProtocol protocol)
+    :no-index:
+
+    Constructor via name and protocol.
+
+.. method:: SslCipher(const SslCipher &other)
+    :no-index:
+
+    Copy constructor.
+
+.. method:: QString authenticationMethod()
+
+    Returns key authentication method (e.g. RSA).
+
+.. method:: QString encryptionMethod()
+
+    Returns specific encryption algorithm.
+
+.. method:: bool isNull()
+
+    Determines if object is valid (returns true if constructor found no match).
+
+.. method:: QString keyExchangeMethod()
+
+    Returns key exchange method (e.g. ECDHE).
+
+.. method:: QString name()
+
+    Directly returns name stored in private class.
+
+.. method:: Ssl::SslProtocol protocol()
+
+    Directly returns protocol enum value stored in private class.
+
+.. method:: QString protocolString()
+
+    Directly returns protocol string stored in private class.
+
+.. method:: int supportedBits()
+
+    Returns supported encryption bits.
+
+.. method:: int usedBits()
+
+    Returns used encryption bits.
+
+.. method:: inline bool operator!=(const SslCipher &other)
+
+    Determines cipher equality via name and protocol comparison, not all attributes.
+
+.. method:: SslCipher &operator=(SslCipher &&other)
+
+    Move assignment operator.
+
+.. method:: SslCipher &operator=(const SslCipher &other)
+
+    Copy assignment operator.
+
+.. method:: void swap(SslCipher &other)
+
+    Swaps two cipher suites.
+
+.. method:: bool operator==(const SslCipher &other)
+
+    Determines cipher equality via name and protocol comparison, not all attributes.
+
+6. Configuration and Building
+------------------------------
+6.1 Use libev instead of Qt Eventloop 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In CMake files, use conditional judgment to replace Qt event loop (qtev) with libev in Unix environments. The specific logic is as follows:
 
-5.5 Key Derivation Function
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1. **OS Judgment**:
 
-5.6 TLS Cipher Suite
-^^^^^^^^^^^^^^^^^^^^
+   If the current system is Unix (including Linux, macOS and other non-Windows systems), enter the libev configuration branch.
 
-6. Configuration And Build
---------------------------
+2. **Event Loop Backend Selection**:
+   • Use ``check_function_exists`` to detect whether the system supports ``epoll_ctl`` or ``kqueue``.
+     ◦ If ``epoll`` exists (Linux systems), define ``EV_USE_EPOLL=1`` and ``EV_USE_EVENTFD=1`` to use epoll as the event-driven mechanism.
+     ◦ If ``kqueue`` exists (BSD systems), define ``EV_USE_KQUEUE=1`` to use kqueue.
+     ◦ If neither is supported, fall back to ``poll()``.
+   • Define the macro ``QTNETWOKRNG_USE_EV`` to indicate enabling the libev event loop.
 
-6.1 Use libev Instead Of Qt Eventloop
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3. **Source Code Integration**:
+   • Add libev's source file ``src/ev/ev.c`` and header file ``src/ev/ev.h``.
+   • Use ``src/eventloop_ev.cpp`` as the implementation of the event loop, replacing Qt's native event loop.
+
+4. **Trigger Condition**:
+   • When CMake detects the target system is UNIX, libev is automatically enabled without additional configuration.
 
 6.2 Disable SSL Support
 ^^^^^^^^^^^^^^^^^^^^^^^
+6.2.1 Disable SSL Support During Build
++++++++++++++++++++++++++++++++++++++++++
+• **For qmake builds**: SSL support is disabled by default. To enable it, manually add the OpenSSL module.
+  
+• **For CMake builds**: 
+  • The built-in OpenSSL is controlled by ``QTNG_USE_OPENSSL``. 
+    ◦ When ``OFF`` (default), use qtnetworkng's built-in OpenSSL.
+    ◦ When ``ON``, use the system's OpenSSL.
+  • To completely disable SSL, comment out related configurations in CMake (not recommended). 
+
+
+6.2.2 Using Base Socket Classes Directly
++++++++++++++++++++++++++++++++++++++++++
+If encryption is not required, use base Socket classes instead of SslSocket. Using Socket directly bypasses all SSL/TLS layers, transmitting data in plaintext.
+A simple example:
+
+.. code-block:: c++
+    :caption: Example: Implementing a simple HTTP server using base TcpServer instead of SslServer
+
+        #include "qtnetworkng.h"
+        using namespace qtng;
+        class HelloRequestHandler: public SimpleHttpRequestHandler
+        {
+        public:
+            virtual void doGET() override
+            {
+                if (path == QString::fromLatin1("/hello/")) {
+                    sendResponse(HttpStatus::OK);
+                    sendHeader("Content-Type", "text/plain");
+                    QByteArray body = "hello";
+                    sendHeader("Content-Length", QByteArray::number(body.size()));
+                    endHeader();
+                    request->sendall(body);
+                } 
+            }
+        };
+        class HelloHttpServer: public TcpServer<HelloRequestHandler>
+        {
+        public:
+            HelloHttpServer(const HostAddress &serverAddress, quint16 serverPort)
+                : TcpServer(serverAddress, serverPort) {}
+        };
+        int main()
+        {
+            HelloHttpServer httpd(HostAddress::Any, 8443);
+            httpd.serveForever();
+            return 0;
+        }
+
+7. Other Auxiliary Classes
+---------------------------
+
+7.1 IO Operations
+^^^^^^^^^^^^^^^^^^
+This module provides cross-platform file and memory I/O abstractions with coroutine-friendly non-blocking operations and secure POSIX path management utilities, suitable for network applications requiring efficient and safe file handling.
+
+Core Functions:
+
+.. method:: bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy = -1, int suitableBlockSize = 1024 * 8)
+
+    Copies content between files with large file support. Parameters:
+    ◦ inputFile/outputFile: File objects for I/O
+    ◦ bytesToCopy: Bytes to copy (-1 for full content)
+    ◦ suitableBlockSize: Buffer size (default 8KB).
+
+7.1.1 FileLike
++++++++++++++++
+Abstract base class defining common file operation interfaces with read/write/close/size capabilities.
+
+.. method:: virtual qint32 read(char *data, qint32 size)
+
+    Read data to buffer (pure virtual).
+
+.. method:: virtual qint32 write(const char *data, qint32 size)
+
+    Write buffer data (pure virtual).
+
+.. method:: virtual void close()
+
+    Close file (pure virtual).
+
+.. method:: virtual qint64 size()
+
+    Get file size (pure virtual).
+
+.. method:: virtual QByteArray readall(bool *ok);
+
+    Read entire file, returns success via 'ok'.
+
+.. method:: QByteArray read(qint32 size)
+
+    Read specified data size.
+
+.. method:: qint32 write(const QByteArray &data)
+
+    Write QByteArray data.
+
+.. method:: static QSharedPointer<FileLike> rawFile(QSharedPointer<QFile> f)
+
+    Create FileLike from QFile.
+
+.. method:: static QSharedPointer<FileLike> rawFile(QFile *f)
+
+    Create FileLike from QFile pointer.
+
+.. method:: static QSharedPointer<FileLike> open(const QString &filepath, const QString &mode = QString())
+
+    Open file as FileLike instance.
+
+.. method:: static QSharedPointer<FileLike> bytes(const QByteArray &data)
+
+    Create memory-based BytesIO.
+
+.. method:: static QSharedPointer<FileLike> bytes(QByteArray *data)
+
+    Create BytesIO with existing data.
+
+7.1.2 RawFile
+^^^^^^^^^^^^^
+QFile wrapper implementing actual file I/O with non-blocking support (Unix).
+
+.. method:: virtual qint32 read(char *data, qint32 size) override
+
+    System call/QFile read (coroutine-friendly).
+
+.. method:: virtual qint32 write(const char *data, qint32 size) override
+
+    System call/QFile write (coroutine-friendly).
+
+.. method:: virtual void close() override
+
+    Close underlying QFile.
+
+.. method:: virtual qint64 size() override
+
+    Get file size.
+
+.. method:: bool seek(qint64 pos)
+
+    Reposition file pointer.
+
+.. method:: QString fileName() const
+
+    Retrieve filename.
+
+.. method:: static QSharedPointer<RawFile> open(const QString &filepath, const QString &mode = QString())
+
+    Open file with mode, set non-block flag (Unix).
+
+.. method:: static QSharedPointer<RawFile> open(const QString &filepath, QIODevice::OpenMode mode)
+
+    Open via QIODevice mode with non-block flag.
+
+7.1.3 BytesIO
+^^^^^^^^^^^^^
+In-memory byte stream simulating file operations.
+    
+.. method:: virtual qint32 read(char *data, qint32 size)
+
+    Read from memory buffer.
+
+.. method:: virtual qint32 write(const char *data, qint32 size)
+
+    Write to memory buffer.
+
+.. method:: virtual void close()
+
+    No-op (no close needed for memory).
+
+.. method:: virtual qint64 size()
+
+    Get buffer size.
+
+.. method:: virtual QByteArray readall(bool *ok)
+
+    Return entire buffer content.
+
+.. method:: QByteArray data()
+
+    Access underlying QByteArray.
+
+7.1.4 PosixPath
+^^^^^^^^^^^^^^^
+POSIX-compliant path handling class for cross-platform development.
+
+.. method:: PosixPath operator/(const QString &path)
+
+    Path concatenation (may contain ../.).
+
+.. method:: PosixPath operator|(const QString &path)
+
+    Auto-normalize path (filter ../.).
+
+.. method:: bool isNull()
+
+    Check empty path.
+
+.. method:: bool isFile()
+
+    Check regular file.
+
+.. method:: bool isDir()
+
+    Check directory.
+
+.. method:: bool isSymLink()
+
+    Check symbolic link.
+
+.. method:: bool isAbsolute()
+
+    Check absolute path.
+
+.. method:: bool isExecutable()
+
+    Check executable flag.
+
+.. method:: bool isReadable()
+
+    Check read permission.
+
+.. method:: bool isRelative()
+
+    Check relative path.
+
+.. method:: bool isRoot()
+
+    Check root directory.
+
+.. method:: bool isWritable()
+
+    Check write permission.
+
+.. method:: bool exists()
+
+    Check path existence.
+
+.. method:: qint64 size()
+
+    Get file size.
+
+.. method:: QString path()
+
+    Get full path string.
+
+.. method:: QFileInfo fileInfo()
+
+    Get QFileInfo object.
+
+.. method:: QString parentDir()
+
+    Get parent directory path.
+
+.. method:: PosixPath parentPath()
+
+    Get parent as PosixPath.
+
+.. method:: QString name()
+
+    Get filename (without extension).
+
+.. method:: QString baseName()
+
+    Alias of name().
+
+.. method:: QString suffix()
+
+    Get last extension.
+
+.. method:: QString completeBaseName()
+
+    Get multi-segment filename.
+
+.. method:: QString completeSuffix()
+
+    Get multi-segment extension.
+
+.. method:: QString toAbsolute()
+
+    Convert to absolute path.
+
+.. method:: QString relativePath(const QString &other)
+
+    Get relative path (string version).
+
+.. method:: QString relativePath(const PosixPath &other)
+
+    Get relative path (object version).
+
+.. method:: bool isChildOf(const PosixPath &other)
+
+    Check descendant relationship.
+
+.. method:: bool hasChildOf(const PosixPath &other)
+
+    Check ancestor relationship.
+
+.. method:: QDateTime created()
+
+    Get creation time.
+
+.. method:: QDateTime lastModified()
+
+    Get modification time.
+
+.. method:: QDateTime lastRead()
+
+    Get access time.
+
+.. method:: QStringList listdir()
+
+    List directory contents.
+
+.. method:: QList<PosixPath> children()
+
+    Get child paths as objects.
+
+.. method:: bool mkdir(bool createParents = false)
+
+    Create directory (with parent creation if enabled).
+
+.. method:: bool touch()
+
+    Not implemented.
+
+.. method:: QSharedPointer<RawFile> open(const QString &mode = QString())
+
+    Open via RawFile with mode string (e.g. "rw+").
+
+.. method:: QByteArray readall(bool *ok)
+
+    Read entire file content.
+
+.. method:: static PosixPath cwd()
+
+    Get current working directory.
+
+7.1.5 Additional Functions
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. method:: QDebug &operator<<(QDebug &, const PosixPath &)
+
+    Debug output for PosixPath.
+
+.. method:: uint qHash(const PosixPath &path, uint seed = 0)
+
+    Generate hash for QHash key usage.
+
+.. method:: QPair<QString, QString> safeJoinPath(const QString &parentDir, const QString &subPath)
+
+    Normalize path joining with security checks.
+
+.. method:: QPair<QFileInfo, QString> safeJoinPath(const QDir &parentDir, const QString &subPath)
+
+    QDir version of path joining.

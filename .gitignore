@@ -5,3 +5,4 @@ include/pool.h
 website/
 
 /docs/_build
+/examples/coroutines/coroutines.pro.user

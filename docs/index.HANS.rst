@@ -16,9 +16,9 @@ https://github.com/hgoldfish/qtnetworkng/
 
 选择文档阅读语言
 
-English:https://qtng.org/index.html
+English:    https://qtng.org/index.html
 
-中文:https://qtng.org/index.HANS.html
+中文:       https://qtng.org/index.HANS.html
 
 
 
