@@ -619,16 +619,17 @@ void SocketChannelPrivate::doSend()
                 return;
             }
             writingPackets.append(writingPacket);
-            count = 8 + writingPacket.packet.size();
-            while (count + 9 <= maxSendSize && !sendingQueue.isEmpty()) {
+#define CHANNEL_HEAD_SIZE (sizeof(quint32) + sizeof(quint32))
+            count = CHANNEL_HEAD_SIZE + writingPacket.packet.size();
+            while (count + CHANNEL_HEAD_SIZE < maxSendSize && !sendingQueue.isEmpty()) {
                 WritingPacket writingPacket = sendingQueue.peek();
                 if (!writingPacket.isValid()) {
                     break;
                 }
-                if (count + 8 + writingPacket.packet.size() > maxSendSize) {
+                if (count + CHANNEL_HEAD_SIZE + writingPacket.packet.size() > maxSendSize) {
                     break;
                 }
-                count += 8 + writingPacket.packet.size();
+                count += CHANNEL_HEAD_SIZE + writingPacket.packet.size();
                 sendingQueue.get();
                 writingPackets.append(writingPacket);
             }
