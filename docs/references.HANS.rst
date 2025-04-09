@@ -1349,8 +1349,10 @@ DNS相关
     标识服务器使用加密协议，供外部代码检查。
 
 .. method:: prepareRequest()
+    :no-index:
 
     将原始 TCP 连接升级为 SSL 连接。
+
 
 2.4.3 BaseRequestHandler
 +++++++++++++++++++++++++
@@ -1409,10 +1411,12 @@ DNS相关
     在客户端和目标服务器之间双向转发数据。
 
 .. method:: doConnect()
+    :no-index:
 
     供子类扩展连接成功的行为。
 
 .. method:: doFailed()
+    :no-index:
 
     供子类扩展连接失败时的行为。
 
@@ -1473,7 +1477,8 @@ DNS相关
 详细解释KcpServer 和 KcpServerV2这两个类和各个方法，并详细解释这两个类的实现区别
 
 .. method:: KcpServer(const HostAddress &serverAddress, quint16 serverPort)
-    
+    :no-index:
+
     初始化KCP服务器，绑定到指定地址和端口，直接调用 ``BaseStreamServer`` 的构造函数，若未指定地址则默认绑定所有网络接口(HostAddress::Any)
 
 .. method:: virtual QSharedPointer<SocketLike> serverCreate()
@@ -1489,6 +1494,7 @@ DNS相关
 更底层的KCP协议服务器实现，直接操作KCP会话实例。
 
 .. method:: KcpServerV2(const HostAddress &serverAddress, quint16 serverPort)
+    :no-index:
 
     初始化KCP服务器，绑定到指定地址和端口，直接调用 ``BaseStreamServer`` 的构造函数，若未指定地址则默认绑定所有网络接口(HostAddress::Any)
 
@@ -2110,6 +2116,7 @@ DNS相关
 处理 HTTP 请求的基础类，提供 HTTP 协议解析、响应生成、错误处理等核心功能。
 
 .. method:: BaseHttpRequestHandler()
+    :no-index:
 
     初始化默认参数，HTTP 版本默认为 Http1_1，请求超时时间 requestTimeout 默认 1 小时，最大请求体大小 maxBodySize 默认 32MB，连接状态 closeConnection 初始为 Maybe
 
@@ -2265,10 +2272,12 @@ MessageDigest
 提供消息摘要（哈希）功能，支持多种哈希算法，允许分块处理数据并生成摘要。支持MD4和MD5算法，Sha1, Sha224, Sha256, Sha384, Sha512一系列SHA系列算法以及Ripemd160, Whirlpool哈希算法。
 
 .. method:: MessageDigest(Algoritim algo)
+    :no-index:
 
     初始化指定哈希算法的上下文
 
 .. method:: addData(const char *data, int len)
+    :no-index:
 
     将原始字节数据添加到哈希计算，调用 EVP_DigestUpdate 更新上下文，失败则标记错误。
 
@@ -2320,6 +2329,7 @@ Clipher
 提供对称加密/解密功能，支持多种算法（如 AES、DES、ChaCha20 等）和模式（如 CBC、CTR、ECB 等），支持密码派生、填充控制。
 
 .. method:: Cipher(Algorithm alog, Mode mode, Operation operation)
+    :no-index:
 
     初始化加密上下文，通过 getOpenSSL_CIPHER() 获取对应的 OpenSSL EVP_CIPHER。创建 EVP_CIPHER_CTX 上下文，默认启用填充，失败时标记 hasError
 
@@ -2348,6 +2358,7 @@ Clipher
     返回当前密钥
 
 .. method:: setInitialVector(const QByteArray &iv)
+    :no-index:
 
     设置初始化向量（IV）,存储 IV 并初始化上下文。
 
@@ -2426,6 +2437,7 @@ Clipher
 加密体系中的核心类，用于管理公钥操作。
 
 .. method:: PublicKey()
+    :no-index:
 
     创建空公钥对象，内部初始化OpenSSL的EVP_PKEY结构
 
@@ -2447,10 +2459,12 @@ Clipher
     初始化加密上下文（算法自动识别），动态计算输出缓冲区大小（避免固定长度限制），执行加密并返回结果
 
 .. method:: QByteArray rsaPublicEncrypt(const QByteArray &data,RsaPadding padding = PKCS1_PADDING)
+    :no-index:
 
     RSA专用加密，PKCS1_PADDING：兼容性最佳（默认），NO_PADDING：需手动处理填充，仅用于特定协议
 
 .. method:: QByteArray rsaPublicDecrypt(const QByteArray &data, RsaPadding padding = PKCS1_PADDING)
+    :no-index:
 
      RSA专用解密，PKCS1_PADDING：兼容性最佳（默认），NO_PADDING：需手动处理填充，仅用于特定协议
     
@@ -2503,6 +2517,7 @@ Clipher
 封装私钥操作，包括密钥生成、签名、解密及特定于私钥的加密操作。
 
 .. method:: PrivateKey()    
+    :no-index:
 
     默认构造函数
 
@@ -2552,10 +2567,12 @@ Clipher
     使用私钥解密数据。初始化解密上下文：EVP_PKEY_decrypt_init,计算解密后长度：EVP_PKEY_decrypt 两次调用，第一次获取长度，第二次解密数据,返回解密结果：调整 QByteArray 大小并填充数据。
 
 .. method:: rsaPrivateEncrypt
+    :no-index:
 
     直接使用 RSA 私钥进行原始加密   
 
 .. method:: rsaPrivateDecrypt
+    :no-index:
 
     直接使用 RSA 私钥进行原始解密
 
@@ -2588,6 +2605,7 @@ Clipher
 非对称加密密钥（如 RSA、DSA 密钥）序列化为特定格式（PEM/DER），支持加密私钥并保存到文件或内存。其核心职责是提供灵活的配置选项（加密算法、密码、是否仅保存公钥）并调用 OpenSSL 函数完成序列化。
 
 .. method:: PrivateKeyWriter(const PrivateKey &key)
+    :no-index:
 
     拷贝构造函数，通过私钥构造
 
@@ -2629,6 +2647,7 @@ Clipher
 负责从文件或内存数据中加载私钥或公钥，支持处理加密的私钥文件（通过密码或回调函数）。
 
 .. method:: PrivateKeyReader()
+    :no-index:
 
     初始化,生成PrivateKey对象
 
@@ -2667,6 +2686,7 @@ Clipher
 封装证书操作，提供接口如加载/保存证书、获取证书信息、生成证书等。
 
 .. method:: Certificate()
+    :no-index:
 
     构造函数，进行初始化操作
 
@@ -2753,6 +2773,7 @@ Clipher
 请求证书
 
 .. method:: certificate()
+    :no-index:
 
     返回与证书请求关联的 Certificate 对象。
 
@@ -2979,7 +3000,7 @@ SSL/TLS 连接中使用的加密套件（Cipher Suite），包含加密算法、
     创建基于内存的 BytesIO 实例。
 
 7.1.2 RawFile
-^^^^^^^^^^^^^^
++++++++++++++++
 封装 QFile，提供对实际文件的读写操作，支持非阻塞IO（Unix下）
 
 .. method:: virtual qint32 read(char *data, qint32 size) override
@@ -3015,7 +3036,7 @@ SSL/TLS 连接中使用的加密套件（Cipher Suite），包含加密算法、
     根据模式和路径打开文件，设置非阻塞标志（Unix）。
 
 7.1.3 BytesIO
-^^^^^^^^^^^^^^
+++++++++++++++
 内存中的字节流，模拟文件操作。
     
 .. method:: virtual qint32 read(char *data, qint32 size)
@@ -3043,7 +3064,7 @@ SSL/TLS 连接中使用的加密套件（Cipher Suite），包含加密算法、
     获取底层的QByteArray
 
 7.1.3 PosixPath
-^^^^^^^^^^^^^^^^
+++++++++++++++++
 基于 Qt 框架实现的 POSIX 路径处理类，主要用于在跨平台开发中规范化和操作符合 POSIX 标准的文件路径。
 
 .. method:: PosixPath operator/(const QString &path)
@@ -3199,7 +3220,7 @@ SSL/TLS 连接中使用的加密套件（Cipher Suite），包含加密算法、
     获取当前工作目录的PosixPath路径
 
 7.1.4 其他函数
-^^^^^^^^^^^^^^^
++++++++++++++++
 .. method:: QDebug &operator<<(QDebug &, const PosixPath &)
 
     用于在调试时输出PosixPath对象的路径信息

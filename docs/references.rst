@@ -676,6 +676,7 @@ A `semaphore` is a variable or abstract data type used to control access to a co
 The last example spawns 100 corotuines, but only 5 coroutines is making request to http server.
 
 .. method:: Semaphore(int value = 1)
+    :no-index:
 
     This constructor requires a ``value`` indicating the maximum number of resources.
     
@@ -699,6 +700,7 @@ The last example spawns 100 corotuines, but only 5 coroutines is making request 
 A queue between two coroutines.
 
 .. method:: Queue(int capacity)
+    :no-index:
 
 This constructor requires a ``capacity`` indicating the maximum number of elements can hold.
 
@@ -981,7 +983,8 @@ Types of I/O operations
 RAII wrapper for IO event watcher that automatically manages resources.
 
 .. method:: ScopedIoWatcher(EventType event, qintptr fd)
-    : no-index:
+    :no-index:
+
     Creates a watcher for specified event type (read/write) on file descriptor ``fd``.
 
 .. method:: bool start()
@@ -1742,6 +1745,7 @@ Encapsulates the creation, binding, and listening of TCP servers. Implements bus
 Detailed explanation of the KcpServer and KcpServerV2 classes, their methods, and implementation differences.
 
 .. method:: KcpServer(const HostAddress &serverAddress, quint16 serverPort)
+    :no-index:
 
     Initialize the KCP server, bind to the specified address and port. Directly calls the constructor of ``BaseStreamServer``. If no address is specified, it defaults to binding all network interfaces (HostAddress::Any).
 
@@ -1758,6 +1762,7 @@ Detailed explanation of the KcpServer and KcpServerV2 classes, their methods, an
 Lower-level KCP protocol server implementation, directly manipulating KCP session instances.
 
 .. method:: KcpServerV2(const HostAddress &serverAddress, quint16 serverPort)
+    :no-index:
 
     Initialize the KCP server, bind to the specified address and port. Directly calls the constructor of ``BaseStreamServer``. If no address is specified, it defaults to binding all network interfaces (HostAddress::Any).
 
@@ -2410,6 +2415,7 @@ Before using the ``HttpResponse``, you should check ``HttpResonse::isOk()``. If 
 Base class for handling HTTP requests, providing core functionality for HTTP protocol parsing, response generation, and error handling.
 
 .. method:: BaseHttpRequestHandler()
+    :no-index:
 
     Initializes default parameters: HTTP version defaults to Http1_1, request timeout (requestTimeout) defaults to 1 hour, maximum request body size (maxBodySize) defaults to 32MB, connection state (closeConnection) initially set to Maybe.
 
@@ -2562,10 +2568,12 @@ MessageDigest
 Provides message digest (hash) functionality, supporting multiple hash algorithms, allows processing data in chunks and generating digests. Supports MD4 and MD5 algorithms, Sha1, Sha224, Sha256, Sha384, Sha512 series of SHA algorithms, as well as Ripemd160 and Whirlpool hash algorithms.
 
 .. method:: MessageDigest(Algoritim algo)
+    :no-index:
 
     Initializes the context with the specified hash algorithm.
 
 .. method:: addData(const char *data, int len)
+    :no-index:
 
     Adds raw byte data to the hash calculation. Calls EVP_DigestUpdate to update the context. Marks error on failure.
 
@@ -2617,6 +2625,7 @@ Cipher
 Provides symmetric encryption/decryption functionality. Supports multiple algorithms (e.g. AES, DES, ChaCha20) and modes (e.g. CBC, CTR, ECB). Supports password derivation and padding control.
 
 .. method:: Cipher(Algorithm alog, Mode mode, Operation operation)
+    :no-index:
 
     Initializes the encryption context. Obtains the corresponding OpenSSL EVP_CIPHER via getOpenSSL_CIPHER(). Creates EVP_CIPHER_CTX context. Enables padding by default. Marks hasError on failure.
 
@@ -2645,6 +2654,7 @@ Provides symmetric encryption/decryption functionality. Supports multiple algori
     Returns the current key.
 
 .. method:: setInitialVector(const QByteArray &iv)
+    :no-index:
 
     Sets the initialization vector (IV). Stores the IV and initializes the context.
 
@@ -2723,6 +2733,7 @@ Provides symmetric encryption/decryption functionality. Supports multiple algori
 Core class in the encryption system, used for managing public key operations.
 
 .. method:: PublicKey()
+    :no-index:
 
     Creates an empty public key object. Initializes OpenSSL's EVP_PKEY structure internally.
 
@@ -2800,6 +2811,7 @@ Core class in the encryption system, used for managing public key operations.
 Encapsulates private key operations including key generation, signing, decryption, and private key-specific encryption operations.
 
 .. method:: PrivateKey()
+    :no-index:
 
     Default constructor.
 
@@ -2851,10 +2863,12 @@ Encapsulates private key operations including key generation, signing, decryptio
     Decrypts data using private key. Initializes decryption context: EVP_PKEY_decrypt_init. Calculates decrypted length: Calls EVP_PKEY_decrypt twice (first to get length, second to decrypt data). Returns decrypted result: Resizes QByteArray and fills data.
 
 .. method:: rsaPrivateEncrypt
+    :no-index:
 
     Directly uses RSA private key for raw encryption.
 
 .. method:: rsaPrivateDecrypt
+    :no-index:
 
     Directly uses RSA private key for raw decryption.
 
@@ -2887,6 +2901,7 @@ Encryption/decryption progress tracking.
 Serializes asymmetric encryption keys (e.g. RSA, DSA keys) to specific formats (PEM/DER). Supports encrypting private keys and saving to files or memory. Core responsibility: Provides flexible configuration options (encryption algorithm, password, public-only saving) and calls OpenSSL functions for serialization.
 
 .. method:: PrivateKeyWriter(const PrivateKey &key)
+    :no-index:
 
     Copy constructor via private key.
 
@@ -2929,6 +2944,7 @@ Serializes asymmetric encryption keys (e.g. RSA, DSA keys) to specific formats (
 Responsible for loading private/public keys from files or memory data. Supports handling encrypted private key files (via password or callback).
 
 .. method:: PrivateKeyReader()
+    :no-index:
 
     Initialization. Generates PrivateKey object.
 
@@ -2967,6 +2983,7 @@ Responsible for loading private/public keys from files or memory data. Supports 
 Encapsulates certificate operations. Provides interfaces like load/save certificate, retrieve certificate information, generate certificates.
 
 .. method:: Certificate()
+    :no-index:
 
     Constructor. Performs initialization.
 
@@ -3053,6 +3070,7 @@ Encapsulates certificate operations. Provides interfaces like load/save certific
 Certificate request operations.
 
 .. method:: certificate()
+    :no-index:
 
     Returns Certificate object associated with the certificate request.
 
@@ -3063,7 +3081,8 @@ Certificate request operations.
 Encryption cipher suite used in SSL/TLS connections. Contains detailed information like encryption algorithm, protocol version, key exchange method.
 
 .. method:: SslCipher()
-
+    :no-index:
+    
     Default constructor.
 
 .. method:: SslCipher(const QString &name)
@@ -3281,7 +3300,7 @@ Abstract base class defining common file operation interfaces with read/write/cl
     Create BytesIO with existing data.
 
 7.1.2 RawFile
-^^^^^^^^^^^^^
+++++++++++++++
 QFile wrapper implementing actual file I/O with non-blocking support (Unix).
 
 .. method:: virtual qint32 read(char *data, qint32 size) override
@@ -3317,7 +3336,7 @@ QFile wrapper implementing actual file I/O with non-blocking support (Unix).
     Open via QIODevice mode with non-block flag.
 
 7.1.3 BytesIO
-^^^^^^^^^^^^^
++++++++++++++++
 In-memory byte stream simulating file operations.
     
 .. method:: virtual qint32 read(char *data, qint32 size)
@@ -3345,7 +3364,7 @@ In-memory byte stream simulating file operations.
     Access underlying QByteArray.
 
 7.1.4 PosixPath
-^^^^^^^^^^^^^^^
++++++++++++++++++
 POSIX-compliant path handling class for cross-platform development.
 
 .. method:: PosixPath operator/(const QString &path)
@@ -3501,7 +3520,7 @@ POSIX-compliant path handling class for cross-platform development.
     Get current working directory.
 
 7.1.5 Additional Functions
-^^^^^^^^^^^^^^^^^^^^^^^^^^
++++++++++++++++++++++++++++++
 .. method:: QDebug &operator<<(QDebug &, const PosixPath &)
 
     Debug output for PosixPath.
