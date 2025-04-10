@@ -80,6 +80,7 @@ signals:
     void readyRead();
     void bytesWritten(qint64 bytes);
 public:
+    void setDebugLevel(qint8 debugLevel);
     QSharedPointer<FileLike> fileToRead(bool takePipe = false);
     QSharedPointer<FileLike> fileToWrite(bool takePipe = false);
     // if the io device is used in Qt async style, set connectSignals = true

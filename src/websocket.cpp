@@ -1,5 +1,6 @@
 #include <QtCore/qdatetime.h>
 #include <QtCore/qendian.h>
+#include <QtCore/qscopeguard.h>
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
 #include <QtCore/qrandom.h>
 #endif
@@ -629,27 +630,30 @@ void WebSocketConnectionPrivate::doSend()
             return;
         }
 
+        QSharedPointer<ValueEvent<bool>> done = writingPacket.done;
+        auto cleanup = qScopeGuard([done] {
+            if (!done.isNull()) {
+                done->send(false);
+            }
+        });
+
         const QVector<WebSocketFrame> &frames = fragmentFrame(writingPacket, outgoingSize);
         for (const WebSocketFrame &frame : frames) {
             if (errorCode != WebSocketConnection::NoError) {
-                if (!writingPacket.done.isNull()) {
-                    writingPacket.done->send(false);
-                }
                 return;
             }
 
             // the other coroutines may want to send something.
-            Coroutine::sleep(0);
+            // can raise CoroutineExitException!
+            // Coroutine::sleep(0);
 
             const QByteArray &packet = frame.toByteArray();
             if (!sendBytes(packet)) {
-                if (!writingPacket.done.isNull()) {
-                    writingPacket.done->send(false);
-                }
                 return;
             }
         }
 
+        cleanup.dismiss();
         if (!writingPacket.done.isNull()) {
             writingPacket.done->send(true);
         }
@@ -830,7 +834,7 @@ void WebSocketConnectionPrivate::doKeepalive()
         // now and lastKeepaliveTimestamp both are unsigned int, we should check which is larger before apply minus
         // operator to them.
         if (now > lastKeepaliveTimestamp && (now - lastKeepaliveTimestamp > keepaliveInterval)) {
-            if (debugLevel >= 1) {
+            if (debugLevel >= 2) {
                 qtng_debug << "sending keepalive packet.";
             }
             const WebSocketFrame &pingFrame = makeControlFrame(PingFrame);
@@ -990,7 +994,7 @@ bool WebSocketConnectionPrivate::recvBytes(QByteArray &buf, int &usedSize)
 bool WebSocketConnectionPrivate::sendBytes(const QByteArray &packet)
 {
     ScopedLock<Lock> locklock(writeLock);
-    if (debugLevel >= 3) {
+    if (debugLevel >= 2) {
         qtng_debug << "sending packet:" << packet;
     } else if (debugLevel >= 2) {
         qtng_debug << "sending packet:" << packet.size();

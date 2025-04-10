@@ -447,6 +447,7 @@ public:
         , queue(2)
         , closed(false)
         , maxBufferSize(maxBufferSize)
+        , debugLevel(0)
         , shouldEmitReadyRead(false)
         , shouldEmitBytesWritten(false)
     {
@@ -456,6 +457,7 @@ public:
     ThreadQueue<QByteArray> queue;
     QAtomicInteger<bool> closed;
     const qint32 maxBufferSize;
+    qint8 debugLevel;
     bool shouldEmitReadyRead;
     bool shouldEmitBytesWritten;
 };
@@ -463,6 +465,11 @@ public:
 Pipe::Pipe(qint32 maxBufferSize)
     : d(new PipePrivate(this, maxBufferSize))
 {
+}
+
+void Pipe::setDebugLevel(qint8 debugLevel)
+{
+    d->debugLevel = debugLevel;
 }
 
 class FileToRead : public FileLike
@@ -479,12 +486,18 @@ public:
     {
         QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
         if (pp.isNull() || size <= 0) {
+            if (pp->debugLevel >= 1) {
+                qtng_debug << "can not read data the pipe is closed or size is invalid:" << size;
+            }
             return -1;
         }
         // TODO we need ring buffer.
         if (localBuffer.size() >= size) {
             memcpy(data, localBuffer.constData(), size);
             localBuffer.remove(0, size);
+            if (pp->debugLevel >= 2) {
+                qtng_debug << "the size is fit in local buffer, return" << size << "bytes. left the local buffer" << localBuffer.size() << "bytes.";
+            }
             return size;
         }
 
@@ -494,6 +507,9 @@ public:
                 const QByteArray &packet = pp->queue.get();
                 if (packet.isEmpty()) {
                     Q_ASSERT(pp->closed && pp->queue.isEmpty());
+                    if (pp->debugLevel >= 2) {
+                        qtng_debug << "got empty packet. the pipe is closed in another peer.";
+                    }
                     break;
                 } else {
                     bytesWritten += packet.size();
@@ -502,6 +518,9 @@ public:
             } while (!pp->queue.isEmpty());
 
             if (pp->shouldEmitBytesWritten && bytesWritten > 0) {
+                if (pp->debugLevel >= 2) {
+                    qtng_debug << "invoking bytes written.";
+                }
                 QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(bytesWritten(qint64)), Q_ARG(qint64, bytesWritten));
             }
         }
@@ -509,6 +528,9 @@ public:
         qint32 bytesToRead = qMin<qint32>(localBuffer.size(), size);
         memcpy(data, localBuffer.constData(), bytesToRead);
         localBuffer.remove(0, bytesToRead);
+        if (pp->debugLevel >= 2) {
+            qtng_debug << "got data from another peer and returned" << bytesToRead << "bytes, left the local buffer" << localBuffer.size() << "bytes";
+        }
         return bytesToRead;
     }
 
