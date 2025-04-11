@@ -16,9 +16,9 @@ Language
 
 Choose a language for document reading
 
-English:https://qtng.org/index.html
+English:    https://qtng.org/index.html
 
-中文:https://qtng.org/index.HANS.html
+中文:       https://qtng.org/index.HANS.html
 
 
 Author

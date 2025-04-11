@@ -825,162 +825,26 @@ QtNetworkNg 编程中**最严重的错误**是在事件循环协程中调用阻�
 
 1.7 内部机制：协程如何切换
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+1.7.1 Iterator
++++++++++++++++
+实现协程间的数据分块传输，支持批量处理数据（如分页读取文件或网络流）。
 
-1.7.1 Functor
-++++++++++++++
-抽象回调接口，定义统一的 operator()方法，所有具体回调需继承此类，例如定时器回调，IO事件回调
+.. method:: bool next(T &result)
 
-.. method:: virtual bool operator()()=0
-    
-    纯虚基类，子类需实现具体逻辑
+    从缓冲区获取下一个元素，若空则挂起调用方协程（callee->yield()），等待数据生成。
 
-1.7.2 DoNothingFunctor
-++++++++++++++++++++++++
-空操作回调，可用于占位或默认回调
+.. method:: void yield(const T &t)
 
-.. method::operator()()=0
+    向缓冲区添加元素，达到batchSize时挂起当前协程，切换回调用方。
 
-  空操作回调，直接返回 false
-
-1.7.3 YieldCurrentFunctor
-++++++++++++++++++++++++++++++
-让出当前操作的执行权
-
-.. method::explicit YieldCurrentFunctor()
-
-  保存当前协程的指针
-
-.. method::virtual bool operator()()
- 
- 重新唤醒保存的指针
-
-1.7.4 DeleteLaterFunctor<T>
-++++++++++++++++++++++++++++++
-延迟删除对象，避免在回调中直接析构
-
-.. method::virtual bool operator()()
-
- 释放动态分配的对象
-
-1.7.5 LambdaFunctor
-++++++++++++++++++++
-包装函数，允许lambda表达式作为回调
-
-.. method::virtual operator()()
-
-  调用callback() 执行用户定义逻辑
-
-1.7.6 callInEventLoopCoroutine
-+++++++++++++++++++++++++++++++
-协程事件循环的核心类，作为事件循环的载体,负责管理 ​I/O 事件监听、定时器调度、协程挂起与恢复，并协调协程与底层事件驱动的交互。
-
-I/O操作类型
-
-    .. code-block:: c++
-
-        enum EventType {
-            Read = 1,
-            Write = 2,
-            ReadWrite = 3,
-        };
-
-.. method:: int createWatcher(EventType event, qintptr fd, Functor *callback)
-
- 创建针对文件描述符 fd 的读写事件监视器，绑定回调函数 callback
-
-.. method:: void startWatcher(int watcherId);
-
- 启动指定 ID 的监视器。适用于动态控制事件监听。
-
-.. method:: void stopWatcher(int watcherId);
-
- 停止指定 ID 的监视器。适用于动态控制事件监听。
-
-.. method:: void removeWatcher(int watcherId);
-
- 移除监视器，释放相关资源。
-
-.. method:: void triggerIoWatchers(qintptr fd);
-
- 手动触发与 fd 关联的所有已注册事件回调。用于外部事件通知。
-
-.. method:: void callLaterThreadSafe(quint32 msecs, Functor *callback)
-
- 线程安全地调度一个延迟 msecs 毫秒后执行的异步回调。
-
-.. method:: int callLater(quint32 msecs, Functor *callback)
-
- 延迟 msecs 毫秒后执行一次 callback，返回定时器 ID。
-
-.. method:: int callRepeat(quint32 msecs, Functor *callback) 
-
- 每隔 msecs 毫秒重复执行 callback，返回定时器 ID。
-
-.. method:: void cancelCall(int callbackId)
-
- 取消指定 ID 的定时器，防止回调执行。
-
-.. method:: bool runUntil(BaseCoroutine *coroutine)
- 
- 运行事件循环，直到 coroutine 协程结束。用于阻塞等待协程完成。
-
-.. method:: bool yield();
-
- 挂起当前协程，让出 CPU 给其他协程。通常在等待事件时调用。
-
- .. method:: int exitCode()
-
- 返回事件循环的终止状态码，用于判断事件循环的运行结果。
-
-.. method:: bool isQt()
-
- 判断事件循环的后端实现(Qt) 
-
-.. method:: bool isEv() 
-
- 判断事件循环的后端实现(libev)
-
-.. method:: bool isWin()
- 
- 判断事件循环的后端实现(winev)
-
-.. method:: static EventLoopCoroutine *get();
-
- 事件循环的统一入口，通过线程本地存储管理实例生命周期，并适配多平台后端，是异步编程的核心枢纽。其设计理念与 Python 的 asyncio.get_event_loop() 一脉相承，但结合 C++ 特性实现了更底层的控制。
-
-1.7.7 ScopedIoWatcher
+1.7.2 IteratorCoroutin
 +++++++++++++++++++++++
-RAII 封装 IO 事件监视器，自动管理资源。
+继承自BaseCoroutine，实际执行用户传入的生成函数（func），通过yield()分批次返回数据。
 
-.. method:: ScopedIoWatcher(EventType, qintptr fd)
-    :no-index:
+.. method:: virtual void run()
 
- 创建指定类型（读/写）的文件描述符监视器。
+   执行生成函数，填充数据到chunk，触发协程切换。 
 
-.. method:: ​bool start()
-
- 启动监视器。
-
-1.7.8 CurrentLoopStorage
-+++++++++++++++++++++++++
- 事件循环的抽象基类，定义平台相关的接口。
-
-.. method:: QSharedPointer<EventLoopCoroutine> getOrCreate();
-
- 获取当前线程的事件循环实例；若不存在则创建新实例。
-
-.. method:: QSharedPointer<EventLoopCoroutine> get();
-
- 仅获取当前线程的事件循环实例，若未初始化则返回空指针。
-
-.. method:: void set(QSharedPointer<EventLoopCoroutine> eventLoop);
-
- 显式设置当前线程的事件循环实例（覆盖自动创建逻辑）。
-
-.. method:: void clean();
-
- 清空当前线程的事件循环实例，触发 QSharedPointer 的引用计数析构。
-    
 2. 基础网络编程
 ----------------------------
 
@@ -1049,9 +913,6 @@ QtNetworkNg 支持 IPv4 和 IPv6，旨在提供类似 Python socket 模块的面
 .. method:: bool setOption(SocketOption option, const QVariant &value)
 
     将指定 ``option`` 设置为 ``value`` 描述的值。该函数用于配置套接字选项。
-
-2.1 Socket
-^^^^^^^^^^
 
 套接字选项可通过以下表格配置：
 
@@ -1207,67 +1068,6 @@ DNS相关
 .. method:: void setDnsCache(QSharedPointer<SocketDnsCache> dnsCache)
 
     设置DNS缓存
-
-2.2 SslSocket
-^^^^^^^^^^^^^
-
-``SslSocket`` 设计类似 ``Socket``，继承大部分函数如 ``connect()``、``recv()``、``send()``、``peerName()`` 等，但排除仅用于 UDP 套接字的 ``recvfrom()`` 和 ``sendto()``。
-
-构造函数提供三种形式：
-
-.. code-block:: c++
-    :caption: SslSocket 构造函数
-    
-    SslSocket(HostAddress::NetworkLayerProtocol protocol = Socket::AnyIPProtocol,
-            const SslConfiguration &config = SslConfiguration());
-    
-    SslSocket(qintptr socketDescriptor, const SslConfiguration &config = SslConfiguration());
-    
-    SslSocket(QSharedPointer<Socket> rawSocket, const SslConfiguration &config = SslConfiguration());
-
-信息获取相关方法：
-
-.. method:: bool handshake(bool asServer, const QString &verificationPeerName = QString())
-
-    与对端进行握手协商。参数 ``asServer=true`` 时本端作为 SSL 服务器。仅当基于原生套接字创建时需手动调用此函数。
-    
-.. method:: Certificate localCertificate() const
-
-    返回本地证书链的顶层证书，通常与 ``SslConfiguration::localCertificate()`` 一致。
-    
-.. method:: QList<Certificate> localCertificateChain() const
-
-    返回本地完整证书链，包含 ``SslConfiguration::localCertificateChain()`` 及部分 ``SslConfiguration::caCertificates``。
-    
-.. method:: QByteArray nextNegotiatedProtocol() const
-
-    返回 SSL 连接协商的下一层协议（如 HTTP/2 需 ALPN 扩展）。
-    
-    .. _The Application-Layer Protocol Negotiation: https://en.wikipedia.org/wiki/Application-Layer_Protocol_Negotiation
-
-.. method:: NextProtocolNegotiationStatus nextProtocolNegotiationStatus() const
-
-    返回协议协商状态。
-    
-.. method:: SslMode mode() const
-
-    返回 SSL 连接模式（服务端/客户端）。
-    
-.. method:: Certificate peerCertificate() const
-
-    返回对端证书链顶层证书。
-    
-.. method:: QList<Certificate> peerCertificateChain() const
-
-    返回对端完整证书链。
-    
-.. method:: int peerVerifyDepth() const
-
-    返回证书验证深度限制。若对端证书链层级超过此值则验证失败。
-    
-.. method:: Ssl::PeerVerifyMode peerVerifyMode() const
-
-    返回对端验证模式。
 
 2.2 SslSocket
 ^^^^^^^^^^^^^
@@ -1549,8 +1349,10 @@ DNS相关
     标识服务器使用加密协议，供外部代码检查。
 
 .. method:: prepareRequest()
+    :no-index:
 
     将原始 TCP 连接升级为 SSL 连接。
+
 
 2.4.3 BaseRequestHandler
 +++++++++++++++++++++++++
@@ -1609,10 +1411,12 @@ DNS相关
     在客户端和目标服务器之间双向转发数据。
 
 .. method:: doConnect()
+    :no-index:
 
     供子类扩展连接成功的行为。
 
 .. method:: doFailed()
+    :no-index:
 
     供子类扩展连接失败时的行为。
 
@@ -1638,10 +1442,12 @@ DNS相关
 
 .. code-block:: c++
     :caption: 示例 : 简单的Tcp服务器
+
         #include <QCoreApplication>
         #include "qtnetworkng.h"
         using namespace  qtng;
-        class EchoHandler : public BaseRequestHandler//需要继承BaseRequestHandle并重写handle方法
+        class EchoHandler : public BaseRequestHandler
+        //需要继承BaseRequestHandle并重写handle方法
         {
         protected:
             void handle()  {
@@ -1671,7 +1477,8 @@ DNS相关
 详细解释KcpServer 和 KcpServerV2这两个类和各个方法，并详细解释这两个类的实现区别
 
 .. method:: KcpServer(const HostAddress &serverAddress, quint16 serverPort)
-    
+    :no-index:
+
     初始化KCP服务器，绑定到指定地址和端口，直接调用 ``BaseStreamServer`` 的构造函数，若未指定地址则默认绑定所有网络接口(HostAddress::Any)
 
 .. method:: virtual QSharedPointer<SocketLike> serverCreate()
@@ -1687,6 +1494,7 @@ DNS相关
 更底层的KCP协议服务器实现，直接操作KCP会话实例。
 
 .. method:: KcpServerV2(const HostAddress &serverAddress, quint16 serverPort)
+    :no-index:
 
     初始化KCP服务器，绑定到指定地址和端口，直接调用 ``BaseStreamServer`` 的构造函数，若未指定地址则默认绑定所有网络接口(HostAddress::Any)
 
@@ -2308,6 +2116,7 @@ DNS相关
 处理 HTTP 请求的基础类，提供 HTTP 协议解析、响应生成、错误处理等核心功能。
 
 .. method:: BaseHttpRequestHandler()
+    :no-index:
 
     初始化默认参数，HTTP 版本默认为 Http1_1，请求超时时间 requestTimeout 默认 1 小时，最大请求体大小 maxBodySize 默认 32MB，连接状态 closeConnection 初始为 Maybe
 
@@ -2458,27 +2267,972 @@ SimpleHttpsServer : public SslServer<SimpleHttpRequestHandler>
 
 5.1 密码哈希表
 ^^^^^^^^^^^^^^^^
+MessageDigest
+++++++++++++++
+提供消息摘要（哈希）功能，支持多种哈希算法，允许分块处理数据并生成摘要。支持MD4和MD5算法，Sha1, Sha224, Sha256, Sha384, Sha512一系列SHA系列算法以及Ripemd160, Whirlpool哈希算法。
+
+.. method:: MessageDigest(Algoritim algo)
+    :no-index:
+
+    初始化指定哈希算法的上下文
+
+.. method:: addData(const char *data, int len)
+    :no-index:
+
+    将原始字节数据添加到哈希计算，调用 EVP_DigestUpdate 更新上下文，失败则标记错误。
+
+.. method:: addData(const char *data)
+    :no-index:
+
+    addData的重载，内部计算data长度后调用上一个addData
+
+.. method:: QByteArray result()
+
+    结束哈希计算并返回最终摘要，若首次调用，调用 EVP_DigestFinal_ex 结束计算，缓存结果，后续调用直接返回缓存结果，失败返回空 QByteArray。
+
+.. method:: void update(const QByteArray &data)
+
+    同 addData，提供兼容常见哈希接口的方法。    
+
+.. method:: void update(const char *data, int len)
+
+    同 addData，提供兼容常见哈希接口的方法。
+
+.. method:: QByteArray hexDigest()
+
+    同 result()，返回原始摘要。    
+
+.. method:: QByteArray digest()
+
+    返回十六进制字符串形式的摘要。
+
+.. method:: static QByteArray hash(const QByteArray &data, Algorithm algo)
+
+    一次性计算数据的哈希值（十六进制）。
+
+.. method:: static QByteArray digest(const QByteArray &data, Algorithm algo)
+
+    一次性计算数据的哈希值（原始字节）。
+
+.. method:: QByteArray PBKDF2_HMAC(int keylen, const QByteArray &password, const QByteArray &salt,  const MessageDigest::Algorithm hashAlgo = MessageDigest::Sha256, int i = 10000)
+
+    调用 OpenSSL 的 PKCS5_PBKDF2_HMAC 函数生成密钥。
+
+.. method:: QByteArray scrypt(int keylen, const QByteArray &password, const QByteArray &salt, int n = 1048576, int r = 8, int p = 1)
+
+    暂未进行实现
 
 5.2 对称加密和解密
 ^^^^^^^^^^^^^^^^^^^^
+Clipher
++++++++
+提供对称加密/解密功能，支持多种算法（如 AES、DES、ChaCha20 等）和模式（如 CBC、CTR、ECB 等），支持密码派生、填充控制。
+
+.. method:: Cipher(Algorithm alog, Mode mode, Operation operation)
+    :no-index:
+
+    初始化加密上下文，通过 getOpenSSL_CIPHER() 获取对应的 OpenSSL EVP_CIPHER。创建 EVP_CIPHER_CTX 上下文，默认启用填充，失败时标记 hasError
+
+.. method:: Cipher *copy(Operation operation)
+
+    复制当前配置，创建新的 Cipher 实例
+
+.. method:: bool isValid()
+
+    检查上下文是否有效,条件：OpenSSL 上下文存在、未发生错误且已初始化。
+
+.. method:: bool isStream()
+    
+    判断当前加密上下文是否使用流加密模式（如 CFB、OFB、CTR 等）。
+
+.. method:: bool isBlock()
+    
+    判断是否使用分组加密模式（如 ECB、CBC 等），直接返回 !isStream()。
+
+.. method:: void setKey(const QByteArray &key)
+
+    设置原始密钥。
+
+.. method:: QByteArray key()
+
+    返回当前密钥
+
+.. method:: setInitialVector(const QByteArray &iv)
+    :no-index:
+
+    设置初始化向量（IV）,存储 IV 并初始化上下文。
+
+.. method:: QByteArray initialVector()
+
+    返回当前IV
+
+.. method:: QByteArray iv()
+
+    同initialVector方法
+
+.. method:: bool setPassword(const QByteArray &password, const QByteArray &salt,const MessageDigest::Algorithm hashAlgo = MessageDigest::Sha256, int i = 100000 )
+
+    通过密码派生密钥（PBKDF2-HMAC）,参数：密码、盐值、哈希算法、迭代次数。生成随机盐（可选），调用 PBKDF2_HMAC 派生密钥和 IV。
+
+.. method:: bool setOpensslPassword(const QByteArray &password, const QByteArray &salt,const MessageDigest::Algorithm hashAlgo = MessageDigest::Md5,int i = 1)
+
+    兼容 OpenSSL 的密钥派生（EVP_BytesToKey）,参数：密码、盐值（必须 8 字节）、哈希算法、迭代次数。使用传统方法生成密钥，适合解密 OpenSSL 加密的数据。
+
+.. method:: QByteArray addData(const QByteArray &data)
+
+    分块处理数据，返回加密/解密后的结果。
+
+.. method:: QByteArray addData(const char *data, int len)
+
+    分块处理数据，返回加密/解密后的结果。
+
+.. method:: QByteArray update(const QByteArray &data)
+
+    分块处理数据，返回加密/解密后的结果。
+
+.. method:: QByteArray update(const char *data, int len)
+
+    分块处理数据，返回加密/解密后的结果。
+
+.. method:: QByteArray finalData();
+
+    结束加密/解密，返回剩余数据。
+
+.. method:: QByteArray final()
+
+    结束加密/解密，返回剩余数据。
+
+.. method:: QByteArray saltHeader()
+
+    生成 OpenSSL 格式的盐值头部（Salted__ + 8字节盐）,加密时保存盐值，供解密时使用。
+
+.. method:: QByteArray parseSalt()
+
+    从 OpenSSL 头部解析盐值,返回值：QPair<QByteArray, QByteArray>（盐值 + 剩余数据）。
+
+.. method:: bool setPadding(bool padding)
+
+    启用或禁用 PKCS#7 填充：用于控制分组加密算法（如 AES-CBC、DES-ECB）在数据末尾自动添加填充字节的行为,仅对分组加密有效：在流加密模式（如 CTR、CFB）中自动忽略填充设置。
+
+.. method:: bool padding()
+
+    获取启用或禁用 PKCS#7 填充
+
+.. method:: int keySize()
+
+    获取密钥长度
+
+.. method:: int ivSize()
+
+    获取iv长度
+
+.. method:: int blockSize()
+
+    获取block长度
 
 5.3 公钥算法
 ^^^^^^^^^^^^^^
+5.3.1 PublicKey
+++++++++++++++++
+加密体系中的核心类，用于管理公钥操作。
+
+.. method:: PublicKey()
+    :no-index:
+
+    创建空公钥对象，内部初始化OpenSSL的EVP_PKEY结构
+
+.. method:: PublicKey(const PublicKey &other)
+    :no-index:
+
+    深拷贝底层OpenSSL密钥对象（通过EVP_PKEY_dup）,避免多个对象共享同一密钥内存，保证线程安全
+
+.. method:: static PublicKey load(const QByteArray &data, Ssl::EncodingFormat format = Ssl::Pem)
+
+    创建BIO内存对象读取密钥数据,调用PEM_read_bio_PUBKEY解析PEM格式,生成EVP_PKEY结构并存入PublicKeyPrivate
+
+.. method:: QByteArray save(Ssl::EncodingFormat format = Ssl::Pem)
+
+    通过PEM_write_bio_PUBKEY将密钥写入BIO对象
+
+.. method:: QByteArray encrypt(const QByteArray &data)
+
+    初始化加密上下文（算法自动识别），动态计算输出缓冲区大小（避免固定长度限制），执行加密并返回结果
+
+.. method:: QByteArray rsaPublicEncrypt(const QByteArray &data,RsaPadding padding = PKCS1_PADDING)
+    :no-index:
+
+    RSA专用加密，PKCS1_PADDING：兼容性最佳（默认），NO_PADDING：需手动处理填充，仅用于特定协议
+
+.. method:: QByteArray rsaPublicDecrypt(const QByteArray &data, RsaPadding padding = PKCS1_PADDING)
+    :no-index:
+
+     RSA专用解密，PKCS1_PADDING：兼容性最佳（默认），NO_PADDING：需手动处理填充，仅用于特定协议
+    
+.. method:: bool verify(const QByteArray &data, const QByteArray &hash, MessageDigest::Algorithm hashAlgo)
+
+    使用指定哈希算法（如SHA256）处理数据,对比签名哈希值与计算值,返回true表示验证通过
+
+.. method:: Algorithm algorithm()
+
+    枚举类型标识密钥类型（RSA/DSA/EC）
+
+.. method:: int bits()
+
+    返回密钥长度，2048位RSA密钥返回2048
+
+.. method:: PublicKey &operator=(const PublicKey &other)
+
+    重载=,约等于拷贝构造函数
+
+.. method:: bool operator==(const PublicKey &other) 
+
+    重载==
+
+.. method:: bool operator==(const PrivateKey &)
+
+    重载==
+
+.. method:: bool operator!=(const PublicKey &other)
+
+    重载!=
+
+.. method:: bool operator!=(const PrivateKey &)
+
+    重载!=
+
+.. method:: QByteArray digest(MessageDigest::Algorithm algorithm = MessageDigest::Sha256)
+
+    生成唯一指纹（如SHA256哈希）用于密钥校验
+
+.. method:: bool isNull()
+
+    密钥判空检验
+
+.. method:: bool isValid()
+
+    密钥有效性检验
+
+5.3.2 PrivateKey
++++++++++++++++++
+封装私钥操作，包括密钥生成、签名、解密及特定于私钥的加密操作。
+
+.. method:: PrivateKey()    
+    :no-index:
+
+    默认构造函数
+
+.. method:: PrivateKey(const PrivateKey &other)
+    :no-index:
+
+    拷贝构造函数
+
+.. method:: PrivateKey(PrivateKey &&other)
+    :no-index:
+
+    移动构造函数
+
+.. method:: PrivateKey &operator=(const PublicKey &other)
+
+    拷贝构造函数
+
+.. method:: PrivateKey &operator=(const PrivateKey &other)
+
+    拷贝构造函数
+.. method:: bool operator==(const PrivateKey &other) 
+
+    重载==运算符
+
+.. method:: bool operator==(const PublicKey &) 
+
+    重载==运算符
+
+.. method:: bool operator!=(const PrivateKey &other) 
+
+    重载!=运算符
+
+.. method:: bool operator!=(const PublicKey &)
+
+    重载!=运算符
+
+.. method:: PublicKey publicKey()
+
+    提取当前私钥对应的公钥。
+
+.. method:: QByteArray sign(const QByteArray &data, MessageDigest::Algorithm hashAlgo)
+
+    使用私钥对数据进行签名。
+
+.. method:: QByteArray decrypt(const QByteArray &data)
+
+    使用私钥解密数据。初始化解密上下文：EVP_PKEY_decrypt_init,计算解密后长度：EVP_PKEY_decrypt 两次调用，第一次获取长度，第二次解密数据,返回解密结果：调整 QByteArray 大小并填充数据。
+
+.. method:: rsaPrivateEncrypt
+    :no-index:
+
+    直接使用 RSA 私钥进行原始加密   
+
+.. method:: rsaPrivateDecrypt
+    :no-index:
+
+    直接使用 RSA 私钥进行原始解密
+
+.. method:: static PrivateKey generate(Algorithm algo, int bits)
+
+    生成指定算法和长度的私钥。
+
+.. method:: static PrivateKey load(const QByteArray &data, Ssl::EncodingFormat format = Ssl::Pem,const QByteArray &password = QByteArray())
+
+    从 PEM/DER 格式加载私钥，支持密码解密
+
+.. method:: QByteArray save(Ssl::EncodingFormat format = Ssl::Pem, const QByteArray &password = QByteArray())
+
+    核心功能是序列化私钥，支持密码加密（需配合有效加密算法）,依赖 PrivateKeyWriter 处理 OpenSSL 底层细节，需完善 DER 格式和默认加密逻辑。
+
+.. method:: QByteArray savePublic(Ssl::EncodingFormat format = Ssl::Pem)
+
+    直接复用公钥的保存逻辑，确保输出仅包含公钥信息，无需处理密码，始终以明文形式保存。
+
+5.3.3 PasswordCallback
++++++++++++++++++++++++
+加密解密进度获取
+
+.. method:: virtual QByteArray get(bool writing) = 0;
+
+    获取加密解密进度，需子类进行重写实现
+
+5.3.4 PrivateKeyWriter
++++++++++++++++++++++++
+非对称加密密钥（如 RSA、DSA 密钥）序列化为特定格式（PEM/DER），支持加密私钥并保存到文件或内存。其核心职责是提供灵活的配置选项（加密算法、密码、是否仅保存公钥）并调用 OpenSSL 函数完成序列化。
+
+.. method:: PrivateKeyWriter(const PrivateKey &key)
+    :no-index:
+
+    拷贝构造函数，通过私钥构造
+
+.. method:: PrivateKeyWriter(const PublicKey &key)
+    :no-index:
+
+    拷贝构造函数，通过公钥构造
+
+.. method:: PrivateKeyWriter &setCipher(Cipher::Algorithm algo, Cipher::Mode mode)
+
+    指定加密私钥的算法（如 AES-256-CBC）,若不调用此方法，默认不加密（Cipher::Null）。
+
+.. method:: PrivateKeyWriter &setPassword(const QByteArray &password)
+
+    提供加密私钥所需的密码，直接传递获取。
+
+.. method:: PrivateKeyWriter &setPassword(QSharedPointer<PasswordCallback> callback)
+
+    提供加密私钥所需的密码，通过回调动态获取。
+
+.. method:: PrivateKeyWriter &setPublicOnly(bool publicOnly)
+
+    强制仅保存公钥，即使传入的是私钥,从私钥提取公钥并保存。
+
+.. method:: QByteArray asPem()
+
+    将密钥序列化为 PEM 格式，支持加密私钥。
+
+.. method:: QByteArray asDer()
+
+    未完全实现，返回空数据,将密钥序列化为 DER 格式，支持 PKCS#8 加密。
+
+.. method:: bool save(const QString &filePath)
+
+    将密钥保存到文件，默认使用 PEM 格式。
+
+5.3.5 PrivateKeyReader
++++++++++++++++++++++++
+负责从文件或内存数据中加载私钥或公钥，支持处理加密的私钥文件（通过密码或回调函数）。
+
+.. method:: PrivateKeyReader()
+    :no-index:
+
+    初始化,生成PrivateKey对象
+
+.. method:: ethod:: PrivateKeyReader &setPassword(const QByteArray &password)
+
+    设置直接密码，用于解密加密的私钥。
+
+.. method:: PrivateKeyReader &setPassword(QSharedPointer<PasswordCallback> callback)
+
+    设置密码回调对象，用于动态获取密码（例如 GUI 输入）。
+
+.. method:: PrivateKeyReader &setFormat(Ssl::EncodingFormat format)
+
+    指定输入数据的编码格式（目前仅支持 PEM）。
+
+.. method:: PrivateKey read(const QByteArray &data)
+
+    从内存中的字节数组读取私钥。
+
+.. method:: PublicKey readPublic(const QByteArray &data)
+
+    从内存中的字节数组读取公钥。
+
+.. method:: PrivateKey read(const QString &filePath)
+
+    从文件读取私钥。
+
+.. method:: PublicKey readPublic(const QString &filePath)
+
+    从文件读取公钥。
 
 5.4 证书和证书请求
 ^^^^^^^^^^^^^^^^^^^
+5.4.1 Certificate
+++++++++++++++++++
+封装证书操作，提供接口如加载/保存证书、获取证书信息、生成证书等。
 
-5.5 密钥推导函数
-^^^^^^^^^^^^^^^^^
+.. method:: Certificate()
+    :no-index:
 
-5.6 TLS密码套件
+    构造函数，进行初始化操作
+
+.. method:: Certificate(const Certificate &other)
+    :no-index:
+
+    复制构造函数，进行初始化操作
+
+.. method:: Certificate(Certificate &&other)
+    :no-index:
+
+    移动构造函数，进行初始化操作
+
+.. method:: static Certificate load(const QByteArray &data, Ssl::EncodingFormat format = Ssl::Pem)
+
+    从PEM或DER格式的字节流加载证书。
+
+.. method:: static Certificate generate(const PublicKey &publickey, const PrivateKey &caKey, MessageDigest::Algorithm signAlgo,long serialNumber, const QDateTime &effectiveDate, const QDateTime &expiryDate,const QMultiMap<SubjectInfo, QString> &subjectInfoes)
+
+    生成新的X.509证书，用CA私钥签名。
+
+.. method:: static Certificate selfSign(const PrivateKey &key, MessageDigest::Algorithm signAlgo, long serialNumber,const QDateTime &effectiveDate, const QDateTime &expiryDate,const QMultiMap<Certificate::SubjectInfo, QString> &subjectInfoes)
+
+    自签名快捷方法，作用是调用generate方法
+
+.. method:: QByteArray save(Ssl::EncodingFormat format = Ssl::Pem)
+
+    将证书保存为PEM或DER格式。
+
+.. method:: QByteArray digest(MessageDigest::Algorithm algorithm = MessageDigest::Sha256)
+
+    计算证书DER数据的哈希值（如SHA-256）。
+
+.. method:: QDateTime effectiveDate()
+
+    在 CertificatePrivate::init 中解析 X509_getm_notBefore 和 X509_getm_notAfter。
+
+.. method:: QDateTime expiryDate()
+
+    在 CertificatePrivate::init 中解析 X509_getm_notBefore 和 X509_getm_notAfter。
+
+.. method::  QStringList subjectInfo(SubjectInfo subject)
+
+    通过 X509_get_subject_name 和 X509_get_issuer_name 获取 X509_NAME，解析为键值对。
+
+.. method:: QStringList subjectInfo(const QByteArray &attribute)
+
+    通过 X509_get_subject_name 和 X509_get_issuer_name 获取 X509_NAME，解析为键值对。    
+
+.. method::PublicKey publicKey()
+
+    获取公钥
+
+.. method::QByteArray serialNumber()
+
+    获取序列号
+
+.. method:: bool isBlacklisted()
+
+    检查证书是否在预定义的黑名单中（如Comodo事件中的恶意证书）。
+
+.. method:: bool isNull()
+
+    检查证书是否为空
+
+.. method:: bool isValid()
+
+    检查证书的有效性（是否为空或者在预定义的黑名单内）
+
+.. method:: QString toString()
+
+    将证书以字符串的方式进行返回
+
+.. method:: QByteArray version()
+
+    返回当前证书版本
+
+.. method:: bool isSelfSigned()
+
+    调用 X509_check_issued 检查证书是否由自身签发。
+
+5.4.2 CertificateRequest
++++++++++++++++++++++++++
+请求证书
+
+.. method:: certificate()
+    :no-index:
+
+    返回与证书请求关联的 Certificate 对象。
+
+5.5 TLS密码套件
 ^^^^^^^^^^^^^^^^^
+5.5.1 SslCipher
+++++++++++++++++
+SSL/TLS 连接中使用的加密套件（Cipher Suite），包含加密算法、协议版本、密钥交换方法等详细信息。
+.. method:: SslCipher();
+
+    默认构造函数
+
+.. method:: SslCipher(const QString &name);
+
+    构造函数，通过名称进行构造
+
+.. method:: SslCipher(const QString &name, Ssl::SslProtocol protocol);
+
+    构造函数，通过名称和协议进行构造
+
+.. method:: SslCipher(const SslCipher &other);
+
+    拷贝构造函数
+
+.. method:: QString authenticationMethod()
+
+    返回密钥认证方法（如 RSA）。
+
+.. method:: QString encryptionMethod()
+
+    返回具体加密算法。
+
+.. method:: bool isNull()
+
+    判断对象是否有效（如构造函数未找到匹配项时返回 true）。
+
+.. method:: QString keyExchangeMethod()
+
+    返回密钥交换方法（如 ECDHE）。
+
+.. method:: QString name()
+
+    直接返回私有类中存储的名称。
+
+.. method:: Ssl::SslProtocol protocol()
+
+    直接返回私有类中存储的协议枚举值。
+
+.. method:: QString protocolString()
+
+    直接返回私有类中存储的协议字符串。
+
+.. method:: int supportedBits()
+
+    返回加密位数。
+
+.. method:: int usedBits()
+
+    返回加密位数。
+
+.. method:: inline bool operator!=(const SslCipher &other)
+
+    通过名称和协议判断两个加密套件是否相同，而非比较所有属性。
+
+.. method:: SslCipher &operator=(SslCipher &&other)
+
+    通过名称和协议判断两个加密套件是否相同，而非比较所有属性。
+
+.. method:: SslCipher &operator=(const SslCipher &other)
+
+    通过名称和协议判断两个加密套件是否相同，而非比较所有属性。
+
+.. method:: void swap(SslCipher &other)
+
+    交换两个加密套件
+
+.. method:: bool operator==(const SslCipher &other)
+
+    通过名称和协议判断两个加密套件是否相同，而非比较所有属性。
 
 6. 配置和构建
 --------------
-
-6.1 使用libev代替Qt Eventloop
+6.1 使用libev代替Qt Eventloop 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+在CMake文件中通过条件判断在Unix环境下，使用libev替代Qt事件循环(qtev),具体逻辑如下：
+
+1、操作系统判断：
+
+若当前系统为Unix(包括linux，macOs等非Windows系统),进入libev配置分支
+
+2、事件循环后端选择：
+通过check_function_exists检测系统是否支持epoll_ctl或kqueue。
+
+若存在epoll（Linux系统），则定义EV_USE_EPOLL=1和EV_USE_EVENTFD=1，使用epoll作为事件驱动机制。
+
+若存在kqueue（BSD系统），则定义EV_USE_KQUEUE=1，使用kqueue。
+
+若两者都不支持，则回退到poll()。
+
+定义宏QTNETWOKRNG_USE_EV，表示启用libev事件循环。
+
+3、源码集成：
+
+添加libev的源码文件src/ev/ev.c和头文件src/ev/ev.h。
+
+使用src/eventloop_ev.cpp作为事件循环的实现，替代Qt原生事件循环。
+
+4、触发条件：
+
+当CMake检测到目标系统为UNIX时，自动启用libev，无需额外配置。
 
 6.2 禁用SSL支持
 ^^^^^^^^^^^^^^^^^^
+
+6.2.1 在进行构建时禁用SSL支持
++++++++++++++++++++++++++++++++
+
+使用qmake构建项目时，默认不开启ssl支持，如果需要使用，则需要自行添加openssl模块
+
+使用CMake构建项目时，因为内置了openssl，所以通过QTNG_USE_OPENSSL 控制是否使用，默认条件下是off，即使用qtnetworkng内置openssl，当on时，默认使用系统自带的openssl。
+
+若想完全不使用可以在CMake构建时把相关配置进行注释（不推荐这种方法）
+
+6.2.2 直接使用基础Socket类
+++++++++++++++++++++++++++
+如果不需要任何加密，可直接使用基础的Socket类而非SslSocket类，直接使用 Socket 绕过了所有SSL/TLS层，数据以明文传输。
+下面是一个简单的示例
+
+.. code-block:: c++
+    :caption: 示例 : 使用基础的TcpServer而非SslServer实现一个简单的http服务
+
+        #include "qtnetworkng.h"
+        using namespace qtng;
+        class HelloRequestHandler: public SimpleHttpRequestHandler
+        {
+        public:
+            virtual void doGET() override
+            {
+                if (path == QString::fromLatin1("/hello/")) {
+                    sendResponse(HttpStatus::OK);
+                    sendHeader("Content-Type", "text/plain");
+                    QByteArray body = "hello";
+                    sendHeader("Content-Length", QByteArray::number(body.size()));
+                    endHeader();
+                    request->sendall(body);
+                } 
+            }
+        };
+        class HelloHttpServer: public TcpServer<HelloRequestHandler>
+        {
+        public:
+            HelloHttpServer(const HostAddress &serverAddress, quint16 serverPort)
+                : TcpServer(serverAddress, serverPort) {}
+        };
+        int main()
+        {
+            HelloHttpServer httpd(HostAddress::Any, 8443);
+            httpd.serveForever();
+            return 0;
+        }
+
+7.其他辅助类
+------------
+7.1 IO操作
+^^^^^^^^^^
+该模块提供了一套跨平台的文件和内存IO抽象，结合协程友好的非阻塞操作，以及安全的POSIX路径管理工具，适用于需要高效、安全文件处理的网络应用。
+
+核心函数：
+
+.. method:: bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy = -1, int suitableBlockSize = 1024 * 8)
+
+    输入文件内容复制到输出文件，支持大文件传输。参数：inputFile/outputFile：输入输出文件对象,bytesToCopy：要复制的字节数（-1 表示全部）,suitableBlockSize：缓冲区大小（默认8KB）。
+
+7.1.1 FileLike
++++++++++++++++
+抽象基类，定义文件操作的通用接口，支持读写、关闭、获取大小等操作。
+
+.. method:: virtual qint32 read(char *data, qint32 size)
+
+    从文件中读取数据到缓冲区，返回实际读取的字节数（纯虚函数）。
+
+.. method:: virtual qint32 write(const char *data, qint32 size)
+
+    将缓冲区数据写入文件，返回实际写入的字节数（纯虚函数）。
+
+.. method:: virtual void close()
+
+    关闭文件（纯虚函数）。
+
+.. method:: virtual qint64 size()
+
+    获取文件大小（纯虚函数）。
+
+.. method:: virtual QByteArray readall(bool *ok);
+
+    读取文件全部内容，通过 ok 返回是否成功。
+
+.. method:: QByteArray read(qint32 size)
+
+    读取指定大小的数据，返回 QByteArray。
+
+.. method:: qint32 write(const QByteArray &data)
+
+    写入 QByteArray 数据。
+
+.. method:: static QSharedPointer<FileLike> rawFile(QSharedPointer<QFile> f)
+
+    基于 QFile 创建 FileLike 实例。
+
+.. method:: static QSharedPointer<FileLike> rawFile(QFile *f)
+
+    基于 QFile 创建 FileLike 实例。 
+
+.. method:: static QSharedPointer<FileLike> open(const QString &filepath, const QString &mode = QString())
+
+    打开文件并返回 FileLike 实例。
+
+.. method:: static QSharedPointer<FileLike> bytes(const QByteArray &data)
+
+    创建基于内存的 BytesIO 实例。
+
+.. method:: static QSharedPointer<FileLike> bytes(QByteArray *data)
+
+    创建基于内存的 BytesIO 实例。
+
+7.1.2 RawFile
++++++++++++++++
+封装 QFile，提供对实际文件的读写操作，支持非阻塞IO（Unix下）
+
+.. method:: virtual qint32 read(char *data, qint32 size) override
+
+    使用系统调用（Unix）或 QFile 方法读数据，协程友好。
+
+.. method:: virtual qint32 write(const char *data, qint32 size) override
+
+    使用系统调用（Unix）或 QFile 方法写数据，协程友好。
+
+.. method:: virtual void close() override
+
+    关闭底层 QFile。
+
+.. method:: virtual qint64 size() override
+
+    返回文件大小。
+
+.. method:: bool seek(qint64 pos)
+
+    定位文件指针。
+
+.. method:: QString fileName() const
+
+    获取文件名。
+
+.. method:: static QSharedPointer<RawFile> open(const QString &filepath, const QString &mode = QString())
+
+    根据模式和路径打开文件，设置非阻塞标志（Unix）。
+
+.. method:: static QSharedPointer<RawFile> open(const QString &filepath, QIODevice::OpenMode mode)
+
+    根据模式和路径打开文件，设置非阻塞标志（Unix）。
+
+7.1.3 BytesIO
+++++++++++++++
+内存中的字节流，模拟文件操作。
+    
+.. method:: virtual qint32 read(char *data, qint32 size)
+
+    从内存缓冲区读数据。
+
+.. method:: virtual qint32 write(const char *data, qint32 size)
+
+    从内存缓冲区写数据。
+
+.. method:: virtual void close()
+
+    暂无操作，内存流无需关闭
+
+.. method:: virtual qint64 size()
+
+    返回缓冲区大小
+
+.. method:: virtual QByteArray readall(bool *ok)
+
+    返回缓冲区全部内容
+
+.. method:: QByteArray data()
+
+    获取底层的QByteArray
+
+7.1.3 PosixPath
+++++++++++++++++
+基于 Qt 框架实现的 POSIX 路径处理类，主要用于在跨平台开发中规范化和操作符合 POSIX 标准的文件路径。
+
+.. method:: PosixPath operator/(const QString &path)
+
+    直接拼接路径，可能包含 .. 或 .（需手动处理安全）。
+
+.. method:: PosixPath operator|(const QString &path)
+
+    自动过滤 .. 和 .，生成 规范化路径。
+
+.. method:: bool isNull()
+
+    判断文件是否为空
+
+.. method:: bool isFile()
+
+    判断是否为文件
+
+.. method:: bool isDir()
+
+    判断是否为目录
+
+.. method:: bool isSymLink()
+
+    判断是否为符号链接
+
+.. method:: bool isAbsolute()
+
+    判断是否为绝对路径
+
+.. method:: bool isExecutable()
+
+    判断是否为可执行文件
+
+.. method:: bool isReadable() 
+
+    判断文件是否可读
+
+.. method:: bool isRelative()
+
+    判断文件路径是否是相对的
+
+.. method:: bool isRoot()
+
+    判断文件是否指向根目录
+
+.. method:: bool isWritable()
+
+    判断文件是否可写
+
+.. method:: bool exists()
+
+    判断文件是否存在
+
+.. method:: qint64 size()
+
+    返回文件大小
+
+.. method:: QString path() 
+
+    返回文件路径
+
+.. method:: QFileInfo fileInfo() 
+
+    返回文件QFileInfo对象
+
+.. method:: QString parentDir()
+
+    返回父目录路径
+
+.. method:: PosixPath parentPath()
+
+    返回父目录PosixPath对象
+
+.. method:: QString name()
+
+    返回文件名（不包含扩展名）
+
+.. method:: QString baseName()
+
+    返回文件名（不包含扩展名）
+
+.. method:: QString suffix()
+
+    返回文件最后一级扩展名
+
+.. method:: QString completeBaseName()
+
+    返回多级文件名
+
+.. method:: QString completeSuffix()
+
+    返回多级扩展名
+
+.. method:: QString toAbsolute()
+
+    转换为绝对路径
+
+.. method:: QString relativePath(const QString &other)
+
+    返回相对路径
+
+.. method:: QString relativePath(const PosixPath &other)
+
+    返回相对路径
+
+.. method:: bool isChildOf(const PosixPath &other)
+
+    判断是否为相对路径
+
+.. method:: bool hasChildOf(const PosixPath &other)
+
+    判断是否为相对路径
+
+.. method:: QDateTime created()
+
+    返回文件创建时间
+
+.. method:: QDateTime lastModified()
+
+    返回最后修改时间
+
+.. method:: QDateTime lastRead()
+
+    返回最后访问时间
+
+.. method:: QStringList listdir()
+
+    列出目录内容
+
+.. method:: QList<PosixPath> children()
+
+    返回子项的PosixPath对象
+
+.. method:: bool mkdir(bool createParents = false)
+
+    若 createParents=true，调用 QDir::mkpath() 递归创建父目录，若目录已存在，直接返回 true（幂等性设计）。
+
+.. method:: bool touch()
+
+    未进行实现
+
+.. method:: QSharedPointer<RawFile> open(const QString &mode = QString())
+
+    委托给 RawFile::open()，支持模式字符串（如 "rw+"）。
+
+.. method:: QByteArray readall(bool *ok) 
+
+    读取整个文件内容。
+
+.. method:: static PosixPath cwd()
+
+    获取当前工作目录的PosixPath路径
+
+7.1.4 其他函数
++++++++++++++++
+.. method:: QDebug &operator<<(QDebug &, const PosixPath &)
+
+    用于在调试时输出PosixPath对象的路径信息
+
+.. method:: uint qHash(const PosixPath &path, uint seed = 0)
+
+    基于路径字符串生成哈希值，允许PosixPath作为QHash等容器的键
+
+.. method:: QPair<QString, QString> safeJoinPath(const QString &parentDir, const QString &subPath)
+
+    规范化子路径（处理.和..等相对路径符号）,安全地将子路径附加到父目录后
+
+.. method:: QPair<QFileInfo, QString> safeJoinPath(const QDir &parentDir, const QString &subPath)
+
+    前一个函数的QDir版本,生成可直接使用的QFileInfo对象
