@@ -607,41 +607,64 @@ bool SocketChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray
 
 void SocketChannelPrivate::doSend()
 {
+    const int maxSendSize = 64 * 1024;
+    int count = 0;
+    QByteArray buf(maxSendSize, Qt::Uninitialized);
     while (true) {
-        WritingPacket writingPacket;
+        QList<WritingPacket> writingPackets;
         try {
-            writingPacket = sendingQueue.get();
+            WritingPacket writingPacket = sendingQueue.get();
+            if (!writingPacket.isValid()) {
+                Q_ASSERT(error != DataChannel::NoError);
+                return;
+            }
+            writingPackets.append(writingPacket);
+            count = 8 + writingPacket.packet.size();
+            while (count + 9 <= maxSendSize && !sendingQueue.isEmpty()) {
+                WritingPacket writingPacket = sendingQueue.peek();
+                if (!writingPacket.isValid()) {
+                    break;
+                }
+                if (count + 8 + writingPacket.packet.size() > maxSendSize) {
+                    break;
+                }
+                count += 8 + writingPacket.packet.size();
+                sendingQueue.get();
+                writingPackets.append(writingPacket);
+            }
         } catch (CoroutineExitException) {
             Q_ASSERT(error != DataChannel::NoError);
             return;
         } catch (...) {
             return abort(DataChannel::UnknownError);
         }
-        if (!writingPacket.isValid()) {
-            Q_ASSERT(error != DataChannel::NoError);
-            return;
-        }
         if (error != DataChannel::NoError) {
-            if (!writingPacket.done.isNull()) {
-                writingPacket.done->send(false);
+            for (WritingPacket &writingPacket : writingPackets) {
+                if (!writingPacket.done.isNull()) {
+                    writingPacket.done->send(false);
+                }
             }
             return;
         }
-
-        uchar header[sizeof(quint32) + sizeof(quint32)];
-        qToBigEndian<quint32>(static_cast<quint32>(writingPacket.packet.size()), header);
-        qToBigEndian<quint32>(writingPacket.channelNumber, header + sizeof(quint32));
-        QByteArray data;
-        data.reserve(static_cast<int>(sizeof(header)) + writingPacket.packet.size());
-        data.append(reinterpret_cast<char *>(header), sizeof(header));
-        data.append(writingPacket.packet);
+        buf.reserve(count);
+        char *p = buf.data();
+        for (WritingPacket &writingPacket : writingPackets) {
+            qToBigEndian<quint32>(static_cast<quint32>(writingPacket.packet.size()), p);
+            p += sizeof(quint32);
+            qToBigEndian<quint32>(writingPacket.channelNumber, p);
+            p += sizeof(quint32);
+            memcpy(p, writingPacket.packet.data(), writingPacket.packet.size());
+            p += writingPacket.packet.size();
+        }
 
         int sentBytes;
         try {
-            sentBytes = connection->sendall(data);
+            sentBytes = connection->sendall(buf.data(), count);
         } catch (CoroutineExitException) {
-            if (!writingPacket.done.isNull()) {
-                writingPacket.done->send(false);
+            for (WritingPacket &writingPacket : writingPackets) {
+                if (!writingPacket.done.isNull()) {
+                    writingPacket.done->send(false);
+                }
             }
             Q_ASSERT(error != DataChannel::NoError);
             return;
@@ -652,16 +675,18 @@ void SocketChannelPrivate::doSend()
             return abort(DataChannel::UnknownError);
         }
 
-        if (sentBytes == data.size()) {
-            if (!writingPacket.done.isNull()) {
-                writingPacket.done->send(true);
+        if (sentBytes == count) {
+            for (WritingPacket &writingPacket : writingPackets) {
+                if (!writingPacket.done.isNull()) {
+                    writingPacket.done->send(true);
+                }
             }
             lastKeepaliveTimestamp = QDateTime::currentMSecsSinceEpoch();
         } else {
-            if (writingPacket.done.isNull()) {
-                //                continue; // why do this?
-            } else {
-                writingPacket.done->send(false);
+            for (WritingPacket &writingPacket : writingPackets) {
+                if (!writingPacket.done.isNull()) {
+                    writingPacket.done->send(false);
+                }
             }
             return abort(DataChannel::SendingError);
         }

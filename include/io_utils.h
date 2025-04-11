@@ -71,6 +71,28 @@ private:
 bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy = -1,
               int suitableBlockSize = 1024 * 8);
 
+class PipePrivate;
+class Pipe: public QEnableSharedFromThis<Pipe>, public QObject
+{
+public:
+    explicit Pipe(qint32 maxBufferSize = 1024 * 64);
+signals:
+    void readyRead();
+    void bytesWritten(qint64 bytes);
+public:
+    void setDebugLevel(qint8 debugLevel);
+    QSharedPointer<FileLike> fileToRead(bool takePipe = false);
+    QSharedPointer<FileLike> fileToWrite(bool takePipe = false);
+    // if the io device is used in Qt async style, set connectSignals = true
+    // else leave the default, and use waitForReadyRead() 和 waitForBytesWritten()
+    // Qt's signal/slot require eventloop in GUI thread and worker thread!
+    QSharedPointer<QIODevice> deviceToRead(bool connectSignals = false, bool takePipe = false);
+    QSharedPointer<QIODevice> deivceToWrite(bool connectSignals = false, bool takePipe = false);
+private:
+    const QSharedPointer<PipePrivate> d;
+};
+
+
 class PosixPathPrivate;
 class PosixPath
 {

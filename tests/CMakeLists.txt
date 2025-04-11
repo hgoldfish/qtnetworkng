@@ -33,3 +33,11 @@ target_link_libraries(test_websocket PRIVATE Qt5::Core qtnetworkng)
 
 add_executable(test_websocket_server test_websocket_server.cpp)
 target_link_libraries(test_websocket_server PRIVATE Qt5::Core qtnetworkng)
+
+add_executable(test_lmdb test_lmdb.cpp)
+target_link_libraries(test_lmdb PRIVATE Qt5::Core Qt5::Test qtnetworkng)
+add_test(qtng_tests test_lmdb)
+
+add_executable(test_pipe test_pipe.cpp)
+target_link_libraries(test_pipe PRIVATE Qt5::Core Qt5::Test qtnetworkng)
+add_test(qtng_tests test_pipe)

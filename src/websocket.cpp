@@ -1,5 +1,6 @@
 #include <QtCore/qdatetime.h>
 #include <QtCore/qendian.h>
+#include <QtCore/qscopeguard.h>
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
 #include <QtCore/qrandom.h>
 #endif
@@ -108,7 +109,7 @@ public:
 public:
     // parse the header and returns the payload size.
     // if the header is valid, it will be removed from the buf
-    qint64 feedHeader(char *packet, size_t &packetSize);
+    qint64 feedHeader(char *packet, int &packetSize);
 
     // apply mask to payload and copy to src[offset: len]. this function also decode payload using mask
     void applyMaskTo(char *dst, int offset, int dst_max_len) const;
@@ -138,7 +139,7 @@ private:
     WebSocketFrame makeControlFrame(FrameType type);
     QVector<WebSocketFrame> fragmentFrame(const PacketToWrite &writingPacket, const int blockSize);
     quint32 makeMaskkey();
-    bool recvBytes(char *packet, size_t &packetSize);
+    bool recvBytes(QByteArray &buf, int &usedSize);
     bool sendBytes(const QByteArray &packet);
 public:
     CoroutineGroup *operations;
@@ -296,7 +297,7 @@ WebSocketFrame::WebSocketFrame()
 {
 }
 
-qint64 WebSocketFrame::feedHeader(char *packet, size_t &packetSize)
+qint64 WebSocketFrame::feedHeader(char *packet, int &packetSize)
 {
     Q_ASSERT(packetSize >= 2);
     // the qFromBigEndian<>() only accept uchar* in the earlier version of Qt.
@@ -314,7 +315,7 @@ qint64 WebSocketFrame::feedHeader(char *packet, size_t &packetSize)
     int len = b1 & 0x7f;
     maskkey = 0;
 
-    size_t headerSize = 2;
+    int headerSize = 2;
     if (len <= 125) {
         // pass
     } else if (len == 126) {
@@ -341,7 +342,7 @@ qint64 WebSocketFrame::feedHeader(char *packet, size_t &packetSize)
             return -1;
         }
     }
-    memmove(packet, upacket + headerSize, packetSize - headerSize);
+    memmove(packet, packet + headerSize, packetSize - headerSize);
     packetSize -= headerSize;
     return len;
 }
@@ -629,27 +630,30 @@ void WebSocketConnectionPrivate::doSend()
             return;
         }
 
+        QSharedPointer<ValueEvent<bool>> done = writingPacket.done;
+        auto cleanup = qScopeGuard([done] {
+            if (!done.isNull()) {
+                done->send(false);
+            }
+        });
+
         const QVector<WebSocketFrame> &frames = fragmentFrame(writingPacket, outgoingSize);
         for (const WebSocketFrame &frame : frames) {
             if (errorCode != WebSocketConnection::NoError) {
-                if (!writingPacket.done.isNull()) {
-                    writingPacket.done->send(false);
-                }
                 return;
             }
 
             // the other coroutines may want to send something.
-            Coroutine::sleep(0);
+            // can raise CoroutineExitException!
+            // Coroutine::sleep(0);
 
             const QByteArray &packet = frame.toByteArray();
             if (!sendBytes(packet)) {
-                if (!writingPacket.done.isNull()) {
-                    writingPacket.done->send(false);
-                }
                 return;
             }
         }
 
+        cleanup.dismiss();
         if (!writingPacket.done.isNull()) {
             writingPacket.done->send(true);
         }
@@ -671,30 +675,30 @@ inline bool isCloseCodeValid(int closeCode)
 void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
 {
     QByteArray buf(1024 * 64, Qt::Uninitialized);
-    size_t packetSize = 0;
-    if (headBytes.size() > 1024 * 64) {
+    int usedSize = 0;
+    if (headBytes.size() > buf.size()) {
         buf = headBytes;
-        packetSize = headBytes.size();
+        usedSize = headBytes.size();
     } else if (!headBytes.isEmpty()) {
         memcpy(buf.data(), headBytes.constData(), headBytes.size());
-        packetSize = headBytes.size();
+        usedSize = headBytes.size();
     }
-    char *packet = buf.data();
 
     WebSocketConnection::FrameType tmpType = WebSocketConnection::Unknown;
     QByteArray tmpPayload;
+    bool needMoreData = buf.size() < 2;
 
     while (true) {
-        WebSocketFrame frame;
-
-        if (!recvBytes(packet, packetSize)) {
+        if ((usedSize < 2 || needMoreData) && !recvBytes(buf, usedSize)) {
             return;
         }
 
-        qint64 payloadSize = frame.feedHeader(packet, packetSize);
+        WebSocketFrame frame;
+        qint64 payloadSize = frame.feedHeader(buf.data(), usedSize);
         if (payloadSize < 0) {
             // there are not enough header bytes to parse. we will receive more, and try again later.
-            Q_ASSERT(sizeof(packet) > packetSize);
+            Q_ASSERT(buf.size() > usedSize);
+            needMoreData = true;
             continue;
         } else if (payloadSize > maxPayloadSize) {
             qtng_info << "can not process web socket frame larger than " << maxPayloadSize;
@@ -708,16 +712,17 @@ void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
                 return;
             }
         }
+        needMoreData = false;
         if (debugLevel >= 3) {
             qtng_debug << "want payload:" << payloadSize;
         }
 
-        while (payloadSize > frame.payload.size()) {
-            size_t size = qMin<size_t>(payloadSize - frame.payload.size(), packetSize);
-            frame.payload.append(packet, size);
-            packetSize -= size;
-            if (packetSize > 0) {
-                memmove(packet, packet + size, packetSize);
+        while (frame.payload.size() < payloadSize) {
+            int size = qMin<int>(payloadSize - frame.payload.size(), usedSize);
+            frame.payload.append(buf.data(), size);
+            usedSize -= size;
+            if (usedSize > 0) {
+                memmove(buf.data(), buf.data() + size, usedSize);
             }
 
             // we got enougth data!
@@ -729,7 +734,8 @@ void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
                 break;
             }
 
-            if (!recvBytes(packet, packetSize)) {
+            // not enough payload!
+            if (!recvBytes(buf, usedSize)) {
                 return;
             }
         }
@@ -828,7 +834,7 @@ void WebSocketConnectionPrivate::doKeepalive()
         // now and lastKeepaliveTimestamp both are unsigned int, we should check which is larger before apply minus
         // operator to them.
         if (now > lastKeepaliveTimestamp && (now - lastKeepaliveTimestamp > keepaliveInterval)) {
-            if (debugLevel >= 1) {
+            if (debugLevel >= 2) {
                 qtng_debug << "sending keepalive packet.";
             }
             const WebSocketFrame &pingFrame = makeControlFrame(PingFrame);
@@ -957,11 +963,11 @@ void WebSocketConnectionPrivate::abort(int errorCode)
     q->disconnected->set();
 }
 
-bool WebSocketConnectionPrivate::recvBytes(char *packet, size_t &packetSize)
+bool WebSocketConnectionPrivate::recvBytes(QByteArray &buf, int &usedSize)
 {
     qint32 receivedBytes;
     try {
-        receivedBytes = connection->recv(packet + packetSize, sizeof(packet) - packetSize);
+        receivedBytes = connection->recv(buf.data() + usedSize, buf.size() - usedSize);
     } catch (CoroutineExitException &) {
         Q_ASSERT(errorCode != WebSocketConnection::NoError);
         return false;
@@ -975,11 +981,11 @@ bool WebSocketConnectionPrivate::recvBytes(char *packet, size_t &packetSize)
         return false;
     } else {
         if (debugLevel >= 3) {
-            qtng_debug << "received data:" << QByteArray::fromRawData(packet + packetSize, receivedBytes);
+            qtng_debug << "received data:" << QByteArray::fromRawData(buf.data() + usedSize, receivedBytes);
         } else if (debugLevel >= 2) {
             qtng_debug << "received data:" << receivedBytes;
         }
-        packetSize += receivedBytes;
+        usedSize += receivedBytes;
         lastActiveTimestamp = QDateTime::currentMSecsSinceEpoch();
         return true;
     }
@@ -988,7 +994,7 @@ bool WebSocketConnectionPrivate::recvBytes(char *packet, size_t &packetSize)
 bool WebSocketConnectionPrivate::sendBytes(const QByteArray &packet)
 {
     ScopedLock<Lock> locklock(writeLock);
-    if (debugLevel >= 3) {
+    if (debugLevel >= 2) {
         qtng_debug << "sending packet:" << packet;
     } else if (debugLevel >= 2) {
         qtng_debug << "sending packet:" << packet.size();

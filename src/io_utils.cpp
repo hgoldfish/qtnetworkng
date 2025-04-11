@@ -1,5 +1,7 @@
 #include <QtCore/qdir.h>
 #include <QtCore/qdatetime.h>
+#include <QtCore/qscopeguard.h>
+#include <QtCore/qmetaobject.h>
 #ifdef Q_OS_UNIX
 #include <unistd.h>
 #include <fcntl.h>
@@ -259,11 +261,23 @@ QSharedPointer<RawFile> RawFile::open(const QString &filepath, QIODevice::OpenMo
 
 QSharedPointer<FileLike> FileLike::rawFile(QSharedPointer<QFile> f)
 {
-    return QSharedPointer<RawFile>::create(f).dynamicCast<FileLike>();
+    return QSharedPointer<RawFile>::create(f).staticCast<FileLike>();
 }
 
 QSharedPointer<FileLike> FileLike::open(const QString &filepath, const QString &mode)
 {
+    bool isQtResource = filepath.startsWith(QString::fromUtf8(":/"));
+    if (isQtResource) {
+        if (!mode.isEmpty() && mode != QString::fromUtf8("r")) {
+            return QSharedPointer<FileLike>();
+        }
+        QFile f(filepath);
+        if (!f.open(QIODevice::ReadOnly)) {
+            return QSharedPointer<FileLike>();
+        }
+        QByteArray data = f.readAll();
+        return bytes(data);
+    }
     return RawFile::open(filepath, mode).staticCast<FileLike>();
 }
 
@@ -271,7 +285,9 @@ class BytesIOPrivate
 {
 public:
     BytesIOPrivate(qint32 pos)
-        : pos(pos)
+        : buf(nullptr)
+        , pos(pos)
+        , ownbuf(false)
     {
     }
     QByteArray *buf;
@@ -421,6 +437,465 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
             buf.remove(0, writtenBytes);
         }
     }
+}
+
+class PipePrivate
+{
+public:
+    PipePrivate(Pipe *q, qint32 maxBufferSize)
+        : q_ptr(q)
+        , queue(2)
+        , closed(false)
+        , maxBufferSize(maxBufferSize)
+        , debugLevel(0)
+        , shouldEmitReadyRead(false)
+        , shouldEmitBytesWritten(false)
+    {
+    }
+public:
+    Pipe * const q_ptr;
+    ThreadQueue<QByteArray> queue;
+    QAtomicInteger<bool> closed;
+    const qint32 maxBufferSize;
+    qint8 debugLevel;
+    bool shouldEmitReadyRead;
+    bool shouldEmitBytesWritten;
+};
+
+Pipe::Pipe(qint32 maxBufferSize)
+    : d(new PipePrivate(this, maxBufferSize))
+{
+}
+
+void Pipe::setDebugLevel(qint8 debugLevel)
+{
+    d->debugLevel = debugLevel;
+}
+
+class FileToRead : public FileLike
+{
+public:
+    explicit FileToRead(QSharedPointer<PipePrivate> pp)
+        : pp(pp)
+    {
+        localBuffer.reserve(pp->maxBufferSize);
+    }
+    virtual ~FileToRead() override { close(); }
+public:
+    virtual qint32 read(char *data, qint32 size) override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull() || size <= 0) {
+            if (pp->debugLevel >= 1) {
+                qtng_debug << "can not read data the pipe is closed or size is invalid:" << size;
+            }
+            return -1;
+        }
+        // TODO we need ring buffer.
+        if (localBuffer.size() >= size) {
+            memcpy(data, localBuffer.constData(), size);
+            localBuffer.remove(0, size);
+            if (pp->debugLevel >= 2) {
+                qtng_debug << "the size is fit in local buffer, return" << size << "bytes. left the local buffer" << localBuffer.size() << "bytes.";
+            }
+            return size;
+        }
+
+        if (!pp->queue.isEmpty() || !pp->closed) {
+            qint64 bytesWritten = 0;
+            do {
+                const QByteArray &packet = pp->queue.get();
+                if (packet.isEmpty()) {
+                    Q_ASSERT(pp->closed && pp->queue.isEmpty());
+                    if (pp->debugLevel >= 2) {
+                        qtng_debug << "got empty packet. the pipe is closed in another peer.";
+                    }
+                    break;
+                } else {
+                    bytesWritten += packet.size();
+                    localBuffer.append(packet);
+                }
+            } while (!pp->queue.isEmpty());
+
+            if (pp->shouldEmitBytesWritten && bytesWritten > 0) {
+                if (pp->debugLevel >= 2) {
+                    qtng_debug << "invoking bytes written.";
+                }
+                QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(bytesWritten(qint64)), Q_ARG(qint64, bytesWritten));
+            }
+        }
+
+        qint32 bytesToRead = qMin<qint32>(localBuffer.size(), size);
+        memcpy(data, localBuffer.constData(), bytesToRead);
+        localBuffer.remove(0, bytesToRead);
+        if (pp->debugLevel >= 2) {
+            qtng_debug << "got data from another peer and returned" << bytesToRead << "bytes, left the local buffer" << localBuffer.size() << "bytes";
+        }
+        return bytesToRead;
+    }
+
+    virtual qint32 write(const char *, qint32) override { return -1; }
+
+    virtual void close() override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull()) {
+            return;
+        }
+        qint64 bytesWritten = 0;
+        while (!pp->queue.isEmpty()) {
+            bytesWritten += pp->queue.get().size();
+        }
+        pp->queue.clear();
+        pp->closed = true;
+        localBuffer.clear();
+        if (pp->shouldEmitBytesWritten && bytesWritten > 0) {
+            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(bytesWritten(qint64)), Q_ARG(qint64, bytesWritten));
+        }
+    }
+    virtual qint64 size() override { return -1; }
+public:
+    QWeakPointer<PipePrivate> pp;
+    QSharedPointer<Pipe> pipe;
+    QByteArray localBuffer;
+};
+
+QSharedPointer<FileLike> Pipe::fileToRead(bool takePipe)
+{
+    QSharedPointer<FileToRead> f = QSharedPointer<FileToRead>::create(d);
+    if (takePipe) {
+        f->pipe = sharedFromThis();
+    }
+    return f;
+}
+
+class FileToWrite : public FileLike
+{
+public:
+    explicit FileToWrite(QSharedPointer<PipePrivate> pp)
+        : pp(pp)
+    {
+        localBuffer.reserve(pp->maxBufferSize);
+    }
+    virtual ~FileToWrite() override { close(); }
+public:
+    virtual qint32 read(char *, qint32) override { return -1; }
+    virtual qint32 write(const char *data, qint32 size) override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull() || pp->closed || size <= 0) {
+            return -1;
+        }
+        if (localBuffer.size() + size <= pp->maxBufferSize) {
+            localBuffer.append(data, size);
+            return size;
+        }
+        pp->queue.put(localBuffer);
+        pp->queue.put(QByteArray(data, size));
+        localBuffer.clear();
+        if (pp->shouldEmitReadyRead) {
+            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
+        }
+        return size;
+    }
+    virtual void close() override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull() || pp->closed) {
+            return;
+        }
+        pp->closed = true;
+        if (!localBuffer.isEmpty()) {
+            pp->queue.putForcedly(localBuffer);
+            localBuffer.clear();
+        }
+        pp->queue.putForcedly(QByteArray());
+        if (pp->shouldEmitReadyRead) {
+            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
+        }
+    }
+    virtual qint64 size() override { return -1; }
+public:
+    const QWeakPointer<PipePrivate> pp;
+    QSharedPointer<Pipe> pipe;
+    QByteArray localBuffer;
+};
+
+QSharedPointer<FileLike> Pipe::fileToWrite(bool takePipe)
+{
+    QSharedPointer<FileToWrite> f = QSharedPointer<FileToWrite>::create(d);
+    if (takePipe) {
+        f->pipe = sharedFromThis();
+    }
+    return f;
+}
+
+class DeviceToRead : public QIODevice
+{
+public:
+    explicit DeviceToRead(QSharedPointer<PipePrivate> pp, bool connectSignals)
+        : pp(pp)
+    {
+        bool ok = QIODevice::open(QIODevice::ReadOnly | QIODevice::Unbuffered);
+        Q_ASSERT(ok);
+        if (connectSignals) {
+            pp->shouldEmitReadyRead = true;
+            connect(pp->q_ptr, SIGNAL(readyRead()), this, SIGNAL(readyRead()));
+        }
+        localBuffer.reserve(pp->maxBufferSize);
+    }
+    virtual ~DeviceToRead() override { close(); }
+public:
+    virtual bool atEnd() const override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull()) {
+            return true;
+        }
+        // may has some bytes left in the internal buffer of QIODevice.
+        // for example, some func called peek() before.
+        if (!QIODevice::atEnd()) {
+            return false;
+        }
+        return localBuffer.isEmpty() && pp->queue.isEmpty() && pp->closed;
+    }
+
+    virtual qint64 bytesAvailable() const override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull()) {
+            return 0;
+        }
+        qint64 bytesInQueue = pp->queue.peek().size();
+        // QIODevice::bytesAvailable() can be greater than 0 when peek() is called.
+        return localBuffer.size() + bytesInQueue + QIODevice::bytesAvailable();
+    }
+
+    virtual qint64 bytesToWrite() const override { return 0; }
+
+    virtual bool canReadLine() const override { return false; }
+
+    virtual bool isSequential() const override { return true; }
+
+    virtual void close() override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull()) {
+            return;
+        }
+        // to emit aboutToClose()
+        QIODevice::close();
+        qint64 bytesWritten = 0;
+        while (!pp->queue.isEmpty()) {
+            bytesWritten += pp->queue.get().size();
+        }
+        pp->queue.clear();
+        pp->closed = true;
+        localBuffer.clear();
+        if (pp->shouldEmitBytesWritten && bytesWritten > 0) {
+            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(bytesWritten(qint64)), Q_ARG(qint64, bytesWritten));
+        }
+    }
+
+    virtual qint64 readData(char *data, qint64 size) override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull() || size < 0) {
+            return -1;
+        }
+        // the document of qiodevice says that this function can be called with maxSize == 0 in some situaction.
+        // but i don't known what case is it?
+        if (size == 0)
+            return 0;
+
+        if (size <= localBuffer.size()) {
+            memcpy(data, localBuffer.constData(), size);
+            localBuffer.remove(0, size);
+            return size;
+        }
+        // the docunent of qiodevice require readData() must return all bytes of maxSize before return.
+        // this cause blocking.
+        if (!pp->queue.isEmpty() || !pp->closed) {
+            qint64 bytesWritten = 0;
+            do {
+                const QByteArray &packet = pp->queue.get();
+                if (packet.isEmpty()) {
+                    Q_ASSERT(pp->closed && pp->queue.isEmpty());
+                    break;
+                } else {
+                    bytesWritten += packet.size();
+                    localBuffer.append(packet);
+                }
+            } while (!pp->queue.isEmpty());
+
+            if (pp->shouldEmitBytesWritten && bytesWritten > 0) {
+                QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(bytesWritten(qint64)), Q_ARG(qint64, bytesWritten));
+            }
+        }
+
+        qint32 bytesToRead = qMin<qint32>(localBuffer.size(), size);
+        if (bytesToRead > 0) {
+            memcpy(data, localBuffer.constData(), bytesToRead);
+            localBuffer.remove(0, bytesToRead);
+            return bytesToRead;
+        }
+        return 0;
+    }
+    virtual qint64 writeData(const char *, qint64) override { return -1; }
+    virtual bool waitForBytesWritten(int) override { return false; }
+    virtual bool waitForReadyRead(int msecs) override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull()) {
+            return false;
+        }
+        if (!localBuffer.isEmpty()) {
+            return true;
+        }
+        if (!pp->queue.isEmpty()) {
+            return true;
+        }
+        if (pp->closed) {
+            return false;
+        }
+        pp->queue.notEmpty.tryWait(msecs < 0 ? UINT_MAX : msecs);
+        return true;
+    }
+public:
+    QWeakPointer<PipePrivate> pp;
+    QSharedPointer<Pipe> pipe;
+    QByteArray localBuffer;
+};
+
+QSharedPointer<QIODevice> Pipe::deviceToRead(bool connectSignals, bool takePipe)
+{
+    QSharedPointer<DeviceToRead> v = QSharedPointer<DeviceToRead>::create(d, connectSignals);
+    if (takePipe) {
+        v->pipe = sharedFromThis();
+    }
+    return v;
+}
+
+class DeviceToWrite : public QIODevice
+{
+public:
+    explicit DeviceToWrite(QSharedPointer<PipePrivate> pp, bool connectSignals)
+        : pp(pp)
+    {
+        bool ok = QIODevice::open(QIODevice::WriteOnly | QIODevice::Unbuffered);
+        Q_ASSERT(ok);
+        if (connectSignals) {
+            pp->shouldEmitBytesWritten = true;
+            connect(pp->q_ptr, SIGNAL(bytesWritten(qint64)), this, SIGNAL(bytesWritten(qint64)));
+        }
+        localBuffer.reserve(pp->maxBufferSize);
+    }
+    virtual ~DeviceToWrite() override { close(); }
+public:
+    virtual bool atEnd() const override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull()) {
+            return true;
+        }
+        return pp->closed;
+    }
+
+    virtual qint64 bytesAvailable() const override { return 0; }
+
+    virtual qint64 bytesToWrite() const override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull()) {
+            return 0;
+        }
+        if (pp->closed) {
+            return 0;
+        }
+        return qMax(pp->maxBufferSize - pp->queue.peek().size() - this->localBuffer.size(), 0);
+    }
+
+    virtual bool canReadLine() const override { return false; }
+
+    virtual bool isSequential() const override { return true; }
+
+    virtual void close() override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull() || pp->closed) {
+            return;
+        }
+
+        pp->closed = true;
+        if (!localBuffer.isEmpty()) {
+            pp->queue.putForcedly(localBuffer);
+            localBuffer.clear();
+        }
+        pp->queue.putForcedly(QByteArray());
+        if (pp->shouldEmitReadyRead) {
+            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
+        }
+    }
+
+    virtual qint64 readData(char *, qint64) override { return -1; }
+
+    virtual qint64 writeData(const char *data, qint64 size) override
+    {
+        // according to the document, we must write all data!
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull() || pp->closed || size < 0) {
+            return -1;
+        } else if (size > 0) {
+            if (localBuffer.size() + size <= pp->maxBufferSize) {
+                localBuffer.append(data, size);
+                return size;
+            }
+        } else {
+            // the qt document says size can be 0.
+            // write(0) == flush()
+            Q_ASSERT(size == 0);
+        }
+
+        if (localBuffer.size() + size > 0) {
+            // putting empty packet means closing pipe.
+            pp->queue.put(localBuffer + QByteArray(data, size));
+            localBuffer.clear();
+            if (pp->shouldEmitReadyRead) {
+                QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
+            }
+        }
+        return size;
+    }
+
+    virtual bool waitForBytesWritten(int msecs) override
+    {
+        QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
+        if (pp.isNull() || pp->closed) {
+            return false;
+        }
+        if (localBuffer.size() < pp->maxBufferSize) {
+            return true;
+        }
+        if (pp->queue.notFull.isSet()) {
+            return true;
+        }
+        return pp->queue.notFull.tryWait(msecs < 0 ? UINT_MAX: msecs);
+    }
+
+    virtual bool waitForReadyRead(int) override { return false; }
+public:
+    QWeakPointer<PipePrivate> pp;
+    QSharedPointer<Pipe> pipe;
+    QByteArray localBuffer;
+};
+
+QSharedPointer<QIODevice> Pipe::deivceToWrite(bool connectSignals, bool takePipe)
+{
+    QSharedPointer<DeviceToWrite> v = QSharedPointer<DeviceToWrite>::create(d, connectSignals);
+    if (takePipe) {
+        v->pipe = sharedFromThis();
+    }
+    return v;
 }
 
 class PosixPathPrivate : public QSharedData
@@ -876,6 +1351,7 @@ QByteArray PosixPath::readall(bool *ok) const
         if (ok) {
             *ok = false;
         }
+        return QByteArray();
     }
     return f->readall(ok);
 }

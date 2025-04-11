@@ -596,11 +596,11 @@ QSharedPointer<FileLike> HttpResponse::bodyAsFile(bool processGzip, bool process
         if (contentEncodingHeader.toLower() == QByteArray("gzip")
             || contentEncodingHeader.toLower() == QByteArray("deflate")) {
             removeHeader(QString::fromLatin1("Content-Encoding"));
-            bodyFile = QSharedPointer<GzipDecompressFile>::create(bodyFile);
+            bodyFile = QSharedPointer<GzipFile>::create(bodyFile, GzipFile::Decompress);
         } else if (transferEncodingHeader.toLower() == QByteArray("gzip")
                    || transferEncodingHeader.toLower() == QByteArray("deflate")) {
             removeHeader(QString::fromLatin1("Transfer-Encoding"));
-            bodyFile = QSharedPointer<GzipDecompressFile>::create(bodyFile);
+            bodyFile = QSharedPointer<GzipFile>::create(bodyFile, GzipFile::Decompress);
         } else
 #endif
                 if (!contentEncodingHeader.isEmpty() || !transferEncodingHeader.isEmpty()) {
@@ -623,7 +623,7 @@ QByteArray HttpResponse::body()
     const QByteArray &data = bodyFile->readall(&ok);
     if (!ok) {
 #ifdef QTNG_HAVE_ZLIB
-        if (bodyFile.dynamicCast<GzipDecompressFile>()) {
+        if (bodyFile.dynamicCast<GzipFile>()) {
             setError(new ContentDecodingError());
         } else
 #endif

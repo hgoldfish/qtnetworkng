@@ -336,8 +336,10 @@ endif()
 
 # determine what os/openssl libs to link.
 if(UNIX)
-    # 自从我们添加了 lmdb 之后，我们就依赖这个 pthread 了。
-    set(OS_EXTRA_LINK pthread)
+    if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+        # 自从我们添加了 lmdb 之后，我们就依赖这个 pthread 了。
+        set(OS_EXTRA_LINK pthread)
+    endif()
 endif()
 
 # Fix Qt-static cmake BUG

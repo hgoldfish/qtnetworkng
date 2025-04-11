@@ -246,6 +246,7 @@ public:
     LmdbBuilder &maxReaders(int readers);
     LmdbBuilder &maxDbs(int maxDbs);
     LmdbBuilder &noSync(bool noSync);
+    LmdbBuilder &noSubDir(bool noSubDir);
     LmdbBuilder &writeMap(bool writable);
     QSharedPointer<Lmdb> create();
 private:
@@ -255,6 +256,7 @@ private:
     QString m_dirPath;
     bool m_noSync = false;
     bool m_writeMap = false;
+    bool m_noSubDir = true;
 private:
     Q_DISABLE_COPY(LmdbBuilder)
     LmdbBuilder(LmdbBuilder &&) = delete;
