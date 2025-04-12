@@ -1,6 +1,8 @@
 CMakeLists.txt.user*
 .hg/
 .hgignore
+.directory
+*.kate-swp
 include/pool.h
 website/
 
