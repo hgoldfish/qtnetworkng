@@ -417,6 +417,7 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
             qint32 oldSize = buf.size();
             buf.resize(oldSize + nextBlockSize);
             qint32 readBytes = inputFile->read(buf.data() + oldSize, nextBlockSize);
+            qtng_debug << "readBytes:" << readBytes;
             if (readBytes < 0) {
                 return false;
             } else if (readBytes > 0) {
@@ -590,8 +591,7 @@ public:
             localBuffer.append(data, size);
             return size;
         }
-        pp->queue.put(localBuffer);
-        pp->queue.put(QByteArray(data, size));
+        pp->queue.put(localBuffer + QByteArray(data, size));
         localBuffer.clear();
         if (pp->shouldEmitReadyRead) {
             QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
