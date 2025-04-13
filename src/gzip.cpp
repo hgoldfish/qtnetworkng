@@ -168,6 +168,7 @@ qint32 GzipFile::write(const char *data, qint32 size)
     const int OutputBufferSize = 1024 * 32;
     QByteArray outBuf(OutputBufferSize, Qt::Uninitialized);
 
+    // data can be nullptr and size can be 0 while closing.
     d->zstream.next_in = reinterpret_cast<Bytef *>(const_cast<char *>(data));
     d->zstream.avail_in = static_cast<uint>(size);
     do {
@@ -201,6 +202,13 @@ qint32 GzipFile::write(const char *data, qint32 size)
     bool success = (bytesWritten == d->buf.size());
     d->buf.clear();
     return success ? size : -1;
+}
+
+void GzipFile::close()
+{
+    Q_D(GzipFile);
+    write(nullptr, 0);
+    d->backend->close();
 }
 
 qint64 GzipFile::processedBytes() const
