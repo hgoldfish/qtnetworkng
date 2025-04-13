@@ -30,8 +30,8 @@ private:
     Q_DECLARE_PRIVATE(GzipFile);
 };
 
-bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int level = -1);
-bool qGzipDecompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output);
+bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int level = -1, int blockSize = 1024 * 8);
+bool qGzipDecompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int blockSize = 1024 * 8);
 
 QTNETWORKNG_NAMESPACE_END
 

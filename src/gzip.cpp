@@ -217,22 +217,22 @@ qint64 GzipFile::processedBytes() const
     return d->processedBytes;
 }
 
-bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int level)
+bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int level, int blockSize)
 {
     if (input.isNull() || output.isNull()) {
         return false;
     }
     QSharedPointer<GzipFile> gzip(new GzipFile(output, GzipFile::Compress, level));
-    return sendfile(input, gzip);
+    return sendfile(input, gzip, input->size(), blockSize);
 }
 
-bool qGzipDecompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output)
+bool qGzipDecompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int blockSize)
 {
     if (input.isNull() || output.isNull()) {
         return false;
     }
     QSharedPointer<GzipFile> gzip(new GzipFile(input, GzipFile::Decompress));
-    return sendfile(gzip, output);
+    return sendfile(gzip, output, gzip->size(), blockSize);
 }
 
 QTNETWORKNG_NAMESPACE_END
