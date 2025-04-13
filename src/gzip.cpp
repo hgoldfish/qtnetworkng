@@ -105,6 +105,7 @@ qint32 GzipFile::read(char *data, qint32 size)
             }
             break;
         }
+        d->processedBytes += readBytes;
         d->zstream.next_in = reinterpret_cast<Bytef *>(inBuf.data());
         d->zstream.avail_in = static_cast<uint>(readBytes);
         do {
@@ -196,9 +197,16 @@ qint32 GzipFile::write(const char *data, qint32 size)
     }
 
     qint32 bytesWritten = d->backend->write(d->buf);
+    d->processedBytes += bytesWritten;
     bool success = (bytesWritten == d->buf.size());
     d->buf.clear();
     return success ? size : -1;
+}
+
+qint64 GzipFile::processedBytes() const
+{
+    Q_D(const GzipFile);
+    return d->processedBytes;
 }
 
 bool qGzipCompress(QSharedPointer<FileLike> input, QSharedPointer<FileLike> output, int level)
