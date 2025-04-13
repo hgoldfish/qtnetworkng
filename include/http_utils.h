@@ -478,6 +478,18 @@ public:
     bool eof;
 };
 
+class ChunkedWriter: public FileLike
+{
+public:
+    ChunkedWriter(QSharedPointer<FileLike> stream)
+        : stream(stream) {}
+    virtual qint32 read(char *, qint32) override { return -1; }
+    virtual qint32 write(const char *data, qint32 size) override;
+    virtual void close() override;
+    virtual qint64 size() override { return -1; }
+public:
+    QSharedPointer<FileLike> stream;
+};
 QTNETWORKNG_NAMESPACE_END
 
 #endif  // QTNG_HTTP_UTILS_H

@@ -742,7 +742,7 @@ qint32 ChunkedBodyFile::read(char *data, qint32 size)
     while (buf.size() < size && !eof) {
         qint64 leftBytes;
         if (maxBodySize >= 0) {
-            leftBytes = qMax<qint64>(0, maxBodySize - count);
+            leftBytes = maxBodySize - count;
             if (leftBytes <= 0) {
                 break;
             }
@@ -764,6 +764,36 @@ qint32 ChunkedBodyFile::read(char *data, qint32 size)
     memcpy(data, buf.constData(), bytesToRead);
     buf.remove(0, bytesToRead);
     return bytesToRead;
+}
+
+qint32 ChunkedWriter::write(const char *data, qint32 size)
+{
+    // the chunked block can not greater than 0xffff!
+    qint64 sent = 0;
+    while (sent < size) {
+        qint64 blockSize = qMin<qint64>(0xffff, size - sent);
+        QByteArray buf;
+        buf.reserve(size + 32);
+        buf.append(QByteArray::number(blockSize, 16));
+        buf.append("\r\n", 2);
+        if (data) {
+            buf.append(data + sent, blockSize);
+        }
+        buf.append("\r\n", 2);
+
+        qint32 writtenBytes = stream->write(buf);
+        if (writtenBytes != buf.size()) {
+            return -1;
+        }
+        sent += blockSize;
+    }
+    return size;
+}
+
+void ChunkedWriter::close()
+{
+    stream->write("0\r\n\r\n", 5);
+    stream->close();
 }
 
 QTNETWORKNG_NAMESPACE_END
