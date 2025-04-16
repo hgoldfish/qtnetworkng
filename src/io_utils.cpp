@@ -526,8 +526,10 @@ public:
         }
 
         qint32 bytesToRead = qMin<qint32>(localBuffer.size(), size);
-        memcpy(data, localBuffer.constData(), bytesToRead);
-        localBuffer.remove(0, bytesToRead);
+        if (bytesToRead) {
+            memcpy(data, localBuffer.constData(), bytesToRead);
+            localBuffer.remove(0, bytesToRead);
+        }
         if (pp->debugLevel >= 2) {
             qtng_debug << "got data from another peer and returned" << bytesToRead << "bytes, left the local buffer" << localBuffer.size() << "bytes";
         }
@@ -586,6 +588,9 @@ public:
         if (pp.isNull() || pp->closed || size <= 0) {
             return -1;
         }
+        if (pp->debugLevel >= 2) {
+            qtng_debug << "write" << size << "bytes to pipe.";
+        }
         if (localBuffer.size() + size <= pp->maxBufferSize) {
             localBuffer.append(data, size);
             return size;
@@ -604,6 +609,9 @@ public:
             return;
         }
         pp->closed = true;
+        if (pp->debugLevel >= 2) {
+            qtng_debug << "close writing file of pipe.";
+        }
         if (!localBuffer.isEmpty()) {
             pp->queue.putForcedly(localBuffer);
             localBuffer.clear();
@@ -710,6 +718,9 @@ public:
         if (size <= localBuffer.size()) {
             memcpy(data, localBuffer.constData(), size);
             localBuffer.remove(0, size);
+            if (pp->debugLevel >= 2) {
+                qtng_debug << "the size is fit in local buffer, return" << size << "bytes. left the local buffer" << localBuffer.size() << "bytes.";
+            }
             return size;
         }
         // the docunent of qiodevice require readData() must return all bytes of maxSize before return.
@@ -720,6 +731,9 @@ public:
                 const QByteArray &packet = pp->queue.get();
                 if (packet.isEmpty()) {
                     Q_ASSERT(pp->closed && pp->queue.isEmpty());
+                    if (pp->debugLevel >= 2) {
+                        qtng_debug << "got empty packet. the pipe is closed in another peer.";
+                    }
                     break;
                 } else {
                     bytesWritten += packet.size();
@@ -736,9 +750,11 @@ public:
         if (bytesToRead > 0) {
             memcpy(data, localBuffer.constData(), bytesToRead);
             localBuffer.remove(0, bytesToRead);
-            return bytesToRead;
         }
-        return 0;
+        if (pp->debugLevel >= 2) {
+            qtng_debug << "got data from another peer and returned" << bytesToRead << "bytes, left the local buffer" << localBuffer.size() << "bytes";
+        }
+        return bytesToRead;
     }
     virtual qint64 writeData(const char *, qint64) override { return -1; }
     virtual bool waitForBytesWritten(int) override { return false; }
