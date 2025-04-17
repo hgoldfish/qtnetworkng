@@ -283,30 +283,22 @@ public:
                      float timeout);
     ~ExchangerPrivate();
 public:
-    void receiveOutgoing();
-    void receiveIncoming();
-    void sendOutgoing();
-    void sendIncoming();
     void in2out();
     void out2in();
 public:
     QSharedPointer<SocketLike> request;
     QSharedPointer<SocketLike> forward;
     CoroutineGroup *operations;
-    Queue<QByteArray> incoming;
-    Queue<QByteArray> outgoing;
+    quint32 maxBufferSize;
     float timeout;
 };
-
-#define EXCHANGER_PACKET_SIZE (1024 * 8)
 
 ExchangerPrivate::ExchangerPrivate(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward,
                                    quint32 maxBufferSize, float timeout)
     : request(request)
     , forward(forward)
     , operations(new CoroutineGroup)
-    , incoming(maxBufferSize / EXCHANGER_PACKET_SIZE)
-    , outgoing(maxBufferSize / EXCHANGER_PACKET_SIZE)
+    , maxBufferSize(maxBufferSize)
     , timeout(timeout)
 {
 }
@@ -316,91 +308,9 @@ ExchangerPrivate::~ExchangerPrivate()
     delete operations;
 }
 
-void ExchangerPrivate::receiveOutgoing()
-{
-    QByteArray buf(EXCHANGER_PACKET_SIZE, Qt::Uninitialized);
-    while (true) {
-        qint32 len = forward->recv(buf.data(), buf.size());
-        if (len <= 0) {
-            operations->kill(QString::fromLatin1("receive_incoming"), false);
-            operations->kill(QString::fromLatin1("send_outgoing"), false);
-            incoming.put(QByteArray());
-            return;
-        }
-        incoming.put(QByteArray(buf.constData(), len));
-    }
-}
-
-void ExchangerPrivate::receiveIncoming()
-{
-    QByteArray buf(EXCHANGER_PACKET_SIZE, Qt::Uninitialized);
-    while (true) {
-        qint32 len = request->recv(buf.data(), buf.size());
-        if (len <= 0) {
-            operations->kill(QString::fromLatin1("receive_outgoing"), false);
-            operations->kill(QString::fromLatin1("sending_incoming"), false);
-            outgoing.put(QByteArray());
-            return;
-        }
-        outgoing.put(QByteArray(buf.constData(), len));
-    }
-}
-
-void ExchangerPrivate::sendOutgoing()
-{
-    while (true) {
-        QByteArray buf = outgoing.get();
-        if (buf.isEmpty()) {
-            return;
-        } else {
-            while (!outgoing.isEmpty()) {
-                buf.append(outgoing.get());
-            }
-        }
-        qint32 len;
-        try {
-            Timeout timeout(this->timeout);
-            Q_UNUSED(timeout);
-            len = forward->sendall(buf);
-        } catch (TimeoutException &) {
-            len = -1;
-        }
-        if (len != buf.size()) {
-            operations->killall(false);
-            return;
-        }
-    }
-}
-
-void ExchangerPrivate::sendIncoming()
-{
-    while (true) {
-        QByteArray buf = incoming.get();
-        if (buf.isEmpty()) {
-            return;
-        } else {
-            while (!incoming.isEmpty()) {
-                buf.append(incoming.get());
-            }
-        }
-        qint32 len;
-        try {
-            Timeout timeout(this->timeout);
-            Q_UNUSED(timeout);
-            len = request->sendall(buf);
-        } catch (TimeoutException &) {
-            len = -1;
-        }
-        if (len != buf.size()) {
-            operations->killall(false);
-            return;
-        }
-    }
-}
-
 void ExchangerPrivate::in2out()
 {
-    QByteArray buf(EXCHANGER_PACKET_SIZE, Qt::Uninitialized);
+    QByteArray buf(maxBufferSize, Qt::Uninitialized);
     while (true) {
         qint32 len = request->recv(buf.data(), buf.size());
         if (len <= 0) {
@@ -426,7 +336,7 @@ void ExchangerPrivate::in2out()
 
 void ExchangerPrivate::out2in()
 {
-    QByteArray buf(EXCHANGER_PACKET_SIZE, Qt::Uninitialized);
+    QByteArray buf(maxBufferSize, Qt::Uninitialized);
     while (true) {
         qint32 len = forward->recv(buf.data(), buf.size());
         if (len <= 0) {
@@ -464,10 +374,6 @@ Exchanger::~Exchanger()
 void Exchanger::exchange()
 {
     Q_D(Exchanger);
-    //    d->operations->spawnWithName("receive_outgoing", [d] { d->receiveOutgoing(); });
-    //    d->operations->spawnWithName("receive_incoming", [d] { d->receiveIncoming(); });
-    //    d->operations->spawnWithName("send_outgoing", [d] { d->sendOutgoing(); });
-    //    d->operations->spawnWithName("send_incoming", [d] { d->sendIncoming(); });
     d->operations->spawnWithName(QString::fromLatin1("in2out"), [d] { d->in2out(); });
     d->operations->spawnWithName(QString::fromLatin1("out2in"), [d] { d->out2in(); });
     d->operations->joinall();
