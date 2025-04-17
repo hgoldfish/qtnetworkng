@@ -3,6 +3,7 @@
 #include <QtCore/qsharedpointer.h>
 #include <QtCore/qendian.h>
 #include <QtCore/qdatetime.h>
+#include <QtCore/qscopeguard.h>
 #include "../include/locks.h"
 #include "../include/coroutine_utils.h"
 #include "../include/data_channel.h"
@@ -612,6 +613,13 @@ void SocketChannelPrivate::doSend()
     QByteArray buf(maxSendSize, Qt::Uninitialized);
     while (true) {
         QList<WritingPacket> writingPackets;
+        auto clean = qScopeGuard([&writingPackets] {
+            for (WritingPacket &writingPacket : writingPackets) {
+                if (!writingPacket.done.isNull()) {
+                    writingPacket.done->send(false);
+                }
+            }
+        });
         try {
             WritingPacket writingPacket = sendingQueue.get();
             if (!writingPacket.isValid()) {
@@ -640,11 +648,6 @@ void SocketChannelPrivate::doSend()
             return abort(DataChannel::UnknownError);
         }
         if (error != DataChannel::NoError) {
-            for (WritingPacket &writingPacket : writingPackets) {
-                if (!writingPacket.done.isNull()) {
-                    writingPacket.done->send(false);
-                }
-            }
             return;
         }
         buf.reserve(count);
@@ -662,11 +665,6 @@ void SocketChannelPrivate::doSend()
         try {
             sentBytes = connection->sendall(buf.data(), count);
         } catch (CoroutineExitException) {
-            for (WritingPacket &writingPacket : writingPackets) {
-                if (!writingPacket.done.isNull()) {
-                    writingPacket.done->send(false);
-                }
-            }
             Q_ASSERT(error != DataChannel::NoError);
             return;
         } catch (...) {
@@ -677,6 +675,7 @@ void SocketChannelPrivate::doSend()
         }
 
         if (sentBytes == count) {
+            clean.dismiss();
             for (WritingPacket &writingPacket : writingPackets) {
                 if (!writingPacket.done.isNull()) {
                     writingPacket.done->send(true);
@@ -684,11 +683,6 @@ void SocketChannelPrivate::doSend()
             }
             lastKeepaliveTimestamp = QDateTime::currentMSecsSinceEpoch();
         } else {
-            for (WritingPacket &writingPacket : writingPackets) {
-                if (!writingPacket.done.isNull()) {
-                    writingPacket.done->send(false);
-                }
-            }
             return abort(DataChannel::SendingError);
         }
     }
@@ -1564,7 +1558,7 @@ qint32 DataChannelSocketLikeImpl::recvall(char *data, qint32 size)
 
 qint32 DataChannelSocketLikeImpl::send(const char *data, qint32 size)
 {
-    qint32 len = qMin<qint32>(size, static_cast<qint32>(channel->payloadSizeHint()));
+    qint32 len = qMin<qint32>(size, static_cast<qint32>(channel->maxPayloadSize()));
     bool ok = channel->sendPacket(QByteArray(data, len));
     return ok ? len : -1;
 }
@@ -1572,7 +1566,7 @@ qint32 DataChannelSocketLikeImpl::send(const char *data, qint32 size)
 qint32 DataChannelSocketLikeImpl::sendall(const char *data, qint32 size)
 {
     qint32 count = 0;
-    qint32 maxPayloadSize = static_cast<qint32>(channel->payloadSizeHint());
+    qint32 maxPayloadSize = static_cast<qint32>(channel->maxPayloadSize());
     while (count < size) {
         qint32 len = qMin(size - count, maxPayloadSize);
         bool ok = channel->sendPacket(QByteArray(data + count, len));
