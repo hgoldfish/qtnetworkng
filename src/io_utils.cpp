@@ -591,7 +591,7 @@ public:
         if (pp->debugLevel >= 2) {
             qtng_debug << "write" << size << "bytes to pipe.";
         }
-        if (localBuffer.size() + size <= pp->maxBufferSize) {
+        if (!pp->queue.isEmpty() && localBuffer.size() + size <= pp->maxBufferSize) {
             localBuffer.append(data, size);
             return size;
         }
@@ -862,7 +862,7 @@ public:
         if (pp.isNull() || pp->closed || size < 0) {
             return -1;
         } else if (size > 0) {
-            if (localBuffer.size() + size <= pp->maxBufferSize) {
+            if (!pp->queue.isEmpty() && localBuffer.size() + size <= pp->maxBufferSize) {
                 localBuffer.append(data, size);
                 return size;
             }
