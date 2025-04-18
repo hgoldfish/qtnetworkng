@@ -692,6 +692,9 @@ void WebSocketConnectionPrivate::doReceive(const QByteArray &headBytes)
         if ((usedSize < 2 || needMoreData) && !recvBytes(buf, usedSize)) {
             return;
         }
+        if (usedSize < 2) {
+            continue;
+        }
 
         WebSocketFrame frame;
         qint64 payloadSize = frame.feedHeader(buf.data(), usedSize);
