@@ -444,7 +444,7 @@ class PipePrivate
 public:
     PipePrivate(Pipe *q, qint32 maxBufferSize)
         : q_ptr(q)
-        , queue(1024)
+        , queue(64)
         , closed(false)
         , maxBufferSize(maxBufferSize)
         , debugLevel(0)
@@ -477,6 +477,7 @@ class FileToRead : public FileLike
 public:
     explicit FileToRead(QSharedPointer<PipePrivate> pp)
         : pp(pp)
+        , offset(0)
     {
         localBuffer.reserve(pp->maxBufferSize);
     }
@@ -491,10 +492,9 @@ public:
             }
             return -1;
         }
-        // TODO we need ring buffer.
-        if (localBuffer.size() >= size) {
-            memcpy(data, localBuffer.constData(), size);
-            localBuffer.remove(0, size);
+        if (localBuffer.size() >= offset + size) {
+            memcpy(data, localBuffer.constData() + offset, size);
+            offset += size;
             if (pp->debugLevel >= 2) {
                 qtng_debug << "the size is fit in local buffer, return" << size << "bytes. left the local buffer" << localBuffer.size() << "bytes.";
             }
@@ -513,6 +513,10 @@ public:
                     break;
                 } else {
                     bytesWritten += packet.size();
+                    if (offset > 0) {
+                        localBuffer.remove(0, offset);
+                        offset = 0;
+                    }
                     localBuffer.append(packet);
                 }
             } while (!pp->queue.isEmpty());
@@ -525,10 +529,10 @@ public:
             }
         }
 
-        qint32 bytesToRead = qMin<qint32>(localBuffer.size(), size);
-        if (bytesToRead) {
-            memcpy(data, localBuffer.constData(), bytesToRead);
-            localBuffer.remove(0, bytesToRead);
+        qint32 bytesToRead = qMin<qint32>(localBuffer.size() - offset, size);
+        if (bytesToRead > 0) {
+            memcpy(data, localBuffer.constData() + offset, bytesToRead);
+            offset += size;
         }
         if (pp->debugLevel >= 2) {
             qtng_debug << "got data from another peer and returned" << bytesToRead << "bytes, left the local buffer" << localBuffer.size() << "bytes";
@@ -560,6 +564,7 @@ public:
     QWeakPointer<PipePrivate> pp;
     QSharedPointer<Pipe> pipe;
     QByteArray localBuffer;
+    int offset;
 };
 
 QSharedPointer<FileLike> Pipe::fileToRead(bool takePipe)
@@ -642,7 +647,7 @@ class DeviceToRead : public QIODevice
 public:
     explicit DeviceToRead(QSharedPointer<PipePrivate> pp, bool connectSignals)
         : pp(pp)
-        , localBufferOff(0)
+        , offset(0)
     {
         bool ok = QIODevice::open(QIODevice::ReadOnly | QIODevice::Unbuffered);
         Q_ASSERT(ok);
@@ -664,7 +669,7 @@ public:
         if (!QIODevice::atEnd()) {
             return false;
         }
-        return localBuffer.isEmpty() && pp->queue.isEmpty() && pp->closed;
+        return localBuffer.size() <= offset && pp->queue.isEmpty() && pp->closed;
     }
 
     virtual qint64 bytesAvailable() const override
@@ -675,7 +680,7 @@ public:
         }
         qint64 bytesInQueue = pp->queue.peek().size();
         // QIODevice::bytesAvailable() can be greater than 0 when peek() is called.
-        return localBuffer.size() + bytesInQueue + QIODevice::bytesAvailable();
+        return localBuffer.size() - offset + bytesInQueue + QIODevice::bytesAvailable();
     }
 
     virtual qint64 bytesToWrite() const override { return 0; }
@@ -692,16 +697,10 @@ public:
         }
         // to emit aboutToClose()
         QIODevice::close();
-        qint64 bytesWritten = 0;
-        while (!pp->queue.isEmpty()) {
-            bytesWritten += pp->queue.get().size();
-        }
         pp->queue.clear();
         pp->closed = true;
         localBuffer.clear();
-        if (pp->shouldEmitBytesWritten && bytesWritten > 0) {
-            QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(bytesWritten(qint64)), Q_ARG(qint64, bytesWritten));
-        }
+        // no need to emit bytesWritten() as the bytes is discarded.
     }
 
     virtual qint64 readData(char *data, qint64 size) override
@@ -715,7 +714,7 @@ public:
         if (size == 0)
             return 0;
 
-        if (localBufferOff >= localBuffer.size()) {
+        if (localBuffer.size() < offset + size) {
             qint64 bytesWritten = 0;
             do {
                 const QByteArray &packet = pp->queue.get();
@@ -727,6 +726,10 @@ public:
                     break;
                 } else {
                     bytesWritten += packet.size();
+                    if (offset > 0) {
+                        localBuffer.remove(0, offset);
+                        offset = 0;
+                    }
                     localBuffer.append(packet);
                 }
             } while (!pp->queue.isEmpty());
@@ -736,18 +739,18 @@ public:
             }
         }
 
-        qint32 left = localBuffer.size() - localBufferOff;
+        qint32 left = localBuffer.size() - offset;
         if (left > size) {
-            memcpy(data, localBuffer.constData() + localBufferOff, size);
-            localBufferOff += size;
+            memcpy(data, localBuffer.constData() + offset, size);
+            offset += size;
             if (pp->debugLevel >= 2) {
                 qtng_debug << "got data from another peer and returned" << size << "bytes, left the local buffer"
-                           << localBuffer.size() - localBufferOff << "bytes";
+                           << localBuffer.size() - offset << "bytes";
             }
             return size;
         } else {
-            memcpy(data, localBuffer.constData() + localBufferOff, left);
-            localBufferOff = 0;
+            memcpy(data, localBuffer.constData() + offset, left);
+            offset = 0;
             localBuffer.clear();
             if (pp->debugLevel >= 2) {
                 qtng_debug << "got data from another peer and returned" << size << "bytes, left the local buffer"
@@ -780,7 +783,7 @@ public:
     QWeakPointer<PipePrivate> pp;
     QSharedPointer<Pipe> pipe;
     QByteArray localBuffer;
-    qint32 localBufferOff;
+    qint32 offset;
 };
 
 QSharedPointer<QIODevice> Pipe::deviceToRead(bool connectSignals, bool takePipe)
