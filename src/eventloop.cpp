@@ -70,11 +70,11 @@ bool YieldCurrentFunctor::operator()()
         return false;
     }
     try {
-        coroutine->yield();
+        return coroutine->yield();
     } catch (CoroutineException &e) {
         qtng_debug << "do not send exception to event loop, just delete event loop:" << e.what();
     }
-    return true;
+    return false;
 }
 
 EventLoopCoroutinePrivate::EventLoopCoroutinePrivate(EventLoopCoroutine *q)

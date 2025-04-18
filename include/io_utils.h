@@ -84,7 +84,7 @@ public:
     QSharedPointer<FileLike> fileToRead(bool takePipe = false);
     QSharedPointer<FileLike> fileToWrite(bool takePipe = false);
     // if the io device is used in Qt async style, set connectSignals = true
-    // else leave the default, and use waitForReadyRead() 和 waitForBytesWritten()
+    // else leave the default, and use waitForReadyRead() and waitForBytesWritten()
     // Qt's signal/slot require eventloop in GUI thread and worker thread!
     QSharedPointer<QIODevice> deviceToRead(bool connectSignals = false, bool takePipe = false);
     QSharedPointer<QIODevice> deivceToWrite(bool connectSignals = false, bool takePipe = false);
