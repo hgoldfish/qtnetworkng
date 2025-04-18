@@ -444,7 +444,7 @@ class PipePrivate
 public:
     PipePrivate(Pipe *q, qint32 maxBufferSize)
         : q_ptr(q)
-        , queue(2)
+        , queue(1024)
         , closed(false)
         , maxBufferSize(maxBufferSize)
         , debugLevel(0)
@@ -642,6 +642,7 @@ class DeviceToRead : public QIODevice
 public:
     explicit DeviceToRead(QSharedPointer<PipePrivate> pp, bool connectSignals)
         : pp(pp)
+        , localBufferOff(0)
     {
         bool ok = QIODevice::open(QIODevice::ReadOnly | QIODevice::Unbuffered);
         Q_ASSERT(ok);
@@ -649,7 +650,6 @@ public:
             pp->shouldEmitReadyRead = true;
             connect(pp->q_ptr, SIGNAL(readyRead()), this, SIGNAL(readyRead()));
         }
-        localBuffer.reserve(pp->maxBufferSize);
     }
     virtual ~DeviceToRead() override { close(); }
 public:
@@ -715,17 +715,7 @@ public:
         if (size == 0)
             return 0;
 
-        if (size <= localBuffer.size()) {
-            memcpy(data, localBuffer.constData(), size);
-            localBuffer.remove(0, size);
-            if (pp->debugLevel >= 2) {
-                qtng_debug << "the size is fit in local buffer, return" << size << "bytes. left the local buffer" << localBuffer.size() << "bytes.";
-            }
-            return size;
-        }
-        // the docunent of qiodevice require readData() must return all bytes of maxSize before return.
-        // this cause blocking.
-        if (!pp->queue.isEmpty() || !pp->closed) {
+        if (localBufferOff >= localBuffer.size()) {
             qint64 bytesWritten = 0;
             do {
                 const QByteArray &packet = pp->queue.get();
@@ -746,15 +736,25 @@ public:
             }
         }
 
-        qint32 bytesToRead = qMin<qint32>(localBuffer.size(), size);
-        if (bytesToRead > 0) {
-            memcpy(data, localBuffer.constData(), bytesToRead);
-            localBuffer.remove(0, bytesToRead);
+        qint32 left = localBuffer.size() - localBufferOff;
+        if (left > size) {
+            memcpy(data, localBuffer.constData() + localBufferOff, size);
+            localBufferOff += size;
+            if (pp->debugLevel >= 2) {
+                qtng_debug << "got data from another peer and returned" << size << "bytes, left the local buffer"
+                           << localBuffer.size() - localBufferOff << "bytes";
+            }
+            return size;
+        } else {
+            memcpy(data, localBuffer.constData() + localBufferOff, left);
+            localBufferOff = 0;
+            localBuffer.clear();
+            if (pp->debugLevel >= 2) {
+                qtng_debug << "got data from another peer and returned" << size << "bytes, left the local buffer"
+                           << 0 << "bytes";
+            }
+            return left;
         }
-        if (pp->debugLevel >= 2) {
-            qtng_debug << "got data from another peer and returned" << bytesToRead << "bytes, left the local buffer" << localBuffer.size() << "bytes";
-        }
-        return bytesToRead;
     }
     virtual qint64 writeData(const char *, qint64) override { return -1; }
     virtual bool waitForBytesWritten(int) override { return false; }
@@ -780,6 +780,7 @@ public:
     QWeakPointer<PipePrivate> pp;
     QSharedPointer<Pipe> pipe;
     QByteArray localBuffer;
+    qint32 localBufferOff;
 };
 
 QSharedPointer<QIODevice> Pipe::deviceToRead(bool connectSignals, bool takePipe)
