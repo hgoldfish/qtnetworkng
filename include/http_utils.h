@@ -483,6 +483,7 @@ class ChunkedWriter: public FileLike
 public:
     ChunkedWriter(QSharedPointer<FileLike> stream)
         : stream(stream) {}
+    virtual ~ChunkedWriter() override;
     virtual qint32 read(char *, qint32) override { return -1; }
     virtual qint32 write(const char *data, qint32 size) override;
     virtual void close() override;

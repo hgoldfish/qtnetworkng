@@ -206,9 +206,7 @@ qint32 GzipFile::write(const char *data, qint32 size)
 
 void GzipFile::close()
 {
-    Q_D(GzipFile);
     write(nullptr, 0);
-    d->backend->close();
 }
 
 qint64 GzipFile::processedBytes() const
