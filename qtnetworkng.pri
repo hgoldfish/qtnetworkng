@@ -38,7 +38,7 @@ SOURCES += \
     $$PWD/src/liblmdb/midl.c \
     $$PWD/src/liblmdb/mdb.c
 
-    
+
 PRIVATE_HEADERS += \
     $$PWD/include/private/coroutine_p.h \
     $$PWD/include/private/http_p.h \
@@ -48,7 +48,7 @@ PRIVATE_HEADERS += \
     $$PWD/include/private/eventloop_p.h
     $$PWD/src/kcp/ikcp.h
 
-    
+
 HEADERS += \
     $$PWD/include/qtnetworkng.h \
     $$PWD/include/config.h \
@@ -68,7 +68,6 @@ HEADERS += \
     $$PWD/include/msgpack.h \
     $$PWD/include/kcp.h \
     $$PWD/include/kcp_base.h \
-    $$PWD/include/multi_path_kcp.h \
     $$PWD/include/socket_server.h \
     $$PWD/include/websocket.h \
     $$PWD/include/data_channel.h \
@@ -81,7 +80,7 @@ HEADERS += \
     $$PWD/src/liblmdb/midl.h \
     $$PWD/src/liblmdb/lmdb.h
 
-    
+
 win32 {
     SOURCES += $$PWD/src/socket_win.cpp \
         $$PWD/src/eventloop_win.cpp \
