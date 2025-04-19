@@ -766,6 +766,11 @@ qint32 ChunkedBodyFile::read(char *data, qint32 size)
     return bytesToRead;
 }
 
+ChunkedWriter::~ChunkedWriter()
+{
+    close();
+}
+
 qint32 ChunkedWriter::write(const char *data, qint32 size)
 {
     // the chunked block can not greater than 0xffff!
@@ -793,7 +798,6 @@ qint32 ChunkedWriter::write(const char *data, qint32 size)
 void ChunkedWriter::close()
 {
     stream->write("0\r\n\r\n", 5);
-    stream->close();
 }
 
 QTNETWORKNG_NAMESPACE_END

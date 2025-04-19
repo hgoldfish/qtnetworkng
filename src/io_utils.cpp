@@ -492,7 +492,7 @@ public:
             }
             return -1;
         }
-        if (localBuffer.size() >= offset + size) {
+        if (offset + size < localBuffer.size()) {
             memcpy(data, localBuffer.constData() + offset, size);
             offset += size;
             if (pp->debugLevel >= 2) {
@@ -532,7 +532,7 @@ public:
         qint32 bytesToRead = qMin<qint32>(localBuffer.size() - offset, size);
         if (bytesToRead > 0) {
             memcpy(data, localBuffer.constData() + offset, bytesToRead);
-            offset += size;
+            offset += bytesToRead;
         }
         if (pp->debugLevel >= 2) {
             qtng_debug << "got data from another peer and returned" << bytesToRead << "bytes, left the local buffer" << localBuffer.size() << "bytes";
