@@ -98,8 +98,8 @@ public:
     void doCallLater();
 public:
     struct ev_loop *loop;
-    QMap<int, EvWatcher *> watchers;
-    QList<EvWatcher *> uselessWatchers;
+    std::map<int, EvWatcher *> watchers;
+    std::list<EvWatcher *> uselessWatchers;
     QMutex mqMutex;
     QQueue<QPair<quint32, Functor *>> callLaterQueue;
     ev_async asyncContext;
@@ -136,10 +136,8 @@ EvEventLoopCoroutinePrivate::~EvEventLoopCoroutinePrivate()
     ev_async_stop(loop, &asyncContext);
     ev_break(loop, EVBREAK_ONE);
     ev_loop_destroy(loop);  // FIXME run() function may not exit, but this situation is rare.
-    QMapIterator<int, EvWatcher *> itor(watchers);
-    while (itor.hasNext()) {
-        itor.next();
-        delete itor.value();
+    for (std::map<int, EvWatcher *>::const_iterator itor = watchers.cbegin(); itor != watchers.cend(); ++itor) {
+        delete itor->second;
     }
     for (EvWatcher *watcher : uselessWatchers) {
         delete watcher;
@@ -164,11 +162,11 @@ extern "C" void qtng__ev_timer_callback(struct ev_loop *loop, ev_timer *w, int)
     EvEventLoopCoroutinePrivate *parent = watcher->parent;
     if (qFuzzyIsNull(w->repeat)) {  // singleshot
         ev_timer_stop(loop, w);
-        parent->watchers.remove(watcher->watcherId);
+        parent->watchers.erase(watcher->watcherId);
     }
     (*watcher->callback)();
     if (qFuzzyIsNull(w->repeat)) {
-        parent->uselessWatchers.append(watcher);
+        parent->uselessWatchers.push_back(watcher);
     }
 }
 
@@ -184,8 +182,9 @@ extern "C" void qtng__ev_async_callback(struct ev_loop *, ev_async *w, int)
 extern "C" void qtng__ev_prepare_callback(struct ev_loop *, ev_prepare *w, int)
 {
     EvEventLoopCoroutinePrivate *p = static_cast<EvEventLoopCoroutinePrivate *>(w->data);
-    while (!p->uselessWatchers.isEmpty()) {
-        EvWatcher *watcher = p->uselessWatchers.takeFirst();
+    while (!p->uselessWatchers.empty()) {
+        EvWatcher *watcher = p->uselessWatchers.front();
+        p->uselessWatchers.pop_front();
         delete watcher;
     }
 }
@@ -204,13 +203,17 @@ int EvEventLoopCoroutinePrivate::createWatcher(EventLoopCoroutine::EventType eve
     IoWatcher *watcher = new IoWatcher(event, fd);
     watcher->callback = callback;
     watcher->w.data = watcher;
-    watchers.insert(nextWatcherId, watcher);
+    watchers.insert(std::make_pair(nextWatcherId, watcher));
     return nextWatcherId++;
 }
 
 void EvEventLoopCoroutinePrivate::startWatcher(int watcherId)
 {
-    IoWatcher *watcher = dynamic_cast<IoWatcher *>(watchers.value(watcherId));
+    std::map<int, EvWatcher *>::const_iterator found = watchers.find(watcherId);
+    if (found == watchers.cend()) {
+        return;
+    }
+    IoWatcher *watcher = dynamic_cast<IoWatcher *>(found->second);
     if (watcher) {
         ev_io_start(loop, &watcher->w);
     }
@@ -218,7 +221,11 @@ void EvEventLoopCoroutinePrivate::startWatcher(int watcherId)
 
 void EvEventLoopCoroutinePrivate::stopWatcher(int watcherId)
 {
-    IoWatcher *watcher = dynamic_cast<IoWatcher *>(watchers.value(watcherId));
+    std::map<int, EvWatcher *>::const_iterator found = watchers.find(watcherId);
+    if (found == watchers.cend()) {
+        return;
+    }
+    IoWatcher *watcher = dynamic_cast<IoWatcher *>(found->second);
     if (watcher) {
         ev_io_stop(loop, &watcher->w);
     }
@@ -226,11 +233,16 @@ void EvEventLoopCoroutinePrivate::stopWatcher(int watcherId)
 
 void EvEventLoopCoroutinePrivate::removeWatcher(int watcherId)
 {
-    IoWatcher *watcher = dynamic_cast<IoWatcher *>(watchers.take(watcherId));
+    std::map<int, EvWatcher *>::iterator found = watchers.find(watcherId);
+    if (found == watchers.end()) {
+        return;
+    }
+    watchers.erase(found);
+    IoWatcher *watcher = dynamic_cast<IoWatcher *>(found->second);
     if (watcher) {
         ev_io_stop(loop, &watcher->w);
         watcher->w.data = nullptr;
-        uselessWatchers.append(watcher);
+        uselessWatchers.push_back(watcher);
     }
 }
 
@@ -245,7 +257,11 @@ struct TriggerIoWatchersFunctor : public Functor
     int watcherId;
     virtual bool operator()() override
     {
-        IoWatcher *watcher = dynamic_cast<IoWatcher *>(eventloop->watchers.value(watcherId));
+        std::map<int, EvWatcher *>::const_iterator found = eventloop->watchers.find(watcherId);
+        if (found == eventloop->watchers.cend()) {
+            return false;
+        }
+        IoWatcher *watcher = dynamic_cast<IoWatcher *>(found->second);
         if (watcher) {
             return (*watcher->callback)();
         }
@@ -255,11 +271,11 @@ struct TriggerIoWatchersFunctor : public Functor
 
 void EvEventLoopCoroutinePrivate::triggerIoWatchers(qintptr fd)
 {
-    for (QMap<int, EvWatcher *>::const_iterator itor = watchers.constBegin(); itor != watchers.constEnd(); ++itor) {
-        IoWatcher *watcher = dynamic_cast<IoWatcher *>(itor.value());
+    for (std::map<int, EvWatcher *>::const_iterator itor = watchers.cbegin(); itor != watchers.cend(); ++itor) {
+        IoWatcher *watcher = dynamic_cast<IoWatcher *>(itor->second);
         if (watcher && watcher->w.fd == fd) {
             ev_io_stop(loop, &watcher->w);
-            callLater(0, new TriggerIoWatchersFunctor(itor.key(), this));
+            callLater(0, new TriggerIoWatchersFunctor(itor->first, this));
         }
     }
 }
@@ -272,7 +288,7 @@ int EvEventLoopCoroutinePrivate::callLater(quint32 msecs, Functor *callback)
     watcher->watcherId = nextWatcherId;
     watcher->w.data = watcher;
     ev_timer_start(loop, &watcher->w);
-    watchers.insert(nextWatcherId, watcher);
+    watchers.insert(std::make_pair(nextWatcherId, watcher));
     return nextWatcherId++;
 }
 
@@ -301,17 +317,22 @@ int EvEventLoopCoroutinePrivate::callRepeat(quint32 msecs, Functor *callback)
     watcher->parent = this;
     watcher->watcherId = 0;
     ev_timer_start(loop, &watcher->w);
-    watchers.insert(nextWatcherId, watcher);
+    watchers.insert(std::make_pair(nextWatcherId, watcher));
     return nextWatcherId++;
 }
 
 void EvEventLoopCoroutinePrivate::cancelCall(int callbackId)
 {
-    TimerWatcher *watcher = dynamic_cast<TimerWatcher *>(watchers.take(callbackId));
+    std::map<int, EvWatcher *>::iterator found = watchers.find(callbackId);
+    if (found == watchers.end()) {
+        return;
+    }
+    TimerWatcher *watcher = dynamic_cast<TimerWatcher *>(found->second);
+    watchers.erase(found);
     if (watcher) {
         ev_timer_stop(loop, &watcher->w);
         watcher->w.data = nullptr;
-        uselessWatchers.append(watcher);
+        uselessWatchers.push_back(watcher);
     }
 }
 
