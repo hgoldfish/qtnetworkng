@@ -973,7 +973,7 @@ qint32 SslConnection<SocketType>::peek(char *data, qint32 size)
         case SSL_ERROR_SYSCALL:
         case SSL_ERROR_SSL: {
             unsigned long sslerror = ERR_get_error();
-            qtng_debug << "ssl send error. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
+            qtng_debug << "ssl peek error. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
             return -1;
         }
         case SSL_ERROR_WANT_CONNECT:
@@ -1025,7 +1025,7 @@ qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL: {
                 unsigned long sslerror = ERR_get_error();
-                qtng_debug << "ssl send error. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
+                qtng_debug << "ssl recv error. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
                 return total == 0 ? -1 : total;
             }
             case SSL_ERROR_WANT_CONNECT:
@@ -1078,7 +1078,9 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL: {
                 unsigned long sslerror = ERR_get_error();
-                qtng_debug << "ssl send error. lib:" << ERR_GET_LIB(sslerror) << "reason:" << ERR_GET_REASON(sslerror);
+                char buf[256];
+                ERR_error_string_n(sslerror, buf, 256);
+                qtng_debug << "ssl send error. lib:" << ERR_GET_LIB(sslerror) << "reason:" << buf;
                 return -1;
             }
             case SSL_ERROR_WANT_CONNECT:
