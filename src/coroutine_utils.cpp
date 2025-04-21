@@ -307,12 +307,16 @@ bool CoroutineGroup::joinall()
 {
     bool hasCoroutines = !coroutines.isEmpty();
     QList<QSharedPointer<Coroutine>> copy = coroutines;
-    for (QSharedPointer<Coroutine> coroutine : copy) {
+    for (int i = copy.size() - 1; i >= 0; i--) {
+        QSharedPointer<Coroutine> coroutine = copy.at(i);
         if (coroutine == Coroutine::current()) {
             continue;
         }
         coroutine->join();
-        coroutines.removeOne(coroutine);
+        int index = coroutines.lastIndexOf(coroutine);
+        if (index != -1) {
+            coroutines.removeAt(index);
+        }
     }
     return hasCoroutines;
 }
