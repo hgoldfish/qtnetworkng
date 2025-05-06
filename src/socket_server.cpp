@@ -175,18 +175,8 @@ void BaseStreamServerPrivate::serveForever()
 bool BaseStreamServer::serveForever()
 {
     Q_D(BaseStreamServer);
-    if (d->serverSocket.isNull()) {
-        d->serverSocket = serverCreate();
-    }
-    if (d->serverSocket.isNull()) {
-        return false;
-    }
-    if (!serverBind()) {
-        serverClose();
-        return false;
-    }
-    if (!serverActivate()) {
-        serverClose();
+    QSharedPointer<SocketLike> serverSocket = createServer();
+    if (serverSocket.isNull()) {
         return false;
     }
     d->serveForever();
@@ -200,18 +190,8 @@ bool BaseStreamServer::start()
     if (started->isSet() || d->operations->has(QString::fromLatin1("serve"))) {
         return true;
     }
-    if (d->serverSocket.isNull()) {
-        d->serverSocket = serverCreate();
-    }
-    if (d->serverSocket.isNull()) {
-        return false;
-    }
-    if (!serverBind()) {
-        serverClose();
-        return false;
-    }
-    if (!serverActivate()) {
-        serverClose();
+    QSharedPointer<SocketLike> serverSocket = createServer();
+    if (serverSocket.isNull()) {
         return false;
     }
     d->operations->spawnWithName(QString::fromLatin1("serve"), [d] { d->serveForever(); });
@@ -276,9 +256,20 @@ HostAddress BaseStreamServer::serverAddress() const
 
 QSharedPointer<SocketLike> BaseStreamServer::serverSocket()
 {
-    Q_D(const BaseStreamServer);
+    Q_D(BaseStreamServer);
     if (d->serverSocket.isNull()) {
-        serverCreate();
+        d->serverSocket = serverCreate();
+        if (d->serverSocket.isNull()) {
+            return QSharedPointer<SocketLike>();
+        }
+        if (!serverBind()) {
+            serverClose();
+            return QSharedPointer<SocketLike>();
+        }
+        if (!serverActivate()) {
+            serverClose();
+            return QSharedPointer<SocketLike>();
+        }
     }
     return d->serverSocket;
 }

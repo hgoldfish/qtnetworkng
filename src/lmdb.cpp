@@ -415,13 +415,13 @@ QList<QByteArray> Database::keys() const
 
     mdb_cursor_close(cursor);
 
-    if (rt) {
+    if (rt && rt != MDB_NOTFOUND) {
 #if QTLMDB_DEBUG
         qtng_warning << "can not iterate lmdb cursor:" << mdb_strerror(rt);
 #endif
-        // if iterator was failed, we return the loaded keys anyway.
-        // return QList<QByteArray>();
     }
+    // if iterator was failed, we return the loaded keys anyway.
+    // return QList<QByteArray>();
     return ks;
 }
 

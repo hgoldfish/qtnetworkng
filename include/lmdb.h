@@ -43,6 +43,7 @@ public:
     bool operator==(const ConstLmdbIterator &other) const;
     inline bool operator!=(const ConstLmdbIterator &other) const { return !(*this == other); }
     bool operator!() const { return isEnd(); }
+    explicit operator bool() const { return !isEnd(); }
     ConstLmdbIterator &operator++();
     ConstLmdbIterator &operator--();
 private:

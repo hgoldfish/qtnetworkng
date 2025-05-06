@@ -908,7 +908,7 @@ public:
     QByteArray localBuffer;
 };
 
-QSharedPointer<QIODevice> Pipe::deivceToWrite(bool connectSignals, bool takePipe)
+QSharedPointer<QIODevice> Pipe::deviceToWrite(bool connectSignals, bool takePipe)
 {
     QSharedPointer<DeviceToWrite> v = QSharedPointer<DeviceToWrite>::create(d, connectSignals);
     if (takePipe) {

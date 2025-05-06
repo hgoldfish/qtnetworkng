@@ -87,7 +87,7 @@ public:
     // else leave the default, and use waitForReadyRead() and waitForBytesWritten()
     // Qt's signal/slot require eventloop in GUI thread and worker thread!
     QSharedPointer<QIODevice> deviceToRead(bool connectSignals = false, bool takePipe = false);
-    QSharedPointer<QIODevice> deivceToWrite(bool connectSignals = false, bool takePipe = false);
+    QSharedPointer<QIODevice> deviceToWrite(bool connectSignals = false, bool takePipe = false);
 private:
     const QSharedPointer<PipePrivate> d;
 };
