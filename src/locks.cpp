@@ -27,10 +27,13 @@ public:
 };
 
 SemaphorePrivate::SemaphorePrivate(int value)
-    : init_value(value)
+    : init_value(qMax(1, value))
     , counter(value)
     , notified(0)
 {
+    if (value < 1) {
+        qtng_warning << "Semaphore got init value less than 1:" << value << ", we treat it as 1.";
+    }
 }
 
 SemaphorePrivate::~SemaphorePrivate()
