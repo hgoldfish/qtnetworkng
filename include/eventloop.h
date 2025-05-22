@@ -10,7 +10,7 @@
 QTNETWORKNG_NAMESPACE_BEGIN
 
 class CoroutinePrivate;
-class Coroutine : public BaseCoroutine
+class Coroutine : public BaseCoroutine, public QEnableSharedFromThis<Coroutine>
 {
     Q_DISABLE_COPY(Coroutine)
 public:

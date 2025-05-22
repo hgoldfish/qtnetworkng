@@ -197,13 +197,13 @@ bool CoroutineGroup::add(QSharedPointer<Coroutine> coroutine, const QString &nam
         }
         self->deleteCoroutine(coroutine);
     });
-    coroutines.append(coroutine);
+    coroutines.insert(coroutine);
     return true;
 }
 
 QSharedPointer<Coroutine> CoroutineGroup::get(const QString &name)
 {
-    QListIterator<QSharedPointer<Coroutine>> itor(coroutines);
+    QSetIterator<QSharedPointer<Coroutine>> itor(coroutines);
     while (itor.hasNext()) {
         QSharedPointer<Coroutine> coroutine = itor.next();
         if (coroutine->objectName() == name)
@@ -214,7 +214,7 @@ QSharedPointer<Coroutine> CoroutineGroup::get(const QString &name)
 
 bool CoroutineGroup::has(const QString &name)
 {
-    QListIterator<QSharedPointer<Coroutine>> itor(coroutines);
+    QSetIterator<QSharedPointer<Coroutine>> itor(coroutines);
     while (itor.hasNext()) {
         QSharedPointer<Coroutine> coroutine = itor.next();
         if (coroutine->objectName() == name) {
@@ -226,7 +226,7 @@ bool CoroutineGroup::has(const QString &name)
 
 bool CoroutineGroup::isCurrent(const QString &name)
 {
-    QListIterator<QSharedPointer<Coroutine>> itor(coroutines);
+    QSetIterator<QSharedPointer<Coroutine>> itor(coroutines);
     while (itor.hasNext()) {
         QSharedPointer<Coroutine> coroutine = itor.next();
         if (coroutine->objectName() == name && coroutine == Coroutine::current()) {
@@ -262,7 +262,7 @@ bool CoroutineGroup::kill(const QString &name, bool join)
 bool CoroutineGroup::killall(bool join)
 {
     bool done = false;
-    QList<QSharedPointer<Coroutine>> copy = coroutines;
+    QSet<QSharedPointer<Coroutine>> copy = coroutines;
     if (join) {
         BaseCoroutine *current = BaseCoroutine::current();
         for (QSharedPointer<Coroutine> coroutine : copy) {
@@ -306,13 +306,12 @@ bool CoroutineGroup::join(const QString &name)
 bool CoroutineGroup::joinall()
 {
     bool hasCoroutines = !coroutines.isEmpty();
-    QList<QSharedPointer<Coroutine>> copy = coroutines;
+    QSet<QSharedPointer<Coroutine>> copy = coroutines;
     for (QSharedPointer<Coroutine> coroutine : copy) {
         if (coroutine == Coroutine::current()) {
             continue;
         }
         coroutine->join();
-        coroutines.removeOne(coroutine);
     }
     return hasCoroutines;
 }
@@ -365,15 +364,11 @@ void CoroutineGroup::deleteCoroutine(BaseCoroutine *baseCoroutine)
 {
     Coroutine *coroutine = dynamic_cast<Coroutine *>(baseCoroutine);
     Q_ASSERT(coroutine != nullptr);
-    for (QList<QSharedPointer<Coroutine>>::iterator itor = coroutines.begin(); itor != coroutines.end(); ++itor) {
-        if (itor->data() == coroutine) {
-            DeleteCoroutineFunctor *callback = new DeleteCoroutineFunctor();
-            callback->coroutine = *itor;
-            EventLoopCoroutine::get()->callLater(0, callback);
-            coroutines.erase(itor);
-            break;
-        }
-    }
+    QSharedPointer<Coroutine> c = coroutine->sharedFromThis();
+    DeleteCoroutineFunctor *callback = new DeleteCoroutineFunctor();
+    callback->coroutine = c;
+    EventLoopCoroutine::get()->callLater(0, callback);
+    coroutines.remove(c);
 }
 
 class ThreadPoolWorkItem

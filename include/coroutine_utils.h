@@ -5,7 +5,7 @@
 #include <QtCore/qvariant.h>
 #include <QtCore/qthread.h>
 #include <QtCore/qsharedpointer.h>
-#include <QtCore/qqueue.h>
+#include <QtCore/qset.h>
 #include <QtCore/qmutex.h>
 #include <QtCore/qwaitcondition.h>
 #include "locks.h"
@@ -347,7 +347,7 @@ public:
 private:
     void deleteCoroutine(BaseCoroutine *coroutine);
 private:
-    QList<QSharedPointer<Coroutine>> coroutines;
+    QSet<QSharedPointer<Coroutine>> coroutines;
 };
 
 QSharedPointer<Coroutine> CoroutineGroup::spawnWithName(const QString &name, const std::function<void()> &func,
@@ -357,7 +357,7 @@ QSharedPointer<Coroutine> CoroutineGroup::spawnWithName(const QString &name, con
     if (!old.isNull()) {
         if (replace) {
             old->kill();
-            coroutines.removeOne(old);
+            coroutines.remove(old);
             old->join();
         } else {
             return old;
