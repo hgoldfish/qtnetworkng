@@ -58,7 +58,7 @@ public:
     QString name() const;
 
     bool isBroken() const;
-    bool sendPacket(const QByteArray &packet);
+    bool sendPacket(const QByteArray &packet, bool waitSent = true);
     bool sendPacketAsync(const QByteArray &packet);
     QByteArray recvPacket();
     void abort();

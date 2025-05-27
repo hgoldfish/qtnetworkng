@@ -107,6 +107,13 @@ static bool unpackCommand(QByteArray data, quint8 *command, quint32 *channelNumb
     }
 }
 
+enum class BlockFlag
+{
+    NonBlock,
+    Block_And_Not_Wait_Sent,
+    Block_Until_Sent,
+};
+
 class DataChannelPrivate
 {
 public:
@@ -120,14 +127,14 @@ public:
     QSharedPointer<VirtualChannel> takeChannel(quint32 channelNumber);
     QSharedPointer<VirtualChannel> peekChannel(quint32 channelNumber);
     QByteArray recvPacket();
-    bool sendPacket(const QByteArray &packet);
+    bool sendPacket(const QByteArray &packet, bool waitSent);
     bool sendPacketAsync(const QByteArray &packet);
     QString toString() const;
 
     // must be implemented by subclasses
     virtual void abort(DataChannel::ChannelError reason);
     virtual bool isBroken() const = 0;
-    virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &payload, bool blocking) = 0;
+    virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &payload, BlockFlag blocking) = 0;
     virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) = 0;
     virtual void cleanSendingPacket(quint32 subChannelNumber,
                                     std::function<bool(const QByteArray &)> subCheckPacket) = 0;
@@ -192,7 +199,7 @@ public:
     virtual ~SocketChannelPrivate() override;
     virtual bool isBroken() const override;
     virtual void abort(DataChannel::ChannelError reason) override;
-    virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking) override;
+    virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet, BlockFlag blocking) override;
     virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) override;
     virtual void cleanSendingPacket(quint32 subChannelNumber,
                                     std::function<bool(const QByteArray &)> subCheckPacket) override;
@@ -225,7 +232,7 @@ public:
     virtual ~VirtualChannelPrivate() override;
     virtual bool isBroken() const override;
     virtual void abort(DataChannel::ChannelError reason) override;
-    virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking) override;
+    virtual bool sendPacketRaw(quint32 channelNumber, const QByteArray &packet, BlockFlag blocking) override;
     virtual void cleanChannel(quint32 channelNumber, bool sendDestroyPacket) override;
     virtual void cleanSendingPacket(quint32 subChannelNumber,
                                     std::function<bool(const QByteArray &)> subCheckPacket) override;
@@ -308,7 +315,7 @@ void DataChannelPrivate::abort(DataChannel::ChannelError reason)
 DataChannel::ChannelError DataChannelPrivate::handleIncomingPacket(quint32 channelNumber, const QByteArray &payload)
 {
     if (!pluggedChannel.isNull()) {
-        if (!getPrivateHelper(pluggedChannel)->sendPacketRaw(channelNumber, payload, false)) {
+        if (!getPrivateHelper(pluggedChannel)->sendPacketRaw(channelNumber, payload, BlockFlag::Block_Until_Sent)) {
             return DataChannel::PluggedChannelError;
         } else {
             return DataChannel::NoError;
@@ -317,9 +324,9 @@ DataChannel::ChannelError DataChannelPrivate::handleIncomingPacket(quint32 chann
 
     if (channelNumber == DataChannelNumber) {
         if (receivingQueue.size() == (receivingQueue.capacity() * 3 / 4)) {
-            sendPacketRaw(CommandChannelNumber, packSlowDownRequest(), false);
+            sendPacketRaw(CommandChannelNumber, packSlowDownRequest(), BlockFlag::Block_And_Not_Wait_Sent);
         }
-        receivingQueue.putForcedly(payload);
+        receivingQueue.put(payload);
     } else if (channelNumber == CommandChannelNumber) {
         if (!handleCommand(payload)) {
             return DataChannel::InvalidCommand;
@@ -386,7 +393,7 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::makeChannel()
     quint32 channelNumber = nextChannelNumber;
     nextChannelNumber += this->pole;
     QSharedPointer<VirtualChannel> channel = makeChannelInternal(DataChannelPole::PositivePole, channelNumber);
-    sendPacketRaw(CommandChannelNumber, packMakeChannelRequest(channelNumber), false);
+    sendPacketRaw(CommandChannelNumber, packMakeChannelRequest(channelNumber), BlockFlag::NonBlock);
     return channel;
 }
 
@@ -454,22 +461,22 @@ QByteArray DataChannelPrivate::recvPacket()
         return QByteArray();
     }
     if (receivingQueue.size() == (receivingQueue.capacity() / 2)) {
-        sendPacketRaw(CommandChannelNumber, packGoThroughRequest(), false);
+        sendPacketRaw(CommandChannelNumber, packGoThroughRequest(), BlockFlag::NonBlock);
     }
     return packet;
 }
 
-bool DataChannelPrivate::sendPacket(const QByteArray &packet)
+bool DataChannelPrivate::sendPacket(const QByteArray &packet, bool waitSent)
 {
     if (!goThrough.tryWait()) {
         return false;
     }
-    return sendPacketRaw(DataChannelNumber, packet, true);
+    return sendPacketRaw(DataChannelNumber, packet, waitSent ? BlockFlag::Block_Until_Sent : BlockFlag::Block_And_Not_Wait_Sent);
 }
 
 bool DataChannelPrivate::sendPacketAsync(const QByteArray &packet)
 {
-    return sendPacketRaw(DataChannelNumber, packet, false);
+    return sendPacketRaw(DataChannelNumber, packet, BlockFlag::NonBlock);
 }
 
 bool DataChannelPrivate::handleCommand(const QByteArray &packet)
@@ -492,7 +499,7 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
             return false;
         }
         QSharedPointer<VirtualChannel> channel = makeChannelInternal(DataChannelPole::NegativePole, channelNumber);
-        sendPacketRaw(CommandChannelNumber, packChannelMadeRequest(channelNumber), false);
+        sendPacketRaw(CommandChannelNumber, packChannelMadeRequest(channelNumber), BlockFlag::NonBlock);
         pendingChannels.put(channel);
         return true;
     } else if (command == CHANNEL_MADE_REQUEST) {
@@ -511,7 +518,7 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
         qtng_debug << "channel is gone." << channelNumber;
 #endif
         // the channel is open by me and then closed quickly...
-        sendPacketRaw(CommandChannelNumber, packDestoryChannelRequest(channelNumber), false);
+        sendPacketRaw(CommandChannelNumber, packDestoryChannelRequest(channelNumber), BlockFlag::NonBlock);
         return true;
     } else if (command == DESTROY_CHANNEL_REQUEST) {
 #ifdef DEBUG_PROTOCOL
@@ -554,7 +561,7 @@ void DataChannelPrivate::notifyChannelClose(quint32 channelNumber)
     if (error != DataChannel::NoError) {
         return;
     }
-    sendPacketRaw(CommandChannelNumber, packDestoryChannelRequest(channelNumber), false);
+    sendPacketRaw(CommandChannelNumber, packDestoryChannelRequest(channelNumber), BlockFlag::NonBlock);
 }
 
 SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection, DataChannelPole pole,
@@ -583,7 +590,7 @@ SocketChannelPrivate::~SocketChannelPrivate()
     delete operations;
 }
 
-bool SocketChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking)
+bool SocketChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet, BlockFlag blocking)
 {
     if (error != DataChannel::NoError || packet.isEmpty()) {
         return false;
@@ -594,15 +601,22 @@ bool SocketChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray
 #endif
         return false;
     }
-    if (blocking) {
+    switch (blocking) {
+    case BlockFlag::NonBlock:
+        sendingQueue.putForcedly(WritingPacket(channelNumber, packet, QSharedPointer<ValueEvent<bool>>()));
+        return true;
+    case BlockFlag::Block_And_Not_Wait_Sent:
+        sendingQueue.put(WritingPacket(channelNumber, packet, QSharedPointer<ValueEvent<bool>>()));
+        return true;
+    case BlockFlag::Block_Until_Sent: {
         QSharedPointer<ValueEvent<bool>> done(new ValueEvent<bool>());
         sendingQueue.put(WritingPacket(channelNumber, packet, done));
         bool success = done->tryWait();
         return success;
-    } else {
-        QSharedPointer<ValueEvent<bool>> done;
-        sendingQueue.putForcedly(WritingPacket(channelNumber, packet, done));
-        return true;
+    }
+    default:
+        Q_UNREACHABLE();
+        break;
     }
 }
 
@@ -742,7 +756,10 @@ void SocketChannelPrivate::doKeepalive()
         // operator to them.
         if (now > lastActiveTimestamp && (now - lastActiveTimestamp > keepaliveTimeout)) {
 #ifdef DEBUG_PROTOCOL
-            qtng_debug << "channel is timeout.";
+            qtng_debug << "channel is timeout." << connection->peerAddressURI() << "receivingQueue size:" << receivingQueue.size();
+            for (QSharedPointer<VirtualChannel> channel : subChannels) {
+                qtng_debug << "sub channel:" << channel->channelNumber() << "receivingQueue size:" << channel->d_func()->receivingQueue.size();
+            }
 #endif
             return abort(DataChannel::KeepaliveTimeoutError);
         }
@@ -864,7 +881,7 @@ VirtualChannelPrivate::~VirtualChannelPrivate()
     VirtualChannelPrivate::abort(DataChannel::UserShutdown);
 }
 
-bool VirtualChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet, bool blocking)
+bool VirtualChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray &packet, BlockFlag blocking)
 {
     if (error != DataChannel::NoError || parentChannel.isNull() || packet.isEmpty()) {
 #ifdef DEBUG_PROTOCOL
@@ -1096,10 +1113,10 @@ bool DataChannel::isBroken() const
     return d->isBroken();
 }
 
-bool DataChannel::sendPacket(const QByteArray &packet)
+bool DataChannel::sendPacket(const QByteArray &packet, bool waitSent/* = true*/)
 {
     Q_D(DataChannel);
-    return d->sendPacket(packet);
+    return d->sendPacket(packet, waitSent);
 }
 
 bool DataChannel::sendPacketAsync(const QByteArray &packet)
