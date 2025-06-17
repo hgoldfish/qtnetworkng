@@ -444,7 +444,7 @@ class PipePrivate
 public:
     PipePrivate(Pipe *q, qint32 maxBufferSize)
         : q_ptr(q)
-        , queue(64)
+        , queue(1024)
         , closed(false)
         , maxBufferSize(maxBufferSize)
         , debugLevel(0)

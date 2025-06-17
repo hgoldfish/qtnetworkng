@@ -832,8 +832,7 @@ void WebSocketConnectionPrivate::doKeepalive()
             return abort(WebSocketConnection::GoingAway);
         }
 
-        // only send ping frame while the doSend() coroutine is idle.
-        now = QDateTime::currentMSecsSinceEpoch();
+        // TODO only send ping frame while the doSend() coroutine is idle.
         // now and lastKeepaliveTimestamp both are unsigned int, we should check which is larger before apply minus
         // operator to them.
         if (now > lastKeepaliveTimestamp && (now - lastKeepaliveTimestamp > keepaliveInterval)) {
