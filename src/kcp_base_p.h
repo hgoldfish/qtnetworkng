@@ -44,8 +44,8 @@ public:
     LinkPathID peerId() const;
 public:
     virtual bool isValid() const = 0;
-    virtual KcpBase<Link> *accept() = 0;
-    virtual KcpBase<Link> *accept(const LinkPathID &remote) = 0;
+    virtual QSharedPointer<KcpBase<Link>> accept() = 0;
+    virtual QSharedPointer<KcpBase<Link>> accept(const LinkPathID &remote) = 0;
     virtual bool canBind() = 0;
     virtual bool canConnect() = 0;
 
@@ -127,8 +127,8 @@ public:
     virtual bool isValid() const override;
     virtual bool canBind() override;
     virtual bool canConnect() override;
-    virtual KcpBase<Link> *accept() override;
-    virtual KcpBase<Link> *accept(const LinkPathID &remote) override;
+    virtual QSharedPointer<KcpBase<Link>> accept() override;
+    virtual QSharedPointer<KcpBase<Link>> accept(const LinkPathID &remote) override;
     virtual bool close(bool force) override;
     virtual bool listen(int backlog) override;
     virtual qint32 peekRaw(char *data, qint32 size) override;
@@ -138,14 +138,14 @@ protected:
     quint32 nextConnectionId();
     void doReceive();
     void doAccept();
-    QPointer<class SlaveKcpBase<Link>> doAccept(quint32 connectionId, const LinkPathID &remote, bool &add);
+    QWeakPointer<class SlaveKcpBase<Link>> doAccept(quint32 connectionId, const LinkPathID &remote, bool &add);
     bool startReceivingCoroutine();
 public:
     friend class SlaveKcpBase<Link>;
     QSharedPointer<Link> link;
-    QMap<LinkPathID, QPointer<class SlaveKcpBase<Link>>> receiversByLinkPathID;
-    QMap<quint32, QPointer<class SlaveKcpBase<Link>>> receiversByConnectionId;
-    Queue<KcpBase<Link> *> pendingSlaves;
+    QMap<LinkPathID, QWeakPointer<class SlaveKcpBase<Link>>> receiversByLinkPathID;
+    QMap<quint32, QWeakPointer<class SlaveKcpBase<Link>>> receiversByConnectionId;
+    Queue<QSharedPointer<KcpBase<Link>>> pendingSlaves;
 };
 
 template<typename Link>
@@ -159,8 +159,8 @@ public:
     virtual bool isValid() const override;
     virtual bool canBind() override;
     virtual bool canConnect() override;
-    virtual KcpBase<Link> *accept() override;
-    virtual KcpBase<Link> *accept(const LinkPathID &remote) override;
+    virtual QSharedPointer<KcpBase<Link>> accept() override;
+    virtual QSharedPointer<KcpBase<Link>> accept(const LinkPathID &remote) override;
     virtual bool close(bool force) override;
     virtual bool listen(int backlog) override;
     virtual qint32 peekRaw(char *data, qint32 size) override;
@@ -192,7 +192,7 @@ KcpBase<Link>::KcpBase(KcpMode mode /* = KcpMode::Internet*/)
     ikcp_setoutput(kcp, kcp_callback);
 #ifdef DEBUG_PROTOCOL
     kcp->writelog = [](const char *log, struct IKCPCB *kcp, void *user) { qDebug(log); };
-    kcp->logmask |= IKCP_LOG_IN_ACK | IKCP_LOG_OUTPUT;
+    kcp->logmask |= IKCP_LOG_IN_ACK | IKCP_LOG_OUTPUT | IKCP_LOG_IN_DATA | IKCP_LOG_IN_PROBE | IKCP_LOG_IN_WINS;
 #endif
 
     sendingQueueEmpty.set();
@@ -756,7 +756,7 @@ bool MasterKcpBase<Link>::canConnect()
 }
 
 template<typename Link>
-KcpBase<Link> *MasterKcpBase<Link>::accept()
+QSharedPointer<KcpBase<Link>> MasterKcpBase<Link>::accept()
 {
     if (this->state != Socket::ListeningState) {
         return nullptr;
@@ -766,24 +766,26 @@ KcpBase<Link> *MasterKcpBase<Link>::accept()
 }
 
 template<typename Link>
-KcpBase<Link> *MasterKcpBase<Link>::accept(const LinkPathID &remote)
+QSharedPointer<KcpBase<Link>> MasterKcpBase<Link>::accept(const LinkPathID &remote)
 {
     if (this->state != Socket::ListeningState || remote.isNull()) {
         return nullptr;
     }
     startReceivingCoroutine();
-    QPointer<SlaveKcpBase<Link>> receiver;
-    receiver = receiversByLinkPathID.value(remote);
-    if (!receiver.isNull() && !receiver->isValid()) {
-        return nullptr;
+    QWeakPointer<SlaveKcpBase<Link>> receiverPtr = receiversByLinkPathID.value(remote);
+    if (!receiverPtr.isNull()) {
+        QSharedPointer<SlaveKcpBase<Link>> receiver = receiverPtr.toStrongRef();
+        if (!receiver->isValid()) {
+            return nullptr;
+        }
     }
 
-    QScopedPointer<SlaveKcpBase<Link>> slave(new SlaveKcpBase<Link>(this, remote, this->mode));
+    QSharedPointer<SlaveKcpBase<Link>> slave(new SlaveKcpBase<Link>(this, remote, this->mode));
     slave->updateKcp();
-    receiversByLinkPathID.insert(remote, slave.data());
+    receiversByLinkPathID.insert(remote, slave);
     // the connectionId is generated in server side. accept() is acually a connect().
     // receiversByConnectionId.insert(slave->connectionId, slave);
-    return slave.take();
+    return slave;
 }
 
 template<typename Link>
@@ -806,11 +808,12 @@ bool MasterKcpBase<Link>::close(bool force)
         }
     } else if (this->state == Socket::ListeningState) {
         this->state = Socket::UnconnectedState;
-        QMap<LinkPathID, QPointer<class SlaveKcpBase<Link>>> receiversByLinkPathID(
+        QMap<LinkPathID, QWeakPointer<class SlaveKcpBase<Link>>> receiversByLinkPathID(
                 this->receiversByLinkPathID);
         this->receiversByLinkPathID.clear();
-        for (QPointer<SlaveKcpBase<Link>> receiver : receiversByLinkPathID) {
-            if (!receiver.isNull()) {
+        for (QWeakPointer<SlaveKcpBase<Link>> receiverPtr : receiversByLinkPathID) {
+            if (!receiverPtr.isNull()) {
+                QSharedPointer<SlaveKcpBase<Link>> receiver = receiverPtr;
                 receiver->close(force);
             }
         }
@@ -822,7 +825,7 @@ bool MasterKcpBase<Link>::close(bool force)
     }
 
     while (!pendingSlaves.isEmpty()) {
-        delete pendingSlaves.get();
+        pendingSlaves.get();
     }
     pendingSlaves.put(nullptr);
 
@@ -954,12 +957,18 @@ void MasterKcpBase<Link>::doAccept()
     char *data = buf.data();
     while (true) {
         qint32 len = this->link->recvfrom(data, buf.size(), remote);
-        if (Q_UNLIKELY(len < 0 || remote.isNull())) {
+        if (Q_UNLIKELY(len < 0)) {
 #ifdef DEBUG_PROTOCOL
             qtng_debug << "kcp can not receive udp packet when do accept.";
 #endif
             MasterKcpBase<Link>::close(true);
             return;
+        }
+        if (Q_UNLIKELY(remote.isNull())) {
+#ifdef DEBUG_PROTOCOL
+            qtng_debug << "remote is not valid";
+#endif
+            continue;
         }
         if (this->link->filter(data, &len, &remote)) {
             continue;
@@ -978,12 +987,12 @@ void MasterKcpBase<Link>::doAccept()
         qToBigEndian<quint32>(0, reinterpret_cast<uchar *>(data + 1));
 #endif
         bool add = false;
-        QPointer<SlaveKcpBase<Link>> receiver = doAccept(connectionId, remote, add);
-        if (!receiver) {
+        QWeakPointer<SlaveKcpBase<Link>> receiverPtr = doAccept(connectionId, remote, add);
+        if (!receiverPtr) {
             if (!add) {
                 continue;
             }
-            QScopedPointer<SlaveKcpBase<Link>> slave(
+            QSharedPointer<SlaveKcpBase<Link>> slave(
                     new SlaveKcpBase<Link>(this, remote, this->mode));
             slave->connectionId = nextConnectionId();
             if (!slave->handleDatagram(data, static_cast<quint32>(len))) {
@@ -996,11 +1005,12 @@ void MasterKcpBase<Link>::doAccept()
                 continue;
             }
 
-            receiversByLinkPathID.insert(remote, slave.data());
-            receiversByConnectionId.insert(slave->connectionId, slave.data());
-            pendingSlaves.put(slave.take());
+            receiversByLinkPathID.insert(remote, slave);
+            receiversByConnectionId.insert(slave->connectionId, slave);
+            pendingSlaves.put(slave);
             continue;
         }
+        QSharedPointer<SlaveKcpBase<Link>> receiver = receiverPtr.toStrongRef();
         if (!receiver->handleDatagram(data, len)) {
             receiver->abort();
             continue;
@@ -1010,31 +1020,35 @@ void MasterKcpBase<Link>::doAccept()
 }
 
 template<typename Link>
-QPointer<SlaveKcpBase<Link>> MasterKcpBase<Link>::doAccept(quint32 connectionId,
+QWeakPointer<SlaveKcpBase<Link>> MasterKcpBase<Link>::doAccept(quint32 connectionId,
                                                                                    const LinkPathID &remote, bool &add)
 {
-    QPointer<SlaveKcpBase<Link>> receiver;
+    QWeakPointer<SlaveKcpBase<Link>> receiverPtr;
     if (connectionId != 0) {  // a multipath packet.
-        receiver = receiversByConnectionId.value(connectionId);
-        if (!receiver.isNull()) {
+        receiverPtr = receiversByConnectionId.value(connectionId);
+        if (!receiverPtr.isNull()) {
+            QSharedPointer<SlaveKcpBase<Link>> receiver = receiverPtr.toStrongRef();
             if (connectionId != receiver->connectionId) {
 #ifdef DEBUG_PROTOCOL
                 qtng_debug << "kcp client:" << remote << "sent a invalid connection id ";
 #endif
-                return nullptr;
+                return QWeakPointer<SlaveKcpBase<Link>>();
             }
             return receiver;
         }
-        receiver = receiversByLinkPathID.value(remote);
-        if (!receiver.isNull() && receiver->connectionId == 0) {
-            // only if the slave was created by accept(host, port), we had zero id.
-            // if this connectionId is unique in client. we add it to the receiversByConnectionId map.
-            // if it is not, say sorry, and disable the multipath feature.
-            // only happened in the newly accept(host, port) connections.
-            // or remote create new conn with the same port as old, and the old packet is received.
-            receiver->connectionId = connectionId;
-            receiversByConnectionId.insert(connectionId, receiver);
-            return receiver;
+        receiverPtr = receiversByLinkPathID.value(remote);
+        if (!receiverPtr.isNull()) {
+            QSharedPointer<SlaveKcpBase<Link>> receiver = receiverPtr.toStrongRef();
+            if (receiver->connectionId == 0) {
+                // only if the slave was created by accept(host, port), we had zero id.
+                // if this connectionId is unique in client. we add it to the receiversByConnectionId map.
+                // if it is not, say sorry, and disable the multipath feature.
+                // only happened in the newly accept(host, port) connections.
+                // or remote create new conn with the same port as old, and the old packet is received.
+                receiver->connectionId = connectionId;
+                receiversByConnectionId.insert(connectionId, receiver);
+                return receiver;
+            }
         }
 
         // it must be bad packet.
@@ -1052,19 +1066,19 @@ QPointer<SlaveKcpBase<Link>> MasterKcpBase<Link>::doAccept(quint32 connectionId,
 #ifdef DEBUG_PROTOCOL
         qtng_debug << "bad packet" << remote << "connectionId:" << connectionId;
 #endif
-        return nullptr;
+        return QWeakPointer<SlaveKcpBase<Link>>();
     }
     // at beginning, all connectionId is zero
-    receiver = receiversByLinkPathID.value(remote);
-    if (!receiver.isNull()) {
-        return receiver;
+    receiverPtr = receiversByLinkPathID.value(remote);
+    if (!receiverPtr.isNull()) {
+        return receiverPtr;
     }
     if (pendingSlaves.size() >= pendingSlaves.capacity()) {
-        return nullptr;
+        return QWeakPointer<SlaveKcpBase<Link>>();
     }
     // not full. process new connection.
     add = true;
-    return nullptr;
+    return QWeakPointer<SlaveKcpBase<Link>>();
 }
 
 template<typename Link>
@@ -1164,13 +1178,13 @@ bool SlaveKcpBase<Link>::listen(int)
 }
 
 template<typename Link>
-KcpBase<Link> *SlaveKcpBase<Link>::accept()
+QSharedPointer<KcpBase<Link>> SlaveKcpBase<Link>::accept()
 {
     return nullptr;
 }
 
 template<typename Link>
-KcpBase<Link> *SlaveKcpBase<Link>::accept(const LinkPathID &)
+QSharedPointer<KcpBase<Link>> SlaveKcpBase<Link>::accept(const LinkPathID &)
 {
     return nullptr;
 }
@@ -1241,7 +1255,7 @@ template<typename Link>
 class KcpBaseSocketLike : public SocketLike
 {
 protected:
-    explicit KcpBaseSocketLike(KcpBase<Link> *kcpBase);
+    explicit KcpBaseSocketLike(QSharedPointer<KcpBase<Link>> kcpBase);
 public:
     ~KcpBaseSocketLike();
 public:
@@ -1297,11 +1311,11 @@ public:
     virtual qint32 send(const QByteArray &data) override;
     virtual qint32 sendall(const QByteArray &data) override;
 public:
-    KcpBase<Link> *kcpBase;
+    QSharedPointer<KcpBase<Link>> kcpBase;
 };
 
 template<typename Link>
-KcpBaseSocketLike<Link>::KcpBaseSocketLike(KcpBase<Link> *kcpBase)
+KcpBaseSocketLike<Link>::KcpBaseSocketLike(QSharedPointer<KcpBase<Link>> kcpBase)
     : kcpBase(kcpBase)
 {
 }
@@ -1309,7 +1323,6 @@ KcpBaseSocketLike<Link>::KcpBaseSocketLike(KcpBase<Link> *kcpBase)
 template<typename Link>
 KcpBaseSocketLike<Link>::~KcpBaseSocketLike()
 {
-    delete kcpBase;
 }
 
 template<typename Link>
