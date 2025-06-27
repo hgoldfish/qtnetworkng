@@ -575,6 +575,14 @@ quint32 KcpSocketLikeHelper::payloadSizeHint() const
     return kcp->kcpBase->payloadSizeHint();
 }
 
+void KcpSocketLikeHelper::setDebugLevel(int level)
+{
+    QSharedPointer<SinglePathUdpLinkSocketLike> kcp = socket.dynamicCast<SinglePathUdpLinkSocketLike>();
+    if (kcp) {
+        kcp->kcpBase->setDebugLevel(level);
+    }
+}
+
 void KcpSocketLikeHelper::setMode(KcpMode mode)
 {
     QSharedPointer<SinglePathUdpLinkSocketLike> kcp = socket.dynamicCast<SinglePathUdpLinkSocketLike>();

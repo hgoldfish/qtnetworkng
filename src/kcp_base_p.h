@@ -33,6 +33,7 @@ public:
     virtual ~KcpBase();
 public:
     void setMode(KcpMode mode);
+    void setDebugLevel(int level);
     void setSendQueueSize(quint32 sendQueueSize);
     quint32 sendQueueSize() const;
     void setUdpPacketSize(quint32 udpPacketSize);
@@ -190,10 +191,6 @@ KcpBase<Link>::KcpBase(KcpMode mode /* = KcpMode::Internet*/)
 {
     kcp = ikcp_create(0, this);
     ikcp_setoutput(kcp, kcp_callback);
-#ifdef DEBUG_PROTOCOL
-    kcp->writelog = [](const char *log, struct IKCPCB *kcp, void *user) { qDebug(log); };
-    kcp->logmask |= IKCP_LOG_IN_ACK | IKCP_LOG_OUTPUT | IKCP_LOG_IN_DATA | IKCP_LOG_IN_PROBE | IKCP_LOG_IN_WINS;
-#endif
 
     sendingQueueEmpty.set();
     sendingQueueNotFull.set();
@@ -251,6 +248,15 @@ void KcpBase<Link>::setMode(KcpMode mode)
         kcp->rx_minrto = 5;
         // kcp->interval = 1;
         break;
+    }
+}
+
+template<typename Link>
+void KcpBase<Link>::setDebugLevel(int level)
+{
+    if (level > 0) {
+        kcp->writelog = [](const char *log, struct IKCPCB *kcp, void *user) {qtng_debug << log;};
+        kcp->logmask |= IKCP_LOG_IN_ACK | IKCP_LOG_OUTPUT | IKCP_LOG_IN_DATA | IKCP_LOG_IN_PROBE | IKCP_LOG_IN_WINS;
     }
 }
 
@@ -994,6 +1000,9 @@ void MasterKcpBase<Link>::doAccept()
             }
             QSharedPointer<SlaveKcpBase<Link>> slave(
                     new SlaveKcpBase<Link>(this, remote, this->mode));
+            if (this->kcp->logmask > 0) {
+                slave->setDebugLevel(1);
+            }
             slave->connectionId = nextConnectionId();
             if (!slave->handleDatagram(data, static_cast<quint32>(len))) {
                 continue;
