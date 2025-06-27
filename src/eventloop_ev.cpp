@@ -189,6 +189,12 @@ extern "C" void qtng__ev_prepare_callback(struct ev_loop *, ev_prepare *w, int)
     }
 }
 
+extern "C" void qtng__ev_un_loop(struct ev_loop *loop, ev_timer *w, int)
+{
+    ev_break(loop, EVBREAK_ONE);
+    delete w;
+}
+
 void EvEventLoopCoroutinePrivate::run()
 {
     try {
@@ -358,7 +364,9 @@ bool EvEventLoopCoroutinePrivate::runUntil(BaseCoroutine *coroutine)
         loopCoroutine = current;
         struct ev_loop *loop = this->loop;
         Deferred<BaseCoroutine *>::Callback exitOneDepth = [loop](BaseCoroutine *) {
-            ev_break(loop, EVBREAK_ONE);
+            ev_timer *w = new ev_timer();
+            ev_timer_init(w, qtng__ev_un_loop, 0, 0);
+            ev_timer_start(loop, w);
         };
         int callbackId = coroutine->finished.addCallback(exitOneDepth);
         ev_run(loop, 0);

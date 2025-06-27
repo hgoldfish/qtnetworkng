@@ -1638,8 +1638,20 @@ void DataChannelSocketLikeImpl::close()
 
 void exchange(QSharedPointer<DataChannel> incoming, QSharedPointer<DataChannel> outgoing)
 {
-    DataChannelPrivate::getPrivateHelper(incoming)->pluggedChannel = outgoing;
-    DataChannelPrivate::getPrivateHelper(outgoing)->pluggedChannel = incoming;
+    DataChannelPrivate *incomingPrivate = DataChannelPrivate::getPrivateHelper(incoming);
+    DataChannelPrivate *outgoingPrivate = DataChannelPrivate::getPrivateHelper(outgoing);
+
+    while (!incomingPrivate->receivingQueue.isEmpty()) {
+        const QByteArray &packet = incomingPrivate->receivingQueue.get();
+        outgoingPrivate->sendPacketRaw(DataChannelNumber, packet, BlockFlag::NonBlock);
+    }
+    while (!outgoingPrivate->receivingQueue.isEmpty()) {
+        const QByteArray &packet = outgoingPrivate->receivingQueue.get();
+        incomingPrivate->sendPacketRaw(DataChannelNumber, packet, BlockFlag::NonBlock);
+    }
+
+    incomingPrivate->pluggedChannel = outgoing;
+    outgoingPrivate->pluggedChannel = incoming;
     try {
         // the receiving queue of incoming and outgoing is always empty while exchanging.
         // if not, may be one of those peers is aborted. then we quit.
