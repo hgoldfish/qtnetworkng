@@ -22,6 +22,7 @@ public:
     void setSocket(QSharedPointer<SocketLike> socket);
     quint32 payloadSizeHint() const;
     void setMode(KcpMode mode);
+    void setDebugLevel(int level);
     void setSendQueueSize(quint32 sendQueueSize);
     void setUdpPacketSize(quint32 udpPacketSize);
     void setTearDownTime(float secs);
