@@ -492,7 +492,7 @@ public:
             }
             return -1;
         }
-        if (offset + size < localBuffer.size()) {
+        if (offset + size <= localBuffer.size()) {
             memcpy(data, localBuffer.constData() + offset, size);
             offset += size;
             if (pp->debugLevel >= 2) {
