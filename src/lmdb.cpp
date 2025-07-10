@@ -816,6 +816,47 @@ QSharedPointer<const Transaction> Transaction::sub() const
     return QSharedPointer<Transaction>(new Transaction(d));
 }
 
+static TransactionPrivate *makePrivateToWrite(MDB_env * const env)
+{
+    MDB_txn *txn;
+    unsigned int flags = 0;
+    int rt = mdb_txn_begin(env, NULL, flags, &txn);
+    if (rt) {
+#if QTLMDB_DEBUG
+        qtng_warning << "can not begin lmdb transaction:" << mdb_strerror(rt);
+#endif
+        return nullptr;
+    }
+    TransactionPrivate *d = new TransactionPrivate(env, txn, false);
+    return d;
+}
+
+QSharedPointer<Transaction> Transaction::fork()
+{
+    return QSharedPointer<Transaction>(new Transaction(makePrivateToWrite(d_ptr->env)));
+}
+
+
+static TransactionPrivate *makePrivateToRead(MDB_env * const env)
+{
+    MDB_txn *txn;
+    unsigned int flags = MDB_RDONLY;
+    int rt = mdb_txn_begin(env, NULL, flags, &txn);
+    if (rt) {
+#if QTLMDB_DEBUG
+        qtng_warning << "can not begin lmdb transaction:" << mdb_strerror(rt);
+#endif
+        return nullptr;
+    }
+    TransactionPrivate *d = new TransactionPrivate(env, txn, true);
+    return d;
+}
+
+QSharedPointer<const Transaction> Transaction::fork() const
+{
+    return QSharedPointer<const Transaction>(new Transaction(makePrivateToRead(d_ptr->env)));
+}
+
 bool Transaction::commit()
 {
     int rt = mdb_txn_commit(d_ptr->txn);
@@ -845,32 +886,12 @@ Lmdb::~Lmdb()
 
 QSharedPointer<const Transaction> Lmdb::toRead()
 {
-    MDB_txn *txn;
-    unsigned int flags = MDB_RDONLY;
-    int rt = mdb_txn_begin(d_ptr->env, NULL, flags, &txn);
-    if (rt) {
-#if QTLMDB_DEBUG
-        qtng_warning << "can not begin lmdb transaction:" << mdb_strerror(rt);
-#endif
-        return QSharedPointer<const Transaction>();
-    }
-    TransactionPrivate *d = new TransactionPrivate(d_ptr->env, txn, true);
-    return QSharedPointer<const Transaction>(new Transaction(d));
+    return QSharedPointer<const Transaction>(new Transaction(makePrivateToRead(d_ptr->env)));
 }
 
 QSharedPointer<Transaction> Lmdb::toWrite()
 {
-    MDB_txn *txn;
-    unsigned int flags = 0;
-    int rt = mdb_txn_begin(d_ptr->env, NULL, flags, &txn);
-    if (rt) {
-#if QTLMDB_DEBUG
-        qtng_warning << "can not begin lmdb transaction:" << mdb_strerror(rt);
-#endif
-        return QSharedPointer<Transaction>();
-    }
-    TransactionPrivate *d = new TransactionPrivate(d_ptr->env, txn, false);
-    return QSharedPointer<Transaction>(new Transaction(d));
+    return QSharedPointer<Transaction>(new Transaction(makePrivateToWrite(d_ptr->env)));
 }
 
 QString Lmdb::version() const

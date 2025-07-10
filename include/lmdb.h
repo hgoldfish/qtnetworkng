@@ -196,6 +196,8 @@ public:
     Database &db(const QString &name);
     QSharedPointer<Transaction> sub();
     QSharedPointer<const Transaction> sub() const;
+    QSharedPointer<Transaction> fork();
+    QSharedPointer<const Transaction> fork() const;
     bool commit();
     void abort();
 private:
