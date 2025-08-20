@@ -587,12 +587,18 @@ void WinEventLoopCoroutinePrivate::sendIoEvent(qintptr fd, EventLoopCoroutine::E
     if (event == EventLoopCoroutine::ReadWrite) {  // closed
         WSAAsyncSelect(static_cast<SOCKET>(fd), internalHwnd, 0, 0);
         // assume that no new socket is started. so we just clear activeSockets[fd]
-        for (IoWatcher *watcher: activeSockets.value(fd)) {
-            int id = watcher->id;
-            (*watcher->callback)();
-            if (watchers.remove(id)) {
-                delete watcher;
-            }
+        const QSet<IoWatcher *> watcherSet = activeSockets.value(fd);
+        QSet<IoWatcher *>::const_iterator it = watcherSet.constBegin();
+        if (it != watcherSet.constEnd()) {
+            do {
+                IoWatcher *watcher = *it;
+                int id = watcher->id;
+                (*watcher->callback)();
+                if (watchers.remove(id)) {
+                    delete watcher;
+                }
+                ++it;
+            } while (it != watcherSet.constEnd() && activeSockets.value(fd).contains(*it));
         }
         activeSockets.remove(fd);
         QMutableMapIterator<int, WinWatcher*> itor(watchers);
