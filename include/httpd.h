@@ -121,6 +121,7 @@ protected:
 protected:
     virtual QSharedPointer<class HttpResponse> sendRequest(class HttpRequest &request) = 0;
     virtual void exchangeAsync(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward) = 0;
+    bool asReversed = false;
 };
 
 // static http(s) server serving current directory.
