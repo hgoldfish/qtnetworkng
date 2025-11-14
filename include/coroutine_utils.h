@@ -428,10 +428,10 @@ public:
     virtual ~ThreadPool() override;
 public:
     template<typename T, typename S>
-    QList<T> map(std::function<T(S)> func, const QList<S> &l);
+    QList<T> map(std::function<T(S)> func, const QList<S> &l, int chunk = INT16_MAX);
 
     template<typename S>
-    void each(std::function<void(S)> func, const QList<S> &l);
+    void each(std::function<void(S)> func, const QList<S> &l, int chunk = INT16_MAX);
 
     template<typename T, typename Func, typename... ARGS>
     T apply(Func func, ARGS... s);
@@ -451,23 +451,23 @@ private:
 };
 
 template<typename T, typename S>
-QList<T> ThreadPool::map(std::function<T(S)> func, const QList<S> &l)
+QList<T> ThreadPool::map(std::function<T(S)> func, const QList<S> &l, int chunk/* = INT16_MAX*/)
 {
     std::function<T(S)> f = [this, func] (S s) -> T {
         std::function<T()> wrapped = [s, func] () -> T { return func(s); };
         return call(wrapped);
     };
-    return CoroutineGroup::map(f, l);
+    return CoroutineGroup::map(f, l, chunk);
 }
 
 template<typename S>
-void ThreadPool::each(std::function<void(S)> func, const QList<S> &l)
+void ThreadPool::each(std::function<void(S)> func, const QList<S> &l, int chunk/* = INT16_MAX*/)
 {
     std::function<void(S)> f = [this, func] (S s) {
         std::function<void()> wrapped = [s, func] { func(s); };
         call(wrapped);
     };
-    CoroutineGroup::each(f, l);
+    CoroutineGroup::each(f, l, chunk);
 }
 
 template<typename T, typename Func, typename... ARGS>
