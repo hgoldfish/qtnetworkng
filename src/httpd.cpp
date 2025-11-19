@@ -43,7 +43,7 @@ void BaseHttpRequestHandler::handle()
     do {
         closeConnection = Maybe;
         handleOneRequest();
-    } while (closeConnection == No);
+    } while (closeConnection == No && !request.isNull());
     // do not close the request, because it can be keep by other module.
 }
 
