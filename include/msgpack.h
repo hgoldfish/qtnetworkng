@@ -263,8 +263,8 @@ MsgPackStream &operator<<(MsgPackStream &s, const QSet<T> &set)
     if (!s.writeArrayHeader(set.size())) {
         return s;
     }
-    for (int i = 0; i < set.size(); ++i) {
-        s << set[i];
+    for (typename QSet<T>::const_iterator it = set.constBegin(); it != set.constEnd(); ++it) {
+        s << *it;
         if (s.status() != MsgPackStream::Ok) {
             break;
         }

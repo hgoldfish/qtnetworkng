@@ -110,8 +110,9 @@ ARG1 qAwait(const Obj *obj, const typename QtPrivate::FunctionPointer<void (Obj:
     const QMetaObject::Connection connection =
             QObject::connect(obj, signal, &helper, &QAwaitHelper1<ARG1>::call, Qt::DirectConnection);
     try {
-        return event->tryWait();
+        ARG1 result = event->tryWait();
         QObject::disconnect(connection);
+        return result;
     } catch (...) {
         QObject::disconnect(connection);
         throw;
@@ -130,7 +131,7 @@ struct QAwaitHelper : QObject
 };
 
 template<typename Obj, typename ARG1, typename ARG2, typename... ARGS>
-std::tuple<ARG1, ARGS...>
+std::tuple<ARG1, ARG2, ARGS...>
 qAwait(const Obj *obj, const typename QtPrivate::FunctionPointer<void (Obj::*)(ARG1, ARG2, ARGS...)>::Function signal)
 {
     QSharedPointer<ValueEvent<std::tuple<ARG1, ARG2, ARGS...>>> event(
@@ -139,8 +140,9 @@ qAwait(const Obj *obj, const typename QtPrivate::FunctionPointer<void (Obj::*)(A
     const QMetaObject::Connection connection =
             QObject::connect(obj, signal, &helper, &QAwaitHelper<ARG1, ARG2, ARGS...>::call, Qt::DirectConnection);
     try {
-        return event->tryWait();
+        std::tuple<ARG1, ARG2, ARGS...> result = event->tryWait();
         QObject::disconnect(connection);
+        return result;
     } catch (...) {
         QObject::disconnect(connection);
         throw;
