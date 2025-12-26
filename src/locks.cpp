@@ -493,7 +493,7 @@ bool EventPrivate::wait(quint32 msecs)
                 break;
             }
             elapsed = timer.elapsed();
-            if (msecs >= elapsed) {
+            if (elapsed >= msecs) {
                 return false;
             }
         }
