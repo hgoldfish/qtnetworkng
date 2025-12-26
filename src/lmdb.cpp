@@ -862,7 +862,7 @@ bool Transaction::commit()
     int rt = mdb_txn_commit(d_ptr->txn);
     d_ptr->dbs.clear();
     d_ptr->finished = true;
-    if (rt < 0) {
+    if (rt) {
 #if QTLMDB_DEBUG
         qtng_warning << "can not commit lmdb transaction:" << mdb_strerror(rt);
 #endif
@@ -886,12 +886,20 @@ Lmdb::~Lmdb()
 
 QSharedPointer<const Transaction> Lmdb::toRead()
 {
-    return QSharedPointer<const Transaction>(new Transaction(makePrivateToRead(d_ptr->env)));
+    TransactionPrivate *d = makePrivateToRead(d_ptr->env);
+    if (!d) {
+        return QSharedPointer<const Transaction>();
+    }
+    return QSharedPointer<const Transaction>(new Transaction(d));
 }
 
 QSharedPointer<Transaction> Lmdb::toWrite()
 {
-    return QSharedPointer<Transaction>(new Transaction(makePrivateToWrite(d_ptr->env)));
+    TransactionPrivate *d = makePrivateToWrite(d_ptr->env);
+    if (!d) {
+        return QSharedPointer<Transaction>();
+    }
+    return QSharedPointer<Transaction>(new Transaction(d));
 }
 
 QString Lmdb::version() const
