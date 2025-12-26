@@ -145,7 +145,7 @@ private:
 
 CurrentLoopStorage *currentLoop();
 
-#ifdef QTNETWORKNG_USE_EV
+#if QTNETWOKRNG_USE_EV
 class EvEventLoopCoroutine : public EventLoopCoroutine
 {
 public:
@@ -153,7 +153,7 @@ public:
 };
 #endif
 
-#ifdef QTNETWORKNG_USE_WIN
+#if QTNETWORKNG_USE_WIN
 class WinEventLoopCoroutine : public EventLoopCoroutine
 {
 public:
