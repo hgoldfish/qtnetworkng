@@ -1,3 +1,6 @@
+#ifndef QTNG_LMDB_H
+#define QTNG_LMDB_H
+
 #include <QtCore/qobject.h>
 #include <QtCore/qpointer.h>
 #include <QtCore/qstring.h>
@@ -154,12 +157,16 @@ public:
     inline QByteArray lastKey() const
     {
         Q_ASSERT(!isEmpty());
-        return constEnd().key();
+        const_iterator it = constEnd();
+        --it;
+        return it.key();
     }
     inline QByteArray lastValue() const
     {
         Q_ASSERT(!isEmpty());
-        return constEnd().value();
+        const_iterator it = constEnd();
+        --it;
+        return it.value();
     }
 public:
     inline qint64 count() const { return size(); }
@@ -267,3 +274,5 @@ private:
 };
 
 QTNETWORKNG_NAMESPACE_END
+
+#endif  // QTNG_LMDB_H

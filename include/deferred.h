@@ -36,9 +36,9 @@ private:
 template<>
 class Deferred<void>
 {
+public:
     typedef std::function<void()> Callback;
     inline Deferred();
-public:
     inline int addCallbacks(Callback callback, Callback errback);
     inline int addBoth(Callback callback) { return addCallbacks(callback, callback); }
     inline int addCallback(Callback callback);
