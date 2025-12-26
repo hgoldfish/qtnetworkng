@@ -2460,7 +2460,7 @@ HttpResponse HttpSession::put(const QUrl &url, const FormData &body)
 HttpResponse HttpSession::put(const QUrl &url, const QByteArray &body, const QMap<QString, QByteArray> &headers)
 {
     HttpRequest request;
-    request.setMethod(QString::fromLatin1("PATCH"));
+    request.setMethod(QString::fromLatin1("PUT"));
     request.setUrl(url);
     request.setHeaders(headers);
     request.setBody(body);

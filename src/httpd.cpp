@@ -274,7 +274,7 @@ bool BaseHttpRequestHandler::sendError(HttpStatus status, const QString &message
 bool BaseHttpRequestHandler::sendResponse(HttpStatus status, const QString &message)
 {
     QString shortMessage, longMessage;
-    bool ok = toMessage(HttpStatus::OK, &shortMessage, &longMessage);
+    bool ok = toMessage(status, &shortMessage, &longMessage);
     if (!ok) {
         shortMessage = longMessage = QString::fromLatin1("???");
     }
