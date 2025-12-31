@@ -300,7 +300,12 @@ public:
         return e;
     }
 
-    T peek();
+    template<typename U = EventType>
+    typename std::enable_if<std::is_same<U, ThreadEvent>::value, T>::type peek();
+
+    template<typename U = EventType>
+    typename std::enable_if<!std::is_same<U, ThreadEvent>::value, T>::type peek();
+
     void clear();
     bool remove(const T &e);
 public:
@@ -499,7 +504,24 @@ bool QueueType<T, EventType, ReadWriteLockType>::returnsForcely(const T &e)
 }
 
 template<typename T, typename EventType, typename ReadWriteLockType>
-T QueueType<T, EventType, ReadWriteLockType>::peek()
+template<typename U>
+typename std::enable_if<std::is_same<U, ThreadEvent>::value, T>::type
+QueueType<T, EventType, ReadWriteLockType>::peek()
+{
+    lock.lockForRead();
+    if (this->queue.isEmpty()) {
+        lock.unlock();
+        return T();
+    }
+    const T t = queue.head();
+    lock.unlock();
+    return t;
+}
+
+template<typename T, typename EventType, typename ReadWriteLockType>
+template<typename U>
+typename std::enable_if<!std::is_same<U, ThreadEvent>::value, T>::type
+QueueType<T, EventType, ReadWriteLockType>::peek()
 {
     lock.lockForRead();
     if (this->queue.isEmpty()) {
