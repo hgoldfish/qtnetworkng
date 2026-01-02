@@ -516,7 +516,7 @@ QByteArray HeaderSplitter::nextLine(HeaderSplitter::Error *error)
     QByteArray line;
     bool expectingLineBreak = false;
 
-    for (int i = 0; i < MaxLineLength; ++i) {
+    while (true) {
         if (buf.isEmpty()) {
             buf = connection->recv(1024);
             if (buf.isEmpty()) {
@@ -525,17 +525,12 @@ QByteArray HeaderSplitter::nextLine(HeaderSplitter::Error *error)
             }
         }
         int j = 0;
-        for (; j < buf.size() && j < MaxLineLength; ++j) {
+        for (; j < buf.size(); ++j) {
             char c = buf.at(j);
             if (c == '\n') {
                 buf.remove(0, j + 1);
-                if (line.size() > MaxLineLength) {
-                    *error = HeaderSplitter::LineTooLong;
-                    return QByteArray();
-                } else {
-                    *error = HeaderSplitter::NoError;
-                    return line;
-                }
+                *error = HeaderSplitter::NoError;
+                return line;
             } else if (c == '\r') {
                 if (expectingLineBreak) {
                     *error = HeaderSplitter::EncodingError;
@@ -548,9 +543,13 @@ QByteArray HeaderSplitter::nextLine(HeaderSplitter::Error *error)
                     return QByteArray();
                 }
                 line.append(c);
+                if (line.size() > MaxLineLength) {
+                    *error = HeaderSplitter::LineTooLong;
+                    return QByteArray();
+                }
             }
         }
-        buf.remove(0, j + 1);
+        buf.clear();
     }
     *error = HeaderSplitter::ExhausedMaxLine;
     return QByteArray();

@@ -189,7 +189,7 @@ QSharedPointer<EventLoopCoroutine> CurrentLoopStorage::getOrCreate()
         eventLoop = storage.localData();
     }
     if (eventLoop.isNull()) {
-#ifdef QTNETWOKRNG_USE_EV
+#if QTNETWOKRNG_USE_EV
         if (preferLibevFlag->loadAcquire()) {
             eventLoop.reset(new EvEventLoopCoroutine());
             eventLoop->setObjectName(QString::fromLatin1("libev_eventloop_coroutine"));

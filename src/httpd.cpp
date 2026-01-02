@@ -43,7 +43,7 @@ void BaseHttpRequestHandler::handle()
     do {
         closeConnection = Maybe;
         handleOneRequest();
-    } while (closeConnection == No);
+    } while (closeConnection == No && !request.isNull());
     // do not close the request, because it can be keep by other module.
 }
 
@@ -274,7 +274,7 @@ bool BaseHttpRequestHandler::sendError(HttpStatus status, const QString &message
 bool BaseHttpRequestHandler::sendResponse(HttpStatus status, const QString &message)
 {
     QString shortMessage, longMessage;
-    bool ok = toMessage(HttpStatus::OK, &shortMessage, &longMessage);
+    bool ok = toMessage(status, &shortMessage, &longMessage);
     if (!ok) {
         shortMessage = longMessage = QString::fromLatin1("???");
     }
