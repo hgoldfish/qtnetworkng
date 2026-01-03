@@ -676,7 +676,6 @@ A `semaphore` is a variable or abstract data type used to control access to a co
 The last example spawns 100 corotuines, but only 5 coroutines is making request to http server.
 
 .. method:: Semaphore(int value = 1)
-    :no-index:
 
     This constructor requires a ``value`` indicating the maximum number of resources.
 
@@ -700,7 +699,6 @@ The last example spawns 100 corotuines, but only 5 coroutines is making request 
 A queue between two coroutines.
 
 .. method:: Queue(int capacity)
-    :no-index:
 
 This constructor requires a ``capacity`` indicating the maximum number of elements can hold.
 
@@ -984,7 +982,6 @@ Types of I/O operations
 RAII wrapper for IO event watcher that automatically manages resources.
 
 .. method:: ScopedIoWatcher(EventType event, qintptr fd)
-    :no-index:
 
     Creates a watcher for specified event type (read/write) on file descriptor ``fd``.
 
@@ -1529,6 +1526,7 @@ The second constructor use the ``hostName`` and ``port`` to create a valid Socks
 
 2.4.1 BaseStreamServer
 +++++++++++++++++++++++
+
 BaseStreamServer is the foundational core class for building other SocketServers, providing basic socket server methods and reserving interfaces for further implementation of server types like TcpServer and KcpServer.
 
 .. method:: BaseStreamServer(const HostAddress &serverAddress, quint16 serverPort);
@@ -1621,7 +1619,6 @@ Adds SSL/TLS encryption to any streaming server seamlessly through template comp
     Indicates server uses encrypted protocol for external code inspection.
 
 .. method:: prepareRequest()
-    :no-index:
 
     Upgrades raw TCP connection to SSL connection.
 
@@ -1682,12 +1679,10 @@ Socks5RequestHandler implements SOCKS5 proxy protocol, inheriting from BaseReque
     Bidirectionally forwards data between client and target server.
 
 .. method:: doConnect()
-    :no-index:
 
     Allows subclass extension for connection success behavior.
 
 .. method:: doFailed()
-    :no-index:
 
     Allows subclass extension for connection failure behavior.
 
@@ -1697,6 +1692,7 @@ Socks5RequestHandler implements SOCKS5 proxy protocol, inheriting from BaseReque
 
 2.4.5 TcpServer
 ++++++++++++++++
+
 Encapsulates the creation, binding, and listening of TCP servers. Implements business logic decoupling through the template parameter RequestHandler. Supports high-concurrency connections based on coroutine concurrency model.
 
 .. method:: TcpServer(const HostAddress &serverAddress, quint16 serverPort);
@@ -1713,40 +1709,40 @@ Encapsulates the creation, binding, and listening of TCP servers. Implements bus
 
 .. code-block:: c++
     :caption: Example: Simple TCP Server
-        #include <QCoreApplication>
-        #include "qtnetworkng.h"
-        using namespace  qtng;
-        class EchoHandler : public BaseRequestHandler // Inherit BaseRequestHandler and override handle()
-        {
-        protected:
-            void handle()  {
-                qDebug()<<"Received message";
-                qint32 size=1024;
-                QByteArray data=request->recvall(size);
-                qDebug()<<QString(data);
-            }
-        };
-        int main()
-        {
-            // Create the server, listen on port 8080
-            TcpServer<EchoHandler> server(8080);
-            // Configure server parameters
-            server.setRequestQueueSize(100); // Set connection queue length
-            server.setAllowReuseAddress(true); // Allow port reuse
-            // Start the server (blocking operation)
-            if (!server.serveForever()) {
-                qDebug() << "Server startup failed!";
-                return 1;
-            }
-            return 0;
+
+    #include <QCoreApplication>
+    #include "qtnetworkng.h"
+    using namespace  qtng;
+    class EchoHandler : public BaseRequestHandler // Inherit BaseRequestHandler and override handle()
+    {
+    protected:
+        void handle()  {
+            qDebug()<<"Received message";
+            qint32 size=1024;
+            QByteArray data=request->recvall(size);
+            qDebug()<<QString(data);
         }
+    };
+    int main()
+    {
+        // Create the server, listen on port 8080
+        TcpServer<EchoHandler> server(8080);
+        // Configure server parameters
+        server.setRequestQueueSize(100); // Set connection queue length
+        server.setAllowReuseAddress(true); // Allow port reuse
+        // Start the server (blocking operation)
+        if (!server.serveForever()) {
+            qDebug() << "Server startup failed!";
+            return 1;
+        }
+        return 0;
+    }
 
 2.4.6 KcpServer
 ++++++++++++++++
 Detailed explanation of the KcpServer and KcpServerV2 classes, their methods, and implementation differences.
 
 .. method:: KcpServer(const HostAddress &serverAddress, quint16 serverPort)
-    :no-index:
 
     Initialize the KCP server, bind to the specified address and port. Directly calls the constructor of ``BaseStreamServer``. If no address is specified, it defaults to binding all network interfaces (HostAddress::Any).
 
@@ -1758,22 +1754,6 @@ Detailed explanation of the KcpServer and KcpServerV2 classes, their methods, an
 
     After accepting a client connection, instantiate the user-defined RequestHandler and pass the KCP session (encapsulated as a SocketLike object) to the business logic processing module.
 
-2.4.7 KcpServerV2
-++++++++++++++++++
-Lower-level KCP protocol server implementation, directly manipulating KCP session instances.
-
-.. method:: KcpServerV2(const HostAddress &serverAddress, quint16 serverPort)
-    :no-index:
-
-    Initialize the KCP server, bind to the specified address and port. Directly calls the constructor of ``BaseStreamServer``. If no address is specified, it defaults to binding all network interfaces (HostAddress::Any).
-
-.. method:: virtual QSharedPointer<SocketLike> serverCreate()
-
-    Call ``createKcpServer()`` to create the server. Unlike KcpServer, this may directly manage UDP sockets and handle KCP session input/output via callback functions.
-
-.. method:: virtual void processRequest(QSharedPointer<SocketLike> request)
-
-    Similar to KcpServer, but may directly manipulate KCP session objects (e.g., calling ``kcp_input()`` to parse packets and ``kcp_recv()`` to extract application-layer data).
 
 3. Http Client
 --------------
@@ -2418,7 +2398,6 @@ Before using the ``HttpResponse``, you should check ``HttpResonse::isOk()``. If 
 Base class for handling HTTP requests, providing core functionality for HTTP protocol parsing, response generation, and error handling.
 
 .. method:: BaseHttpRequestHandler()
-    :no-index:
 
     Initializes default parameters: HTTP version defaults to Http1_1, request timeout (requestTimeout) defaults to 1 hour, maximum request body size (maxBodySize) defaults to 32MB, connection state (closeConnection) initially set to Maybe.
 
@@ -2571,17 +2550,14 @@ MessageDigest
 Provides message digest (hash) functionality, supporting multiple hash algorithms, allows processing data in chunks and generating digests. Supports MD4 and MD5 algorithms, Sha1, Sha224, Sha256, Sha384, Sha512 series of SHA algorithms, as well as Ripemd160 and Whirlpool hash algorithms.
 
 .. method:: MessageDigest(Algoritim algo)
-    :no-index:
 
     Initializes the context with the specified hash algorithm.
 
 .. method:: addData(const char *data, int len)
-    :no-index:
 
     Adds raw byte data to the hash calculation. Calls EVP_DigestUpdate to update the context. Marks error on failure.
 
 .. method:: addData(const char *data)
-    :no-index:
 
     Overload of addData. Internally calculates data length and calls the previous addData.
 
@@ -2628,7 +2604,6 @@ Cipher
 Provides symmetric encryption/decryption functionality. Supports multiple algorithms (e.g. AES, DES, ChaCha20) and modes (e.g. CBC, CTR, ECB). Supports password derivation and padding control.
 
 .. method:: Cipher(Algorithm alog, Mode mode, Operation operation)
-    :no-index:
 
     Initializes the encryption context. Obtains the corresponding OpenSSL EVP_CIPHER via getOpenSSL_CIPHER(). Creates EVP_CIPHER_CTX context. Enables padding by default. Marks hasError on failure.
 
@@ -2657,7 +2632,6 @@ Provides symmetric encryption/decryption functionality. Supports multiple algori
     Returns the current key.
 
 .. method:: setInitialVector(const QByteArray &iv)
-    :no-index:
 
     Sets the initialization vector (IV). Stores the IV and initializes the context.
 
@@ -2736,12 +2710,10 @@ Provides symmetric encryption/decryption functionality. Supports multiple algori
 Core class in the encryption system, used for managing public key operations.
 
 .. method:: PublicKey()
-    :no-index:
 
     Creates an empty public key object. Initializes OpenSSL's EVP_PKEY structure internally.
 
 .. method:: PublicKey(const PublicKey &other)
-    :no-index:
 
     Deep copies the underlying OpenSSL key object (via EVP_PKEY_dup). Prevents multiple objects sharing the same key memory, ensuring thread safety.
 
@@ -2814,22 +2786,18 @@ Core class in the encryption system, used for managing public key operations.
 Encapsulates private key operations including key generation, signing, decryption, and private key-specific encryption operations.
 
 .. method:: PrivateKey()
-    :no-index:
 
     Default constructor.
 
 .. method:: PrivateKey(const PrivateKey &other)
-    :no-index:
 
     Copy constructor.
 
 .. method:: PrivateKey(PrivateKey &&other)
-    :no-index:
 
     Move constructor.
 
 .. method:: PrivateKey &operator=(const PublicKey &other)
-    :no-index:
 
     Copy assignment operator.
 
@@ -2866,12 +2834,10 @@ Encapsulates private key operations including key generation, signing, decryptio
     Decrypts data using private key. Initializes decryption context: EVP_PKEY_decrypt_init. Calculates decrypted length: Calls EVP_PKEY_decrypt twice (first to get length, second to decrypt data). Returns decrypted result: Resizes QByteArray and fills data.
 
 .. method:: rsaPrivateEncrypt
-    :no-index:
 
     Directly uses RSA private key for raw encryption.
 
 .. method:: rsaPrivateDecrypt
-    :no-index:
 
     Directly uses RSA private key for raw decryption.
 
@@ -2904,12 +2870,10 @@ Encryption/decryption progress tracking.
 Serializes asymmetric encryption keys (e.g. RSA, DSA keys) to specific formats (PEM/DER). Supports encrypting private keys and saving to files or memory. Core responsibility: Provides flexible configuration options (encryption algorithm, password, public-only saving) and calls OpenSSL functions for serialization.
 
 .. method:: PrivateKeyWriter(const PrivateKey &key)
-    :no-index:
 
     Copy constructor via private key.
 
 .. method:: PrivateKeyWriter(const PublicKey &key)
-    :no-index:
 
     Copy constructor via public key.
 
@@ -2922,7 +2886,6 @@ Serializes asymmetric encryption keys (e.g. RSA, DSA keys) to specific formats (
     Provides password for private key encryption via direct input.
 
 .. method:: PrivateKeyWriter &setPassword(QSharedPointer<PasswordCallback> callback)
-    :no-index:
 
     Provides password for private key encryption via dynamic callback.
 
@@ -2947,7 +2910,6 @@ Serializes asymmetric encryption keys (e.g. RSA, DSA keys) to specific formats (
 Responsible for loading private/public keys from files or memory data. Supports handling encrypted private key files (via password or callback).
 
 .. method:: PrivateKeyReader()
-    :no-index:
 
     Initialization. Generates PrivateKey object.
 
@@ -2986,17 +2948,14 @@ Responsible for loading private/public keys from files or memory data. Supports 
 Encapsulates certificate operations. Provides interfaces like load/save certificate, retrieve certificate information, generate certificates.
 
 .. method:: Certificate()
-    :no-index:
 
     Constructor. Performs initialization.
 
 .. method:: Certificate(const Certificate &other)
-    :no-index:
 
     Copy constructor. Performs initialization.
 
 .. method:: Certificate(Certificate &&other)
-    :no-index:
 
     Move constructor. Performs initialization.
 
@@ -3073,7 +3032,6 @@ Encapsulates certificate operations. Provides interfaces like load/save certific
 Certificate request operations.
 
 .. method:: certificate()
-    :no-index:
 
     Returns Certificate object associated with the certificate request.
 
@@ -3084,22 +3042,18 @@ Certificate request operations.
 Encryption cipher suite used in SSL/TLS connections. Contains detailed information like encryption algorithm, protocol version, key exchange method.
 
 .. method:: SslCipher()
-    :no-index:
-    
+
     Default constructor.
 
 .. method:: SslCipher(const QString &name)
-    :no-index:
 
     Constructor via name.
 
 .. method:: SslCipher(const QString &name, Ssl::SslProtocol protocol)
-    :no-index:
 
     Constructor via name and protocol.
 
 .. method:: SslCipher(const SslCipher &other)
-    :no-index:
 
     Copy constructor.
 
@@ -3161,39 +3115,44 @@ Encryption cipher suite used in SSL/TLS connections. Contains detailed informati
 
 6. Configuration and Building
 ------------------------------
-6.1 Use libev instead of Qt Eventloop 
+6.1 Use libev instead of Qt Eventloop
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 In CMake files, use conditional judgment to replace Qt event loop (qtev) with libev in Unix environments. The specific logic is as follows:
 
 1. **OS Judgment**:
 
-   If the current system is Unix (including Linux, macOS and other non-Windows systems), enter the libev configuration branch.
+    If the current system is Unix (including Linux, macOS and other non-Windows systems), enter the libev configuration branch.
 
 2. **Event Loop Backend Selection**:
-   • Use ``check_function_exists`` to detect whether the system supports ``epoll_ctl`` or ``kqueue``.
-     ◦ If ``epoll`` exists (Linux systems), define ``EV_USE_EPOLL=1`` and ``EV_USE_EVENTFD=1`` to use epoll as the event-driven mechanism.
-     ◦ If ``kqueue`` exists (BSD systems), define ``EV_USE_KQUEUE=1`` to use kqueue.
-     ◦ If neither is supported, fall back to ``poll()``.
-   • Define the macro ``QTNETWOKRNG_USE_EV`` to indicate enabling the libev event loop.
+
+    * Use ``check_function_exists`` to detect whether the system supports ``epoll_ctl`` or ``kqueue``.
+        *  If ``epoll`` exists (Linux systems), define ``EV_USE_EPOLL=1`` and ``EV_USE_EVENTFD=1`` to use epoll as the event-driven mechanism.
+        * If ``kqueue`` exists (BSD systems), define ``EV_USE_KQUEUE=1`` to use kqueue.
+        * If neither is supported, fall back to ``poll()``.
+    * Define the macro ``QTNETWOKRNG_USE_EV`` to indicate enabling the libev event loop.
 
 3. **Source Code Integration**:
-   • Add libev's source file ``src/ev/ev.c`` and header file ``src/ev/ev.h``.
-   • Use ``src/eventloop_ev.cpp`` as the implementation of the event loop, replacing Qt's native event loop.
+
+    * Add libev's source file ``src/ev/ev.c`` and header file ``src/ev/ev.h``.
+    * Use ``src/eventloop_ev.cpp`` as the implementation of the event loop, replacing Qt's native event loop.
 
 4. **Trigger Condition**:
-   • When CMake detects the target system is UNIX, libev is automatically enabled without additional configuration.
+
+    When CMake detects the target system is UNIX, libev is automatically enabled without additional configuration.
+
 
 6.2 Disable SSL Support
 ^^^^^^^^^^^^^^^^^^^^^^^
+
 6.2.1 Disable SSL Support During Build
 +++++++++++++++++++++++++++++++++++++++++
-• **For qmake builds**: SSL support is disabled by default. To enable it, manually add the OpenSSL module.
-  
-• **For CMake builds**: 
-  • The built-in OpenSSL is controlled by ``QTNG_USE_OPENSSL``. 
-    ◦ When ``OFF`` (default), use qtnetworkng's built-in OpenSSL.
-    ◦ When ``ON``, use the system's OpenSSL.
-  • To completely disable SSL, comment out related configurations in CMake (not recommended). 
+
+    * **For qmake builds**: SSL support is disabled by default. To enable it, manually add the OpenSSL module.
+    * **For CMake builds**:
+    * The built-in OpenSSL is controlled by ``QTNG_USE_OPENSSL``.
+        1. When ``OFF`` (default), use qtnetworkng's built-in OpenSSL.
+        2. When ``ON``, use the system's OpenSSL.
+    * To completely disable SSL, comment out related configurations in CMake (not recommended).
 
 
 6.2.2 Using Base Socket Classes Directly
@@ -3218,7 +3177,7 @@ A simple example:
                     sendHeader("Content-Length", QByteArray::number(body.size()));
                     endHeader();
                     request->sendall(body);
-                } 
+                }
             }
         };
         class HelloHttpServer: public TcpServer<HelloRequestHandler>
@@ -3239,6 +3198,7 @@ A simple example:
 
 7.1 IO Operations
 ^^^^^^^^^^^^^^^^^^
+
 This module provides cross-platform file and memory I/O abstractions with coroutine-friendly non-blocking operations and secure POSIX path management utilities, suitable for network applications requiring efficient and safe file handling.
 
 Core Functions:
@@ -3246,12 +3206,14 @@ Core Functions:
 .. method:: bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outputFile, qint64 bytesToCopy = -1, int suitableBlockSize = 1024 * 8)
 
     Copies content between files with large file support. Parameters:
-    ◦ inputFile/outputFile: File objects for I/O
-    ◦ bytesToCopy: Bytes to copy (-1 for full content)
-    ◦ suitableBlockSize: Buffer size (default 8KB).
+
+    * inputFile/outputFile: File objects for I/O
+    * bytesToCopy: Bytes to copy (-1 for full content)
+    * suitableBlockSize: Buffer size (default 8KB).
 
 7.1.1 FileLike
 +++++++++++++++
+
 Abstract base class defining common file operation interfaces with read/write/close/size capabilities.
 
 .. method:: virtual qint32 read(char *data, qint32 size)
@@ -3304,6 +3266,7 @@ Abstract base class defining common file operation interfaces with read/write/cl
 
 7.1.2 RawFile
 ++++++++++++++
+
 QFile wrapper implementing actual file I/O with non-blocking support (Unix).
 
 .. method:: virtual qint32 read(char *data, qint32 size) override
@@ -3338,10 +3301,12 @@ QFile wrapper implementing actual file I/O with non-blocking support (Unix).
 
     Open via QIODevice mode with non-block flag.
 
+
 7.1.3 BytesIO
 +++++++++++++++
+
 In-memory byte stream simulating file operations.
-    
+
 .. method:: virtual qint32 read(char *data, qint32 size)
 
     Read from memory buffer.
@@ -3368,6 +3333,7 @@ In-memory byte stream simulating file operations.
 
 7.1.4 PosixPath
 +++++++++++++++++
+
 POSIX-compliant path handling class for cross-platform development.
 
 .. method:: PosixPath operator/(const QString &path)
@@ -3523,7 +3489,8 @@ POSIX-compliant path handling class for cross-platform development.
     Get current working directory.
 
 7.1.5 Additional Functions
-+++++++++++++++++++++++++++++
++++++++++++++++++++++++++++
+
 .. method:: QDebug &operator<<(QDebug &, const PosixPath &)
 
     Debug output for PosixPath.

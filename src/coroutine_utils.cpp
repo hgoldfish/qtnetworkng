@@ -51,13 +51,10 @@ void DeferCallThread::run()
         if (eventloop.isNull()) {
             return;
         }
-        eventloop->callLaterThreadSafe(0, new LambdaFunctor([this] {
-            done->set();
-            Coroutine::spawn([this] {
-                Coroutine::msleep(100);
-                this->wait();
-                delete this;
-            });
+        eventloop->callLaterThreadSafe(0, new MarkDoneFunctor(done));
+        eventloop->callLaterThreadSafe(100, new LambdaFunctor([this] {
+            this->wait();
+            delete this;
         }));
     });
     makeResult();

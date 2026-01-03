@@ -1020,7 +1020,7 @@ qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
                 }
                 break;
             case SSL_ERROR_ZERO_RETURN:
-                qtng_debug << "error zero return.";
+                qtng_debug << "error zero return." << total;
                 return total;
             case SSL_ERROR_SYSCALL:
             case SSL_ERROR_SSL: {

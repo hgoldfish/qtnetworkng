@@ -800,6 +800,7 @@ QSharedPointer<SocketLike> ConnectionPool::oldConnectionForUrl(const QUrl &url)
         }
 
         char tbuf;
+        // should i use `peek()`?
         if (connection->peekRaw(&tbuf, 1) >= 0) {
             // qtng_debug << "reuse connect" << connection->localPort();
             return connection;
