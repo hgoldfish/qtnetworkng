@@ -243,8 +243,8 @@ void EvEventLoopCoroutinePrivate::removeWatcher(int watcherId)
     if (found == watchers.end()) {
         return;
     }
-    watchers.erase(found);
     IoWatcher *watcher = dynamic_cast<IoWatcher *>(found->second);
+    watchers.erase(found);
     if (watcher) {
         ev_io_stop(loop, &watcher->w);
         watcher->w.data = nullptr;
