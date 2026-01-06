@@ -63,11 +63,13 @@ bool toMessage(HttpStatus status, QString *shortMessage, QString *longMessage)
         return true;
     case ResetContent:
         *shortMessage = QString::fromLatin1("Reset Content");
-        *longMessage = QString::fromLatin1("Clear input form for further input");
+        if (longMessage)
+            *longMessage = QString::fromLatin1("Clear input form for further input");
         return true;
     case PartialContent:
         *shortMessage = QString::fromLatin1("Partial Content");
-        *longMessage = QString::fromLatin1("Partial content follows");
+        if (longMessage)
+            *longMessage = QString::fromLatin1("Partial content follows");
         return true;
     case MultiStatus:
         *shortMessage = QString::fromLatin1("Multi-Status");
