@@ -366,8 +366,9 @@ bool Condition::wait(quint32 msecs)
 {
     Q_D(Condition);
     QSharedPointer<Lock> waiter(new Lock());
-    if (!waiter->tryAcquire())
+    if (!waiter->tryAcquire(0)) {
         return false;
+    }
     d->waiters.append(waiter);
 
     bool ok = false;

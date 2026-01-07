@@ -274,7 +274,7 @@ QString DataChannelPrivate::toString() const
     Q_Q(const DataChannel);
     QString pattern = QString::fromLatin1("<%1 (name = %2, error = %3, capacity = %4, queue_size = %5)>");
     QString clazz;
-    if (dynamic_cast<const VirtualChannel *>(this)) {
+    if (dynamic_cast<const VirtualChannelPrivate *>(this)) {
         clazz = QString::fromLatin1("VirtualChannel");
     } else {
         clazz = QString::fromLatin1("SocketChannel");

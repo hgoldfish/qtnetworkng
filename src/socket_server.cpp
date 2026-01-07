@@ -14,6 +14,8 @@ class BaseStreamServerPrivate
 public:
     BaseStreamServerPrivate(BaseStreamServer *q, const HostAddress &serverAddress, quint16 serverPort)
         : operations(new CoroutineGroup)
+        , started(new Event())
+        , stopped(new Event())
         , serverAddress(serverAddress)
         , userData(nullptr)
         , requestQueueSize(100)
@@ -22,12 +24,16 @@ public:
         , bound(false)
         , q_ptr(q)
     {
+        started->clear();
+        stopped->set();
     }
     ~BaseStreamServerPrivate() { delete operations; }
     void serveForever();
 public:
     QSharedPointer<SocketLike> serverSocket;
     CoroutineGroup *operations;
+    QSharedPointer<Event> started;
+    QSharedPointer<Event> stopped;
     HostAddress serverAddress;
     void *userData;
     int requestQueueSize;
@@ -40,19 +46,9 @@ private:
 };
 
 BaseStreamServer::BaseStreamServer(const HostAddress &serverAddress, quint16 serverPort)
-    : started(new Event())
-    , stopped(new Event())
-    , d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
+    : d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
 {
-    started->clear();
-    stopped->set();
-}
 
-BaseStreamServer::BaseStreamServer(BaseStreamServerPrivate *d)
-    : d_ptr(d)
-{
-    started->clear();
-    stopped->set();
 }
 
 BaseStreamServer::~BaseStreamServer()
@@ -138,8 +134,8 @@ void BaseStreamServer::serverClose()
 void BaseStreamServerPrivate::serveForever()
 {
     Q_Q(BaseStreamServer);
-    q->started->set();
-    q->stopped->clear();
+    started->set();
+    stopped->clear();
     while (true) {
         QSharedPointer<SocketLike> request = q->getRequest();
         if (request.isNull()) {
@@ -168,8 +164,8 @@ void BaseStreamServerPrivate::serveForever()
         }
     }
     q->serverClose();
-    q->started->clear();
-    q->stopped->set();
+    started->clear();
+    stopped->set();
 }
 
 bool BaseStreamServer::serveForever()
@@ -187,7 +183,7 @@ bool BaseStreamServer::start()
 {
     Q_D(BaseStreamServer);
 
-    if (started->isSet() || d->operations->has(QString::fromLatin1("serve"))) {
+    if (d->started->isSet() || d->operations->has(QString::fromLatin1("serve"))) {
         return true;
     }
     QSharedPointer<SocketLike> serverSocket = createServer();
@@ -213,7 +209,7 @@ bool BaseStreamServer::wait()
     if (coroutine.isNull()) {
         return true;
     }
-    if (coroutine->isFinished() || stopped->isSet()) {
+    if (coroutine->isFinished() || d->stopped->isSet()) {
         return true;
     }
     return coroutine->join();
@@ -272,6 +268,18 @@ QSharedPointer<SocketLike> BaseStreamServer::serverSocket()
         }
     }
     return d->serverSocket;
+}
+
+QSharedPointer<Event> BaseStreamServer::started()
+{
+    Q_D(BaseStreamServer);
+    return d->started;
+}
+
+QSharedPointer<Event> BaseStreamServer::stopped()
+{
+    Q_D(BaseStreamServer);
+    return d->stopped;
 }
 
 bool BaseStreamServer::serviceActions()

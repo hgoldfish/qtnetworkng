@@ -828,7 +828,7 @@ QList<HostAddress> SocketDnsCache::resolve(const QString &hostName)
     quint64 now = QDateTime::currentMSecsSinceEpoch();
     if (d->cache.contains(hostName)) {
         SocketDnsCacheCacheItem *item = d->cache.object(hostName);
-        if (now > item->firstSeen || (now - item->firstSeen < d->timeToLive)) {
+        if (now > item->firstSeen && (now - item->firstSeen < d->timeToLive)) {
             return item->addresses;
         }
     }

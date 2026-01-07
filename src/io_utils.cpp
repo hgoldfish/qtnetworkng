@@ -540,7 +540,10 @@ public:
     virtual qint32 read(char *data, qint32 size) override
     {
         QSharedPointer<PipePrivate> pp = this->pp.toStrongRef();
-        if (pp.isNull() || size <= 0) {
+        if (pp.isNull()) {
+            return -1;
+        }
+        if (size <= 0) {
             if (pp->debugLevel >= 1) {
                 qtng_debug << "can not read data the pipe is closed or size is invalid:" << size;
             }

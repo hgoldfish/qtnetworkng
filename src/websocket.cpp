@@ -518,7 +518,7 @@ quint32 WebSocketConnectionPrivate::makeMaskkey()
     QRandomGenerator *generator = QRandomGenerator::global();
     return generator->bounded(static_cast<quint32>(1), static_cast<quint32>(0xffffffff));
 #else
-    return 1 + 0xfffffffe & qrand();
+    return 1 + (static_cast<quint32>(qrand()) & 0xfffffffe);
 #endif
 }
 
@@ -998,7 +998,7 @@ bool WebSocketConnectionPrivate::sendBytes(const QByteArray &packet)
     ScopedLock<Lock> locklock(writeLock);
     if (debugLevel >= 2) {
         qtng_debug << "sending packet:" << packet;
-    } else if (debugLevel >= 2) {
+    } else if (debugLevel >= 1) {
         qtng_debug << "sending packet:" << packet.size();
     }
     qint32 sentBytes;
