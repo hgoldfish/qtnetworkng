@@ -44,8 +44,8 @@ public:
     HostAddress serverAddress() const;
     QSharedPointer<SocketLike> serverSocket();
 public:
-    QSharedPointer<Event> started;
-    QSharedPointer<Event> stopped;
+    QSharedPointer<Event> started();
+    QSharedPointer<Event> stopped();
 protected:
     virtual bool serverBind();  // bind()
     virtual bool serverActivate();  // listen()
@@ -59,7 +59,6 @@ protected:
     virtual void closeRequest(QSharedPointer<SocketLike> request);
 protected:
     BaseStreamServerPrivate * const d_ptr;
-    BaseStreamServer(BaseStreamServerPrivate *d);
 private:
     Q_DECLARE_PRIVATE(BaseStreamServer)
 };
