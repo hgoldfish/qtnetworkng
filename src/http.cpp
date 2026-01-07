@@ -91,6 +91,7 @@ QByteArray FormData::toByteArray() const
         body.append(itor->contentType.toUtf8());
         body.append("\r\n\r\n");
         body.append(itor->data);
+        body.append("\r\n");
     }
     body.append("--");
     body.append(boundary);

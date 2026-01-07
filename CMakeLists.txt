@@ -1,5 +1,5 @@
 # target_sources require cmake 3.1
-cmake_minimum_required(VERSION 3.1.0...3.17 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.1.0...3.28 FATAL_ERROR)
 
 project(qtnetworkng LANGUAGES C CXX ASM VERSION 1.0.0)
 
