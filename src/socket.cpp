@@ -27,13 +27,11 @@ SocketPrivate::SocketPrivate(HostAddress::NetworkLayerProtocol protocol, Socket:
     if (!createSocket())
         return;
     if (type == Socket::UdpSocket) {
-        if (!setOption(Socket::BroadcastSocketOption, 1)) {
-            //            setError(Socket::UnsupportedSocketOperationError);
-            //            close();
-            //            return;
-        }
+        setOption(Socket::BroadcastSocketOption, 1);
         setOption(Socket::ReceivePacketInformation, 1);
         setOption(Socket::ReceiveHopLimit, 1);
+    } else if (type == Socket::TcpSocket) {
+        setTcpKeepalive(true, 10, 2);
     }
 }
 
@@ -55,6 +53,8 @@ SocketPrivate::SocketPrivate(qintptr socketDescriptor, Socket *parent)
     fetchConnectionParameters();
     if (type == Socket::UdpSocket) {
         state = Socket::UnconnectedState;
+    } else if (type == Socket::TcpSocket) {
+        setTcpKeepalive(true, 10, 2);
     }
 }
 
@@ -426,6 +426,12 @@ bool Socket::listen(int backlog)
 {
     Q_D(Socket);
     return d->listen(backlog);
+}
+
+bool Socket::setTcpKeepalive(bool keepalve, int keepaliveTimeoutSesc, int keepaliveIntervalSesc)
+{
+    Q_D(Socket);
+    return d->setTcpKeepalive(keepalve, keepaliveTimeoutSesc, keepaliveIntervalSesc);
 }
 
 bool Socket::setOption(Socket::SocketOption option, const QVariant &value)

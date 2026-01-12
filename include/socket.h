@@ -125,6 +125,7 @@ public:
     void close();
     void abort();
     bool listen(int backlog);
+    bool setTcpKeepalive(bool keepalve, int keepaliveTimeoutSesc, int keepaliveIntervalSesc);
     bool setOption(SocketOption option, const QVariant &value);
     QVariant option(SocketOption option) const;
 

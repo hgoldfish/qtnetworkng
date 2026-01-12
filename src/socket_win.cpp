@@ -2,6 +2,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
+#include <Mstcpip.h>
 #include <QtCore/qbytearray.h>
 #if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
 #include <QtCore/qoperatingsystemversion.h>
@@ -1234,6 +1235,25 @@ QVariant SocketPrivate::option(Socket::SocketOption option) const
     return -1;
 }
 
+bool SocketPrivate::setTcpKeepalive(bool keepalve, int keepaliveTimeoutSesc, int keepaliveIntervalSesc)
+{
+    if (!setOption(Socket::KeepAliveOption, keepalve ? 1 : 0)) {
+        qtng_debug << "failed to set SO_KEEPALIVE on fd" << fd << "errno:" << WSAGetLastError();
+        return false;
+    }
+#if defined(SIO_KEEPALIVE_VALS)
+    struct tcp_keepalive vals;
+    DWORD dummy;
+    vals.onoff = 1;
+    vals.keepalivetime = 1000 * keepaliveTimeoutSesc;
+    vals.keepaliveinterval = 1000 * keepaliveIntervalSesc;
+    if (WSAIoctl(fd, SIO_KEEPALIVE_VALS, (LPVOID)&vals, sizeof(vals), NULL, 0, &dummy, NULL, NULL) != 0) {
+        qtng_debug << "failed to set SIO_KEEPALIVE_VALS on fd" << fd << "errno:" << WSAGetLastError();
+        return false;
+    }
+#endif
+    return true;
+}
 
 bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value)
 {
