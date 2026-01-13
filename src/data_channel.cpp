@@ -574,7 +574,7 @@ SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection
     , _payloadSizeHint(DefaultPayloadSize)  // tcp fragment size.
     , lastActiveTimestamp(QDateTime::currentMSecsSinceEpoch())
     , lastKeepaliveTimestamp(lastActiveTimestamp)
-    , keepaliveTimeout(1000 * 10)
+    , keepaliveTimeout(-1)
     , keepaliveInterval(1000 * 2)
 {
     // connection->setOption(Socket::LowDelayOption, true);
@@ -754,7 +754,7 @@ void SocketChannelPrivate::doKeepalive()
         qint64 now = QDateTime::currentMSecsSinceEpoch();
         // now and lastActiveTimestamp both are unsigned int, we should check which is larger before apply minus
         // operator to them.
-        if (now > lastActiveTimestamp && (now - lastActiveTimestamp > keepaliveTimeout)) {
+        if (keepaliveTimeout > 0 && now > lastActiveTimestamp && (now - lastActiveTimestamp > keepaliveTimeout)) {
 #ifdef DEBUG_PROTOCOL
             qtng_debug << "channel is timeout." << connection->peerAddressURI() << "receivingQueue size:" << receivingQueue.size();
             for (QSharedPointer<VirtualChannel> channel : subChannels) {
@@ -1050,6 +1050,8 @@ void SocketChannel::setKeepaliveTimeout(float timeout)
         if (d->keepaliveTimeout < 1000) {
             d->keepaliveTimeout = 1000;
         }
+    } else {
+        d->keepaliveTimeout = -1;
     }
 }
 

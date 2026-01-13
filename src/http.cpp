@@ -1042,7 +1042,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
 
     if (!cacheManager.isNull()
         && (request.d->method == QLatin1String("GET") || request.d->method == QLatin1String("HEAD")
-            || request.d->method == QLatin1String("OPTION"))) {
+            || request.d->method == QLatin1String("OPTIONS"))) {
         const QByteArray &cacheControlHeader = request.header(KnownHeader::CacheControlHeader);
         if (!cacheControlHeader.contains("no-cache")) {
             if (cacheManager->getResponse(&response)) {

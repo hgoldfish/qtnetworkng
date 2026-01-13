@@ -72,6 +72,7 @@ public:
     void close();
     void abort();
     bool listen(int backlog);
+    bool setTcpKeepalive(bool keepalve, int keepaliveTimeoutSesc, int keepaliveIntervalSesc);
     bool setOption(Socket::SocketOption option, const QVariant &value);
     bool setNonblocking();
     QVariant option(Socket::SocketOption option) const;

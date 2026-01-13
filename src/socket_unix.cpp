@@ -1013,6 +1013,35 @@ QVariant SocketPrivate::option(Socket::SocketOption option) const
     return QVariant();
 }
 
+bool SocketPrivate::setTcpKeepalive(bool keepalve, int keepaliveTimeoutSesc, int keepaliveIntervalSesc)
+{
+    int optval = keepalve ? 1 : 0;
+    if (!setOption(Socket::KeepAliveOption, optval)) {
+        qtng_debug << "failed to set SO_KEEPALIVE on fd" << fd << "errno:" << errno;
+        return false;
+    }
+#ifdef TCP_KEEPIDLE
+    optval = keepaliveTimeoutSesc;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, (void *) &optval, sizeof(optval)) < 0) {
+        qtng_debug << "failed to set TCP_KEEPIDLE on fd" << fd << "errno:" << errno;
+    }
+#elif defined(TCP_KEEPALIVE)
+    /* Mac OS X style */
+    optval = keepaliveTimeoutSesc;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE, (void *) &optval, sizeof(optval)) < 0) {
+        qtng_debug << "failed to set TCP_KEEPALIVE on fd" << fd << "errno:" << errno;
+    }
+#endif
+
+#ifdef TCP_KEEPINTVL
+    optval = keepaliveIntervalSesc;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, (void *) &optval, sizeof(optval)) < 0) {
+        qtng_debug << "failed to set TCP_KEEPINTVL on fd" << fd << "errno:" << errno;
+    }
+#endif
+    return true;
+}
+
 bool SocketPrivate::setOption(Socket::SocketOption option, const QVariant &value)
 {
     if (!checkState())
