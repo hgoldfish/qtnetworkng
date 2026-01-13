@@ -541,22 +541,18 @@ bool Database::isEmpty() const
 
 qint64 Database::size() const
 {
-    MDB_cursor *cursor = d_ptr->makeCursor();
-    if (!cursor) {
-        return -1;
+    if (isNull()) {
+        return 0;
     }
-
-    mdb_size_t count;
-    int rt = mdb_cursor_count(cursor, &count);
-    mdb_cursor_close(cursor);
-
+    MDB_stat stat;
+    int rt = mdb_stat(d_ptr->txn, d_ptr->dbi, &stat);
     if (rt) {
 #if QTLMDB_DEBUG
-        qtng_warning << "can not count lmdb cursor:" << mdb_strerror(rt);
+        qtng_warning << "can not count lmdb:" << mdb_strerror(rt);
 #endif
         return -1;
     }
-    return count;
+    return stat.ms_entries;
 }
 
 Database::iterator Database::begin()
