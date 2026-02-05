@@ -342,14 +342,39 @@ PublicKey CertificatePrivate::publicKey() const
 
 QByteArray CertificatePrivate::serialNumber() const
 {
-    ASN1_INTEGER *serialNumber = X509_get_serialNumber(x509.data());
-    if (serialNumber) {
-        qlonglong n = ASN1_INTEGER_get(serialNumber);
-        if (n) {
-            return QByteArray::number(n);
-        }
+    if (x509.isNull()) {
+        return QByteArray();
     }
-    return QByteArray();
+
+    ASN1_INTEGER *serialNumber = X509_get_serialNumber(x509.data());
+    if (!serialNumber) {
+        return QByteArray();
+    }
+
+    long value = -1;
+    if (serialNumber->length <= static_cast<int>(sizeof(long))
+        && serialNumber->type == V_ASN1_INTEGER) {
+        uint64_t u64 = 0;
+        if (ASN1_INTEGER_get_uint64(&u64, serialNumber) && u64 <= LONG_MAX)
+            value = static_cast<long>(u64);
+    }
+
+    if (value >= 0) {
+        return QByteArray::number(static_cast<qlonglong>(value));
+    }
+
+    QByteArray result;
+    if (serialNumber->type == V_ASN1_NEG_INTEGER) {
+        result.append("(Negative) ");
+    }
+
+    for (int i = 0; i < serialNumber->length; ++i) {
+        if (i > 0)
+            result.append(':');
+        const unsigned int byteValue = static_cast<unsigned int>(serialNumber->data[i]);
+        result.append(QByteArray::number(byteValue, 16).rightJustified(2, '0'));
+    }
+    return result;
 }
 
 QStringList CertificatePrivate::subjectInfo(Certificate::SubjectInfo subject) const
