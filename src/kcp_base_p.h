@@ -83,7 +83,7 @@ protected:
     qint32 recv(char *data, qint32 size, bool all);
     virtual bool close(bool force) = 0;
 protected:
-    bool handleDatagram(const char *buf, qint32 len);  // len bigger than 5
+    bool handleDatagram(const char *buf, qint32 len, const LinkPathID &remote);  // len bigger than 5
     void updateKcp();
     void updateStatus();
     virtual void doUpdate();
@@ -609,7 +609,7 @@ QByteArray KcpBase<Link>::makeMultiPathPacket(quint32 connectionId)
 }
 
 template<typename Link>
-bool KcpBase<Link>::handleDatagram(const char *buf, qint32 len)
+bool KcpBase<Link>::handleDatagram(const char *buf, qint32 len, const LinkPathID &remote)
 {
     switch (buf[0]) {
     case PACKET_TYPE_UNCOMPRESSED_DATA: {
@@ -628,23 +628,32 @@ bool KcpBase<Link>::handleDatagram(const char *buf, qint32 len)
         lastActiveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
         updateKcp(); // send ack before info user layer that has receive data can let kcp faster
         receivingQueueNotEmpty.set();
+        remoteId = remote;
         return true;
     }
     case PACKET_TYPE_CREATE_MULTIPATH:
+        remoteId = remote;
         return true;
     case PACKET_TYPE_CLOSE:
-        close(true);
-        return false;
+        if (remote == remoteId) {
+            close(true);
+            // error for return
+            return false;
+        }
+        // ignore if remote is not recored one
+        return true;
     case PACKET_TYPE_KEEPALIVE:
         lastActiveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
 #ifdef DEBUG_PROTOCOL
         qtng_debug << "recv keep alive from" << connectionId << remoteId;
 #endif
+        remoteId = remote;
         return true;
     default:
         break;
     }
-    return false;
+    // ignore if remote is not recored one
+    return !(remote == remoteId);
 }
 
 template<typename Link>
@@ -949,7 +958,7 @@ void MasterKcpBase<Link>::doReceive()
         }
 
         qToBigEndian<quint32>(0, reinterpret_cast<uchar *>(data + 1));
-        if (!this->handleDatagram(data, static_cast<quint32>(len))) {
+        if (!this->handleDatagram(data, static_cast<quint32>(len), remote)) {
             return;
         }
     }
@@ -1004,7 +1013,7 @@ void MasterKcpBase<Link>::doAccept()
                 slave->setDebugLevel(1);
             }
             slave->connectionId = nextConnectionId();
-            if (!slave->handleDatagram(data, static_cast<quint32>(len))) {
+            if (!slave->handleDatagram(data, static_cast<quint32>(len), remote)) {
                 continue;
             }
 #ifdef DEBUG_PROTOCOL
@@ -1020,11 +1029,10 @@ void MasterKcpBase<Link>::doAccept()
             continue;
         }
         QSharedPointer<SlaveKcpBase<Link>> receiver = receiverPtr.toStrongRef();
-        if (!receiver->handleDatagram(data, len)) {
+        if (!receiver->handleDatagram(data, len, remote)) {
             receiver->abort();
             continue;
         }
-        receiver->remoteId = remote;
     }
 }
 
