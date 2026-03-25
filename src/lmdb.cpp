@@ -113,11 +113,8 @@ MDB_cursor *DatabasePrivate::setCursor(const QByteArray &key, MDB_val &mdbKey, M
         return nullptr;
     }
 
-    QVarLengthArray<char, 1024> keyBuf;
-    keyBuf.append(key.constData(), key.size());
-
-    mdbKey.mv_size = keyBuf.size();
-    mdbKey.mv_data = keyBuf.data();
+    mdbKey.mv_size = key.size();
+    mdbKey.mv_data = (void *)key.constData();
     memset(&mdbData, 0, sizeof(MDB_val));
 
     int rt = mdb_cursor_get(cursor, &mdbKey, &mdbData, op);
