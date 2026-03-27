@@ -625,11 +625,16 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
     QByteArray numBytes;
     bool expectingLineBreak = false;
     while (buf.size() < MaxLineLength && !buf.contains('\n')) {
-        const QByteArray &t = connection->recv(1024 * 8);
-        if (t.isEmpty()) {
+        QByteArray buff(1024 * 64, Qt::Uninitialized);
+        qint32 readed = connection->read(buff.data(), buff.size());
+        if (readed < 0) {
+            *error = ChunkedBlockReader::ConnectionError;
+            return QByteArray();
+        }
+        if (readed == 0) {
             break;
         }
-        buf.append(t);  // most server send the header at one tcp block.
+        buf.append(buff.data(), readed);  // most server send the header at one tcp block.
     }
     if (buf.size() < 3) {  // 0\r\n
         *error = ChunkedBlockReader::ChunkedEncodingError;
@@ -678,12 +683,13 @@ QByteArray ChunkedBlockReader::nextBlock(qint64 leftBytes, ChunkedBlockReader::E
     }
 
     while (buf.size() < bytesToRead + 2) {
-        const QByteArray t = connection->recv(1024 * 8);
-        if (t.isEmpty()) {
+        QByteArray buff(1024 * 64, Qt::Uninitialized);
+        qint32 readed = connection->read(buff.data(), buff.size());
+        if (readed <= 0) {
             *error = ChunkedBlockReader::ConnectionError;
             return QByteArray();
         }
-        buf.append(t);
+        buf.append(buff.data(), readed);
     }
 
     const QByteArray &result = buf.mid(0, bytesToRead);
@@ -729,7 +735,7 @@ qint32 PlainBodyFile::read(char *data, qint32 size)
     }
 }
 
-ChunkedBodyFile::ChunkedBodyFile(qint64 maxBodySize, const QByteArray &partialBody, QSharedPointer<SocketLike> stream)
+ChunkedBodyFile::ChunkedBodyFile(qint64 maxBodySize, const QByteArray &partialBody, QSharedPointer<FileLike> stream)
     : reader(stream, partialBody)
     , error(ChunkedBlockReader::NoError)
     , maxBodySize(maxBodySize)
@@ -774,17 +780,18 @@ ChunkedWriter::~ChunkedWriter()
 
 qint32 ChunkedWriter::write(const char *data, qint32 size)
 {
+    if (!data) {
+        return -1;
+    }
     // the chunked block can not greater than 0xffff!
     qint64 sent = 0;
     while (sent < size) {
-        qint64 blockSize = qMin<qint64>(0xffff, size - sent);
+        qint32 blockSize = qMin<qint32>(0xffff, size - sent);
         QByteArray buf;
-        buf.reserve(size + 32);
+        buf.reserve(blockSize + 8);
         buf.append(QByteArray::number(blockSize, 16));
         buf.append("\r\n", 2);
-        if (data) {
-            buf.append(data + sent, blockSize);
-        }
+        buf.append(data + sent, blockSize);
         buf.append("\r\n", 2);
 
         qint32 writtenBytes = stream->write(buf);

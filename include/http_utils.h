@@ -433,7 +433,7 @@ public:
         ConnectionError,
     };
 public:
-    ChunkedBlockReader(QSharedPointer<SocketLike> connection, const QByteArray &buf)
+    ChunkedBlockReader(QSharedPointer<FileLike> connection, const QByteArray &buf)
         : connection(connection)
         , buf(buf)
     {
@@ -442,7 +442,7 @@ public:
     QByteArray nextBlock(qint64 leftBytes, Error *error);
 public:
     int debugLevel;
-    QSharedPointer<SocketLike> connection;
+    QSharedPointer<FileLike> connection;
     QByteArray buf;
 };
 
@@ -464,7 +464,7 @@ public:
 class ChunkedBodyFile : public FileLike
 {
 public:
-    ChunkedBodyFile(qint64 maxBodySize, const QByteArray &partialBody, QSharedPointer<SocketLike> stream);
+    ChunkedBodyFile(qint64 maxBodySize, const QByteArray &partialBody, QSharedPointer<FileLike> stream);
     virtual qint32 read(char *data, qint32 size) override;
     virtual qint32 write(const char *, qint32) override { return -1; }
     virtual void close() override { }
