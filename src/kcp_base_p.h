@@ -1153,7 +1153,7 @@ bool SlaveKcpBase<Link>::close(bool force)
     }
     if (this->state == Socket::ConnectedState) {
         this->state = Socket::UnconnectedState;
-        if (!force && this->error != Socket::NoError) {
+        if (!force && this->error == Socket::NoError) {
             if (!this->sendingQueueEmpty.isSet()) {
                 this->updateKcp();
                 if (!this->sendingQueueEmpty.tryWait()) {

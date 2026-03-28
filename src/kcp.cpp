@@ -1211,7 +1211,7 @@ bool SlaveKcpSocketPrivate::close(bool force)
         return true;
     } else if (state == Socket::ConnectedState) {
         state = Socket::UnconnectedState;
-        if (!force && error != Socket::NoError) {
+        if (!force && error == Socket::NoError) {
             if (!sendingQueueEmpty.isSet()) {
                 updateKcp();
                 if (!sendingQueueEmpty.tryWait()) {
