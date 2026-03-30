@@ -39,7 +39,7 @@ public:
     }
 public:
     MDB_cursor *makeCursor();
-    MDB_cursor *setCursor(const QByteArray &key, MDB_val &mdbKey, MDB_val &mdbData, MDB_cursor_op op = MDB_SET);
+    MDB_cursor *setCursor(QByteArray &key, MDB_val &mdbKey, MDB_val &mdbData, MDB_cursor_op op = MDB_SET);
     LmdbIteratorPrivate *end(MDB_cursor *cursor = nullptr);
 public:
     MDB_txn * const txn;
@@ -106,18 +106,15 @@ MDB_cursor *DatabasePrivate::makeCursor()
     return cursor;
 }
 
-MDB_cursor *DatabasePrivate::setCursor(const QByteArray &key, MDB_val &mdbKey, MDB_val &mdbData, MDB_cursor_op op)
+MDB_cursor *DatabasePrivate::setCursor(QByteArray &key, MDB_val &mdbKey, MDB_val &mdbData, MDB_cursor_op op)
 {
     MDB_cursor *cursor = makeCursor();
     if (!cursor) {
         return nullptr;
     }
 
-    QVarLengthArray<char, 1024> keyBuf;
-    keyBuf.append(key.constData(), key.size());
-
-    mdbKey.mv_size = keyBuf.size();
-    mdbKey.mv_data = keyBuf.data();
+    mdbKey.mv_size = key.size();
+    mdbKey.mv_data = key.data();
 
     memset(&mdbData, 0, sizeof(MDB_val));
 
@@ -445,7 +442,8 @@ int Database::remove(const QByteArray &key)
     }
 
     MDB_val mdbKey, mdbData;
-    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData, MDB_SET);
+    QByteArray newKey(key);
+    MDB_cursor *cursor = d_ptr->setCursor(newKey, mdbKey, mdbData, MDB_SET);
     if (!cursor) {
         return -1;
     }
@@ -503,7 +501,8 @@ QByteArray Database::take(const QByteArray &key)
     }
 
     MDB_val mdbKey, mdbData;
-    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData, MDB_SET);
+    QByteArray newKey(key);
+    MDB_cursor *cursor = d_ptr->setCursor(newKey, mdbKey, mdbData, MDB_SET);
     if (!cursor) {
         return QByteArray();
     }
@@ -632,12 +631,13 @@ Database::iterator Database::find(const QByteArray &key)
     }
 
     MDB_val mdbKey, mdbData;
-    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData, MDB_SET);
+    QByteArray newKey(key);
+    MDB_cursor *cursor = d_ptr->setCursor(newKey, mdbKey, mdbData, MDB_SET);
     if (!cursor) {
         return LmdbIterator(nullptr);
     }
 
-    LmdbIteratorPrivate *d = new LmdbIteratorPrivate(key, cursor, mdbData);
+    LmdbIteratorPrivate *d = new LmdbIteratorPrivate(newKey, cursor, mdbData);
     return LmdbIterator(d);
 }
 
@@ -648,12 +648,13 @@ Database::const_iterator Database::constFind(const QByteArray &key) const
     }
 
     MDB_val mdbKey, mdbData;
-    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData, MDB_SET);
+    QByteArray newKey(key);
+    MDB_cursor *cursor = d_ptr->setCursor(newKey, mdbKey, mdbData, MDB_SET);
     if (!cursor) {
         return ConstLmdbIterator(nullptr);
     }
 
-    LmdbIteratorPrivate *d = new LmdbIteratorPrivate(key, cursor, mdbData);
+    LmdbIteratorPrivate *d = new LmdbIteratorPrivate(newKey, cursor, mdbData);
     return ConstLmdbIterator(d);
 }
 
@@ -664,12 +665,13 @@ Database::const_iterator Database::lowerBound(const QByteArray &key) const
     }
 
     MDB_val mdbKey, mdbData;
-    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData, MDB_SET_RANGE);
+    QByteArray newKey(key);
+    MDB_cursor *cursor = d_ptr->setCursor(newKey, mdbKey, mdbData, MDB_SET_RANGE);
     if (!cursor) {
         return ConstLmdbIterator(nullptr);
     }
 
-    QByteArray newKey(static_cast<const char *>(mdbKey.mv_data), mdbKey.mv_size);
+    newKey = QByteArray(static_cast<const char *>(mdbKey.mv_data), mdbKey.mv_size);
     LmdbIteratorPrivate *d = new LmdbIteratorPrivate(newKey, cursor, mdbData);
     return ConstLmdbIterator(d);
 }
@@ -681,12 +683,13 @@ Database::iterator Database::lowerBound(const QByteArray &key)
     }
 
     MDB_val mdbKey, mdbData;
-    MDB_cursor *cursor = d_ptr->setCursor(key, mdbKey, mdbData, MDB_SET_RANGE);
+    QByteArray newKey(key);
+    MDB_cursor *cursor = d_ptr->setCursor(newKey, mdbKey, mdbData, MDB_SET_RANGE);
     if (!cursor) {
         return LmdbIterator(nullptr);
     }
 
-    QByteArray newKey(static_cast<const char *>(mdbKey.mv_data), mdbKey.mv_size);
+    newKey = QByteArray(static_cast<const char *>(mdbKey.mv_data), mdbKey.mv_size);
     LmdbIteratorPrivate *d = new LmdbIteratorPrivate(newKey, cursor, mdbData);
     return LmdbIterator(d);
 }
