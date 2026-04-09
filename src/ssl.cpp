@@ -791,6 +791,7 @@ public:
     QString peerVerifyName;
     QString tlsExtHostName;
     bool asServer;
+    bool eof = false;
 };
 
 template<typename SocketType>
@@ -824,6 +825,7 @@ bool SslConnection<SocketType>::handshake(bool asServer, const QString &hostName
         return false;
     }
     this->asServer = asServer;
+    eof = false;
 
     BIO *incoming = BIO_new(BIO_s_mem());
     if (!incoming) {
@@ -895,9 +897,13 @@ bool SslConnection<SocketType>::pumpIncoming()
         qtng_warning << "ssl is null while pump incoming.";
         return false;
     }
+    if (eof) {
+        return true;
+    }
     const QByteArray &buf = rawSocket->recv(1024 * 8);
     if (buf.isEmpty()) {
-        return false;
+        eof = true;
+        return true;
     }
     int totalWritten = 0;
     BIO *incoming = SSL_get_rbio(ssl.data());
@@ -926,7 +932,7 @@ bool SslConnection<SocketType>::_handshake()
             case SSL_ERROR_WANT_READ:
                 if (!pumpOutgoing())
                     return false;
-                if (!pumpIncoming())
+                if (!pumpIncoming() || eof)
                     return false;
                 break;
             case SSL_ERROR_WANT_WRITE:
@@ -1010,7 +1016,7 @@ qint32 SslConnection<SocketType>::recv(char *data, qint32 size, bool all)
             int err = SSL_get_error(ssl.data(), result);
             switch (err) {
             case SSL_ERROR_WANT_READ:
-                if (!pumpOutgoing() || !pumpIncoming()) {
+                if (!pumpOutgoing() || !pumpIncoming() || eof) {
                     return total == 0 ? -1 : total;
                 }
                 break;
@@ -1061,7 +1067,7 @@ qint32 SslConnection<SocketType>::send(const char *data, qint32 size, bool all)
             int err = SSL_get_error(ssl.data(), result);
             switch (err) {
             case SSL_ERROR_WANT_READ:
-                if (!pumpOutgoing() || !pumpIncoming()) {
+                if (!pumpOutgoing() || !pumpIncoming() || eof) {
                     return -1;
                 }
                 break;
@@ -1132,6 +1138,8 @@ bool SslConnection<SocketType>::close()
                     return false;
                 if (!pumpIncoming())
                     return false;
+                if (eof)
+                    return true;
                 break;
             case SSL_ERROR_WANT_WRITE:
                 if (!pumpOutgoing())
@@ -1162,7 +1170,7 @@ bool SslConnection<SocketType>::close()
             // process the second SSL_shutdown();
             // https://www.openssl.org/docs/manmaster/man3/SSL_shutdown.html
             if (tried > 0) {
-                return 0;
+                return false;
             } else {
                 ++tried;
             }
