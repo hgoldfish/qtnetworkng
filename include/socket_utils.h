@@ -67,8 +67,7 @@ class ExchangerPrivate;
 class Exchanger
 {
 public:
-    Exchanger(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward, quint32 maxBufferSize = 1024 * 8,
-              float timeout = 30.0);
+    Exchanger(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward, quint32 maxBufferSize = 1024 * 8);
     ~Exchanger();
 public:
     void exchange();

@@ -279,8 +279,7 @@ QSharedPointer<Socket> convertSocketLikeToSocket(QSharedPointer<SocketLike> sock
 class ExchangerPrivate
 {
 public:
-    ExchangerPrivate(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward, quint32 maxBufferSize,
-                     float timeout);
+    ExchangerPrivate(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward, quint32 maxBufferSize);
     ~ExchangerPrivate();
 public:
     void in2out();
@@ -290,16 +289,14 @@ public:
     QSharedPointer<SocketLike> forward;
     CoroutineGroup *operations;
     quint32 maxBufferSize;
-    float timeout;
 };
 
 ExchangerPrivate::ExchangerPrivate(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward,
-                                   quint32 maxBufferSize, float timeout)
+                                   quint32 maxBufferSize)
     : request(request)
     , forward(forward)
     , operations(new CoroutineGroup)
     , maxBufferSize(maxBufferSize)
-    , timeout(timeout)
 {
 }
 
@@ -310,59 +307,22 @@ ExchangerPrivate::~ExchangerPrivate()
 
 void ExchangerPrivate::in2out()
 {
-    QByteArray buf(maxBufferSize, Qt::Uninitialized);
-    while (true) {
-        qint32 len = request->recv(buf.data(), buf.size());
-        if (len <= 0) {
-            forward->abort();
-            operations->kill(QString::fromLatin1("out2in"));
-            return;
-        }
-        qint32 sentBytes;
-        try {
-            Timeout timeout(this->timeout);
-            Q_UNUSED(timeout);
-            sentBytes = forward->sendall(buf.data(), len);
-        } catch (TimeoutException &) {
-            sentBytes = -1;
-        }
-        if (sentBytes != len) {
-            forward->abort();
-            operations->kill(QString::fromLatin1("out2in"));
-            return;
-        }
+    if (!sendfile(request, forward, -1, maxBufferSize)) {
+        request->abort();
+        forward->abort();
     }
 }
 
 void ExchangerPrivate::out2in()
 {
-    QByteArray buf(maxBufferSize, Qt::Uninitialized);
-    while (true) {
-        qint32 len = forward->recv(buf.data(), buf.size());
-        if (len <= 0) {
-            request->abort();
-            operations->kill(QString::fromLatin1("in2out"));
-            return;
-        }
-        qint32 sentBytes;
-        try {
-            Timeout timeout(this->timeout);
-            Q_UNUSED(timeout);
-            sentBytes = request->sendall(buf.data(), len);
-        } catch (TimeoutException &) {
-            sentBytes = -1;
-        }
-        if (sentBytes != len) {
-            request->abort();
-            operations->kill(QString::fromLatin1("in2out"));
-            return;
-        }
+    if (!sendfile(forward, request, -1, maxBufferSize)) {
+        request->abort();
+        forward->abort();
     }
 }
 
-Exchanger::Exchanger(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward, quint32 maxBufferSize,
-                     float timeout)
-    : d_ptr(new ExchangerPrivate(request, forward, maxBufferSize, timeout))
+Exchanger::Exchanger(QSharedPointer<SocketLike> request, QSharedPointer<SocketLike> forward, quint32 maxBufferSize)
+    : d_ptr(new ExchangerPrivate(request, forward, maxBufferSize))
 {
 }
 
