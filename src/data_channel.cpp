@@ -152,7 +152,8 @@ public:
     DataChannelPole pole;
     quint32 nextChannelNumber;
     QMap<quint32, QWeakPointer<VirtualChannel>> subChannels;
-    Queue<QSharedPointer<VirtualChannel>> pendingChannels;
+    QQueue<QSharedPointer<VirtualChannel>> pendingChannels;
+    Condition pendingChannelsNotEmpty;
     Queue<QByteArray> receivingQueue;
     Gate goThrough;
     DataChannel::ChannelError error;
@@ -297,9 +298,11 @@ void DataChannelPrivate::abort(DataChannel::ChannelError reason)
     for (quint32 i = 0; i < receivingQueue.getting(); ++i) {
         receivingQueue.put(QByteArray());
     }
-    for (quint32 i = 0; i < pendingChannels.getting(); ++i) {
-        pendingChannels.put(QSharedPointer<VirtualChannel>());
+    for (quint32 i = 0; i < pendingChannelsNotEmpty.getting(); ++i) {
+        pendingChannels.enqueue(QSharedPointer<VirtualChannel>());
     }
+    pendingChannelsNotEmpty.notifyAll();
+
     goThrough.open();
     for (QMapIterator<quint32, QWeakPointer<VirtualChannel>> itor(subChannels); itor.hasNext();) {
         const QWeakPointer<VirtualChannel> &subChannel = itor.next().value();
@@ -402,7 +405,14 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel()
     if (isBroken()) {
         return QSharedPointer<VirtualChannel>();
     }
-    return pendingChannels.get();
+    while (true) {
+        if (!pendingChannels.isEmpty()) {
+            return pendingChannels.takeFirst();
+        }
+        if (!pendingChannelsNotEmpty.wait()) {
+            return QSharedPointer<VirtualChannel>();
+        }
+    }
 }
 
 QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel(quint32 channelNumber)
@@ -410,24 +420,14 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel(quint32 channelNu
     if (isBroken()) {
         return QSharedPointer<VirtualChannel>();
     }
-
-    QSharedPointer<VirtualChannel> found;
-    QList<QSharedPointer<VirtualChannel>> tmp;
-    while (!pendingChannels.isEmpty()) {
-        QSharedPointer<VirtualChannel> channel = pendingChannels.get();
-        if (Q_UNLIKELY(channel.isNull())) {
-            return QSharedPointer<VirtualChannel>();
-        } else if (channel->channelNumber() == channelNumber) {
-            found = channel;
-            break;
-        } else {
-            tmp.append(channel);
+    for (int i = 0; i < pendingChannels.size(); i++) {
+        QSharedPointer<VirtualChannel> channel = pendingChannels.at(i);
+        if (channel && channel->channelNumber() == channelNumber) {
+            pendingChannels.removeAt(i);
+            return channel;
         }
     }
-    for (int i = tmp.size() - 1; i >= 0; i--) {
-        pendingChannels.returnsForcely(tmp.at(i));
-    }
-    return found;
+    return QSharedPointer<VirtualChannel>();
 }
 
 QSharedPointer<VirtualChannel> DataChannelPrivate::peekChannel(quint32 channelNumber)
@@ -435,20 +435,13 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::peekChannel(quint32 channelNu
     if (isBroken()) {
         return QSharedPointer<VirtualChannel>();
     }
-    QSharedPointer<VirtualChannel> found;
-    QList<QSharedPointer<VirtualChannel>> tmp;
-    while (!pendingChannels.isEmpty()) {
-        QSharedPointer<VirtualChannel> channel = pendingChannels.get();
-        tmp.append(channel);
+    for (int i = 0; i < pendingChannels.size(); i++) {
+        QSharedPointer<VirtualChannel> channel = pendingChannels.at(i);
         if (channel && channel->channelNumber() == channelNumber) {
-            found = channel;
-            break;
+            return channel;
         }
     }
-    for (int i = tmp.size() - 1; i >= 0; i--) {
-        pendingChannels.returnsForcely(tmp.at(i));
-    }
-    return found;
+    return QSharedPointer<VirtualChannel>();
 }
 
 QByteArray DataChannelPrivate::recvPacket()
@@ -500,7 +493,8 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
         }
         QSharedPointer<VirtualChannel> channel = makeChannelInternal(DataChannelPole::NegativePole, channelNumber);
         sendPacketRaw(CommandChannelNumber, packChannelMadeRequest(channelNumber), BlockFlag::NonBlock);
-        pendingChannels.put(channel);
+        pendingChannels.enqueue(channel);
+        pendingChannelsNotEmpty.notify();
         return true;
     } else if (command == CHANNEL_MADE_REQUEST) {
 #ifdef DEBUG_PROTOCOL
