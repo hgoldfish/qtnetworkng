@@ -240,16 +240,40 @@ private:
     bool success;
 };
 
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+class SizedQueueType;
+
+template<typename T>
+struct UnitElementSizeGetter
+{
+    static inline quint32 sizeOf(const T &)
+    {
+        return 1;
+    }
+};
+
 template<typename T, typename EventType, typename ReadWriteLockType>
-class QueueType
+using QueueType = SizedQueueType<T, EventType, ReadWriteLockType, UnitElementSizeGetter<T>>;
+
+template<typename T>
+struct DefaultElementSizeGetter
+{
+    static inline quint32 sizeOf(const T &e)
+    {
+        return static_cast<quint32>(e.size());
+    }
+};
+
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter = DefaultElementSizeGetter<T>>
+class SizedQueueType
 {
 public:
-    explicit QueueType(quint32 capacity);
-    QueueType()
-        : QueueType(UINT_MAX)
+    explicit SizedQueueType(quint32 capacity);
+    SizedQueueType()
+        : SizedQueueType(UINT_MAX)
     {
     }
-    ~QueueType();
+    ~SizedQueueType();
     void setCapacity(quint32 capacity);
     bool put(const T &e);  // insert e to the tail of queue. blocked until not full.
     bool putForcedly(const T &e);  // insert e to the tail of queue ignoring capacity.
@@ -271,10 +295,11 @@ public:
         } while (true);
 
         const T &e = queue.dequeue();
+        currentSize -= SizeGetter::sizeOf(e);
         if (this->queue.isEmpty()) {
             notEmpty.clear();
         }
-        if (static_cast<quint32>(queue.size()) < mCapacity) {
+        if (currentSize < mCapacity) {
             notFull.set();
         }
         lock.unlock();
@@ -290,10 +315,11 @@ public:
         lock.lockForWrite();
 
         const T &e = queue.dequeue();
+        currentSize -= SizeGetter::sizeOf(e);
         if (this->queue.isEmpty()) {
             notEmpty.clear();
         }
-        if (static_cast<quint32>(queue.size()) < mCapacity) {
+        if (currentSize < mCapacity) {
             notFull.set();
         }
         lock.unlock();
@@ -321,7 +347,8 @@ public:
     EventType notFull;
     ReadWriteLockType lock;
     quint32 mCapacity;
-    Q_DISABLE_COPY(QueueType)
+    quint32 currentSize;
+    Q_DISABLE_COPY(SizedQueueType)
 };
 
 template<typename T, typename EventType, typename ReadWriteLockType>
@@ -342,6 +369,20 @@ struct DummpyReadWriteLock
     inline void lockForRead() { }
     inline void lockForWrite() { }
     inline void unlock() { }
+};
+
+template<typename T>
+class SizedQueue : public SizedQueueType<T, Event, DummpyReadWriteLock>
+{
+public:
+    explicit SizedQueue(quint32 capacity)
+        : SizedQueueType<T, Event, DummpyReadWriteLock>(capacity)
+    {
+    }
+    explicit SizedQueue()
+        : SizedQueueType<T, Event, DummpyReadWriteLock>()
+    {
+    }
 };
 
 template<typename T>
@@ -382,28 +423,26 @@ class MultiThreadQueue : public MultiQueueType<T, ThreadEvent, QReadWriteLock>
 {
 };
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-QueueType<T, EventType, ReadWriteLockType>::QueueType(quint32 capacity)
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::SizedQueueType(quint32 capacity)
     : mCapacity(capacity)
+    , currentSize(0)
 {
     notEmpty.clear();
     notFull.set();
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-QueueType<T, EventType, ReadWriteLockType>::~QueueType()
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::~SizedQueueType()
 {
-    //    if (queue.size() > 0) {
-    //        qtng_debug << "queue is free with element left.";
-    //    }
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-void QueueType<T, EventType, ReadWriteLockType>::setCapacity(quint32 capacity)
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+void SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::setCapacity(quint32 capacity)
 {
     lock.lockForWrite();
     this->mCapacity = capacity;
-    if (static_cast<quint32>(queue.size()) >= mCapacity) {
+    if (currentSize >= mCapacity) {
         notFull.clear();
     } else {
         notFull.set();
@@ -411,28 +450,38 @@ void QueueType<T, EventType, ReadWriteLockType>::setCapacity(quint32 capacity)
     lock.unlock();
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-void QueueType<T, EventType, ReadWriteLockType>::clear()
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+void SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::clear()
 {
     lock.lockForWrite();
     this->queue.clear();
+    currentSize = 0;
     notFull.set();
     notEmpty.clear();
     lock.unlock();
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-bool QueueType<T, EventType, ReadWriteLockType>::remove(const T &e)
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::remove(const T &e)
 {
     lock.lockForWrite();
-    int n = this->queue.removeAll(e);
+    int n = 0;
+    quint32 removedSize = 0;
+    for (int i = this->queue.size() - 1; i >= 0; --i) {
+        if (this->queue.at(i) == e) {
+            removedSize += SizeGetter::sizeOf(this->queue.at(i));
+            this->queue.removeAt(i);
+            ++n;
+        }
+    }
     if (n > 0) {
+        currentSize -= removedSize;
         if (this->queue.isEmpty()) {
             notEmpty.clear();
         } else {
             notEmpty.set();
         }
-        if (static_cast<quint32>(queue.size()) >= mCapacity) {
+        if (currentSize >= mCapacity) {
             notFull.clear();
         } else {
             notFull.set();
@@ -445,68 +494,72 @@ bool QueueType<T, EventType, ReadWriteLockType>::remove(const T &e)
     }
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-bool QueueType<T, EventType, ReadWriteLockType>::put(const T &e)
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::put(const T &e)
 {
     if (!notFull.tryWait()) {
         return false;
     }
     lock.lockForWrite();
     queue.enqueue(e);
+    currentSize += SizeGetter::sizeOf(e);
     notEmpty.set();
-    if (static_cast<quint32>(queue.size()) >= mCapacity) {
+    if (currentSize >= mCapacity) {
         notFull.clear();
     }
     lock.unlock();
     return true;
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-bool QueueType<T, EventType, ReadWriteLockType>::putForcedly(const T &e)
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::putForcedly(const T &e)
 {
     lock.lockForWrite();
     queue.enqueue(e);
+    currentSize += SizeGetter::sizeOf(e);
     notEmpty.set();
-    if (static_cast<quint32>(queue.size()) >= mCapacity) {
+    if (currentSize >= mCapacity) {
         notFull.clear();
     }
     lock.unlock();
     return true;
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-bool QueueType<T, EventType, ReadWriteLockType>::returns(const T &e)
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::returns(const T &e)
 {
     if (!notFull.tryWait()) {
         return false;
     }
     lock.lockForWrite();
     queue.prepend(e);
+    currentSize += SizeGetter::sizeOf(e);
     notEmpty.set();
-    if (static_cast<quint32>(queue.size()) >= mCapacity) {
+    if (currentSize >= mCapacity) {
         notFull.clear();
     }
     lock.unlock();
     return true;
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-bool QueueType<T, EventType, ReadWriteLockType>::returnsForcely(const T &e)
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::returnsForcely(const T &e)
 {
     lock.lockForWrite();
     queue.prepend(e);
+    currentSize += SizeGetter::sizeOf(e);
     notEmpty.set();
-    if (static_cast<quint32>(queue.size()) >= mCapacity) {
+    if (currentSize >= mCapacity) {
         notFull.clear();
     }
     lock.unlock();
     return true;
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
 template<typename U>
 typename std::enable_if<std::is_same<U, ThreadEvent>::value, T>::type
-QueueType<T, EventType, ReadWriteLockType>::peek()
+SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::peek()
 {
     lock.lockForRead();
     if (this->queue.isEmpty()) {
@@ -518,10 +571,10 @@ QueueType<T, EventType, ReadWriteLockType>::peek()
     return t;
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
 template<typename U>
 typename std::enable_if<!std::is_same<U, ThreadEvent>::value, T>::type
-QueueType<T, EventType, ReadWriteLockType>::peek()
+SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::peek()
 {
     lock.lockForRead();
     if (this->queue.isEmpty()) {
@@ -533,8 +586,8 @@ QueueType<T, EventType, ReadWriteLockType>::peek()
     return t;
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-inline bool QueueType<T, EventType, ReadWriteLockType>::isEmpty()
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+inline bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::isEmpty()
 {
     lock.lockForRead();
     bool t = queue.isEmpty();
@@ -542,48 +595,48 @@ inline bool QueueType<T, EventType, ReadWriteLockType>::isEmpty()
     return t;
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-inline bool QueueType<T, EventType, ReadWriteLockType>::isFull()
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+inline bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::isFull()
 {
     lock.lockForRead();
-    bool t = static_cast<quint32>(queue.size()) >= mCapacity;
+    bool t = currentSize >= mCapacity;
     lock.unlock();
     return t;
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-inline quint32 QueueType<T, EventType, ReadWriteLockType>::capacity() const
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+inline quint32 SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::capacity() const
 {
-    const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.lockForRead();
+    const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.lockForRead();
     quint32 c = mCapacity;
-    const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.unlock();
+    const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.unlock();
     return c;
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-inline quint32 QueueType<T, EventType, ReadWriteLockType>::size() const
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+inline quint32 SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::size() const
 {
-    const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.lockForRead();
-    int s = queue.size();
-    const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.unlock();
+    const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.lockForRead();
+    quint32 s = currentSize;
+    const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.unlock();
     return s;
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-inline quint32 QueueType<T, EventType, ReadWriteLockType>::getting() const
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+inline quint32 SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::getting() const
 {
-    const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.lockForRead();
+    const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.lockForRead();
     int g = notEmpty.getting();
-    const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.unlock();
+    const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.unlock();
     return g;
 }
 
-template<typename T, typename EventType, typename ReadWriteLockType>
-inline bool QueueType<T, EventType, ReadWriteLockType>::contains(const T &e)
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+inline bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::contains(const T &e)
 {
-    const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.lockForRead();
+    const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.lockForRead();
     bool t = queue.contains(e);
-    const_cast<QueueType<T, EventType, ReadWriteLockType> *>(this)->lock.unlock();
+    const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.unlock();
     return t;
 }
 
