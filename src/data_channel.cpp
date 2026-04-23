@@ -154,7 +154,8 @@ public:
     QMap<quint32, QWeakPointer<VirtualChannel>> subChannels;
     QQueue<QSharedPointer<VirtualChannel>> pendingChannels;
     Condition pendingChannelsNotEmpty;
-    Queue<QByteArray> receivingQueue;
+    SizedQueue<QByteArray> receivingQueue;
+    bool slowDownRequested = false;
     Gate goThrough;
     DataChannel::ChannelError error;
 
@@ -190,6 +191,7 @@ public:
     QByteArray packet;
     QSharedPointer<ValueEvent<bool>> done;
     quint32 channelNumber;
+    quint32 size() const { return static_cast<quint32>(packet.size()); }
     bool isValid() { return !(channelNumber == 0 && packet.isNull() && done.isNull()); }
 };
 
@@ -213,7 +215,7 @@ public:
     void doKeepalive();
 
     const QSharedPointer<SocketLike> connection;
-    Queue<WritingPacket> sendingQueue;
+    SizedQueue<WritingPacket> sendingQueue;
     CoroutineGroup *operations;
     quint32 _maxPayloadSize;
     quint32 _payloadSizeHint;
@@ -250,7 +252,7 @@ public:
 
 DataChannelPrivate::DataChannelPrivate(DataChannelPole pole, DataChannel *parent)
     : pole(pole)
-    , receivingQueue(1024)  // may consume 1024 * maxPayloadSize bytes.
+    , receivingQueue(128 * 1024)
     , error(DataChannel::NoError)
     , q_ptr(parent)
 {
@@ -326,7 +328,8 @@ DataChannel::ChannelError DataChannelPrivate::handleIncomingPacket(quint32 chann
     }
 
     if (channelNumber == DataChannelNumber) {
-        if (receivingQueue.size() == (receivingQueue.capacity() * 3 / 4)) {
+        if (!slowDownRequested && receivingQueue.size() >= (receivingQueue.capacity() * 3 / 4)) {
+            slowDownRequested = true;
             sendPacketRaw(CommandChannelNumber, packSlowDownRequest(), BlockFlag::Block_And_Not_Wait_Sent);
         }
         receivingQueue.put(payload);
@@ -453,7 +456,8 @@ QByteArray DataChannelPrivate::recvPacket()
     if (packet.isNull()) {
         return QByteArray();
     }
-    if (receivingQueue.size() == (receivingQueue.capacity() / 2)) {
+    if (slowDownRequested && receivingQueue.size() <= (receivingQueue.capacity() / 2)) {
+        slowDownRequested = false;
         sendPacketRaw(CommandChannelNumber, packGoThroughRequest(), BlockFlag::NonBlock);
     }
     return packet;
@@ -562,7 +566,7 @@ SocketChannelPrivate::SocketChannelPrivate(QSharedPointer<SocketLike> connection
                                            SocketChannel *parent)
     : DataChannelPrivate(pole, parent)
     , connection(connection)
-    , sendingQueue(256)
+    , sendingQueue(64 * 1024)
     , operations(new CoroutineGroup())
     , _maxPayloadSize(DefaultPacketSize - sizeof(quint32) * 2)
     , _payloadSizeHint(DefaultPayloadSize)  // tcp fragment size.
