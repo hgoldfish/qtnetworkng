@@ -310,6 +310,9 @@ void ExchangerPrivate::in2out()
     if (!sendfile(request, forward, -1, maxBufferSize)) {
         request->abort();
         forward->abort();
+    } else {
+        request->close();
+        forward->close();
     }
 }
 
@@ -318,6 +321,9 @@ void ExchangerPrivate::out2in()
     if (!sendfile(forward, request, -1, maxBufferSize)) {
         request->abort();
         forward->abort();
+    } else {
+        request->close();
+        forward->close();
     }
 }
 
