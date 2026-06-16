@@ -87,6 +87,9 @@ protected:
     void updateKcp();
     void updateStatus();
     virtual void doUpdate();
+    void applyFixedMode(KcpMode mode);
+    void resetAutoModeState();
+    void adaptAutoMode(quint64 now);
 public:
     CoroutineGroup *operations;
     QString errorString;
@@ -112,6 +115,12 @@ public:
     quint32 connectionId;
     LinkPathID remoteId;
     KcpMode mode;
+    bool autoModeEnabled;
+    quint64 lastAdaptTimestamp;
+    quint32 lastSndUna;
+    int autoSrttBaseline;
+    int congestedStreak;
+    int healthyStreak;
 };
 
 template<typename Link>
@@ -188,6 +197,12 @@ KcpBase<Link>::KcpBase(KcpMode mode /* = KcpMode::Internet*/)
     , waterLine(1024)
     , connectionId(0)
     , mode(mode)
+    , autoModeEnabled(false)
+    , lastAdaptTimestamp(0)
+    , lastSndUna(0)
+    , autoSrttBaseline(0)
+    , congestedStreak(0)
+    , healthyStreak(0)
 {
     kcp = ikcp_create(0, this);
     ikcp_setoutput(kcp, kcp_callback);
@@ -209,6 +224,23 @@ template<typename Link>
 void KcpBase<Link>::setMode(KcpMode mode)
 {
     this->mode = mode;
+    if (mode == KcpMode::Auto) {
+        autoModeEnabled = true;
+        resetAutoModeState();
+        waterLine = 256;
+        ikcp_nodelay(kcp, 1, 10, 2, 1);
+        ikcp_setmtu(kcp, 1400);
+        ikcp_wndsize(kcp, 256, 1024);
+        kcp->rx_minrto = 30;
+    } else {
+        autoModeEnabled = false;
+        applyFixedMode(mode);
+    }
+}
+
+template<typename Link>
+void KcpBase<Link>::applyFixedMode(KcpMode mode)
+{
     switch (mode) {
     case KcpMode::LargeDelayInternet:
         waterLine = 512;
@@ -222,15 +254,15 @@ void KcpBase<Link>::setMode(KcpMode mode)
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 1024, 1024);
         kcp->rx_minrto = 30;
-        // kcp->interval = 5;
+        kcp->interval = 5;
         break;
     case KcpMode::AsymmetricInternet:
         waterLine = 256;
-        ikcp_nodelay(kcp, 1, 10, 1, 0);
+        ikcp_nodelay(kcp, 1, 10, 2, 0);
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 1024, 1024);
         kcp->rx_minrto = 30;
-        // kcp->interval = 5;
+        kcp->interval = 5;
         break;
     case KcpMode::FastInternet:
         waterLine = 192;
@@ -238,7 +270,7 @@ void KcpBase<Link>::setMode(KcpMode mode)
         ikcp_setmtu(kcp, 1400);
         ikcp_wndsize(kcp, 512, 512);
         kcp->rx_minrto = 20;
-        // kcp->interval = 2;
+        kcp->interval = 2;
         break;
     case KcpMode::Ethernet:
         waterLine = 64;
@@ -246,7 +278,7 @@ void KcpBase<Link>::setMode(KcpMode mode)
         ikcp_setmtu(kcp, 1024 * 32);
         ikcp_wndsize(kcp, 128, 128);
         kcp->rx_minrto = 10;
-        // kcp->interval = 1;
+        kcp->interval = 1;
         break;
     case KcpMode::Loopback:
         waterLine = 64;
@@ -254,8 +286,128 @@ void KcpBase<Link>::setMode(KcpMode mode)
         ikcp_setmtu(kcp, 1024 * 64 - 256);
         ikcp_wndsize(kcp, 128, 128);
         kcp->rx_minrto = 5;
-        // kcp->interval = 1;
+        kcp->interval = 1;
         break;
+    case KcpMode::Auto:
+        break;
+    }
+}
+
+template<typename Link>
+void KcpBase<Link>::resetAutoModeState()
+{
+    lastAdaptTimestamp = 0;
+    lastSndUna = 0;
+    autoSrttBaseline = 0;
+    congestedStreak = 0;
+    healthyStreak = 0;
+}
+
+template<typename Link>
+void KcpBase<Link>::adaptAutoMode(quint64 now)
+{
+    if (!autoModeEnabled || state != Socket::ConnectedState) {
+        return;
+    }
+    if (lastAdaptTimestamp != 0 && now - lastAdaptTimestamp < 1500) {
+        return;
+    }
+
+    bool paramsChanged = false;
+    {
+        ScopedLock<RLock> l(kcpLock);
+        const int waitSnd = ikcp_waitsnd(kcp);
+        const quint32 nsndBuf = kcp->nsnd_buf;
+        const int srtt = kcp->rx_srtt;
+        const quint32 sndWnd = kcp->snd_wnd;
+
+        if (srtt > 0 && autoSrttBaseline == 0) {
+            autoSrttBaseline = srtt;
+        }
+
+        bool congested = false;
+        if (nsndBuf > 0) {
+            congested = true;
+        }
+        if (sndWnd > 0 && static_cast<quint32>(waitSnd) >= sndWnd * 85 / 100) {
+            congested = true;
+        }
+        if (autoSrttBaseline > 0 && srtt > autoSrttBaseline * 130 / 100) {
+            congested = true;
+        }
+
+        bool healthy = false;
+        if (nsndBuf == 0 && sndWnd > 0 && static_cast<quint32>(waitSnd) < sndWnd * 40 / 100) {
+            if (autoSrttBaseline > 0 && srtt > 0) {
+                int diff = srtt - autoSrttBaseline;
+                if (diff < 0) {
+                    diff = -diff;
+                }
+                if (diff <= autoSrttBaseline * 20 / 100) {
+                    healthy = true;
+                }
+            } else if (srtt > 0) {
+                healthy = true;
+            }
+        }
+
+        if (congested) {
+            congestedStreak++;
+            healthyStreak = 0;
+        } else if (healthy) {
+            healthyStreak++;
+            congestedStreak = 0;
+            if (srtt > 0 && autoSrttBaseline > 0) {
+                autoSrttBaseline = (autoSrttBaseline * 7 + srtt) / 8;
+            }
+        } else {
+            congestedStreak = 0;
+            healthyStreak = 0;
+        }
+
+        if (congestedStreak >= 2) {
+            if (kcp->nocwnd != 0) {
+                ikcp_nodelay(kcp, -1, -1, -1, 0);
+                paramsChanged = true;
+            }
+            quint32 newWnd = sndWnd * 75 / 100;
+            if (newWnd < 64) {
+                newWnd = 64;
+            }
+            if (newWnd < sndWnd) {
+                ikcp_wndsize(kcp, static_cast<int>(newWnd), 0);
+                paramsChanged = true;
+            }
+            congestedStreak = 0;
+            healthyStreak = 0;
+        } else if (healthyStreak >= 3) {
+            if (kcp->nocwnd != 1) {
+                ikcp_nodelay(kcp, -1, -1, -1, 1);
+                paramsChanged = true;
+            }
+            quint32 newWnd = sndWnd * 110 / 100;
+            if (newWnd > 1024) {
+                newWnd = 1024;
+            }
+            if (newWnd > sndWnd) {
+                ikcp_wndsize(kcp, static_cast<int>(newWnd), 0);
+                paramsChanged = true;
+            }
+            congestedStreak = 0;
+            healthyStreak = 0;
+        }
+
+        lastSndUna = kcp->snd_una;
+        lastAdaptTimestamp = now;
+
+        if (paramsChanged) {
+            qtng_debug << "kcp id:" << connectionId << "auto adapt: nc" << kcp->nocwnd << "snd_wnd" << kcp->snd_wnd << "srtt" << kcp->rx_srtt
+                       << "waitsnd" << ikcp_waitsnd(kcp);
+        }
+    }
+
+    if (paramsChanged) {
+        updateStatus();
     }
 }
 
@@ -634,6 +786,7 @@ bool KcpBase<Link>::handleDatagram(const char *buf, qint32 len, const LinkPathID
             return false;
         }
         lastActiveTimestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
+        updateStatus();
         updateKcp(); // send ack before info user layer that has receive data can let kcp faster
         receivingQueueNotEmpty.set();
         remoteId = remote;
@@ -709,6 +862,10 @@ void KcpBase<Link>::doUpdate()
 #endif
         }
 
+        if (autoModeEnabled) {
+            adaptAutoMode(now);
+        }
+
         updateStatus();
 
         quint32 ts = ikcp_check(kcp, current);
@@ -725,7 +882,7 @@ void KcpBase<Link>::updateKcp()
 {
     QSharedPointer<Coroutine> t = operations->spawnWithName(
             QString::fromLatin1("update_kcp"), [this] { doUpdate(); }, false);
-    kcp->updated = 0;
+    // kcp->updated = 0;
     forceToUpdate.open();
 }
 
@@ -733,16 +890,15 @@ template<typename Link>
 void KcpBase<Link>::updateStatus()
 {
     int sendingQueueSize = ikcp_waitsnd(kcp);
-    if (sendingQueueSize <= 0) {
+    if (sendingQueueSize > kcp->snd_wnd) {
+        sendingQueueEmpty.clear();
+        sendingQueueNotFull.clear();
+    } else if (sendingQueueSize > 0) {
+        sendingQueueEmpty.clear();
+        sendingQueueNotFull.set();
+    } else {
         sendingQueueNotFull.set();
         sendingQueueEmpty.set();
-    } else {
-        sendingQueueEmpty.clear();
-        if (static_cast<quint32>(sendingQueueSize) > (kcp->snd_wnd << 1)) {
-            sendingQueueNotFull.clear();
-        } else if (static_cast<quint32>(sendingQueueSize) <= waterLine) {
-            sendingQueueNotFull.set();
-        }
     }
 }
 

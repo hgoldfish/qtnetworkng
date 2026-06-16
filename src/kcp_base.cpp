@@ -518,7 +518,7 @@ QSharedPointer<Socket> SinglePathUdpLinkSocketLike::socket() const
 QSharedPointer<SocketLike>
 createKcpConnection(const HostAddress &host, quint16 port, Socket::SocketError *error /*= nullptr*/,
                     int allowProtocol /*= HostAddress::IPv4Protocol | HostAddress::IPv6Protocol*/,
-                    KcpMode mode /*= AsymmetricInternet*/)
+                    KcpMode mode /*= Auto*/)
 {
     SinglePathUdpLinkSocketLike *socket = createConnection<SinglePathUdpLinkSocketLike>(
             host, port, error, allowProtocol, MakeSocketType<SinglePathUdpLinkSocketLike>);
@@ -532,7 +532,7 @@ QSharedPointer<SocketLike>
 createKcpConnection(const QString &hostName, quint16 port, Socket::SocketError *error /*= nullptr*/,
                     QSharedPointer<SocketDnsCache> dnsCache /*= QSharedPointer<SocketDnsCache>()*/,
                     int allowProtocol /*= HostAddress::IPv4Protocol | HostAddress::IPv6Protocol*/,
-                    KcpMode mode /*= AsymmetricInternet*/)
+                    KcpMode mode /*= Auto*/)
 {
     SinglePathUdpLinkSocketLike *socket = createConnection<SinglePathUdpLinkSocketLike>(
             hostName, port, error, dnsCache, allowProtocol, MakeSocketType<SinglePathUdpLinkSocketLike>);

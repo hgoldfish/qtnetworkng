@@ -12,6 +12,7 @@ enum KcpMode {
     Ethernet,
     Loopback,
     AsymmetricInternet,
+    Auto,
 };
 
 class KcpSocketLikeHelper
@@ -39,10 +40,10 @@ protected:
 };
 
 QSharedPointer<SocketLike> createKcpConnection(const HostAddress &host, quint16 port, Socket::SocketError *error = nullptr,
-                                            int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol, KcpMode mode = AsymmetricInternet);
+                                            int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol, KcpMode mode = Auto);
 QSharedPointer<SocketLike> createKcpConnection(const QString &hostName, quint16 port, Socket::SocketError *error = nullptr,
                                    QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>(),
-                    int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol, KcpMode mode = AsymmetricInternet);
+                    int allowProtocol = HostAddress::IPv4Protocol | HostAddress::IPv6Protocol, KcpMode mode = Auto);
 // if backlog == 0, do not bind and listen.
 QSharedPointer<SocketLike> createKcpServer(const HostAddress &host, quint16 port, int backlog = 50,
                                            KcpMode mode = Internet);
