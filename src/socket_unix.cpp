@@ -636,7 +636,9 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
     // TODO UDP socket may send zero length packet
     while (sent < size) {
         if (!checkState()) {
-            return sent;
+            // in sendall mode a partial result is a contract violation: report
+            // the error. in single-send mode the partial bytes are the answer.
+            return all ? -1 : sent;
         }
         ssize_t w;
         do {
@@ -653,7 +655,7 @@ qint32 SocketPrivate::send(const char *data, qint32 size, bool all)
         } else if (w == 0 && type == Socket::TcpSocket) {
             setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
             // abort();
-            return sent;
+            return all ? -1 : sent;
         } else {  // w < 0 || (w == 0 && type != Socket::TcpSocket)
             int e = errno;
             switch (e) {
