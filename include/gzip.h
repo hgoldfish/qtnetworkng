@@ -24,6 +24,12 @@ public:
     virtual void close() override;
     virtual qint64 size() override { return -1; }
 public:
+    // Aborts the current gzip stream. close() (including the destructor) will
+    // then skip writing the gzip trailer, so an interrupted compression leaves
+    // an obviously truncated file on the backend instead of one that looks
+    // complete but silently misses the trailing data.
+    void abort();
+public:
     qint64 processedBytes() const;
 private:
     GzipFilePrivate * const d_ptr;
