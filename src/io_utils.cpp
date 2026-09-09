@@ -419,6 +419,12 @@ bool sendfile(QSharedPointer<FileLike> inputFile, QSharedPointer<FileLike> outpu
             qint32 readBytes = inputFile->read(buf.data() + oldSize, nextBlockSize);
             if (readBytes < 0) {
                 return false;
+            } else if (readBytes > nextBlockSize) {
+                // defensive: FileLike::read is contracted to return at most
+                // `size` bytes. a larger return means the implementation wrote
+                // past the buffer we handed it; treat it as a hard error
+                // instead of feeding the bogus length to the writer.
+                return false;
             } else if (readBytes > 0) {
                 total += readBytes;
                 buf.resize(oldSize + readBytes);
