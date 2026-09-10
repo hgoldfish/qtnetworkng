@@ -553,6 +553,7 @@ static bool setErrorFromWASError(SocketPrivate *d, int err)
         d->setError(Socket::UnknownSocketError, SocketPrivate::UnknownSocketErrorString);
     case WSAEISCONN:
         d->state = Socket::ConnectedState;
+        d->setTcpKeepalive(true, 10, 2);
         d->fetchConnectionParameters();
         return true;
     case WSAEADDRINUSE:
@@ -666,6 +667,7 @@ bool SocketPrivate::connect(const HostAddress &address, quint16 port)
             }
         } else {
             state = Socket::ConnectedState;
+            setTcpKeepalive(true, 10, 2);
             fetchConnectionParameters();
             return true;
         }
@@ -736,6 +738,8 @@ bool SocketPrivate::listen(int backlog)
         qDebug("SocketPrivate::listen(%i) == true", backlog);
     #endif
 
+    // Defense: clear keepalive even if a caller enabled it before listen().
+    setTcpKeepalive(false, 0, 0);
     state = Socket::ListeningState;
     fetchConnectionParameters();
     return true;
@@ -1244,15 +1248,22 @@ bool SocketPrivate::setTcpKeepalive(bool keepalve, int keepaliveTimeoutSesc, int
         return false;
     }
 #if defined(SIO_KEEPALIVE_VALS)
+    // Windows default keepalive idle is ~2h; restore it when disabling so a later
+    // SO_KEEPALIVE-only enable does not keep our leftover 10s.
+    static const int kDefaultKeepaliveIdleSecs = 7200;
+    static const int kDefaultKeepaliveIntervalSecs = 1;
     struct tcp_keepalive vals;
     DWORD dummy;
-    vals.onoff = 1;
-    vals.keepalivetime = 1000 * keepaliveTimeoutSesc;
-    vals.keepaliveinterval = 1000 * keepaliveIntervalSesc;
+    vals.onoff = keepalve ? 1 : 0;
+    vals.keepalivetime = 1000 * (keepalve ? keepaliveTimeoutSesc : kDefaultKeepaliveIdleSecs);
+    vals.keepaliveinterval = 1000 * (keepalve ? keepaliveIntervalSesc : kDefaultKeepaliveIntervalSecs);
     if (WSAIoctl(fd, SIO_KEEPALIVE_VALS, (LPVOID)&vals, sizeof(vals), NULL, 0, &dummy, NULL, NULL) != 0) {
         qtng_debug << "failed to set SIO_KEEPALIVE_VALS on fd" << fd << "errno:" << WSAGetLastError();
         return false;
     }
+#else
+    Q_UNUSED(keepaliveTimeoutSesc);
+    Q_UNUSED(keepaliveIntervalSesc);
 #endif
     return true;
 }

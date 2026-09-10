@@ -351,6 +351,7 @@ bool SocketPrivate::connect(const HostAddress &address, quint16 port)
         } while (result < 0 && errno == EINTR);
         if (result >= 0) {
             state = Socket::ConnectedState;
+            setTcpKeepalive(true, 10, 2);
             fetchConnectionParameters();
             return true;
         }
@@ -358,6 +359,7 @@ bool SocketPrivate::connect(const HostAddress &address, quint16 port)
         switch (t) {
         case EISCONN:
             state = Socket::ConnectedState;
+            setTcpKeepalive(true, 10, 2);
             fetchConnectionParameters();
             return true;
         case EINPROGRESS:
@@ -468,6 +470,8 @@ bool SocketPrivate::listen(int backlog)
         }
         return false;
     }
+    // Defense: clear keepalive even if a caller enabled it before listen().
+    setTcpKeepalive(false, 0, 0);
     state = Socket::ListeningState;
     fetchConnectionParameters();
     return true;
@@ -1021,29 +1025,41 @@ QVariant SocketPrivate::option(Socket::SocketOption option) const
 
 bool SocketPrivate::setTcpKeepalive(bool keepalve, int keepaliveTimeoutSesc, int keepaliveIntervalSesc)
 {
+    // BSD/Darwin defaults: net.inet.tcp.keepidle=7200000ms -> 7200s; keepintvl=75s.
+    // When disabling keepalive, restore idle/interval so a later SO_KEEPALIVE-only
+    // enable uses the 2h system default instead of our leftover 10s.
+    static const int kDefaultKeepaliveIdleSecs = 7200;
+    static const int kDefaultKeepaliveIntervalSecs = 75;
+
     int optval = keepalve ? 1 : 0;
     if (!setOption(Socket::KeepAliveOption, optval)) {
         qtng_debug << "failed to set SO_KEEPALIVE on fd" << fd << "errno:" << errno;
         return false;
     }
+
+    const int idleSecs = keepalve ? keepaliveTimeoutSesc : kDefaultKeepaliveIdleSecs;
+    const int intervalSecs = keepalve ? keepaliveIntervalSesc : kDefaultKeepaliveIntervalSecs;
+
 #ifdef TCP_KEEPIDLE
-    optval = keepaliveTimeoutSesc;
+    optval = idleSecs;
     if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, (void *) &optval, sizeof(optval)) < 0) {
         qtng_debug << "failed to set TCP_KEEPIDLE on fd" << fd << "errno:" << errno;
     }
 #elif defined(TCP_KEEPALIVE)
-    /* Mac OS X style */
-    optval = keepaliveTimeoutSesc;
+    /* macOS: TCP_KEEPALIVE is the counterpart of Linux TCP_KEEPIDLE (seconds). */
+    optval = idleSecs;
     if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE, (void *) &optval, sizeof(optval)) < 0) {
         qtng_debug << "failed to set TCP_KEEPALIVE on fd" << fd << "errno:" << errno;
     }
 #endif
 
 #ifdef TCP_KEEPINTVL
-    optval = keepaliveIntervalSesc;
+    optval = intervalSecs;
     if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, (void *) &optval, sizeof(optval)) < 0) {
         qtng_debug << "failed to set TCP_KEEPINTVL on fd" << fd << "errno:" << errno;
     }
+#else
+    Q_UNUSED(intervalSecs);
 #endif
     return true;
 }

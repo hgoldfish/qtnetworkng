@@ -30,8 +30,6 @@ SocketPrivate::SocketPrivate(HostAddress::NetworkLayerProtocol protocol, Socket:
         setOption(Socket::BroadcastSocketOption, 1);
         setOption(Socket::ReceivePacketInformation, 1);
         setOption(Socket::ReceiveHopLimit, 1);
-    } else if (type == Socket::TcpSocket) {
-        setTcpKeepalive(true, 10, 2);
     }
 }
 
