@@ -1258,7 +1258,7 @@ HttpResponse HttpSessionPrivate::send(HttpRequest &request)
         response.setError(new HTTPError(response.d->statusCode));
     } else {
         const QString &rm = request.method().toUpper();
-        if ((rm == QLatin1String("GET") || rm == QLatin1String("HEAD") || rm == QLatin1String("OPTION"))
+        if ((rm == QLatin1String("GET") || rm == QLatin1String("HEAD") || rm == QLatin1String("OPTIONS"))
             && !cacheManager.isNull() && !request.streamResponse()) {
             bool doCache = true;
             const QByteArray &requestHeader = request.header(KnownHeader::CacheControlHeader).toLower();
