@@ -19,6 +19,7 @@
 #include "network_interface.h"
 #include "websocket.h"
 #include "lmdb.h"
+#include "local_socket.h"
 
 #ifndef QTNG_NO_CRYPTO
 #  include "ssl.h"

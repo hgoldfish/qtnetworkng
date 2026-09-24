@@ -51,6 +51,7 @@ set(QTNETWORKNG_SRC
     src/kcp/ikcp.c
     src/kcp/ikcp.h
 
+    src/local_socket.cpp
     src/network_interface/network_interface.cpp
 )
 
@@ -82,6 +83,7 @@ set(QTNETWORKNG_INCLUDE
     include/network_interface.h
     include/gzip.h
     include/websocket.h
+    include/local_socket.h
 )
 
 set(QTNETWORKNG_PRIVATE_INCLUDE
@@ -92,6 +94,7 @@ set(QTNETWORKNG_PRIVATE_INCLUDE
     include/private/http_p.h
     include/private/hostaddress_p.h
     include/private/network_interface_p.h
+    include/private/local_socket_p.h
 )
 
 set(QTCRYPTONG_SRC
@@ -150,6 +153,7 @@ unset(QT_BUNDLED_ZLIB)
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(OS_DEPENDENDED_SRC
         src/socket_win.cpp
+        src/local_socket_win.cpp
         src/coroutine_win.cpp
         src/network_interface/network_interface_win.cpp
     )
@@ -188,6 +192,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(OS_DEPENDENDED_SRC
         ${OS_DEPENDENDED_SRC}
         src/socket_unix.cpp
+        src/local_socket_unix.cpp
         src/coroutine_fcontext.cpp
         src/network_interface/network_interface_unix.cpp
     )
@@ -230,6 +235,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     set(OS_DEPENDENDED_SRC
         ${OS_DEPENDENDED_SRC}
         src/socket_unix.cpp
+        src/local_socket_unix.cpp
         src/coroutine_fcontext.cpp
         src/network_interface/network_interface_unix.cpp
     )
@@ -292,6 +298,7 @@ elseif(UNIX)
     set(OS_DEPENDENDED_SRC
         ${OS_DEPENDENDED_SRC}
         src/socket_unix.cpp
+        src/local_socket_unix.cpp
         src/network_interface/network_interface_unix.cpp
     )
 else()

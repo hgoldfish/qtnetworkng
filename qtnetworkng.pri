@@ -36,7 +36,8 @@ SOURCES += \
     $$PWD/src/network_interface/network_interface.cpp \
     $$PWD/src/lmdb.cpp \
     $$PWD/src/liblmdb/midl.c \
-    $$PWD/src/liblmdb/mdb.c
+    $$PWD/src/liblmdb/mdb.c \
+    $$PWD/src/local_socket.cpp
 
 
 PRIVATE_HEADERS += \
@@ -45,7 +46,8 @@ PRIVATE_HEADERS += \
     $$PWD/include/private/socket_p.h \
     $$PWD/include/private/hostaddress_p.h \
     $$PWD/include/private/network_interface_p.h \
-    $$PWD/include/private/eventloop_p.h
+    $$PWD/include/private/eventloop_p.h \
+    $$PWD/include/private/local_socket_p.h \
     $$PWD/src/kcp/ikcp.h
 
 
@@ -76,6 +78,7 @@ HEADERS += \
     $$PWD/include/hostaddress.h \
     $$PWD/include/network_interface.h \
     $$PWD/include/lmdb.h \
+    $$PWD/include/local_socket.h \
     $$PWD/src/eventloop_qt_p.h \
     $$PWD/src/liblmdb/midl.h \
     $$PWD/src/liblmdb/lmdb.h
@@ -83,12 +86,14 @@ HEADERS += \
 
 win32 {
     SOURCES += $$PWD/src/socket_win.cpp \
+        $$PWD/src/local_socket_win.cpp \
         $$PWD/src/eventloop_win.cpp \
         $$PWD/src/network_interface/network_interface_win.cpp
     LIBS += -lws2_32 -luser32
     DEFINES += "QTNETWORKNG_USE_WIN=1"
 } else: unix  {
     SOURCES += $$PWD/src/socket_unix.cpp \
+        $$PWD/src/local_socket_unix.cpp \
         $$PWD/src/network_interface/network_interface_unix_p.h
     linux {
         SOURCES += $$PWD/src/network_interface/network_interface_linux.cpp

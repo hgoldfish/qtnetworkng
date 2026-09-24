@@ -5,6 +5,7 @@
 #include "kcp_base.h"
 #include "socket_utils.h"
 #include "coroutine_utils.h"
+#include "local_socket.h"
 #ifndef QTNG_NO_CRYPTO
 #include "ssl.h"
 #endif
@@ -20,6 +21,8 @@ public:
         : BaseStreamServer(HostAddress::Any, serverPort)
     {
     }
+    // Local / named-pipe style server: bind by path name instead of IP:port.
+    explicit BaseStreamServer(const QString &serverName);
     virtual ~BaseStreamServer();
 protected:
     // these two virtual functions should be overrided by subclass.
@@ -42,6 +45,7 @@ public:
 public:
     quint16 serverPort() const;
     HostAddress serverAddress() const;
+    QString serverName() const;
     QSharedPointer<SocketLike> serverSocket();
 public:
     QSharedPointer<Event> started();
@@ -88,6 +92,34 @@ QSharedPointer<SocketLike> TcpServer<RequestHandler>::serverCreate()
 
 template<typename RequestHandler>
 void TcpServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
+{
+    RequestHandler handler;
+    handler.request = request;
+    handler.server = this;
+    handler.run();
+}
+
+template<typename RequestHandler>
+class LocalServer : public BaseStreamServer
+{
+public:
+    explicit LocalServer(const QString &name)
+        : BaseStreamServer(name)
+    {
+    }
+protected:
+    virtual QSharedPointer<SocketLike> serverCreate() override;
+    virtual void processRequest(QSharedPointer<SocketLike> request) override;
+};
+
+template<typename RequestHandler>
+QSharedPointer<SocketLike> LocalServer<RequestHandler>::serverCreate()
+{
+    return asSocketLike(new LocalSocket());
+}
+
+template<typename RequestHandler>
+void LocalServer<RequestHandler>::processRequest(QSharedPointer<SocketLike> request)
 {
     RequestHandler handler;
     handler.request = request;
