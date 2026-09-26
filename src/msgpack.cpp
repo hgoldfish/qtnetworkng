@@ -216,6 +216,16 @@ bool MsgPackStreamPrivate::readBytes(quint8 *data, int len)
     return readBytes(static_cast<char *>(static_cast<void *>(data)), len);
 }
 
+static bool takeQtLen(MsgPackStreamPrivate *self, quint32 raw, qint32 &out)
+{
+    if (raw > static_cast<quint32>(std::numeric_limits<qint32>::max())) {
+        self->status = MsgPackStream::ReadCorruptData;
+        return false;
+    }
+    out = static_cast<qint32>(raw);
+    return true;
+}
+
 bool MsgPackStreamPrivate::readArrayHeader(qint32 &len)
 {
     quint8 p[5];
@@ -235,12 +245,7 @@ bool MsgPackStreamPrivate::readArrayHeader(qint32 &len)
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
-    if (raw > static_cast<quint32>(std::numeric_limits<qint32>::max())) {
-        status = MsgPackStream::ReadCorruptData;
-        return false;
-    }
-    len = static_cast<qint32>(raw);
-    return true;
+    return takeQtLen(this, raw, len);
 }
 
 bool MsgPackStreamPrivate::readMapHeader(qint32 &len)
@@ -262,12 +267,7 @@ bool MsgPackStreamPrivate::readMapHeader(qint32 &len)
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
-    if (raw > static_cast<quint32>(std::numeric_limits<qint32>::max())) {
-        status = MsgPackStream::ReadCorruptData;
-        return false;
-    }
-    len = static_cast<qint32>(raw);
-    return true;
+    return takeQtLen(this, raw, len);
 }
 
 bool MsgPackStreamPrivate::readExtHeader(qint32 &len, quint8 &msgpackType)
@@ -316,12 +316,14 @@ bool MsgPackStreamPrivate::readExtHeader(qint32 &len, quint8 &msgpackType)
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
-    if (raw > limit || raw > static_cast<quint32>(std::numeric_limits<qint32>::max())) {
+    if (raw > limit) {
         qDebug() << "read length is too large.";
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
-    len = static_cast<qint32>(raw);
+    if (!takeQtLen(this, raw, len)) {
+        return false;
+    }
     msgpackType = typeByte;
     return true;
 }
@@ -1447,7 +1449,7 @@ bool MsgPackStream::readMapHeader(qint32 &len)
     return d->readMapHeader(len);
 }
 
-bool MsgPackStream::readExtHeader(qint32 &len, quint8 msgpackType)
+bool MsgPackStream::readExtHeader(qint32 &len, quint8 &msgpackType)
 {
     Q_D(MsgPackStream);
     return d->readExtHeader(len, msgpackType);
