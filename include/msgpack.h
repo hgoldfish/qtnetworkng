@@ -73,9 +73,9 @@ public:
     MsgPackStream &operator>>(MsgPackExtData &ext);
     MsgPackStream &operator>>(QVariant &v);
     bool readBytes(char *data, qint64 len);
-    bool readArrayHeader(quint32 &len);
-    bool readMapHeader(quint32 &len);
-    bool readExtHeader(quint32 &len, quint8 msgpackType);
+    bool readArrayHeader(qint32 &len);
+    bool readMapHeader(qint32 &len);
+    bool readExtHeader(qint32 &len, quint8 msgpackType);
 
     MsgPackStream &operator<<(bool b);
     MsgPackStream &operator<<(quint8 u8);
@@ -350,13 +350,13 @@ inline typename std::enable_if<is_qt_pointer<T>::value, T>::type s_allocate()
 template<typename T>
 MsgPackStream &operator>>(MsgPackStream &s, QList<T> &list)
 {
-    quint32 len = 0;
+    qint32 len = 0;
     if (!s.readArrayHeader(len)) {
         return s;
     }
     list.clear();
     list.reserve(len);
-    for (quint32 i = 0; i < len; ++i) {
+    for (qint32 i = 0; i < len; ++i) {
         T t = s_allocate<T>();
         s >> t;
         if (s.status() != MsgPackStream::Ok) {
@@ -372,13 +372,13 @@ MsgPackStream &operator>>(MsgPackStream &s, QList<T> &list)
 template<typename T>
 MsgPackStream &operator>>(MsgPackStream &s, QSet<T> &set)
 {
-    quint32 len = 0;
+    qint32 len = 0;
     if (!s.readArrayHeader(len)) {
         return s;
     }
     set.clear();
     set.reserve(len);
-    for (quint32 i = 0; i < len; ++i) {
+    for (qint32 i = 0; i < len; ++i) {
         T t = s_allocate<T>();
         s >> t;
         if (s.status() != MsgPackStream::Ok) {
@@ -394,13 +394,13 @@ MsgPackStream &operator>>(MsgPackStream &s, QSet<T> &set)
 template<typename T>
 MsgPackStream &operator>>(MsgPackStream &s, QVector<T> &list)
 {
-    quint32 len = 0;
+    qint32 len = 0;
     if (!s.readArrayHeader(len)) {
         return s;
     }
     list.clear();
     list.reserve(len);
-    for (quint32 i = 0; i < len; ++i) {
+    for (qint32 i = 0; i < len; ++i) {
         T t = s_allocate<T>();
         s >> t;
         if (s.status() != MsgPackStream::Ok) {
@@ -417,12 +417,12 @@ MsgPackStream &operator>>(MsgPackStream &s, QVector<T> &list)
 template<typename K, typename V>
 MsgPackStream &operator>>(MsgPackStream &s, QMap<K, V> &map)
 {
-    quint32 len = 0;
+    qint32 len = 0;
     if (!s.readMapHeader(len)) {
         return s;
     }
     map.clear();
-    for (quint32 i = 0; i < len; ++i) {
+    for (qint32 i = 0; i < len; ++i) {
         K k = s_allocate<K>();
         s >> k;
         if (s.status() != MsgPackStream::Ok) {
@@ -441,13 +441,13 @@ MsgPackStream &operator>>(MsgPackStream &s, QMap<K, V> &map)
 template<typename K, typename V>
 MsgPackStream &operator>>(MsgPackStream &s, QHash<K, V> &map)
 {
-    quint32 len = 0;
+    qint32 len = 0;
     if (!s.readMapHeader(len)) {
         return s;
     }
     map.clear();
     map.reserve(len);
-    for (quint32 i = 0; i < len; ++i) {
+    for (qint32 i = 0; i < len; ++i) {
         K k = s_allocate<K>();
         s >> k;
         if (s.status() != MsgPackStream::Ok) {

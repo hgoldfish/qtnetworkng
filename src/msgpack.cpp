@@ -1,5 +1,6 @@
 #include <QtCore/qbuffer.h>
 #include <QtCore/qdebug.h>
+#include <limits>
 #include "../include/msgpack.h"
 
 #undef CHECK_STREAM_PRECOND
@@ -78,9 +79,9 @@ public:
 public:
     bool readBytes(char *data, qint64 len);
     inline bool readBytes(quint8 *data, int len);
-    bool readArrayHeader(quint32 &len);
-    bool readMapHeader(quint32 &len);
-    bool readExtHeader(quint32 &len, quint8 &msgpackType);
+    bool readArrayHeader(qint32 &len);
+    bool readMapHeader(qint32 &len);
+    bool readExtHeader(qint32 &len, quint8 &msgpackType);
     bool writeBytes(const char *data, qint64 len);
     inline bool writeBytes(const quint8 *data, int len);
     bool writeArrayHeader(quint32 len);
@@ -215,60 +216,73 @@ bool MsgPackStreamPrivate::readBytes(quint8 *data, int len)
     return readBytes(static_cast<char *>(static_cast<void *>(data)), len);
 }
 
-bool MsgPackStreamPrivate::readArrayHeader(quint32 &len)
+bool MsgPackStreamPrivate::readArrayHeader(qint32 &len)
 {
     quint8 p[5];
+    quint32 raw = 0;
     if (!readBytes(p, 1)) {
         return false;
     }
     if (p[0] >= FirstByte::FIXARRAY && p[0] <= (FirstByte::FIXARRAY + 0xf)) {
-        len = p[0] & 0xf;
+        raw = p[0] & 0xf;
     } else if (p[0] == FirstByte::ARRAY16) {
         readBytes((char *) p + 1, 2);
-        len = _msgpack_load16(p + 1);
+        raw = _msgpack_load16(p + 1);
     } else if (p[0] == FirstByte::ARRAY32) {
         readBytes((char *) p + 1, 4);
-        len = _msgpack_load32(p + 1);
+        raw = _msgpack_load32(p + 1);
     } else {
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
+    if (raw > static_cast<quint32>(std::numeric_limits<qint32>::max())) {
+        status = MsgPackStream::ReadCorruptData;
+        return false;
+    }
+    len = static_cast<qint32>(raw);
     return true;
 }
 
-bool MsgPackStreamPrivate::readMapHeader(quint32 &len)
+bool MsgPackStreamPrivate::readMapHeader(qint32 &len)
 {
     quint8 p[5];
+    quint32 raw = 0;
     if (!readBytes(p, 1)) {
         return false;
     }
     if (p[0] >= FirstByte::FIXMAP && p[0] <= (FirstByte::FIXMAP + 0xf)) {
-        len = p[0] & 0xf;
+        raw = p[0] & 0xf;
     } else if (p[0] == FirstByte::MAP16) {
         readBytes((char *) p + 1, 2);
-        len = _msgpack_load16(p + 1);
+        raw = _msgpack_load16(p + 1);
     } else if (p[0] == FirstByte::MAP32) {
         readBytes((char *) p + 1, 4);
-        len = _msgpack_load32(p + 1);
+        raw = _msgpack_load32(p + 1);
     } else {
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
+    if (raw > static_cast<quint32>(std::numeric_limits<qint32>::max())) {
+        status = MsgPackStream::ReadCorruptData;
+        return false;
+    }
+    len = static_cast<qint32>(raw);
     return true;
 }
 
-bool MsgPackStreamPrivate::readExtHeader(quint32 &len, quint8 &msgpackType)
+bool MsgPackStreamPrivate::readExtHeader(qint32 &len, quint8 &msgpackType)
 {
     if (!dev || status != MsgPackStream::Ok) {
         return false;
     }
     quint8 typeByte = 0;
+    quint32 raw = 0;
     if (!readBytes(&typeByte, 1)) {
         return false;
     }
     if (FirstByte::FIXEXT1 <= typeByte && typeByte <= FirstByte::FIXEX16) {
-        len = 1;
-        len <<= typeByte - FirstByte::FIXEXT1;
+        raw = 1;
+        raw <<= typeByte - FirstByte::FIXEXT1;
         if (!readBytes(&typeByte, 1)) {
             return false;
         }
@@ -276,7 +290,7 @@ bool MsgPackStreamPrivate::readExtHeader(quint32 &len, quint8 &msgpackType)
         if (!readBytes(&typeByte, 1)) {
             return false;
         }
-        len = typeByte;
+        raw = typeByte;
         if (!readBytes(&typeByte, 1)) {
             return false;
         }
@@ -285,7 +299,7 @@ bool MsgPackStreamPrivate::readExtHeader(quint32 &len, quint8 &msgpackType)
         if (!readBytes(lenBytes, 2)) {
             return false;
         }
-        len = _msgpack_load16(lenBytes);
+        raw = _msgpack_load16(lenBytes);
         if (!readBytes(&typeByte, 1)) {
             return false;
         }
@@ -294,7 +308,7 @@ bool MsgPackStreamPrivate::readExtHeader(quint32 &len, quint8 &msgpackType)
         if (!readBytes(lenBytes, 4)) {
             return false;
         }
-        len = _msgpack_load32(lenBytes);
+        raw = _msgpack_load32(lenBytes);
         if (!readBytes(&typeByte, 1)) {
             return false;
         }
@@ -302,11 +316,12 @@ bool MsgPackStreamPrivate::readExtHeader(quint32 &len, quint8 &msgpackType)
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
-    if (len > limit) {
+    if (raw > limit || raw > static_cast<quint32>(std::numeric_limits<qint32>::max())) {
         qDebug() << "read length is too large.";
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
+    len = static_cast<qint32>(raw);
     msgpackType = typeByte;
     return true;
 }
@@ -1373,7 +1388,7 @@ MsgPackStream &MsgPackStream::operator>>(QByteArray &array)
 MsgPackStream &MsgPackStream::operator>>(QDateTime &dt)
 {
     CHECK_STREAM_PRECOND(*this);
-    quint32 len;
+    qint32 len = 0;
     quint8 msgpackType;
     if (!d->readExtHeader(len, msgpackType) || msgpackType != 0xff) {
         d->status = ReadCorruptData;
@@ -1397,16 +1412,12 @@ MsgPackStream &MsgPackStream::operator>>(QDateTime &dt)
 MsgPackStream &MsgPackStream::operator>>(MsgPackExtData &ext)
 {
     Q_D(MsgPackStream);
-    quint32 len;
+    qint32 len = 0;
     bool success = d->readExtHeader(len, ext.type);
     if (!success) {
         return *this;
     }
-    if (static_cast<int>(len) < 0) {
-        d->status = ReadCorruptData;
-        return *this;
-    }
-    ext.payload.resize(static_cast<int>(len));
+    ext.payload.resize(len);
     d->readBytes(ext.payload.data(), len);
     return *this;
 }
@@ -1424,19 +1435,19 @@ bool MsgPackStream::readBytes(char *data, qint64 len)
     return d->readBytes(data, len);
 }
 
-bool MsgPackStream::readArrayHeader(quint32 &len)
+bool MsgPackStream::readArrayHeader(qint32 &len)
 {
     Q_D(MsgPackStream);
     return d->readArrayHeader(len);
 }
 
-bool MsgPackStream::readMapHeader(quint32 &len)
+bool MsgPackStream::readMapHeader(qint32 &len)
 {
     Q_D(MsgPackStream);
     return d->readMapHeader(len);
 }
 
-bool MsgPackStream::readExtHeader(quint32 &len, quint8 msgpackType)
+bool MsgPackStream::readExtHeader(qint32 &len, quint8 msgpackType)
 {
     Q_D(MsgPackStream);
     return d->readExtHeader(len, msgpackType);
