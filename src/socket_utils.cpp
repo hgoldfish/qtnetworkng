@@ -23,6 +23,16 @@ qint64 SocketLike::size()
     return -1;
 }
 
+bool SocketLike::bind(const QString &, Socket::BindMode)
+{
+    return false;
+}
+
+bool SocketLike::connect(const QString &)
+{
+    return false;
+}
+
 namespace {
 class SocketLikeImpl : public SocketLike
 {

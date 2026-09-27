@@ -38,9 +38,12 @@ public:
     virtual bool bind(const HostAddress &address, quint16 port = 0,
                       Socket::BindMode mode = Socket::DefaultForPlatform) = 0;
     virtual bool bind(quint16 port = 0, Socket::BindMode mode = Socket::DefaultForPlatform) = 0;
+    // LocalSocket / named pipe: bind or connect by path name. Default: unsupported.
+    virtual bool bind(const QString &name, Socket::BindMode mode = Socket::DefaultForPlatform);
     virtual bool connect(const HostAddress &addr, quint16 port) = 0;
     virtual bool connect(const QString &hostName, quint16 port,
                          QSharedPointer<SocketDnsCache> dnsCache = QSharedPointer<SocketDnsCache>()) = 0;
+    virtual bool connect(const QString &name);
     //    virtual void close() override = 0;  // from FileLike
     virtual void abort() = 0;
     virtual bool listen(int backlog) = 0;

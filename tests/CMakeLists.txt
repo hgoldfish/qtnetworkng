@@ -4,8 +4,10 @@ project(qtng_tests LANGUAGES CXX)
 
 if (MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8")
-else()
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -z noexecstack")
+elseif(CMAKE_HOST_APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "x86_64")
 endif()
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/.. qtnetworkng)
@@ -24,15 +26,19 @@ add_test(qtng_tests test_threadqueue)
 
 add_executable(test_kcp test_kcp.cpp)
 target_link_libraries(test_kcp PRIVATE Qt5::Core qtnetworkng)
+add_test(qtng_tests test_kcp)
 
 add_executable(test_kcpserver test_kcpserver.cpp)
 target_link_libraries(test_kcpserver PRIVATE Qt5::Core qtnetworkng)
+add_test(qtng_tests test_kcpserver)
 
 add_executable(test_websocket test_websocket.cpp)
 target_link_libraries(test_websocket PRIVATE Qt5::Core qtnetworkng)
+add_test(qtng_tests test_websocket)
 
 add_executable(test_websocket_server test_websocket_server.cpp)
 target_link_libraries(test_websocket_server PRIVATE Qt5::Core qtnetworkng)
+add_test(qtng_tests test_websocket_server)
 
 add_executable(test_lmdb test_lmdb.cpp)
 target_link_libraries(test_lmdb PRIVATE Qt5::Core Qt5::Test qtnetworkng)
@@ -42,10 +48,14 @@ add_executable(test_pipe test_pipe.cpp)
 target_link_libraries(test_pipe PRIVATE Qt5::Core Qt5::Test qtnetworkng)
 add_test(qtng_tests test_pipe)
 
+add_executable(test_local_socket test_local_socket.cpp)
+target_link_libraries(test_local_socket PRIVATE Qt5::Core Qt5::Test qtnetworkng)
+add_test(qtng_tests test_local_socket)
+
 add_executable(test_coroutine_group_spawn_with_name test_coroutine_group_spawn_with_name.cpp)
 target_link_libraries(test_coroutine_group_spawn_with_name PRIVATE Qt5::Core Qt5::Test qtnetworkng)
-add_test(test_coroutine_group_spawn_with_name test_coroutine_group_spawn_with_name)
+add_test(qtng_tests test_coroutine_group_spawn_with_name)
 
 add_executable(test_https_keepalive test_https_keepalive.cpp)
 target_link_libraries(test_https_keepalive PRIVATE Qt5::Core Qt5::Test qtnetworkng)
-add_test(test_https_keepalive test_https_keepalive)
+add_test(qtng_tests test_https_keepalive)

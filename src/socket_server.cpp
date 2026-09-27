@@ -27,6 +27,11 @@ public:
         started->clear();
         stopped->set();
     }
+    BaseStreamServerPrivate(BaseStreamServer *q, const QString &serverName)
+        : BaseStreamServerPrivate(q, HostAddress(), 0)
+    {
+        this->serverName = serverName;
+    }
     ~BaseStreamServerPrivate() { delete operations; }
     void serveForever();
 public:
@@ -35,6 +40,7 @@ public:
     QSharedPointer<Event> started;
     QSharedPointer<Event> stopped;
     HostAddress serverAddress;
+    QString serverName;
     void *userData;
     int requestQueueSize;
     quint16 serverPort;
@@ -47,6 +53,12 @@ private:
 
 BaseStreamServer::BaseStreamServer(const HostAddress &serverAddress, quint16 serverPort)
     : d_ptr(new BaseStreamServerPrivate(this, serverAddress, serverPort))
+{
+
+}
+
+BaseStreamServer::BaseStreamServer(const QString &serverName)
+    : d_ptr(new BaseStreamServerPrivate(this, serverName))
 {
 
 }
@@ -90,15 +102,23 @@ bool BaseStreamServer::serverBind()
     }
 
     Socket::BindMode mode;
-    if (d->allowReuseAddress) {
-        mode = Socket::ReuseAddressHint;
+    if (!d->serverName.isEmpty()) {
+        // A local name has no SO_REUSEADDR. The default reclaims a socket file
+        // left by a dead server. allowReuseAddress false keeps that file and
+        // makes bind() fail with AddressInUseError. Windows ignores the mode.
+        mode = d->allowReuseAddress ? Socket::DefaultForPlatform : Socket::DontShareAddress;
+        d->bound = d->serverSocket->bind(d->serverName, mode);
     } else {
-        mode = Socket::DefaultForPlatform;
+        mode = d->allowReuseAddress ? Socket::ReuseAddressHint : Socket::DefaultForPlatform;
+        d->bound = d->serverSocket->bind(d->serverAddress, d->serverPort, mode);
     }
-    d->bound = d->serverSocket->bind(d->serverAddress, d->serverPort, mode);
 #ifdef DEBUG_PROTOCOL
     if (!d->bound) {
-        qtng_info << "server can not bind to" << d->serverAddress.toString() << ":" << d->serverPort;
+        if (!d->serverName.isEmpty()) {
+            qtng_info << "server can not bind to" << d->serverName;
+        } else {
+            qtng_info << "server can not bind to" << d->serverAddress.toString() << ":" << d->serverPort;
+        }
     }
 #endif
     return d->bound;
@@ -268,6 +288,12 @@ HostAddress BaseStreamServer::serverAddress() const
 {
     Q_D(const BaseStreamServer);
     return d->serverAddress;
+}
+
+QString BaseStreamServer::serverName() const
+{
+    Q_D(const BaseStreamServer);
+    return d->serverName;
 }
 
 QSharedPointer<SocketLike> BaseStreamServer::serverSocket()
