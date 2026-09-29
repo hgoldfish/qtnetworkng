@@ -159,7 +159,7 @@ public:
     DataChannel::ChannelError handleIncomingPacket(quint32 channelNumber, const QByteArray &payload);
     void enqueuePendingChannel(const QSharedPointer<VirtualChannel> &channel);
     quint32 sendingTimeoutMsecs() const;
-
+    void notifyChannelMadeAfterTake(const QSharedPointer<VirtualChannel> &channel);
     QString name;
     DataChannelPole pole;
     quint32 nextChannelNumber;
@@ -262,6 +262,10 @@ public:
 
     QPointer<DataChannel> parentChannel;
     quint32 channelNumber;
+    Event peerReadyEvent;
+
+    void markPeerReady();
+    bool waitPeerReady(quint32 msecs);
 
     Q_DECLARE_PUBLIC(VirtualChannel)
 };
@@ -465,7 +469,9 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel()
     }
     while (true) {
         if (!pendingChannels.isEmpty()) {
-            return pendingChannels.takeFirst();
+            QSharedPointer<VirtualChannel> channel = pendingChannels.takeFirst();
+            notifyChannelMadeAfterTake(channel);
+            return channel;
         }
         if (!pendingChannelsNotEmpty.wait()) {
             return QSharedPointer<VirtualChannel>();
@@ -482,10 +488,20 @@ QSharedPointer<VirtualChannel> DataChannelPrivate::takeChannel(quint32 channelNu
         QSharedPointer<VirtualChannel> channel = pendingChannels.at(i);
         if (channel && channel->channelNumber() == channelNumber) {
             pendingChannels.removeAt(i);
+            notifyChannelMadeAfterTake(channel);
             return channel;
         }
     }
     return QSharedPointer<VirtualChannel>();
+}
+
+void DataChannelPrivate::notifyChannelMadeAfterTake(const QSharedPointer<VirtualChannel> &channel)
+{
+#ifdef DEBUG_PROTOCOL
+    qtng_debug << "pending channel taken, notify peer channel made:" << channel->channelNumber();
+#endif
+    sendPacketRaw(CommandChannelNumber, packChannelMadeRequest(channel->channelNumber()), BlockFlag::NonBlock);
+    channel->d_func()->markPeerReady();
 }
 
 QSharedPointer<VirtualChannel> DataChannelPrivate::peekChannel(quint32 channelNumber)
@@ -565,7 +581,6 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
             return false;
         }
         QSharedPointer<VirtualChannel> channel = makeChannelInternal(DataChannelPole::NegativePole, channelNumber);
-        sendPacketRaw(CommandChannelNumber, packChannelMadeRequest(channelNumber), BlockFlag::NonBlock);
         enqueuePendingChannel(channel);
         return true;
     } else if (command == CHANNEL_MADE_REQUEST) {
@@ -577,6 +592,10 @@ bool DataChannelPrivate::handleCommand(const QByteArray &packet)
             if (channel.isNull()) {
                 subChannels.remove(channelNumber);
             } else {
+                QSharedPointer<VirtualChannel> strong = channel.toStrongRef();
+                if (strong) {
+                    strong->d_func()->markPeerReady();
+                }
                 return true;
             }
         }
@@ -631,6 +650,9 @@ void DataChannelPrivate::notifyChannelClose(quint32 channelNumber)
     if (error != DataChannel::NoError) {
         return;
     }
+#ifdef DEBUG_PROTOCOL
+    qtng_debug << "notify channel close." << channelNumber;
+#endif
     sendPacketRaw(CommandChannelNumber, packDestoryChannelRequest(channelNumber), BlockFlag::NonBlock);
 }
 
@@ -959,6 +981,16 @@ VirtualChannelPrivate::VirtualChannelPrivate(DataChannel *parentChannel, DataCha
 {
 }
 
+void VirtualChannelPrivate::markPeerReady()
+{
+    peerReadyEvent.set();
+}
+
+bool VirtualChannelPrivate::waitPeerReady(quint32 msecs)
+{
+    return peerReadyEvent.tryWait(msecs);
+}
+
 VirtualChannelPrivate::~VirtualChannelPrivate()
 {
     VirtualChannelPrivate::abort(DataChannel::UserShutdown);
@@ -1239,6 +1271,12 @@ QSharedPointer<VirtualChannel> DataChannel::takeChannel(quint32 channelNumber)
 {
     Q_D(DataChannel);
     return d->takeChannel(channelNumber);
+}
+
+bool VirtualChannel::waitPeerReady(quint32 msecs)
+{
+    Q_D(VirtualChannel);
+    return d->waitPeerReady(msecs);
 }
 
 DataChannel::ChannelError DataChannel::error() const
