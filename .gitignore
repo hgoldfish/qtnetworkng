@@ -6,6 +6,7 @@ CMakeLists.txt.user*
 include/pool.h
 website/
 
+/build/
 /docs/_build
 /examples/coroutines/coroutines.pro.user
 /examples/*/build/
