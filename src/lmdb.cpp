@@ -832,7 +832,11 @@ static TransactionPrivate *makePrivateToWrite(MDB_env * const env)
 
 QSharedPointer<Transaction> Transaction::fork()
 {
-    return QSharedPointer<Transaction>(new Transaction(makePrivateToWrite(d_ptr->env)));
+    TransactionPrivate *d = makePrivateToWrite(d_ptr->env);
+    if (!d) {
+        return QSharedPointer<Transaction>();
+    }
+    return QSharedPointer<Transaction>(new Transaction(d));
 }
 
 
@@ -853,7 +857,11 @@ static TransactionPrivate *makePrivateToRead(MDB_env * const env)
 
 QSharedPointer<const Transaction> Transaction::fork() const
 {
-    return QSharedPointer<const Transaction>(new Transaction(makePrivateToRead(d_ptr->env)));
+    TransactionPrivate *d = makePrivateToRead(d_ptr->env);
+    if (!d) {
+        return QSharedPointer<const Transaction>();
+    }
+    return QSharedPointer<const Transaction>(new Transaction(d));
 }
 
 bool Transaction::commit()
