@@ -226,6 +226,17 @@ static bool takeQtLen(MsgPackStreamPrivate *self, quint32 raw, qint32 &out)
     return true;
 }
 
+static bool lengthFitsRemaining(quint32 len, quint32 pos, quint32 limit)
+{
+    // An array element or map entry costs at least one byte on the wire, so a count
+    // larger than the bytes still readable describes a corrupt payload. Rejecting it
+    // here also keeps a bogus count away from the list reader's reserve(), which would
+    // otherwise allocate for entries before the missing bytes are noticed.
+    // pos > limit guards the unsigned subtraction when setLengthLimit() was lowered
+    // below what has already been read.
+    return pos <= limit && len <= limit - pos;
+}
+
 bool MsgPackStreamPrivate::readArrayHeader(qint32 &len)
 {
     quint8 p[5];
@@ -236,12 +247,20 @@ bool MsgPackStreamPrivate::readArrayHeader(qint32 &len)
     if (p[0] >= FirstByte::FIXARRAY && p[0] <= (FirstByte::FIXARRAY + 0xf)) {
         raw = p[0] & 0xf;
     } else if (p[0] == FirstByte::ARRAY16) {
-        readBytes((char *) p + 1, 2);
+        if (!readBytes((char *) p + 1, 2)) {
+            return false;
+        }
         raw = _msgpack_load16(p + 1);
     } else if (p[0] == FirstByte::ARRAY32) {
-        readBytes((char *) p + 1, 4);
+        if (!readBytes((char *) p + 1, 4)) {
+            return false;
+        }
         raw = _msgpack_load32(p + 1);
     } else {
+        status = MsgPackStream::ReadCorruptData;
+        return false;
+    }
+    if (!lengthFitsRemaining(raw, pos, limit)) {
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
@@ -258,12 +277,20 @@ bool MsgPackStreamPrivate::readMapHeader(qint32 &len)
     if (p[0] >= FirstByte::FIXMAP && p[0] <= (FirstByte::FIXMAP + 0xf)) {
         raw = p[0] & 0xf;
     } else if (p[0] == FirstByte::MAP16) {
-        readBytes((char *) p + 1, 2);
+        if (!readBytes((char *) p + 1, 2)) {
+            return false;
+        }
         raw = _msgpack_load16(p + 1);
     } else if (p[0] == FirstByte::MAP32) {
-        readBytes((char *) p + 1, 4);
+        if (!readBytes((char *) p + 1, 4)) {
+            return false;
+        }
         raw = _msgpack_load32(p + 1);
     } else {
+        status = MsgPackStream::ReadCorruptData;
+        return false;
+    }
+    if (!lengthFitsRemaining(raw, pos, limit)) {
         status = MsgPackStream::ReadCorruptData;
         return false;
     }
