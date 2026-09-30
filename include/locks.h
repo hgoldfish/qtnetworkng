@@ -292,6 +292,9 @@ public:
             if (!this->queue.isEmpty()) {
                 break;
             }
+            // Re-arm the latch so the retry below blocks instead of spinning on a
+            // level-triggered ThreadEvent that is still set.
+            notEmpty.clear();
             lock.unlock();
         } while (true);
 
@@ -310,10 +313,23 @@ public:
     template<typename U = EventType>
     typename std::enable_if<!std::is_same<U, ThreadEvent>::value, T>::type get()
     {
-        if (!notEmpty.tryWait()) {
-            return T();
-        }
-        lock.lockForWrite();
+        do {
+            if (!notEmpty.tryWait()) {
+                return T();
+            }
+            lock.lockForWrite();
+            if (!queue.isEmpty()) {
+                break;
+            }
+            // The wakeup found nothing to take (a spurious set, or another consumer
+            // winning the race for the last element). Re-arm the latch and wait again:
+            // returning a default-constructed T() here would look like end-of-stream
+            // for a queue that is merely empty. Safe because while the write lock is
+            // held and the queue is empty, no producer can be between put() and its
+            // notEmpty.set().
+            notEmpty.clear();
+            lock.unlock();
+        } while (true);
 
         const T &e = queue.dequeue();
         currentSize -= SizeGetter::sizeOf(e);
