@@ -1,4 +1,12 @@
 #define NOMINMAX 1
+// CancelIoEx() is declared only when _WIN32_WINNT >= 0x0600 (Vista); MinGW-w64
+// defaults _WIN32_WINNT to 0x0502, which leaves it undeclared. CancelIo() is not
+// a substitute: it cannot name a single OVERLAPPED, so recv()/send() cancelling
+// their own operation would also abort the other direction of the duplex pipe.
+#if !defined(_WIN32_WINNT) || _WIN32_WINNT < 0x0600
+#  undef _WIN32_WINNT
+#  define _WIN32_WINNT 0x0600
+#endif
 #include <windows.h>
 #include "../include/private/local_socket_p.h"
 #include "../include/private/eventloop_p.h"
