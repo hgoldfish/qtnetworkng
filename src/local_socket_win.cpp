@@ -801,12 +801,15 @@ qint32 LocalSocketPrivate::send(const char *data, qint32 size, bool all)
             }
             setError(Socket::UnknownSocketError, WriteErrorString);
             abort();
-            return -1;
+            return sent == 0 ? -1 : sent;
         }
 
         DWORD transferred = 0;
         if (!waitOverlapped(h, issued.op, &transferred)) {
             cancelAndDrain(h, issued.op, true);
+            if (issued.op->errorCode == ERROR_OPERATION_ABORTED) {
+                return sent == 0 ? -1 : sent;
+            }
             if (issued.op->errorCode == ERROR_BROKEN_PIPE || issued.op->errorCode == ERROR_NO_DATA) {
                 setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                 return sent;
@@ -819,6 +822,9 @@ qint32 LocalSocketPrivate::send(const char *data, qint32 size, bool all)
             if (issued.op->errorCode == ERROR_BROKEN_PIPE || issued.op->errorCode == ERROR_NO_DATA) {
                 setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                 return sent;
+            }
+            if (issued.op->errorCode == ERROR_OPERATION_ABORTED) {
+                return sent == 0 ? -1 : sent;
             }
             setError(Socket::UnknownSocketError, WriteErrorString);
             abort();
