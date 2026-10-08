@@ -113,36 +113,17 @@ VOID CALLBACK connectWaitCallback(PVOID context, BOOLEAN timedOut)
     }
 }
 
-bool waitOverlapped(QSharedPointer<PipeOverlappedOp> op, DWORD *bytesTransferred)
-{
-    if (op->finished) {
-        if (bytesTransferred) {
-            *bytesTransferred = op->bytesTransferred;
-        }
-        return op->errorCode == ERROR_SUCCESS || op->errorCode == ERROR_MORE_DATA;
-    }
-    try {
-        if (!op->done->tryWait()) {
-            return false;
-        }
-    } catch (...) {
-        return false;
-    }
-    if (bytesTransferred) {
-        *bytesTransferred = op->bytesTransferred;
-    }
-    return op->errorCode == ERROR_SUCCESS || op->errorCode == ERROR_MORE_DATA;
-}
-
 // The ops whose completion never arrived. A PipeOverlappedOp has to outlive the
 // I/O it describes: localSocketCompletionRoutine() writes into it, and an APC
 // that finds its op freed is a use-after-free. cancelAndDrain() therefore waits
 // for the completion, and when it stops waiting it parks the op here instead of
-// freeing it. Entries whose APC eventually runs are pruned on the next park so
-// the list cannot grow without bound under sustained cancel pressure.
+// freeing it. The APC is delivered to the thread that issued the I/O, and
+// cancelAndDrain() runs on that same thread, so the list is thread_local:
+// two threads cancelling two pipes must not share one QList. Entries whose
+// APC eventually runs are pruned on the next park.
 QList<QSharedPointer<PipeOverlappedOp>> &orphanedOps()
 {
-    static QList<QSharedPointer<PipeOverlappedOp>> ops;
+    thread_local QList<QSharedPointer<PipeOverlappedOp>> ops;
     return ops;
 }
 
@@ -152,34 +133,95 @@ void rememberOrphanedOp(const QSharedPointer<PipeOverlappedOp> &op)
     for (int i = ops.size() - 1; i >= 0; --i) {
         if (ops.at(i)->finished) {
             ops.removeAt(i);
+            continue;
+        }
+        if (ops.at(i) == op) {
+            return;
         }
     }
     ops.append(op);
 }
 
-void cancelAndDrain(HANDLE h, const QSharedPointer<PipeOverlappedOp> &op)
+// Pumps until the completion routine has run. allowYield is false when the
+// caller is inside a catch: Coroutine::msleep() switches fibers, and doing
+// that while a C++ exception is active is not safe. SleepEx still delivers
+// the APC. Giving up parks op instead of freeing it.
+//
+// `h` may already have been closed by abort(). CancelIoEx then fails or
+// matches nothing: it only cancels I/O issued with this very OVERLAPPED, and
+// that I/O was already cancelled when the handle was closed.
+void cancelAndDrain(HANDLE h, const QSharedPointer<PipeOverlappedOp> &op, bool allowYield)
 {
+    if (op->finished) {
+        return;
+    }
     CancelIoEx(h, &op->overlapped);
-    // The completion routine only runs while this thread is in an alertable
-    // wait, so pump APCs until it has been here - that is the only point at
-    // which op is guaranteed to be unreferenced by the kernel. SleepEx(0, TRUE)
-    // drains any already-queued APC without sleeping; Coroutine::msleep(1) then
-    // yields so other coroutines on this thread can run instead of blocking the
-    // OS thread for up to 1s. The budget below only limits how long we keep
-    // trying; giving up hands op to orphanedOps() rather than freeing it.
-    const int maxAlertableWaits = 1000;  // 1000 * 1ms
-    for (int i = 0; i < maxAlertableWaits && !op->finished; ++i) {
-        SleepEx(0, TRUE);
-        if (op->finished) {
-            break;
+    // Without yielding, SleepEx(1) sleeps one timer tick (about 15.6ms by
+    // default), so the worst case blocks this thread for roughly 15s. The
+    // completion normally lands on the first SleepEx(0).
+    const int maxAlertableWaits = 1000;
+    try {
+        for (int i = 0; i < maxAlertableWaits && !op->finished; ++i) {
+            SleepEx(0, TRUE);
+            if (op->finished) {
+                return;
+            }
+            if (allowYield) {
+                Coroutine::msleep(1);
+            } else {
+                SleepEx(1, TRUE);
+            }
         }
-        Coroutine::msleep(1);
+    } catch (...) {
+        if (!op->finished) {
+            rememberOrphanedOp(op);
+        }
+        throw;
     }
     if (!op->finished) {
         rememberOrphanedOp(op);
     }
 }
 
+// False means the I/O failed or was cancelled. A CoroutineException from
+// tryWait() — kill() or Timeout — is drained and rethrown, so the coroutine
+// unwinds instead of seeing a -1 and continuing.
+bool waitOverlapped(HANDLE h, const QSharedPointer<PipeOverlappedOp> &op, DWORD *bytesTransferred)
+{
+    if (!op->finished) {
+        try {
+            if (!op->done->tryWait()) {
+                return false;
+            }
+        } catch (...) {
+            cancelAndDrain(h, op, false);
+            throw;
+        }
+    }
+    if (bytesTransferred) {
+        *bytesTransferred = op->bytesTransferred;
+    }
+    return op->errorCode == ERROR_SUCCESS || op->errorCode == ERROR_MORE_DATA;
+}
+
+// Owns the op of one ReadFileEx/WriteFileEx. If the completion routine has not
+// run by the time the scope ends, the kernel still holds the OVERLAPPED, so
+// the op is parked instead of freed.
+struct IssuedOp
+{
+    QSharedPointer<PipeOverlappedOp> op;
+    IssuedOp()
+        : op(QSharedPointer<PipeOverlappedOp>::create())
+    {
+    }
+    ~IssuedOp()
+    {
+        if (!op->finished) {
+            rememberOrphanedOp(op);
+        }
+    }
+    Q_DISABLE_COPY(IssuedOp)
+};
 }  // namespace
 
 void LocalSocketPrivate::setSocketDescriptor(qintptr socketDescriptor)
@@ -339,6 +381,25 @@ void LocalSocketPrivate::discardAcceptWait(bool cancelIo)
     wait->reset();
 }
 
+// fd is cleared before CloseHandle so a coroutine resumed from the close cannot
+// observe a handle value that is about to be recycled.
+void releaseOwnedPipe(LocalSocketPrivate *self, bool disconnectPipe)
+{
+    if (self->fd == 0 || self->fd == -1) {
+        return;
+    }
+    const HANDLE h = reinterpret_cast<HANDLE>(self->fd);
+    self->fd = 0;
+    CancelIoEx(h, nullptr);
+    if (disconnectPipe) {
+        DisconnectNamedPipe(h);
+    }
+    if (self->ownsHandle) {
+        CloseHandle(h);
+    }
+    self->ownsHandle = true;
+}
+
 // Give up a listening instance that can no longer serve anybody: the queued
 // ConnectNamedPipe is cancelled, the handle is closed and the socket stops
 // claiming to listen, so neither fd nor the pipe name stays occupied by a
@@ -346,13 +407,7 @@ void LocalSocketPrivate::discardAcceptWait(bool cancelIo)
 void LocalSocketPrivate::dropListeningInstance()
 {
     discardAcceptWait(true);
-    if (fd != 0 && fd != -1) {
-        const HANDLE h = reinterpret_cast<HANDLE>(fd);
-        fd = 0;
-        if (ownsHandle) {
-            CloseHandle(h);
-        }
-    }
+    releaseOwnedPipe(this, false);
     state = Socket::UnconnectedState;
 }
 
@@ -625,17 +680,7 @@ void LocalSocketPrivate::close()
         writeLock.release();
     }
 
-    if (fd != 0 && fd != -1) {
-        const HANDLE h = reinterpret_cast<HANDLE>(fd);
-        fd = 0;
-        if (disconnectPipe) {
-            DisconnectNamedPipe(h);
-        }
-        if (ownsHandle) {
-            CloseHandle(h);
-        }
-        ownsHandle = true;
-    }
+    releaseOwnedPipe(this, disconnectPipe);
 }
 
 void LocalSocketPrivate::abort()
@@ -644,19 +689,9 @@ void LocalSocketPrivate::abort()
     // without draining readLock/writeLock. Safe from recv()/send() while the
     // current coroutine still holds a lock; unsafe as "graceful server stop"
     // if another coroutine is mid-accept — that path must use close().
+    const bool disconnectPipe = (state == Socket::ListeningState || state == Socket::BoundState);
     discardAcceptWait(true);
-    if (fd != 0 && fd != -1) {
-        const HANDLE h = reinterpret_cast<HANDLE>(fd);
-        CancelIoEx(h, nullptr);
-        if (state == Socket::ListeningState || state == Socket::BoundState) {
-            DisconnectNamedPipe(h);
-        }
-        fd = 0;
-        if (ownsHandle) {
-            CloseHandle(h);
-        }
-        ownsHandle = true;
-    }
+    releaseOwnedPipe(this, disconnectPipe);
     state = Socket::UnconnectedState;
 }
 
@@ -693,10 +728,12 @@ qint32 LocalSocketPrivate::recv(char *data, qint32 size, bool all)
             return total == 0 ? -1 : total;
         }
 
-        QSharedPointer<PipeOverlappedOp> op = QSharedPointer<PipeOverlappedOp>::create();
-        BOOL ok = ReadFileEx(h, data + total, static_cast<DWORD>(size - total), &op->overlapped,
+        IssuedOp issued;
+        BOOL ok = ReadFileEx(h, data + total, static_cast<DWORD>(size - total), &issued.op->overlapped,
                              localSocketCompletionRoutine);
         if (!ok) {
+            // The kernel never took the OVERLAPPED; it can be freed.
+            issued.op->finished = true;
             DWORD err = GetLastError();
             if (err == ERROR_BROKEN_PIPE || err == ERROR_PIPE_NOT_CONNECTED) {
                 setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
@@ -708,12 +745,12 @@ qint32 LocalSocketPrivate::recv(char *data, qint32 size, bool all)
         }
 
         DWORD transferred = 0;
-        if (!waitOverlapped(op, &transferred)) {
-            cancelAndDrain(h, op);
-            if (op->errorCode == ERROR_OPERATION_ABORTED) {
+        if (!waitOverlapped(h, issued.op, &transferred)) {
+            cancelAndDrain(h, issued.op, true);
+            if (issued.op->errorCode == ERROR_OPERATION_ABORTED) {
                 return total == 0 ? -1 : total;
             }
-            if (op->errorCode == ERROR_BROKEN_PIPE || op->errorCode == ERROR_HANDLE_EOF) {
+            if (issued.op->errorCode == ERROR_BROKEN_PIPE || issued.op->errorCode == ERROR_HANDLE_EOF) {
                 setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                 return total;
             }
@@ -722,12 +759,12 @@ qint32 LocalSocketPrivate::recv(char *data, qint32 size, bool all)
             return total == 0 ? -1 : total;
         }
 
-        if (op->errorCode == ERROR_BROKEN_PIPE || op->errorCode == ERROR_HANDLE_EOF
-            || (op->errorCode == ERROR_SUCCESS && transferred == 0)) {
+        if (issued.op->errorCode == ERROR_BROKEN_PIPE || issued.op->errorCode == ERROR_HANDLE_EOF
+            || (issued.op->errorCode == ERROR_SUCCESS && transferred == 0)) {
             setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
             return total;
         }
-        if (op->errorCode != ERROR_SUCCESS && op->errorCode != ERROR_MORE_DATA) {
+        if (issued.op->errorCode != ERROR_SUCCESS && issued.op->errorCode != ERROR_MORE_DATA) {
             setError(Socket::NetworkError, ReadErrorString);
             abort();
             return total == 0 ? -1 : total;
@@ -753,9 +790,10 @@ qint32 LocalSocketPrivate::send(const char *data, qint32 size, bool all)
             return sent;
         }
         DWORD chunk = static_cast<DWORD>(qMin<qint32>(size - sent, 64 * 1024));
-        QSharedPointer<PipeOverlappedOp> op = QSharedPointer<PipeOverlappedOp>::create();
-        BOOL ok = WriteFileEx(h, data + sent, chunk, &op->overlapped, localSocketCompletionRoutine);
+        IssuedOp issued;
+        BOOL ok = WriteFileEx(h, data + sent, chunk, &issued.op->overlapped, localSocketCompletionRoutine);
         if (!ok) {
+            issued.op->finished = true;
             DWORD err = GetLastError();
             if (err == ERROR_BROKEN_PIPE || err == ERROR_NO_DATA) {
                 setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
@@ -763,13 +801,16 @@ qint32 LocalSocketPrivate::send(const char *data, qint32 size, bool all)
             }
             setError(Socket::UnknownSocketError, WriteErrorString);
             abort();
-            return -1;
+            return sent == 0 ? -1 : sent;
         }
 
         DWORD transferred = 0;
-        if (!waitOverlapped(op, &transferred)) {
-            cancelAndDrain(h, op);
-            if (op->errorCode == ERROR_BROKEN_PIPE || op->errorCode == ERROR_NO_DATA) {
+        if (!waitOverlapped(h, issued.op, &transferred)) {
+            cancelAndDrain(h, issued.op, true);
+            if (issued.op->errorCode == ERROR_OPERATION_ABORTED) {
+                return sent == 0 ? -1 : sent;
+            }
+            if (issued.op->errorCode == ERROR_BROKEN_PIPE || issued.op->errorCode == ERROR_NO_DATA) {
                 setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                 return sent;
             }
@@ -777,10 +818,13 @@ qint32 LocalSocketPrivate::send(const char *data, qint32 size, bool all)
             abort();
             return sent == 0 ? -1 : sent;
         }
-        if (op->errorCode != ERROR_SUCCESS) {
-            if (op->errorCode == ERROR_BROKEN_PIPE || op->errorCode == ERROR_NO_DATA) {
+        if (issued.op->errorCode != ERROR_SUCCESS) {
+            if (issued.op->errorCode == ERROR_BROKEN_PIPE || issued.op->errorCode == ERROR_NO_DATA) {
                 setError(Socket::RemoteHostClosedError, RemoteHostClosedErrorString);
                 return sent;
+            }
+            if (issued.op->errorCode == ERROR_OPERATION_ABORTED) {
+                return sent == 0 ? -1 : sent;
             }
             setError(Socket::UnknownSocketError, WriteErrorString);
             abort();
