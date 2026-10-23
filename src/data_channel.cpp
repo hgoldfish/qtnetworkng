@@ -285,11 +285,8 @@ DataChannelPrivate::DataChannelPrivate(DataChannelPole pole, DataChannel *parent
 
 DataChannelPrivate::~DataChannelPrivate()
 {
-    // do not uncomment these lines of code
-    // these codes lead to bug.
-    //    for (int i = 0; i < receivingQueue.getting(); ++i) {
-    //        receivingQueue.put(QByteArray());
-    //    }
+    // Intentionally empty: releasing blocked receivers is receivingQueue.close()'s job (see
+    // DataChannelPrivate::abort() below). Do not plant empty sentinels from this destructor.
 }
 
 QString DataChannelPrivate::toString() const
@@ -317,9 +314,12 @@ void DataChannelPrivate::abort(DataChannel::ChannelError reason)
         pluggedChannel.clear();
     }
 
-    for (quint32 i = 0; i < receivingQueue.getting(); ++i) {
-        receivingQueue.put(QByteArray());
-    }
+    // Close, rather than pushing one empty sentinel per parked receiver. Closing wakes both the
+    // blocked readers and a parent's doReceive() parked in put() on a full queue (which would
+    // otherwise hang forever and stall the whole socket). get() still drains the packets that
+    // did arrive and then returns an empty QByteArray, while anything delivered afterwards is
+    // refused instead of turning up behind what the caller has already read.
+    receivingQueue.close();
     for (quint32 i = 0; i < pendingChannelsNotEmpty.getting(); ++i) {
         pendingChannels.enqueue(QSharedPointer<VirtualChannel>());
     }
@@ -696,8 +696,7 @@ bool SocketChannelPrivate::sendPacketRaw(quint32 channelNumber, const QByteArray
     }
     switch (blocking) {
     case BlockFlag::NonBlock:
-        sendingQueue.putForcedly(WritingPacket(channelNumber, packet, QSharedPointer<ValueEvent<bool>>()));
-        return true;
+        return sendingQueue.putForcedly(WritingPacket(channelNumber, packet, QSharedPointer<ValueEvent<bool>>()));
     case BlockFlag::Block_And_Not_Wait_Sent:
         return sendingQueue.put(WritingPacket(channelNumber, packet, QSharedPointer<ValueEvent<bool>>()), msecs);
     case BlockFlag::Block_Until_Sent: {
@@ -894,6 +893,11 @@ void SocketChannelPrivate::abort(DataChannel::ChannelError reason)
     Coroutine *current = Coroutine::current();
     connection->abort();
 
+    // Close before draining: the drain frees capacity, and that would wake a coroutine
+    // parked in sendPacketRaw()'s put(), letting it enqueue into a channel whose doSend()
+    // is already dead and then wait forever for a `done` nobody will ever signal.
+    // Closing makes that put() fail at once.
+    sendingQueue.close();
     while (!sendingQueue.isEmpty()) {
         const WritingPacket &writingPacket = sendingQueue.get();
         if (!writingPacket.done.isNull()) {
