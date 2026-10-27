@@ -783,8 +783,7 @@ public:
         if (pp->closed) {
             return false;
         }
-        pp->queue.notEmpty.tryWait(msecs < 0 ? UINT_MAX : msecs);
-        return true;
+        return pp->queue.closedOrNotEmpty.tryWait(msecs < 0 ? UINT_MAX : msecs);
     }
 public:
     QWeakPointer<PipePrivate> pp;
@@ -902,10 +901,10 @@ public:
         if (localBuffer.size() < pp->maxBufferSize) {
             return true;
         }
-        if (pp->queue.notFull.isSet()) {
+        if (pp->queue.closedOrNotFull.isSet()) {
             return true;
         }
-        return pp->queue.notFull.tryWait(msecs < 0 ? UINT_MAX: msecs);
+        return pp->queue.closedOrNotFull.tryWait(msecs < 0 ? UINT_MAX: msecs);
     }
 
     virtual bool waitForReadyRead(int) override { return false; }

@@ -275,6 +275,14 @@ public:
     }
     ~SizedQueueType();
     void setCapacity(quint32 capacity);
+    // Close the queue (terminal and idempotent): wakes every coroutine blocked in
+    // get()/put()/returns(). Afterwards get() drains the elements already enqueued and then
+    // returns a default-constructed T(), while put()/putForcedly()/returns()/returnsForcely()
+    // all refuse and return false without enqueuing. This gives blocked consumers and producers
+    // a deterministic way out during shutdown and replaces the fragile "push a sentinel value"
+    // trick.
+    void close();
+    bool isClosed() const;
     bool put(const T &e);  // insert e to the tail of queue. blocked until not full.
     bool put(const T &e, quint32 msecs);  // like put(), but wait at most msecs for capacity.
     bool putForcedly(const T &e);  // insert e to the tail of queue ignoring capacity.
@@ -285,26 +293,33 @@ public:
     typename std::enable_if<std::is_same<U, ThreadEvent>::value, T>::type get()
     {
         do {
-            if (!notEmpty.tryWait()) {
+            if (!closedOrNotEmpty.tryWait()) {
                 return T();
             }
             lock.lockForWrite();
             if (!this->queue.isEmpty()) {
                 break;
             }
+            if (mClosed) {
+                lock.unlock();
+                return T();
+            }
             // Re-arm the latch so the retry below blocks instead of spinning on a
             // level-triggered ThreadEvent that is still set.
-            notEmpty.clear();
+            closedOrNotEmpty.clear();
             lock.unlock();
         } while (true);
 
         const T &e = queue.dequeue();
         currentSize -= SizeGetter::sizeOf(e);
-        if (this->queue.isEmpty()) {
-            notEmpty.clear();
+        // Never clear closedOrNotEmpty while closed: leaving it set lets a later get() reach the
+        // "empty and closed" branch and return T() at once instead of blocking again
+        // (nobody is left to set the event).
+        if (this->queue.isEmpty() && !mClosed) {
+            closedOrNotEmpty.clear();
         }
         if (currentSize < mCapacity) {
-            notFull.set();
+            closedOrNotFull.set();
         }
         lock.unlock();
         return e;
@@ -314,30 +329,34 @@ public:
     typename std::enable_if<!std::is_same<U, ThreadEvent>::value, T>::type get()
     {
         do {
-            if (!notEmpty.tryWait()) {
+            if (!closedOrNotEmpty.tryWait()) {
                 return T();
             }
             lock.lockForWrite();
             if (!queue.isEmpty()) {
                 break;
             }
+            if (mClosed) {
+                lock.unlock();
+                return T();
+            }
             // The wakeup found nothing to take (a spurious set, or another consumer
             // winning the race for the last element). Re-arm the latch and wait again:
             // returning a default-constructed T() here would look like end-of-stream
             // for a queue that is merely empty. Safe because while the write lock is
             // held and the queue is empty, no producer can be between put() and its
-            // notEmpty.set().
-            notEmpty.clear();
+            // closedOrNotEmpty.set().
+            closedOrNotEmpty.clear();
             lock.unlock();
         } while (true);
 
         const T &e = queue.dequeue();
         currentSize -= SizeGetter::sizeOf(e);
-        if (this->queue.isEmpty()) {
-            notEmpty.clear();
+        if (this->queue.isEmpty() && !mClosed) {
+            closedOrNotEmpty.clear();
         }
         if (currentSize < mCapacity) {
-            notFull.set();
+            closedOrNotFull.set();
         }
         lock.unlock();
         return e;
@@ -360,11 +379,14 @@ public:
     inline bool contains(const T &e);
 public:
     QQueue<T> queue;
-    EventType notEmpty;
-    EventType notFull;
+    // Wakeup latches, not exact invariants: cleared only while the condition is false (open and
+    // empty / open and full), so a waiter woken by them must still re-check under the lock.
+    EventType closedOrNotEmpty;
+    EventType closedOrNotFull;
     ReadWriteLockType lock;
     quint32 mCapacity;
     quint32 currentSize;
+    bool mClosed;
     Q_DISABLE_COPY(SizedQueueType)
 };
 
@@ -376,7 +398,7 @@ public:
     inline void removeQueue(QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue);
     inline T tryWait();
 private:
-    EventType notEmpty;
+    EventType closedOrNotEmpty;
     QList<QSharedPointer<QueueType<T, EventType, ReadWriteLockType>>> queues;
     ReadWriteLockType lock;
 };
@@ -444,9 +466,10 @@ template<typename T, typename EventType, typename ReadWriteLockType, typename Si
 SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::SizedQueueType(quint32 capacity)
     : mCapacity(capacity)
     , currentSize(0)
+    , mClosed(false)
 {
-    notEmpty.clear();
-    notFull.set();
+    closedOrNotEmpty.clear();
+    closedOrNotFull.set();
 }
 
 template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
@@ -459,12 +482,40 @@ void SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::setCapacity(qu
 {
     lock.lockForWrite();
     this->mCapacity = capacity;
-    if (currentSize >= mCapacity) {
-        notFull.clear();
+    // While closed this must not clear closedOrNotFull: close() latched it so that a producer arriving
+    // later fails at once instead of blocking on an event nobody will signal again.
+    if (currentSize >= mCapacity && !mClosed) {
+        closedOrNotFull.clear();
     } else {
-        notFull.set();
+        closedOrNotFull.set();
     }
     lock.unlock();
+}
+
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+void SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::close()
+{
+    lock.lockForWrite();
+    mClosed = true;
+    lock.unlock();
+    // Both events are signalled outside the lock: this wakes every blocked consumer and
+    // producer so that they observe mClosed once they take the lock and give up. event.set()
+    // is edge-triggered (an event that is already set is not re-notified), but blocking
+    // implies the event was clear, so a broadcast is guaranteed here.
+    //
+    // While closed both latches stay set: every path that could clear one checks mClosed, so no
+    // later wait can park on a queue that will never notify it again.
+    closedOrNotEmpty.set();
+    closedOrNotFull.set();
+}
+
+template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
+inline bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::isClosed() const
+{
+    const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.lockForRead();
+    bool c = mClosed;
+    const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.unlock();
+    return c;
 }
 
 template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
@@ -473,8 +524,12 @@ void SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::clear()
     lock.lockForWrite();
     this->queue.clear();
     currentSize = 0;
-    notFull.set();
-    notEmpty.clear();
+    closedOrNotFull.set();
+    // Keep closedOrNotEmpty set while closed: clearing it would wipe out close()'s wakeup signal and
+    // a later get() would block forever again.
+    if (!mClosed) {
+        closedOrNotEmpty.clear();
+    }
     lock.unlock();
 }
 
@@ -492,16 +547,20 @@ bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::remove(const T
         }
     }
     if (n > 0) {
+        // While closed both latches must stay set, or a later get()/put() parks on an event
+        // nobody will signal. Hence "!mClosed" on the clears.
         currentSize -= removedSize;
         if (this->queue.isEmpty()) {
-            notEmpty.clear();
+            if (!mClosed) {
+                closedOrNotEmpty.clear();
+            }
         } else {
-            notEmpty.set();
+            closedOrNotEmpty.set();
         }
-        if (currentSize >= mCapacity) {
-            notFull.clear();
+        if (currentSize >= mCapacity && !mClosed) {
+            closedOrNotFull.clear();
         } else {
-            notFull.set();
+            closedOrNotFull.set();
         }
         lock.unlock();
         return true;
@@ -520,15 +579,19 @@ bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::put(const T &e
 template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
 bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::put(const T &e, quint32 msecs)
 {
-    if (!notFull.tryWait(msecs)) {
+    if (!closedOrNotFull.tryWait(msecs)) {
         return false;
     }
     lock.lockForWrite();
+    if (mClosed) {
+        lock.unlock();
+        return false;
+    }
     queue.enqueue(e);
     currentSize += SizeGetter::sizeOf(e);
-    notEmpty.set();
+    closedOrNotEmpty.set();
     if (currentSize >= mCapacity) {
-        notFull.clear();
+        closedOrNotFull.clear();
     }
     lock.unlock();
     return true;
@@ -538,11 +601,15 @@ template<typename T, typename EventType, typename ReadWriteLockType, typename Si
 bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::putForcedly(const T &e)
 {
     lock.lockForWrite();
+    if (mClosed) {
+        lock.unlock();
+        return false;
+    }
     queue.enqueue(e);
     currentSize += SizeGetter::sizeOf(e);
-    notEmpty.set();
+    closedOrNotEmpty.set();
     if (currentSize >= mCapacity) {
-        notFull.clear();
+        closedOrNotFull.clear();
     }
     lock.unlock();
     return true;
@@ -551,15 +618,19 @@ bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::putForcedly(co
 template<typename T, typename EventType, typename ReadWriteLockType, typename SizeGetter>
 bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::returns(const T &e)
 {
-    if (!notFull.tryWait()) {
+    if (!closedOrNotFull.tryWait()) {
         return false;
     }
     lock.lockForWrite();
+    if (mClosed) {
+        lock.unlock();
+        return false;
+    }
     queue.prepend(e);
     currentSize += SizeGetter::sizeOf(e);
-    notEmpty.set();
+    closedOrNotEmpty.set();
     if (currentSize >= mCapacity) {
-        notFull.clear();
+        closedOrNotFull.clear();
     }
     lock.unlock();
     return true;
@@ -569,11 +640,15 @@ template<typename T, typename EventType, typename ReadWriteLockType, typename Si
 bool SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::returnsForcely(const T &e)
 {
     lock.lockForWrite();
+    if (mClosed) {
+        lock.unlock();
+        return false;
+    }
     queue.prepend(e);
     currentSize += SizeGetter::sizeOf(e);
-    notEmpty.set();
+    closedOrNotEmpty.set();
     if (currentSize >= mCapacity) {
-        notFull.clear();
+        closedOrNotFull.clear();
     }
     lock.unlock();
     return true;
@@ -649,7 +724,7 @@ template<typename T, typename EventType, typename ReadWriteLockType, typename Si
 inline quint32 SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter>::getting() const
 {
     const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.lockForRead();
-    int g = notEmpty.getting();
+    int g = closedOrNotEmpty.getting();
     const_cast<SizedQueueType<T, EventType, ReadWriteLockType, SizeGetter> *>(this)->lock.unlock();
     return g;
 }
@@ -668,7 +743,7 @@ inline void MultiQueueType<T, EventType, ReadWriteLockType>::addQueue(
         QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue)
 {
     lock.lockForWrite();
-    queue->notEmpty.link(notEmpty);
+    queue->closedOrNotEmpty.link(closedOrNotEmpty);
     queues.append(queue);
     lock.unlock();
 }
@@ -678,7 +753,7 @@ inline void MultiQueueType<T, EventType, ReadWriteLockType>::removeQueue(
         QSharedPointer<QueueType<T, EventType, ReadWriteLockType>> queue)
 {
     lock.lockForWrite();
-    queue->notEmpty.unlink(notEmpty);
+    queue->closedOrNotEmpty.unlink(closedOrNotEmpty);
     queues.removeOne(queue);
     lock.unlock();
 }
@@ -686,7 +761,7 @@ inline void MultiQueueType<T, EventType, ReadWriteLockType>::removeQueue(
 template<typename T, typename EventType, typename ReadWriteLockType>
 inline T MultiQueueType<T, EventType, ReadWriteLockType>::tryWait()
 {
-    notEmpty.tryWait();
+    closedOrNotEmpty.tryWait();
     T result;
     lock.lockForWrite();
     bool allEmpty = true;
