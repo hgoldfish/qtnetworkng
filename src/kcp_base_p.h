@@ -846,10 +846,10 @@ bool MasterKcpBase<Link>::close(bool force)
         return true;
     }
 
+    pendingSlaves.close();
     while (!pendingSlaves.isEmpty()) {
         pendingSlaves.get();
     }
-    pendingSlaves.put(nullptr);
 
     // connected and listen state would do more cleaning work.
     this->operations->killall();
