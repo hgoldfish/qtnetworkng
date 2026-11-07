@@ -655,7 +655,7 @@ public:
             pp->queue.putForcedly(localBuffer);
             localBuffer.clear();
         }
-        pp->queue.putForcedly(QByteArray());
+        pp->queue.close();
         if (pp->shouldEmitReadyRead) {
             QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
         }
@@ -856,7 +856,7 @@ public:
             pp->queue.putForcedly(localBuffer);
             localBuffer.clear();
         }
-        pp->queue.putForcedly(QByteArray());
+        pp->queue.close();
         if (pp->shouldEmitReadyRead) {
             QMetaObject::invokeMethod(pp->q_ptr, SIGNAL(readyRead()));
         }

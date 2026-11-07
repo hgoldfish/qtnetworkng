@@ -979,6 +979,12 @@ LmdbBuilder &LmdbBuilder::writeMap(bool writable)
     return *this;
 }
 
+LmdbBuilder &LmdbBuilder::readOnly(bool readOnly)
+{
+    m_readOnly = readOnly;
+    return *this;
+}
+
 QSharedPointer<Lmdb> LmdbBuilder::create()
 {
     Q_ASSERT(!m_dirPath.isEmpty());
@@ -1008,6 +1014,9 @@ QSharedPointer<Lmdb> LmdbBuilder::create()
         if (m_noSync) {
             flags |= MDB_MAPASYNC;
         }
+    }
+    if (m_readOnly) {
+        flags |= MDB_RDONLY;
     }
     mdb_mode_t mode = 0660;
     rt = mdb_env_open(d->env, m_dirPath.toUtf8(), flags, mode);

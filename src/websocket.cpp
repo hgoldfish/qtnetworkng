@@ -959,9 +959,7 @@ void WebSocketConnectionPrivate::abort(int errorCode)
     if (operations->get(QString::fromLatin1("keepalive")).data() != current) {
         operations->kill(QString::fromLatin1("keepalive"));
     }
-    for (quint32 i = 0; i < receivingQueue.getting(); ++i) {
-        receivingQueue.put(PacketToRead(WebSocketConnection::Unknown, QByteArray()));
-    }
+    receivingQueue.close();
     q->disconnected->set();
 }
 
