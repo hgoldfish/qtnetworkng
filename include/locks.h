@@ -68,7 +68,7 @@ public:
     void notifyAll();
     quint32 getting() const;
 private:
-    ConditionPrivate * const d_ptr;
+    QSharedPointer<ConditionPrivate> d_ptr;
     Q_DECLARE_PRIVATE(Condition)
     Q_DISABLE_COPY(Condition)
 };
@@ -90,7 +90,7 @@ public:
     void link(Event &other);
     void unlink(Event &other);
 private:
-    EventPrivate * const d_ptr;
+    QSharedPointer<EventPrivate> d_ptr;
     Q_DECLARE_PRIVATE(Event)
     Q_DISABLE_COPY(Event)
 };
