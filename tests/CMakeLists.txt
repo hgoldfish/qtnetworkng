@@ -59,3 +59,16 @@ add_test(qtng_tests test_coroutine_group_spawn_with_name)
 add_executable(test_https_keepalive test_https_keepalive.cpp)
 target_link_libraries(test_https_keepalive PRIVATE Qt5::Core Qt5::Test qtnetworkng)
 add_test(qtng_tests test_https_keepalive)
+
+add_executable(test_condition_uaf test_condition_uaf.cpp)
+target_link_libraries(test_condition_uaf PRIVATE Qt5::Core qtnetworkng)
+# --no-poison control runs prove the scenario itself is valid: the same code
+# passes when the freed ConditionPrivate block is left alone.
+add_test(NAME condition_uaf COMMAND test_condition_uaf condition)
+add_test(NAME event_uaf COMMAND test_condition_uaf event)
+add_test(NAME condition_uaf_control COMMAND test_condition_uaf condition --no-poison)
+add_test(NAME event_uaf_control COMMAND test_condition_uaf event --no-poison)
+add_test(NAME event_uaf_unset COMMAND test_condition_uaf event_unset)
+add_test(NAME condition_smoke COMMAND test_condition_uaf smoke)
+set_tests_properties(condition_uaf event_uaf condition_uaf_control event_uaf_control event_uaf_unset condition_smoke
+                     PROPERTIES TIMEOUT 20)

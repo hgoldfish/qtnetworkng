@@ -360,12 +360,11 @@ Condition::Condition()
 Condition::~Condition()
 {
     notify(d_ptr->waiters.size());
-    delete d_ptr;
 }
 
 bool Condition::wait(quint32 msecs)
 {
-    Q_D(Condition);
+    QSharedPointer<ConditionPrivate> d = d_ptr;
     QSharedPointer<Lock> waiter(new Lock());
     if (!waiter->tryAcquire(0)) {
         return false;
@@ -435,15 +434,6 @@ EventPrivate::EventPrivate(Event *q)
 
 EventPrivate::~EventPrivate()
 {
-    if (!flag && condition.getting() > 0) {
-        condition.notifyAll();
-    }
-    for (Event *event : linkFrom) {
-        event->d_ptr->linkTo.removeOne(q_ptr);
-    }
-    for (Event *event : linkTo) {
-        event->d_ptr->linkFrom.removeOne(q_ptr);
-    }
 }
 
 void EventPrivate::set()
@@ -510,12 +500,24 @@ Event::Event()
 
 Event::~Event()
 {
-    delete d_ptr;
+    Q_D(Event);
+    if (d->condition.getting() > 0) {
+        d->flag = true;
+        d->condition.notifyAll();
+    }
+    for (Event *event : d->linkFrom) {
+        event->d_ptr->linkTo.removeOne(this);
+    }
+    for (Event *event : d->linkTo) {
+        event->d_ptr->linkFrom.removeOne(this);
+    }
+    d->linkFrom.clear();
+    d->linkTo.clear();
 }
 
 bool Event::tryWait(quint32 msecs)
 {
-    Q_D(Event);
+    QSharedPointer<EventPrivate> d = d_ptr;
     return d->wait(msecs);
 }
 
